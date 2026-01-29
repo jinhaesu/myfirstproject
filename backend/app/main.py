@@ -1,0 +1,37 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import get_settings
+from app.api.routes import chat, tables, query
+
+settings = get_settings()
+
+app = FastAPI(
+    title="BigQuery Chat Analytics",
+    description="자연어로 BigQuery 데이터를 분석하는 채팅 API",
+    version="1.0.0",
+)
+
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 라우터 등록
+app.include_router(chat.router, prefix="/api", tags=["chat"])
+app.include_router(tables.router, prefix="/api", tags=["tables"])
+app.include_router(query.router, prefix="/api", tags=["query"])
+
+
+@app.get("/")
+async def root():
+    return {"message": "BigQuery Chat Analytics API", "status": "running"}
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
