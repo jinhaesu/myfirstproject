@@ -47,5 +47,6 @@ htmlcov/
 *.json
 !package.json
 !tsconfig.json
+!vercel.json
 service-account*.json
 credentials*.json
