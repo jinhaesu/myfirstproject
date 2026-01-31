@@ -4,12 +4,14 @@ from app.config import get_settings
 from app.api.deps import get_bigquery_service
 from app.services.bigquery_service import BigQueryService
 from app.models.schemas import TableListResponse, TableSchema
+from app.api.routes.auth import get_current_user
 
 router = APIRouter()
 
 
 @router.get("/datasets")
 async def list_datasets(
+    current_user: dict = Depends(get_current_user),
     bq_service: BigQueryService = Depends(get_bigquery_service)
 ) -> dict:
     """데이터셋 목록 조회"""
@@ -23,6 +25,7 @@ async def list_datasets(
 @router.get("/tables")
 async def list_tables(
     dataset_id: str | None = None,
+    current_user: dict = Depends(get_current_user),
     bq_service: BigQueryService = Depends(get_bigquery_service)
 ) -> TableListResponse:
     """테이블 목록 조회"""
@@ -43,6 +46,7 @@ async def list_tables(
 async def get_table_schema(
     table_id: str,
     dataset_id: str | None = None,
+    current_user: dict = Depends(get_current_user),
     bq_service: BigQueryService = Depends(get_bigquery_service)
 ) -> TableSchema:
     """테이블 스키마 조회"""

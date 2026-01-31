@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:3000"
 
+    # JWT 설정
+    JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRATION_HOURS: int = 24
+
+    # 사용자 설정 (JSON 형식: [{"email":"admin@example.com","password":"hashed","name":"Admin"}])
+    USERS_JSON: str = "[]"
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]

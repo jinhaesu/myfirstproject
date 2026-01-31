@@ -5,6 +5,7 @@ from app.api.deps import get_bigquery_service, get_sql_generator
 from app.services.bigquery_service import BigQueryService
 from app.services.sql_generator import SQLGenerator
 from app.models.schemas import ChatRequest, ChatResponse
+from app.api.routes.auth import get_current_user
 
 router = APIRouter()
 
@@ -12,6 +13,7 @@ router = APIRouter()
 @router.post("/chat")
 async def chat(
     request: ChatRequest,
+    current_user: dict = Depends(get_current_user),
     bq_service: BigQueryService = Depends(get_bigquery_service),
     sql_gen: SQLGenerator = Depends(get_sql_generator)
 ) -> ChatResponse:

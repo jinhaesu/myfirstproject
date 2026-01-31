@@ -9,6 +9,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
@@ -16,47 +17,90 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// 데모용 사용자 목록 (실제로는 백엔드에서 관리)
-const DEMO_USERS = [
-  { email: 'admin@nuldam.com', password: 'admin123', name: '관리자' },
-  { email: 'user@nuldam.com', password: 'user123', name: '사용자' },
-];
+const API_BASE = '/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 페이지 로드 시 로컬 스토리지에서 사용자 정보 확인
+  // 페이지 로드 시 로컬 스토리지에서 토큰 확인 및 검증
   useEffect(() => {
+    const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+
+    if (storedToken && storedUser) {
+      // 토큰 유효성 검증
+      verifyToken(storedToken)
+        .then((isValid) => {
+          if (isValid) {
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
+          } else {
+            // 토큰이 유효하지 않으면 제거
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          }
+        })
+        .finally(() => setIsLoading(false));
+    } else {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    // 데모용 로그인 검증
-    const foundUser = DEMO_USERS.find(
-      u => u.email === email && u.password === password
-    );
-
-    if (foundUser) {
-      const userData = { email: foundUser.email, name: foundUser.name };
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      return true;
+  const verifyToken = async (tokenToVerify: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/verify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenToVerify}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.ok;
+    } catch {
+      return false;
     }
-    return false;
+  };
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+      const accessToken = data.access_token;
+      const userData = data.user;
+
+      setToken(accessToken);
+      setUser(userData);
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const logout = () => {
     setUser(null);
+    setToken(null);
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -68,4 +112,18 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+// API 요청에 토큰을 포함시키는 유틸리티 함수
+export function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('token');
+  if (token) {
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+  }
+  return {
+    'Content-Type': 'application/json',
+  };
 }

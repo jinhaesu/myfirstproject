@@ -2,18 +2,35 @@ import type { TableInfo, TableSchema, ChatRequest, ChatResponse } from '@/types'
 
 const API_BASE = '/api';
 
+function getAuthHeaders(): HeadersInit {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 async function fetchAPI<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(),
     ...options,
   });
 
   if (!response.ok) {
+    // 401 에러시 로그아웃 처리
+    if (response.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+    }
     const error = await response.json().catch(() => ({}));
     throw new Error(error.detail || `API Error: ${response.status}`);
   }
