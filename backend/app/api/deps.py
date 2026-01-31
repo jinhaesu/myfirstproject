@@ -11,7 +11,8 @@ def get_bigquery_service() -> BigQueryService:
     settings = get_settings()
     return BigQueryService(
         credentials_path=settings.GOOGLE_APPLICATION_CREDENTIALS,
-        project_id=settings.GCP_PROJECT_ID
+        project_id=settings.GCP_PROJECT_ID,
+        credentials_json=settings.GOOGLE_APPLICATION_CREDENTIALS_JSON
     )
 
 

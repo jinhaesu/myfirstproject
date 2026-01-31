@@ -1,3 +1,4 @@
+import json
 from google.cloud import bigquery
 from google.oauth2 import service_account
 from typing import Any
@@ -6,8 +7,19 @@ from app.models.schemas import ColumnInfo, TableSchema
 
 
 class BigQueryService:
-    def __init__(self, credentials_path: str, project_id: str):
-        if credentials_path:
+    def __init__(self, credentials_path: str, project_id: str, credentials_json: str = ""):
+        if credentials_json:
+            # JSON 문자열에서 직접 인증 (Railway/클라우드 배포용)
+            credentials_info = json.loads(credentials_json)
+            credentials = service_account.Credentials.from_service_account_info(
+                credentials_info
+            )
+            self.client = bigquery.Client(
+                credentials=credentials,
+                project=project_id
+            )
+        elif credentials_path:
+            # 파일 경로에서 인증 (로컬 개발용)
             credentials = service_account.Credentials.from_service_account_file(
                 credentials_path
             )
