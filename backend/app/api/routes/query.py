@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.deps import get_bigquery_service
 from app.services.bigquery_service import BigQueryService
 from app.models.schemas import QueryRequest, QueryResponse
+from app.api.routes.auth import get_current_user
 
 router = APIRouter()
 
@@ -10,6 +11,7 @@ router = APIRouter()
 @router.post("/query")
 async def execute_query(
     request: QueryRequest,
+    current_user: dict = Depends(get_current_user),
     bq_service: BigQueryService = Depends(get_bigquery_service)
 ) -> QueryResponse:
     """SQL 쿼리 직접 실행"""
