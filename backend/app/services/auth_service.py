@@ -22,15 +22,20 @@ class AuthService:
                 self._users = []
         return self._users
 
-    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """비밀번호 검증"""
-        try:
-            return bcrypt.checkpw(
-                plain_password.encode('utf-8'),
-                hashed_password.encode('utf-8')
-            )
-        except Exception:
-            return False
+    def verify_password(self, plain_password: str, stored_password: str) -> bool:
+        """비밀번호 검증 (bcrypt 해시 또는 평문 지원)"""
+        # bcrypt 해시인 경우 ($2b$로 시작)
+        if stored_password.startswith('$2b$'):
+            try:
+                return bcrypt.checkpw(
+                    plain_password.encode('utf-8'),
+                    stored_password.encode('utf-8')
+                )
+            except Exception:
+                return False
+        # 평문 비밀번호인 경우 (개발/테스트용)
+        else:
+            return plain_password == stored_password
 
     def get_password_hash(self, password: str) -> str:
         """비밀번호 해싱"""
