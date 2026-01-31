@@ -2,13 +2,9 @@ import json
 from datetime import datetime, timedelta
 from typing import Optional
 import jwt
-from passlib.context import CryptContext
+import bcrypt
 
 from app.config import get_settings
-
-
-# 비밀번호 해싱
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AuthService:
@@ -28,11 +24,20 @@ class AuthService:
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """비밀번호 검증"""
-        return pwd_context.verify(plain_password, hashed_password)
+        try:
+            return bcrypt.checkpw(
+                plain_password.encode('utf-8'),
+                hashed_password.encode('utf-8')
+            )
+        except Exception:
+            return False
 
     def get_password_hash(self, password: str) -> str:
         """비밀번호 해싱"""
-        return pwd_context.hash(password)
+        return bcrypt.hashpw(
+            password.encode('utf-8'),
+            bcrypt.gensalt()
+        ).decode('utf-8')
 
     def get_user_by_email(self, email: str) -> Optional[dict]:
         """이메일로 사용자 조회"""
@@ -76,9 +81,3 @@ class AuthService:
             return None
         except jwt.InvalidTokenError:
             return None
-
-
-# 비밀번호 해시 생성 유틸리티 (초기 사용자 설정용)
-def generate_password_hash(password: str) -> str:
-    """비밀번호 해시 생성 (CLI 유틸리티)"""
-    return pwd_context.hash(password)
