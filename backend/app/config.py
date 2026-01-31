@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # 사용자 설정 (JSON 형식: [{"email":"admin@example.com","password":"hashed","name":"Admin"}])
     USERS_JSON: str = "[]"
 
+    # Resend 이메일 설정
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = "noreply@yourdomain.com"
+    OTP_EXPIRATION_MINUTES: int = 5
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
