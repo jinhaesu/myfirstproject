@@ -5,6 +5,7 @@ from functools import lru_cache
 class Settings(BaseSettings):
     # Google Cloud
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
+    GOOGLE_APPLICATION_CREDENTIALS_JSON: str = ""  # JSON 문자열로 직접 입력
     GCP_PROJECT_ID: str = ""
     BIGQUERY_DATASET_ID: str = ""
 
