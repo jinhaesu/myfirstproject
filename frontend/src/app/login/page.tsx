@@ -105,15 +105,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* 데모 계정 안내 */}
-          <div className="mt-6 p-4 bg-slate-50 rounded-xl">
-            <h3 className="text-sm font-semibold text-slate-700 mb-2">데모 계정</h3>
-            <div className="space-y-1 text-sm text-slate-600">
-              <p><span className="font-mono bg-slate-200 px-1 rounded">admin@nuldam.com</span> / <span className="font-mono bg-slate-200 px-1 rounded">admin123</span></p>
-              <p><span className="font-mono bg-slate-200 px-1 rounded">user@nuldam.com</span> / <span className="font-mono bg-slate-200 px-1 rounded">user123</span></p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
