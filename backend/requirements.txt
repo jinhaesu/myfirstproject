@@ -7,5 +7,5 @@ pydantic-settings
 python-dotenv
 python-multipart
 PyJWT
-passlib[bcrypt]
+bcrypt
 email-validator
