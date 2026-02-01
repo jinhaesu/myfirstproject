@@ -230,6 +230,7 @@ export function ExcelGrid({
                 {allowAddRow && (
                   <td className="border-b border-slate-200 px-1 py-1">
                     <button
+                      type="button"
                       onClick={() => handleDeleteRow(rowIndex)}
                       className="p-1 text-slate-400 hover:text-red-500 transition-colors"
                       title="행 삭제"
@@ -250,6 +251,7 @@ export function ExcelGrid({
       <div className="flex items-center gap-2 p-2 bg-slate-50 border-t border-slate-200">
         {allowAddRow && (
           <button
+            type="button"
             onClick={handleAddRow}
             className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors"
           >

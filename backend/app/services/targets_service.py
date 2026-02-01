@@ -1,5 +1,5 @@
 import json
-import os
+import re
 from datetime import datetime
 from typing import Optional
 from pathlib import Path
@@ -18,6 +18,20 @@ def ensure_data_dir():
         TARGETS_FILE.write_text("[]", encoding="utf-8")
     if not SALES_FILE.exists():
         SALES_FILE.write_text("[]", encoding="utf-8")
+
+
+def parse_number(value) -> float:
+    """문자열이나 숫자를 float로 변환 (쉼표, 원 등 제거)"""
+    if value is None or value == '':
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    # 문자열에서 숫자만 추출
+    cleaned = re.sub(r'[^\d.-]', '', str(value))
+    try:
+        return float(cleaned) if cleaned else 0.0
+    except ValueError:
+        return 0.0
 
 
 class TargetsService:
@@ -66,8 +80,8 @@ class TargetsService:
             "year": data.get("year"),
             "title": data.get("title", ""),
             "manager": data.get("manager", ""),
-            "kpi_type": data.get("kpi_type", ""),  # 매출, 광고선전비, 공헌이익, 판매량
-            "grid_data": data.get("grid_data", []),  # 엑셀 그리드 데이터
+            "kpi_type": data.get("kpi_type", ""),
+            "grid_data": data.get("grid_data", []),
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat(),
         }
@@ -104,10 +118,10 @@ class TargetsService:
         """특정 년도/월의 목표 합계 계산"""
         targets = self._load_targets()
         summary = {
-            "total_sales": 0,
-            "total_quantity": 0,
-            "total_contribution": 0,
-            "total_advertising": 0,
+            "total_sales": 0.0,
+            "total_quantity": 0.0,
+            "total_contribution": 0.0,
+            "total_advertising": 0.0,
         }
 
         kpi_mapping = {
@@ -128,24 +142,18 @@ class TargetsService:
 
             grid_data = target.get("grid_data", [])
             for row in grid_data:
-                if not row:
+                if not row or len(row) < 2:
                     continue
                 # row[0]은 기준(행 이름), row[1:]은 1월~12월 데이터
-                values = row[1:] if len(row) > 1 else []
+                values = row[1:13]  # 최대 12개월
                 if month is not None and 1 <= month <= 12:
                     # 특정 월의 값만
                     if len(values) >= month:
-                        try:
-                            summary[summary_key] += float(values[month - 1] or 0)
-                        except (ValueError, TypeError):
-                            pass
+                        summary[summary_key] += parse_number(values[month - 1])
                 else:
                     # 연간 합계
-                    for val in values[:12]:
-                        try:
-                            summary[summary_key] += float(val or 0)
-                        except (ValueError, TypeError):
-                            pass
+                    for val in values:
+                        summary[summary_key] += parse_number(val)
 
         return summary
 
@@ -175,7 +183,7 @@ class TargetsService:
             "title": data.get("title", ""),
             "manager": data.get("manager", ""),
             "kpi_type": data.get("kpi_type", ""),
-            "grid_data": data.get("grid_data", []),  # 일별 데이터
+            "grid_data": data.get("grid_data", []),
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat(),
         }
@@ -212,10 +220,11 @@ class TargetsService:
         """특정 년도/월의 매출 현황 합계 계산"""
         sales = self._load_sales()
         summary = {
-            "total_sales": 0,
-            "total_quantity": 0,
-            "total_marketing": 0,
-            "total_contribution": 0,
+            "total_sales": 0.0,
+            "total_quantity": 0.0,
+            "total_marketing": 0.0,
+            "total_contribution": 0.0,
+            "has_data": False,
         }
 
         kpi_mapping = {
@@ -229,6 +238,7 @@ class TargetsService:
             if sale.get("year") != year or sale.get("month") != month:
                 continue
 
+            summary["has_data"] = True
             kpi_type = sale.get("kpi_type", "")
             summary_key = kpi_mapping.get(kpi_type)
             if not summary_key:
@@ -236,15 +246,12 @@ class TargetsService:
 
             grid_data = sale.get("grid_data", [])
             for row in grid_data:
-                if not row:
+                if not row or len(row) < 2:
                     continue
                 # row[0]은 기준(행 이름), row[1:]은 일별 데이터
-                values = row[1:] if len(row) > 1 else []
+                values = row[1:]
                 for val in values:
-                    try:
-                        summary[summary_key] += float(val or 0)
-                    except (ValueError, TypeError):
-                        pass
+                    summary[summary_key] += parse_number(val)
 
         return summary
 
@@ -263,15 +270,28 @@ class TargetsService:
                 return None
             return round((current / target) * 100, 1)
 
-        def calc_change(current: float, prev: float) -> Optional[float]:
+        def calc_change(current: float, prev: float, has_prev_data: bool) -> Optional[float]:
+            if not has_prev_data:
+                return None  # 전월 데이터 없음
             if prev == 0:
                 return None
             return round(((current - prev) / prev) * 100, 1)
 
         return {
             "target": target_summary,
-            "current": current_summary,
-            "previous": prev_summary,
+            "current": {
+                "total_sales": current_summary["total_sales"],
+                "total_quantity": current_summary["total_quantity"],
+                "total_marketing": current_summary["total_marketing"],
+                "total_contribution": current_summary["total_contribution"],
+            },
+            "previous": {
+                "total_sales": prev_summary["total_sales"],
+                "total_quantity": prev_summary["total_quantity"],
+                "total_marketing": prev_summary["total_marketing"],
+                "total_contribution": prev_summary["total_contribution"],
+                "has_data": prev_summary["has_data"],
+            },
             "vs_target": {
                 "sales_rate": calc_rate(current_summary["total_sales"], target_summary["total_sales"]),
                 "quantity_rate": calc_rate(current_summary["total_quantity"], target_summary["total_quantity"]),
@@ -279,9 +299,10 @@ class TargetsService:
                 "marketing_rate": calc_rate(current_summary["total_marketing"], target_summary["total_advertising"]),
             },
             "vs_previous": {
-                "sales_change": calc_change(current_summary["total_sales"], prev_summary["total_sales"]),
-                "quantity_change": calc_change(current_summary["total_quantity"], prev_summary["total_quantity"]),
-                "contribution_change": calc_change(current_summary["total_contribution"], prev_summary["total_contribution"]),
-                "marketing_change": calc_change(current_summary["total_marketing"], prev_summary["total_marketing"]),
+                "sales_change": calc_change(current_summary["total_sales"], prev_summary["total_sales"], prev_summary["has_data"]),
+                "quantity_change": calc_change(current_summary["total_quantity"], prev_summary["total_quantity"], prev_summary["has_data"]),
+                "contribution_change": calc_change(current_summary["total_contribution"], prev_summary["total_contribution"], prev_summary["has_data"]),
+                "marketing_change": calc_change(current_summary["total_marketing"], prev_summary["total_marketing"], prev_summary["has_data"]),
+                "has_data": prev_summary["has_data"],
             },
         }
