@@ -20,11 +20,16 @@ interface AIModalProps {
 export function AIModal({ isOpen, onClose, data, mode }: AIModalProps) {
   const [response, setResponse] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
     if (isOpen) {
       fetchAIResponse();
     }
+    return () => {
+      setResponse('');
+      setError('');
+    };
   }, [isOpen]);
 
   const getAuthHeaders = () => {
@@ -38,80 +43,32 @@ export function AIModal({ isOpen, onClose, data, mode }: AIModalProps) {
   const fetchAIResponse = async () => {
     setIsLoading(true);
     setResponse('');
+    setError('');
 
-    const prompt = mode === 'summary'
-      ? `다음 데이터를 분석하여 핵심 요약을 제공해주세요:
-제목: ${data.title}
-KPI 유형: ${data.kpi_type}
-기간: ${data.year || ''}${data.month ? `년 ${data.month}월` : '년'}
-
-데이터:
-${data.grid_data.map(row => row.join(', ')).join('\n')}
-
-요약 시 다음을 포함해주세요:
-1. 전체적인 추세
-2. 주요 수치
-3. 특이점
-
-한글로 작성해주세요.`
-      : `다음 데이터를 분석하여 개선 조언을 제공해주세요:
-제목: ${data.title}
-KPI 유형: ${data.kpi_type}
-기간: ${data.year || ''}${data.month ? `년 ${data.month}월` : '년'}
-
-데이터:
-${data.grid_data.map(row => row.join(', ')).join('\n')}
-
-조언 시 다음을 포함해주세요:
-1. 현재 상태 분석
-2. 문제점 파악
-3. 구체적인 개선 방안
-4. 실행 가능한 액션 아이템
-
-한글로 작성해주세요.`;
+    const endpoint = mode === 'summary' ? '/api/ai/summary' : '/api/ai/advice';
 
     try {
-      const res = await fetch(`${API_BASE}/api/chat`, {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          message: prompt,
-          table_id: null,
-          dataset_id: null,
+          prompt: '',
+          data_title: `${data.title} (${data.year || ''}${data.month ? `년 ${data.month}월` : '년'})`,
+          data_type: data.kpi_type,
+          data: data.grid_data,
         }),
       });
 
       if (res.ok) {
-        const reader = res.body?.getReader();
-        const decoder = new TextDecoder();
-
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n').filter(line => line.startsWith('data: '));
-
-            for (const line of lines) {
-              const jsonStr = line.replace('data: ', '');
-              if (jsonStr === '[DONE]') continue;
-
-              try {
-                const parsed = JSON.parse(jsonStr);
-                if (parsed.message) {
-                  setResponse(prev => prev + parsed.message);
-                }
-              } catch {
-                // JSON 파싱 실패 시 무시
-              }
-            }
-          }
-        }
+        const result = await res.json();
+        setResponse(result.content);
+      } else {
+        const errorData = await res.json();
+        setError(errorData.detail || 'AI 응답 생성에 실패했습니다.');
       }
-    } catch (error) {
-      console.error('AI response failed:', error);
-      setResponse('AI 응답을 가져오는데 실패했습니다. 다시 시도해주세요.');
+    } catch (err) {
+      console.error('AI response failed:', err);
+      setError('서버 연결에 실패했습니다. 다시 시도해주세요.');
     }
 
     setIsLoading(false);
@@ -158,15 +115,19 @@ ${data.grid_data.map(row => row.join(', ')).join('\n')}
 
         {/* 본문 */}
         <div className="flex-1 overflow-auto p-6">
-          {isLoading && !response ? (
+          {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
               <p className="text-slate-500">AI가 분석 중입니다...</p>
             </div>
+          ) : error ? (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
+              {error}
+            </div>
           ) : (
             <div className="prose prose-slate max-w-none">
               <div className="whitespace-pre-wrap text-slate-700 leading-relaxed">
-                {response || 'AI 응답을 기다리는 중...'}
+                {response}
               </div>
             </div>
           )}

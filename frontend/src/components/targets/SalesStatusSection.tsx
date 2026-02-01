@@ -35,6 +35,7 @@ interface Comparison {
     total_quantity: number;
     total_marketing: number;
     total_contribution: number;
+    has_data: boolean;
   };
   vs_target: {
     sales_rate: number | null;
@@ -47,6 +48,7 @@ interface Comparison {
     quantity_change: number | null;
     contribution_change: number | null;
     marketing_change: number | null;
+    has_data: boolean;
   };
 }
 
@@ -284,25 +286,36 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
                   </div>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3">전월 대비 변화</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs text-slate-500">매출</p>
-                      <p className="text-lg font-bold">{renderChange(comparison.vs_previous.sales_change)}</p>
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3">
+                    전월 대비 변화
+                    <span className="font-normal text-slate-400 ml-1">
+                      ({month === 1 ? year - 1 : year}년 {month === 1 ? 12 : month - 1}월 대비)
+                    </span>
+                  </h4>
+                  {comparison.vs_previous.has_data ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-slate-500">매출</p>
+                        <p className="text-lg font-bold">{renderChange(comparison.vs_previous.sales_change)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">판매량</p>
+                        <p className="text-lg font-bold">{renderChange(comparison.vs_previous.quantity_change)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">공헌이익</p>
+                        <p className="text-lg font-bold">{renderChange(comparison.vs_previous.contribution_change)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">마케팅비</p>
+                        <p className="text-lg font-bold">{renderChange(comparison.vs_previous.marketing_change)}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-slate-500">판매량</p>
-                      <p className="text-lg font-bold">{renderChange(comparison.vs_previous.quantity_change)}</p>
+                  ) : (
+                    <div className="text-center py-4 text-slate-500 text-sm">
+                      전월 데이터 입력 필요
                     </div>
-                    <div>
-                      <p className="text-xs text-slate-500">공헌이익</p>
-                      <p className="text-lg font-bold">{renderChange(comparison.vs_previous.contribution_change)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">마케팅비</p>
-                      <p className="text-lg font-bold">{renderChange(comparison.vs_previous.marketing_change)}</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </>
