@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -19,6 +19,13 @@ interface ChartModalProps {
   type: 'target' | 'sales';
 }
 
+interface PreviousPeriodData {
+  grid_data: string[][];
+  title: string;
+  year: number;
+  month?: number;
+}
+
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
 function parseNumber(value: string | number | undefined | null): number {
@@ -28,32 +35,146 @@ function parseNumber(value: string | number | undefined | null): number {
   return parseFloat(cleaned) || 0;
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+
+function getAuthHeaders(): HeadersInit {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
   const [chartType, setChartType] = useState<'bar' | 'line' | 'area'>('bar');
   const [selectedRows, setSelectedRows] = useState<number[]>([0]);
+  const [showComparison, setShowComparison] = useState(false);
+  const [previousData, setPreviousData] = useState<PreviousPeriodData | null>(null);
+  const [loadingPrevious, setLoadingPrevious] = useState(false);
 
-  // 합계 데이터 생성 (선택된 모든 항목의 합)
+  // 전년도/전월 데이터 가져오기
+  useEffect(() => {
+    if (!showComparison || !data.year) {
+      setPreviousData(null);
+      return;
+    }
+
+    const fetchPreviousData = async () => {
+      setLoadingPrevious(true);
+      try {
+        let url: string;
+        let prevYear = data.year!;
+        let prevMonth = data.month;
+
+        if (type === 'target') {
+          // 목표 리스트: 전년도 데이터
+          prevYear = data.year! - 1;
+          url = `${API_BASE}/api/targets?year=${prevYear}`;
+        } else {
+          // 매출 현황: 전월 데이터
+          if (data.month === 1) {
+            prevYear = data.year! - 1;
+            prevMonth = 12;
+          } else {
+            prevMonth = data.month! - 1;
+          }
+          url = `${API_BASE}/api/targets/sales/list?year=${prevYear}&month=${prevMonth}`;
+        }
+
+        const res = await fetch(url, {
+          headers: getAuthHeaders(),
+        });
+
+        if (res.ok) {
+          const items = await res.json();
+          // 같은 kpi_type인 항목 찾기
+          const matchingItem = items.find((item: { kpi_type: string }) => item.kpi_type === data.kpi_type);
+          if (matchingItem) {
+            setPreviousData({
+              grid_data: matchingItem.grid_data,
+              title: matchingItem.title,
+              year: prevYear,
+              month: prevMonth,
+            });
+          } else {
+            setPreviousData(null);
+          }
+        } else {
+          setPreviousData(null);
+        }
+      } catch (error) {
+        console.error('Failed to fetch previous data:', error);
+        setPreviousData(null);
+      } finally {
+        setLoadingPrevious(false);
+      }
+    };
+
+    fetchPreviousData();
+  }, [showComparison, data.year, data.month, data.kpi_type, type]);
+
+  // 비교 라벨 생성
+  const comparisonLabel = useMemo(() => {
+    if (type === 'target') {
+      return `${data.year! - 1}년`;
+    } else {
+      if (data.month === 1) {
+        return `${data.year! - 1}년 12월`;
+      }
+      return `${data.year}년 ${data.month! - 1}월`;
+    }
+  }, [type, data.year, data.month]);
+
+  const currentLabel = useMemo(() => {
+    if (type === 'target') {
+      return `${data.year}년`;
+    } else {
+      return `${data.year}년 ${data.month}월`;
+    }
+  }, [type, data.year, data.month]);
+
+  // 차트 데이터 생성 (현재 데이터 + 비교 데이터)
   const chartData = useMemo(() => {
     const labels = type === 'target'
       ? ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
       : Array.from({ length: data.grid_data[0]?.length - 1 || 0 }, (_, i) => `${i + 1}일`);
 
     return labels.map((label, i) => {
-      // 선택된 모든 행의 해당 열 값을 합산
-      let total = 0;
+      // 선택된 모든 행의 해당 열 값을 합산 (현재 데이터)
+      let currentTotal = 0;
       selectedRows.forEach((rowIndex) => {
         const row = data.grid_data[rowIndex];
         if (row && row[i + 1] !== undefined) {
-          total += parseNumber(row[i + 1]);
+          currentTotal += parseNumber(row[i + 1]);
         }
       });
 
-      return {
+      const result: { name: string; [key: string]: string | number } = {
         name: label,
-        합계: total,
+        [currentLabel]: currentTotal,
       };
+
+      // 비교 데이터가 있으면 추가
+      if (showComparison && previousData) {
+        let prevTotal = 0;
+        // 이전 데이터에서 동일한 행 이름을 찾아서 합산
+        selectedRows.forEach((rowIndex) => {
+          const currentRowName = data.grid_data[rowIndex]?.[0];
+          // 이전 데이터에서 같은 이름의 행 찾기
+          const prevRow = previousData.grid_data.find(row => row[0] === currentRowName);
+          if (prevRow && prevRow[i + 1] !== undefined) {
+            prevTotal += parseNumber(prevRow[i + 1]);
+          }
+        });
+        result[comparisonLabel] = prevTotal;
+      }
+
+      return result;
     });
-  }, [data.grid_data, selectedRows, type]);
+  }, [data.grid_data, selectedRows, type, showComparison, previousData, currentLabel, comparisonLabel]);
 
   const rowNames = useMemo(() => {
     return data.grid_data.map((row, i) => ({
@@ -91,16 +212,39 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
       margin: { top: 5, right: 30, left: 20, bottom: 5 },
     };
 
-    const color = COLORS[0];
+    const renderElements = () => {
+      const elements = [];
 
-    const renderElement = () => {
       if (chartType === 'bar') {
-        return <Bar dataKey="합계" fill={color} name={selectedRows.length > 1 ? '선택 항목 합계' : selectedNames} />;
+        elements.push(
+          <Bar key="current" dataKey={currentLabel} fill={COLORS[0]} name={currentLabel} />
+        );
+        if (showComparison && previousData) {
+          elements.push(
+            <Bar key="previous" dataKey={comparisonLabel} fill={COLORS[1]} name={comparisonLabel} />
+          );
+        }
       } else if (chartType === 'line') {
-        return <Line type="monotone" dataKey="합계" stroke={color} strokeWidth={2} name={selectedRows.length > 1 ? '선택 항목 합계' : selectedNames} />;
+        elements.push(
+          <Line key="current" type="monotone" dataKey={currentLabel} stroke={COLORS[0]} strokeWidth={2} name={currentLabel} />
+        );
+        if (showComparison && previousData) {
+          elements.push(
+            <Line key="previous" type="monotone" dataKey={comparisonLabel} stroke={COLORS[1]} strokeWidth={2} strokeDasharray="5 5" name={comparisonLabel} />
+          );
+        }
       } else {
-        return <Area type="monotone" dataKey="합계" stroke={color} fill={color} fillOpacity={0.3} name={selectedRows.length > 1 ? '선택 항목 합계' : selectedNames} />;
+        elements.push(
+          <Area key="current" type="monotone" dataKey={currentLabel} stroke={COLORS[0]} fill={COLORS[0]} fillOpacity={0.3} name={currentLabel} />
+        );
+        if (showComparison && previousData) {
+          elements.push(
+            <Area key="previous" type="monotone" dataKey={comparisonLabel} stroke={COLORS[1]} fill={COLORS[1]} fillOpacity={0.2} name={comparisonLabel} />
+          );
+        }
       }
+
+      return elements;
     };
 
     const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'line' ? LineChart : AreaChart;
@@ -112,10 +256,10 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
           <XAxis dataKey="name" />
           <YAxis tickFormatter={(value) => new Intl.NumberFormat('ko-KR', { notation: 'compact' }).format(value)} />
           <Tooltip
-            formatter={(value: number) => [new Intl.NumberFormat('ko-KR').format(value), selectedRows.length > 1 ? '합계' : selectedNames]}
+            formatter={(value: number, name: string) => [new Intl.NumberFormat('ko-KR').format(value), name]}
           />
           <Legend />
-          {renderElement()}
+          {renderElements()}
         </ChartComponent>
       </ResponsiveContainer>
     );
@@ -142,30 +286,71 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
 
         {/* 본문 */}
         <div className="flex-1 overflow-auto p-6">
-          {/* 차트 타입 선택 */}
-          <div className="flex items-center gap-4 mb-6">
-            <span className="text-sm font-medium text-slate-600">차트 유형:</span>
-            <div className="flex gap-2">
-              {[
-                { value: 'bar', label: '막대' },
-                { value: 'line', label: '선' },
-                { value: 'area', label: '영역' },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setChartType(option.value as 'bar' | 'line' | 'area')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    chartType === option.value
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
+          {/* 차트 타입 선택 & 비교 옵션 */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-slate-600">차트 유형:</span>
+              <div className="flex gap-2">
+                {[
+                  { value: 'bar', label: '막대' },
+                  { value: 'line', label: '선' },
+                  { value: 'area', label: '영역' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setChartType(option.value as 'bar' | 'line' | 'area')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      chartType === option.value
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* 그래프 비교하기 체크박스 */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showComparison}
+                onChange={(e) => setShowComparison(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-slate-600">
+                {type === 'target' ? '전년도 비교' : '전월 비교'}
+              </span>
+              {loadingPrevious && (
+                <svg className="w-4 h-4 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+            </label>
           </div>
+
+          {/* 비교 데이터 상태 표시 */}
+          {showComparison && !loadingPrevious && (
+            <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${
+              previousData
+                ? 'bg-green-50 text-green-700'
+                : 'bg-amber-50 text-amber-700'
+            }`}>
+              {previousData ? (
+                <>
+                  <span className="font-medium">{comparisonLabel}</span> 데이터와 비교 중
+                  <span className="text-xs ml-2">({previousData.title})</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-medium">{comparisonLabel}</span>에 동일한 KPI 유형({data.kpi_type})의 데이터가 없습니다
+                </>
+              )}
+            </div>
+          )}
 
           {/* 항목 선택 */}
           <div className="mb-6">
@@ -224,6 +409,20 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
               </div>
             )}
           </div>
+
+          {/* 범례 설명 */}
+          {showComparison && previousData && (
+            <div className="mt-4 flex items-center gap-6 text-sm text-slate-600">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[0] }} />
+                <span>{currentLabel} (현재)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[1] }} />
+                <span>{comparisonLabel} (비교)</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
