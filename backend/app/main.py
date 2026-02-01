@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api.routes import chat, tables, query, auth
+from app.api.routes import chat, tables, query, auth, targets
 
 settings = get_settings()
 
@@ -26,6 +26,7 @@ app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(chat.router, prefix="/api", tags=["chat"])
 app.include_router(tables.router, prefix="/api", tags=["tables"])
 app.include_router(query.router, prefix="/api", tags=["query"])
+app.include_router(targets.router, prefix="/api", tags=["targets"])
 
 
 @app.get("/")

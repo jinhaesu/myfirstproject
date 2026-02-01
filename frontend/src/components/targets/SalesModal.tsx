@@ -1,0 +1,232 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { ExcelGrid } from '@/components/grid/ExcelGrid';
+
+interface SalesModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: {
+    year: number;
+    month: number;
+    title: string;
+    manager: string;
+    kpi_type: string;
+    grid_data: string[][];
+  }) => void;
+  initialData?: {
+    year: number;
+    month: number;
+    title: string;
+    manager: string;
+    kpi_type: string;
+    grid_data: string[][];
+  } | null;
+  defaultYear: number;
+  defaultMonth: number;
+}
+
+const years = Array.from({ length: 13 }, (_, i) => 2018 + i);
+const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` }));
+const kpiTypes = ['매출', '광고선전비', '공헌이익', '판매량'];
+
+// 해당 년월의 일수 계산
+function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+export function SalesModal({
+  isOpen,
+  onClose,
+  onSave,
+  initialData,
+  defaultYear,
+  defaultMonth
+}: SalesModalProps) {
+  const [year, setYear] = useState(defaultYear);
+  const [month, setMonth] = useState(defaultMonth);
+  const [title, setTitle] = useState('');
+  const [manager, setManager] = useState('');
+  const [kpiType, setKpiType] = useState('매출');
+  const [gridData, setGridData] = useState<string[][]>([]);
+
+  // 해당 월의 일수에 맞는 열 생성
+  const dayColumns = useMemo(() => {
+    const days = getDaysInMonth(year, month);
+    return Array.from({ length: days }, (_, i) => `${i + 1}일`);
+  }, [year, month]);
+
+  // 초기 데이터 로드 또는 새 데이터 생성
+  useEffect(() => {
+    if (initialData) {
+      setYear(initialData.year);
+      setMonth(initialData.month);
+      setTitle(initialData.title);
+      setManager(initialData.manager);
+      setKpiType(initialData.kpi_type);
+      setGridData(initialData.grid_data.length > 0 ? initialData.grid_data : [createEmptyRow()]);
+    } else {
+      setYear(defaultYear);
+      setMonth(defaultMonth);
+      setTitle('');
+      setManager('');
+      setKpiType('매출');
+      setGridData([createEmptyRow()]);
+    }
+  }, [initialData, isOpen, defaultYear, defaultMonth]);
+
+  // 년월 변경 시 그리드 데이터 조정
+  useEffect(() => {
+    const days = getDaysInMonth(year, month);
+    setGridData((prevData) => {
+      return prevData.map((row) => {
+        const currentLength = row.length;
+        const targetLength = days + 1; // 첫 열(기준) + 일수
+
+        if (currentLength < targetLength) {
+          // 열 추가
+          return [...row, ...Array(targetLength - currentLength).fill('')];
+        } else if (currentLength > targetLength) {
+          // 열 줄이기
+          return row.slice(0, targetLength);
+        }
+        return row;
+      });
+    });
+  }, [year, month]);
+
+  const createEmptyRow = () => {
+    const days = getDaysInMonth(year, month);
+    return Array(days + 1).fill('');
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      year,
+      month,
+      title,
+      manager,
+      kpi_type: kpiType,
+      grid_data: gridData,
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* 헤더 */}
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-800">
+            {initialData ? '매출 현황 수정' : '새 매출 현황 기입'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 폼 */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">기준 년도</label>
+              <select
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>{y}년</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">월</label>
+              <select
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                {months.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">제목</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="1월 매출 현황"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">책임자</label>
+              <input
+                type="text"
+                value={manager}
+                onChange={(e) => setManager(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="홍길동"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">KPI 구분</label>
+              <select
+                value={kpiType}
+                onChange={(e) => setKpiType(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                {kpiTypes.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              일별 데이터 입력 ({year}년 {month}월 - {dayColumns.length}일)
+            </label>
+            <ExcelGrid
+              columns={dayColumns}
+              data={gridData}
+              onChange={setGridData}
+              allowAddRow={true}
+              firstColumnEditable={true}
+            />
+          </div>
+        </form>
+
+        {/* 푸터 */}
+        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            취소
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+          >
+            저장
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
