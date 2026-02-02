@@ -49,6 +49,7 @@ export function SalesModal({
   const [manager, setManager] = useState('');
   const [kpiType, setKpiType] = useState('매출');
   const [gridData, setGridData] = useState<string[][]>([]);
+  const [initialized, setInitialized] = useState(false);
 
   // 해당 월의 일수에 맞는 열 생성
   const dayColumns = useMemo(() => {
@@ -56,29 +57,49 @@ export function SalesModal({
     return Array.from({ length: days }, (_, i) => `${i + 1}일`);
   }, [year, month]);
 
-  // 초기 데이터 로드 또는 새 데이터 생성
-  useEffect(() => {
-    if (initialData) {
-      setYear(initialData.year);
-      setMonth(initialData.month);
-      setTitle(initialData.title);
-      setManager(initialData.manager);
-      setKpiType(initialData.kpi_type);
-      setGridData(initialData.grid_data.length > 0 ? initialData.grid_data : [createEmptyRow()]);
-    } else {
-      setYear(defaultYear);
-      setMonth(defaultMonth);
-      setTitle('');
-      setManager('');
-      setKpiType('매출');
-      setGridData([createEmptyRow()]);
-    }
-  }, [initialData, isOpen, defaultYear, defaultMonth]);
+  const createEmptyRow = useCallback((y: number, m: number) => {
+    const days = getDaysInMonth(y, m);
+    return Array(days + 1).fill('');
+  }, []);
 
-  // 년월 변경 시 그리드 데이터 조정
+  // 모달이 열릴 때만 초기화 (한 번만)
   useEffect(() => {
+    if (isOpen && !initialized) {
+      if (initialData) {
+        setYear(initialData.year);
+        setMonth(initialData.month);
+        setTitle(initialData.title);
+        setManager(initialData.manager);
+        setKpiType(initialData.kpi_type);
+        // 기존 데이터를 깊은 복사로 보존
+        setGridData(initialData.grid_data.length > 0
+          ? initialData.grid_data.map(row => [...row])
+          : [createEmptyRow(initialData.year, initialData.month)]);
+      } else {
+        setYear(defaultYear);
+        setMonth(defaultMonth);
+        setTitle('');
+        setManager('');
+        setKpiType('매출');
+        setGridData([createEmptyRow(defaultYear, defaultMonth)]);
+      }
+      setInitialized(true);
+    }
+
+    // 모달이 닫히면 초기화 플래그 리셋
+    if (!isOpen) {
+      setInitialized(false);
+    }
+  }, [isOpen, initialData, initialized, defaultYear, defaultMonth, createEmptyRow]);
+
+  // 년월 변경 시 그리드 데이터 조정 (초기화 후에만)
+  useEffect(() => {
+    if (!initialized) return;
+
     const days = getDaysInMonth(year, month);
     setGridData((prevData) => {
+      if (prevData.length === 0) return [createEmptyRow(year, month)];
+
       return prevData.map((row) => {
         const currentLength = row.length;
         const targetLength = days + 1; // 첫 열(기준) + 일수
@@ -93,12 +114,7 @@ export function SalesModal({
         return row;
       });
     });
-  }, [year, month]);
-
-  const createEmptyRow = () => {
-    const days = getDaysInMonth(year, month);
-    return Array(days + 1).fill('');
-  };
+  }, [year, month, initialized, createEmptyRow]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

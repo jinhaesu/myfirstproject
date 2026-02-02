@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { SalesModal } from './SalesModal';
 import { DataItemActions } from './DataItemActions';
 
@@ -64,10 +64,18 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
   const [year, setYear] = useState(selectedYear);
   const [month, setMonth] = useState(selectedMonth);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [allSales, setAllSales] = useState<Sale[]>([]); // 필터링 전 전체 데이터
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [selectedManager, setSelectedManager] = useState<string>('all');
+
+  // 책임자 목록 추출
+  const managers = useMemo(() => {
+    const managerSet = new Set(allSales.map((sale) => sale.manager));
+    return Array.from(managerSet).sort();
+  }, [allSales]);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
@@ -85,13 +93,19 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
       });
       if (res.ok) {
         const data = await res.json();
-        setSales(data);
+        setAllSales(data);
+        // 책임자 필터 적용
+        if (selectedManager === 'all') {
+          setSales(data);
+        } else {
+          setSales(data.filter((sale: Sale) => sale.manager === selectedManager));
+        }
       }
     } catch (error) {
       console.error('Failed to fetch sales:', error);
     }
     setIsLoading(false);
-  }, [year, month]);
+  }, [year, month, selectedManager]);
 
   const fetchComparison = useCallback(async () => {
     try {
@@ -226,6 +240,19 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
               >
                 {months.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-slate-600">책임자:</label>
+              <select
+                value={selectedManager}
+                onChange={(e) => setSelectedManager(e.target.value)}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="all">전체</option>
+                {managers.map((m) => (
+                  <option key={m} value={m}>{m}</option>
                 ))}
               </select>
             </div>

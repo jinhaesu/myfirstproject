@@ -52,6 +52,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
   const [chartType, setChartType] = useState<'bar' | 'line' | 'area'>('bar');
   const [selectedRows, setSelectedRows] = useState<number[]>([0]);
   const [showComparison, setShowComparison] = useState(false);
+  const [showCumulative, setShowCumulative] = useState(false);
   const [previousData, setPreviousData] = useState<PreviousPeriodData | null>(null);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
 
@@ -142,6 +143,9 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
       ? ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
       : Array.from({ length: data.grid_data[0]?.length - 1 || 0 }, (_, i) => `${i + 1}일`);
 
+    let cumulativeCurrent = 0;
+    let cumulativePrevious = 0;
+
     return labels.map((label, i) => {
       // 선택된 모든 행의 해당 열 값을 합산 (현재 데이터)
       let currentTotal = 0;
@@ -152,9 +156,16 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
         }
       });
 
+      // 누계 모드일 경우 누적 합산
+      if (showCumulative) {
+        cumulativeCurrent += currentTotal;
+        currentTotal = cumulativeCurrent;
+      }
+
+      const displayLabel = showCumulative ? `${currentLabel} 누계` : currentLabel;
       const result: { name: string; [key: string]: string | number } = {
         name: label,
-        [currentLabel]: currentTotal,
+        [displayLabel]: currentTotal,
       };
 
       // 비교 데이터가 있으면 추가
@@ -169,12 +180,20 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
             prevTotal += parseNumber(prevRow[i + 1]);
           }
         });
-        result[comparisonLabel] = prevTotal;
+
+        // 누계 모드일 경우 누적 합산
+        if (showCumulative) {
+          cumulativePrevious += prevTotal;
+          prevTotal = cumulativePrevious;
+        }
+
+        const compDisplayLabel = showCumulative ? `${comparisonLabel} 누계` : comparisonLabel;
+        result[compDisplayLabel] = prevTotal;
       }
 
       return result;
     });
-  }, [data.grid_data, selectedRows, type, showComparison, previousData, currentLabel, comparisonLabel]);
+  }, [data.grid_data, selectedRows, type, showComparison, showCumulative, previousData, currentLabel, comparisonLabel]);
 
   const rowNames = useMemo(() => {
     return data.grid_data.map((row, i) => ({
@@ -214,32 +233,34 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
 
     const renderElements = () => {
       const elements = [];
+      const displayLabel = showCumulative ? `${currentLabel} 누계` : currentLabel;
+      const compDisplayLabel = showCumulative ? `${comparisonLabel} 누계` : comparisonLabel;
 
       if (chartType === 'bar') {
         elements.push(
-          <Bar key="current" dataKey={currentLabel} fill={COLORS[0]} name={currentLabel} />
+          <Bar key="current" dataKey={displayLabel} fill={COLORS[0]} name={displayLabel} />
         );
         if (showComparison && previousData) {
           elements.push(
-            <Bar key="previous" dataKey={comparisonLabel} fill={COLORS[1]} name={comparisonLabel} />
+            <Bar key="previous" dataKey={compDisplayLabel} fill={COLORS[1]} name={compDisplayLabel} />
           );
         }
       } else if (chartType === 'line') {
         elements.push(
-          <Line key="current" type="monotone" dataKey={currentLabel} stroke={COLORS[0]} strokeWidth={2} name={currentLabel} />
+          <Line key="current" type="monotone" dataKey={displayLabel} stroke={COLORS[0]} strokeWidth={2} name={displayLabel} />
         );
         if (showComparison && previousData) {
           elements.push(
-            <Line key="previous" type="monotone" dataKey={comparisonLabel} stroke={COLORS[1]} strokeWidth={2} strokeDasharray="5 5" name={comparisonLabel} />
+            <Line key="previous" type="monotone" dataKey={compDisplayLabel} stroke={COLORS[1]} strokeWidth={2} strokeDasharray="5 5" name={compDisplayLabel} />
           );
         }
       } else {
         elements.push(
-          <Area key="current" type="monotone" dataKey={currentLabel} stroke={COLORS[0]} fill={COLORS[0]} fillOpacity={0.3} name={currentLabel} />
+          <Area key="current" type="monotone" dataKey={displayLabel} stroke={COLORS[0]} fill={COLORS[0]} fillOpacity={0.3} name={displayLabel} />
         );
         if (showComparison && previousData) {
           elements.push(
-            <Area key="previous" type="monotone" dataKey={comparisonLabel} stroke={COLORS[1]} fill={COLORS[1]} fillOpacity={0.2} name={comparisonLabel} />
+            <Area key="previous" type="monotone" dataKey={compDisplayLabel} stroke={COLORS[1]} fill={COLORS[1]} fillOpacity={0.2} name={compDisplayLabel} />
           );
         }
       }
@@ -312,24 +333,38 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
               </div>
             </div>
 
-            {/* 그래프 비교하기 체크박스 */}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showComparison}
-                onChange={(e) => setShowComparison(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-slate-600">
-                {type === 'target' ? '전년도 비교' : '전월 비교'}
-              </span>
-              {loadingPrevious && (
-                <svg className="w-4 h-4 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              )}
-            </label>
+            {/* 옵션 체크박스들 */}
+            <div className="flex items-center gap-4">
+              {/* 누계 체크박스 */}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showCumulative}
+                  onChange={(e) => setShowCumulative(e.target.checked)}
+                  className="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500"
+                />
+                <span className="text-sm font-medium text-slate-600">누계</span>
+              </label>
+
+              {/* 그래프 비교하기 체크박스 */}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showComparison}
+                  onChange={(e) => setShowComparison(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-slate-600">
+                  {type === 'target' ? '전년도 비교' : '전월 비교'}
+                </span>
+                {loadingPrevious && (
+                  <svg className="w-4 h-4 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                )}
+              </label>
+            </div>
           </div>
 
           {/* 비교 데이터 상태 표시 */}
@@ -411,18 +446,20 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
           </div>
 
           {/* 범례 설명 */}
-          {showComparison && previousData && (
+          {(showComparison && previousData) || showCumulative ? (
             <div className="mt-4 flex items-center gap-6 text-sm text-slate-600">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[0] }} />
-                <span>{currentLabel} (현재)</span>
+                <span>{showCumulative ? `${currentLabel} 누계` : currentLabel} (현재)</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[1] }} />
-                <span>{comparisonLabel} (비교)</span>
-              </div>
+              {showComparison && previousData && (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[1] }} />
+                  <span>{showCumulative ? `${comparisonLabel} 누계` : comparisonLabel} (비교)</span>
+                </div>
+              )}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
