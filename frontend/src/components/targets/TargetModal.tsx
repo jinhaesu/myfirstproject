@@ -35,24 +35,37 @@ export function TargetModal({ isOpen, onClose, onSave, initialData }: TargetModa
   const [manager, setManager] = useState('');
   const [kpiType, setKpiType] = useState('매출');
   const [gridData, setGridData] = useState<string[][]>([['', '', '', '', '', '', '', '', '', '', '', '', '']]);
+  const [initialized, setInitialized] = useState(false);
 
+  // 모달이 열릴 때만 초기화 (한 번만)
   useEffect(() => {
-    if (initialData) {
-      setDepartment(initialData.department);
-      setYear(initialData.year);
-      setTitle(initialData.title);
-      setManager(initialData.manager);
-      setKpiType(initialData.kpi_type);
-      setGridData(initialData.grid_data.length > 0 ? initialData.grid_data : [['', '', '', '', '', '', '', '', '', '', '', '', '']]);
-    } else {
-      setDepartment('');
-      setYear(new Date().getFullYear());
-      setTitle('');
-      setManager('');
-      setKpiType('매출');
-      setGridData([['', '', '', '', '', '', '', '', '', '', '', '', '']]);
+    if (isOpen && !initialized) {
+      if (initialData) {
+        setDepartment(initialData.department);
+        setYear(initialData.year);
+        setTitle(initialData.title);
+        setManager(initialData.manager);
+        setKpiType(initialData.kpi_type);
+        // 기존 데이터를 깊은 복사로 보존
+        setGridData(initialData.grid_data.length > 0
+          ? initialData.grid_data.map(row => [...row])
+          : [['', '', '', '', '', '', '', '', '', '', '', '', '']]);
+      } else {
+        setDepartment('');
+        setYear(new Date().getFullYear());
+        setTitle('');
+        setManager('');
+        setKpiType('매출');
+        setGridData([['', '', '', '', '', '', '', '', '', '', '', '', '']]);
+      }
+      setInitialized(true);
     }
-  }, [initialData, isOpen]);
+
+    // 모달이 닫히면 초기화 플래그 리셋
+    if (!isOpen) {
+      setInitialized(false);
+    }
+  }, [isOpen, initialData, initialized]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
