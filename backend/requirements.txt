@@ -10,3 +10,5 @@ PyJWT
 bcrypt
 email-validator
 resend
+sqlalchemy
+psycopg2-binary
