@@ -21,6 +21,13 @@ export function TableSelector({
     <div className="bg-white rounded-lg shadow p-4">
       <h2 className="text-lg font-semibold mb-3">테이블 선택</h2>
 
+      {/* 안내 메시지 */}
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-xs text-blue-700 leading-relaxed">
+          채팅으로 질문을 할때 구체적인 스키마를 확인해서 정확한 스키마의 단어를 써서 질문하세요. 한글로 질문해도 됩니다.
+        </p>
+      </div>
+
       {isLoading ? (
         <div className="text-gray-500">로딩 중...</div>
       ) : tables ? (

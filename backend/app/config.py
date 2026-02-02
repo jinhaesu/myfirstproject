@@ -5,6 +5,7 @@ from functools import lru_cache
 class Settings(BaseSettings):
     # Google Cloud
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
+    GOOGLE_APPLICATION_CREDENTIALS_JSON: str = ""  # JSON 문자열로 직접 입력
     GCP_PROJECT_ID: str = ""
     BIGQUERY_DATASET_ID: str = ""
 
@@ -13,6 +14,19 @@ class Settings(BaseSettings):
 
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:3000"
+
+    # JWT 설정
+    JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRATION_HOURS: int = 24
+
+    # 사용자 설정 (JSON 형식: [{"email":"admin@example.com","password":"hashed","name":"Admin"}])
+    USERS_JSON: str = "[]"
+
+    # Resend 이메일 설정
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = "noreply@yourdomain.com"
+    OTP_EXPIRATION_MINUTES: int = 5
 
     @property
     def allowed_origins_list(self) -> list[str]:
