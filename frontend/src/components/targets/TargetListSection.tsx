@@ -29,6 +29,7 @@ interface TargetListSectionProps {
   setSelectedYear: (year: number) => void;
   selectedMonth: number | null;
   setSelectedMonth: (month: number | null) => void;
+  excludeVat?: boolean;
 }
 
 const years = Array.from({ length: 13 }, (_, i) => 2018 + i);
@@ -42,6 +43,7 @@ export function TargetListSection({
   setSelectedYear,
   selectedMonth,
   setSelectedMonth,
+  excludeVat = false,
 }: TargetListSectionProps) {
   const [targets, setTargets] = useState<Target[]>([]);
   const [summary, setSummary] = useState<TargetSummary | null>(null);
@@ -139,8 +141,9 @@ export function TargetListSection({
     setIsModalOpen(true);
   };
 
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('ko-KR').format(num);
+  const formatNumber = (num: number, applyVat: boolean = true) => {
+    const value = applyVat && excludeVat ? Math.round(num / 1.1) : num;
+    return new Intl.NumberFormat('ko-KR').format(value);
   };
 
   return (
@@ -196,7 +199,9 @@ export function TargetListSection({
           {summary ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white p-4 rounded-xl border border-slate-200">
-                <p className="text-sm text-slate-500 mb-1">총 목표 매출</p>
+                <p className="text-sm text-slate-500 mb-1">
+                  총 목표 매출 <span className="text-xs text-slate-400">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+                </p>
                 <p className="text-xl font-bold text-blue-600">
                   {summary.total_sales > 0 ? `${formatNumber(summary.total_sales)}원` : '없음'}
                 </p>
@@ -204,17 +209,21 @@ export function TargetListSection({
               <div className="bg-white p-4 rounded-xl border border-slate-200">
                 <p className="text-sm text-slate-500 mb-1">총 판매량</p>
                 <p className="text-xl font-bold text-emerald-600">
-                  {summary.total_quantity > 0 ? formatNumber(summary.total_quantity) : '없음'}
+                  {summary.total_quantity > 0 ? formatNumber(summary.total_quantity, false) : '없음'}
                 </p>
               </div>
               <div className="bg-white p-4 rounded-xl border border-slate-200">
-                <p className="text-sm text-slate-500 mb-1">공헌이익액</p>
+                <p className="text-sm text-slate-500 mb-1">
+                  공헌이익액 <span className="text-xs text-slate-400">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+                </p>
                 <p className="text-xl font-bold text-purple-600">
                   {summary.total_contribution > 0 ? `${formatNumber(summary.total_contribution)}원` : '없음'}
                 </p>
               </div>
               <div className="bg-white p-4 rounded-xl border border-slate-200">
-                <p className="text-sm text-slate-500 mb-1">광고선전비 합계</p>
+                <p className="text-sm text-slate-500 mb-1">
+                  광고선전비 합계 <span className="text-xs text-slate-400">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+                </p>
                 <p className="text-xl font-bold text-orange-600">
                   {summary.total_advertising > 0 ? `${formatNumber(summary.total_advertising)}원` : '없음'}
                 </p>

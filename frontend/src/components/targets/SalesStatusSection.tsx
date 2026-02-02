@@ -97,12 +97,13 @@ interface DailyChartData {
 interface SalesStatusSectionProps {
   selectedYear: number;
   selectedMonth: number;
+  excludeVat?: boolean;
 }
 
 const years = Array.from({ length: 13 }, (_, i) => 2018 + i);
 const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` }));
 
-export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusSectionProps) {
+export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = false }: SalesStatusSectionProps) {
   const [year, setYear] = useState(selectedYear);
   const [month, setMonth] = useState(selectedMonth);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -114,7 +115,6 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [selectedManager, setSelectedManager] = useState<string>('all');
-  const [excludeVat, setExcludeVat] = useState(false);
   const [chartMode, setChartMode] = useState<'daily' | 'cumulative'>('cumulative');
   const [showRealtimeChart, setShowRealtimeChart] = useState(false);
 
@@ -312,30 +312,18 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
         {/* 헤더 */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-800">매출 현황 및 실시간</h2>
-          <div className="flex items-center gap-3">
-            {/* 부가세 토글 */}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={excludeVat}
-                onChange={(e) => setExcludeVat(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-              />
-              <span className="text-sm text-slate-600">부가세 별도</span>
-            </label>
-            <button
-              onClick={() => {
-                setEditingSale(null);
-                setIsModalOpen(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              기입하기
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setEditingSale(null);
+              setIsModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            기입하기
+          </button>
         </div>
 
         {/* 년도/월 선택 & 합계 */}
@@ -510,7 +498,9 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
             {/* 당일 기준 목표 대비 달성률 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
-                <p className="text-sm text-slate-500 mb-1">당일 기준 매출 목표</p>
+                <p className="text-sm text-slate-500 mb-1">
+                  당일 기준 매출 목표 <span className="text-xs text-slate-400">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+                </p>
                 <p className="text-lg font-bold text-slate-700">
                   {formatNumber(realtime.daily_target.total_sales)}원
                 </p>
