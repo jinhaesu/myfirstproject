@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, engine
-from app.models import Target, Sale
+from app.db_models import Target, Sale
 
 
 def parse_number(value) -> float:
