@@ -1,15 +1,27 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.api.routes import chat, tables, query, auth, targets, ai
+from app.database import init_db
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """앱 시작 시 데이터베이스 테이블 초기화"""
+    init_db()
+    yield
+
 
 app = FastAPI(
     title="BigQuery Chat Analytics",
     description="자연어로 BigQuery 데이터를 분석하는 채팅 API",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS 설정

@@ -1,23 +1,13 @@
-import json
+import os
 import re
 from datetime import datetime
 from typing import Optional
-from pathlib import Path
 import uuid
 
+from sqlalchemy.orm import Session
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
-TARGETS_FILE = DATA_DIR / "targets.json"
-SALES_FILE = DATA_DIR / "sales.json"
-
-
-def ensure_data_dir():
-    """데이터 디렉토리 생성"""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not TARGETS_FILE.exists():
-        TARGETS_FILE.write_text("[]", encoding="utf-8")
-    if not SALES_FILE.exists():
-        SALES_FILE.write_text("[]", encoding="utf-8")
+from app.database import SessionLocal, engine
+from app.models import Target, Sale
 
 
 def parse_number(value) -> float:
@@ -34,89 +24,113 @@ def parse_number(value) -> float:
         return 0.0
 
 
+def is_db_available() -> bool:
+    """데이터베이스가 사용 가능한지 확인"""
+    return engine is not None and SessionLocal is not None
+
+
 class TargetsService:
-    def __init__(self):
-        ensure_data_dir()
+    def __init__(self, db: Optional[Session] = None):
+        self._db = db
 
-    def _load_targets(self) -> list[dict]:
-        try:
-            return json.loads(TARGETS_FILE.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, FileNotFoundError):
-            return []
+    def _get_db(self) -> Session:
+        """데이터베이스 세션 가져오기"""
+        if self._db:
+            return self._db
+        if not is_db_available():
+            raise Exception("Database not configured")
+        return SessionLocal()
 
-    def _save_targets(self, targets: list[dict]):
-        TARGETS_FILE.write_text(json.dumps(targets, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    def _load_sales(self) -> list[dict]:
-        try:
-            return json.loads(SALES_FILE.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, FileNotFoundError):
-            return []
-
-    def _save_sales(self, sales: list[dict]):
-        SALES_FILE.write_text(json.dumps(sales, ensure_ascii=False, indent=2), encoding="utf-8")
+    def _close_db(self, db: Session):
+        """자체 생성한 세션만 닫기"""
+        if not self._db:
+            db.close()
 
     # === 목표 데이터 CRUD ===
     def get_all_targets(self) -> list[dict]:
-        return self._load_targets()
+        db = self._get_db()
+        try:
+            targets = db.query(Target).order_by(Target.created_at.desc()).all()
+            return [self._target_to_dict(t) for t in targets]
+        finally:
+            self._close_db(db)
 
     def get_targets_by_year_month(self, year: int, month: Optional[int] = None) -> list[dict]:
-        targets = self._load_targets()
-        filtered = [t for t in targets if t.get("year") == year]
-        return filtered
+        db = self._get_db()
+        try:
+            targets = db.query(Target).filter(Target.year == year).order_by(Target.created_at.desc()).all()
+            return [self._target_to_dict(t) for t in targets]
+        finally:
+            self._close_db(db)
 
     def get_target_by_id(self, target_id: str) -> Optional[dict]:
-        targets = self._load_targets()
-        for t in targets:
-            if t.get("id") == target_id:
-                return t
-        return None
+        db = self._get_db()
+        try:
+            target = db.query(Target).filter(Target.id == target_id).first()
+            return self._target_to_dict(target) if target else None
+        finally:
+            self._close_db(db)
 
     def create_target(self, data: dict) -> dict:
-        targets = self._load_targets()
-        new_target = {
-            "id": str(uuid.uuid4()),
-            "department": data.get("department", ""),
-            "year": data.get("year"),
-            "title": data.get("title", ""),
-            "manager": data.get("manager", ""),
-            "kpi_type": data.get("kpi_type", ""),
-            "grid_data": data.get("grid_data", []),
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
-        }
-        targets.append(new_target)
-        self._save_targets(targets)
-        return new_target
+        db = self._get_db()
+        try:
+            new_target = Target(
+                id=str(uuid.uuid4()),
+                department=data.get("department", ""),
+                year=data.get("year"),
+                title=data.get("title", ""),
+                manager=data.get("manager", ""),
+                kpi_type=data.get("kpi_type", ""),
+                grid_data=data.get("grid_data", []),
+            )
+            db.add(new_target)
+            db.commit()
+            db.refresh(new_target)
+            return self._target_to_dict(new_target)
+        finally:
+            self._close_db(db)
 
     def update_target(self, target_id: str, data: dict) -> Optional[dict]:
-        targets = self._load_targets()
-        for i, t in enumerate(targets):
-            if t.get("id") == target_id:
-                targets[i].update({
-                    "department": data.get("department", t.get("department")),
-                    "year": data.get("year", t.get("year")),
-                    "title": data.get("title", t.get("title")),
-                    "manager": data.get("manager", t.get("manager")),
-                    "kpi_type": data.get("kpi_type", t.get("kpi_type")),
-                    "grid_data": data.get("grid_data", t.get("grid_data")),
-                    "updated_at": datetime.utcnow().isoformat(),
-                })
-                self._save_targets(targets)
-                return targets[i]
-        return None
+        db = self._get_db()
+        try:
+            target = db.query(Target).filter(Target.id == target_id).first()
+            if not target:
+                return None
+
+            if "department" in data:
+                target.department = data["department"]
+            if "year" in data:
+                target.year = data["year"]
+            if "title" in data:
+                target.title = data["title"]
+            if "manager" in data:
+                target.manager = data["manager"]
+            if "kpi_type" in data:
+                target.kpi_type = data["kpi_type"]
+            if "grid_data" in data:
+                target.grid_data = data["grid_data"]
+
+            db.commit()
+            db.refresh(target)
+            return self._target_to_dict(target)
+        finally:
+            self._close_db(db)
 
     def delete_target(self, target_id: str) -> bool:
-        targets = self._load_targets()
-        new_targets = [t for t in targets if t.get("id") != target_id]
-        if len(new_targets) < len(targets):
-            self._save_targets(new_targets)
+        db = self._get_db()
+        try:
+            target = db.query(Target).filter(Target.id == target_id).first()
+            if not target:
+                return False
+            db.delete(target)
+            db.commit()
             return True
-        return False
+        finally:
+            self._close_db(db)
 
     def get_target_summary(self, year: int, month: Optional[int] = None) -> dict:
         """특정 년도/월의 목표 합계 계산"""
-        targets = self._load_targets()
+        targets = self.get_targets_by_year_month(year)
         summary = {
             "total_sales": 0.0,
             "total_quantity": 0.0,
@@ -132,9 +146,6 @@ class TargetsService:
         }
 
         for target in targets:
-            if target.get("year") != year:
-                continue
-
             kpi_type = target.get("kpi_type", "")
             summary_key = kpi_mapping.get(kpi_type)
             if not summary_key:
@@ -157,68 +168,108 @@ class TargetsService:
 
         return summary
 
+    def _target_to_dict(self, target: Target) -> dict:
+        """Target 모델을 dict로 변환"""
+        return {
+            "id": target.id,
+            "department": target.department,
+            "year": target.year,
+            "title": target.title,
+            "manager": target.manager,
+            "kpi_type": target.kpi_type,
+            "grid_data": target.grid_data,
+            "created_at": target.created_at.isoformat() if target.created_at else None,
+            "updated_at": target.updated_at.isoformat() if target.updated_at else None,
+        }
+
     # === 매출 현황 데이터 CRUD ===
     def get_all_sales(self) -> list[dict]:
-        return self._load_sales()
+        db = self._get_db()
+        try:
+            sales = db.query(Sale).order_by(Sale.created_at.desc()).all()
+            return [self._sale_to_dict(s) for s in sales]
+        finally:
+            self._close_db(db)
 
     def get_sales_by_year_month(self, year: int, month: Optional[int] = None) -> list[dict]:
-        sales = self._load_sales()
-        if month:
-            return [s for s in sales if s.get("year") == year and s.get("month") == month]
-        return [s for s in sales if s.get("year") == year]
+        db = self._get_db()
+        try:
+            query = db.query(Sale).filter(Sale.year == year)
+            if month:
+                query = query.filter(Sale.month == month)
+            sales = query.order_by(Sale.created_at.desc()).all()
+            return [self._sale_to_dict(s) for s in sales]
+        finally:
+            self._close_db(db)
 
     def get_sale_by_id(self, sale_id: str) -> Optional[dict]:
-        sales = self._load_sales()
-        for s in sales:
-            if s.get("id") == sale_id:
-                return s
-        return None
+        db = self._get_db()
+        try:
+            sale = db.query(Sale).filter(Sale.id == sale_id).first()
+            return self._sale_to_dict(sale) if sale else None
+        finally:
+            self._close_db(db)
 
     def create_sale(self, data: dict) -> dict:
-        sales = self._load_sales()
-        new_sale = {
-            "id": str(uuid.uuid4()),
-            "year": data.get("year"),
-            "month": data.get("month"),
-            "title": data.get("title", ""),
-            "manager": data.get("manager", ""),
-            "kpi_type": data.get("kpi_type", ""),
-            "grid_data": data.get("grid_data", []),
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
-        }
-        sales.append(new_sale)
-        self._save_sales(sales)
-        return new_sale
+        db = self._get_db()
+        try:
+            new_sale = Sale(
+                id=str(uuid.uuid4()),
+                year=data.get("year"),
+                month=data.get("month"),
+                title=data.get("title", ""),
+                manager=data.get("manager", ""),
+                kpi_type=data.get("kpi_type", ""),
+                grid_data=data.get("grid_data", []),
+            )
+            db.add(new_sale)
+            db.commit()
+            db.refresh(new_sale)
+            return self._sale_to_dict(new_sale)
+        finally:
+            self._close_db(db)
 
     def update_sale(self, sale_id: str, data: dict) -> Optional[dict]:
-        sales = self._load_sales()
-        for i, s in enumerate(sales):
-            if s.get("id") == sale_id:
-                sales[i].update({
-                    "year": data.get("year", s.get("year")),
-                    "month": data.get("month", s.get("month")),
-                    "title": data.get("title", s.get("title")),
-                    "manager": data.get("manager", s.get("manager")),
-                    "kpi_type": data.get("kpi_type", s.get("kpi_type")),
-                    "grid_data": data.get("grid_data", s.get("grid_data")),
-                    "updated_at": datetime.utcnow().isoformat(),
-                })
-                self._save_sales(sales)
-                return sales[i]
-        return None
+        db = self._get_db()
+        try:
+            sale = db.query(Sale).filter(Sale.id == sale_id).first()
+            if not sale:
+                return None
+
+            if "year" in data:
+                sale.year = data["year"]
+            if "month" in data:
+                sale.month = data["month"]
+            if "title" in data:
+                sale.title = data["title"]
+            if "manager" in data:
+                sale.manager = data["manager"]
+            if "kpi_type" in data:
+                sale.kpi_type = data["kpi_type"]
+            if "grid_data" in data:
+                sale.grid_data = data["grid_data"]
+
+            db.commit()
+            db.refresh(sale)
+            return self._sale_to_dict(sale)
+        finally:
+            self._close_db(db)
 
     def delete_sale(self, sale_id: str) -> bool:
-        sales = self._load_sales()
-        new_sales = [s for s in sales if s.get("id") != sale_id]
-        if len(new_sales) < len(sales):
-            self._save_sales(new_sales)
+        db = self._get_db()
+        try:
+            sale = db.query(Sale).filter(Sale.id == sale_id).first()
+            if not sale:
+                return False
+            db.delete(sale)
+            db.commit()
             return True
-        return False
+        finally:
+            self._close_db(db)
 
     def get_sales_summary(self, year: int, month: int) -> dict:
         """특정 년도/월의 매출 현황 합계 계산"""
-        sales = self._load_sales()
+        sales = self.get_sales_by_year_month(year, month)
         summary = {
             "total_sales": 0.0,
             "total_quantity": 0.0,
@@ -235,9 +286,6 @@ class TargetsService:
         }
 
         for sale in sales:
-            if sale.get("year") != year or sale.get("month") != month:
-                continue
-
             summary["has_data"] = True
             kpi_type = sale.get("kpi_type", "")
             summary_key = kpi_mapping.get(kpi_type)
@@ -305,4 +353,18 @@ class TargetsService:
                 "marketing_change": calc_change(current_summary["total_marketing"], prev_summary["total_marketing"], prev_summary["has_data"]),
                 "has_data": prev_summary["has_data"],
             },
+        }
+
+    def _sale_to_dict(self, sale: Sale) -> dict:
+        """Sale 모델을 dict로 변환"""
+        return {
+            "id": sale.id,
+            "year": sale.year,
+            "month": sale.month,
+            "title": sale.title,
+            "manager": sale.manager,
+            "kpi_type": sale.kpi_type,
+            "grid_data": sale.grid_data,
+            "created_at": sale.created_at.isoformat() if sale.created_at else None,
+            "updated_at": sale.updated_at.isoformat() if sale.updated_at else None,
         }
