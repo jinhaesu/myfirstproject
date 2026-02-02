@@ -109,17 +109,23 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
 
   const fetchComparison = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/targets/sales/comparison?year=${year}&month=${month}`, {
+      let url = `${API_BASE}/api/targets/sales/comparison?year=${year}&month=${month}`;
+      if (selectedManager && selectedManager !== 'all') {
+        url += `&manager=${encodeURIComponent(selectedManager)}`;
+      }
+      console.log('[fetchComparison] URL:', url, 'selectedManager:', selectedManager);
+      const res = await fetch(url, {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
+        console.log('[fetchComparison] Response:', data);
         setComparison(data);
       }
     } catch (error) {
       console.error('Failed to fetch comparison:', error);
     }
-  }, [year, month]);
+  }, [year, month, selectedManager]);
 
   useEffect(() => {
     fetchSales();

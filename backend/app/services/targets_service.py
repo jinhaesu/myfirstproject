@@ -267,9 +267,23 @@ class TargetsService:
         finally:
             self._close_db(db)
 
-    def get_sales_summary(self, year: int, month: int) -> dict:
-        """특정 년도/월의 매출 현황 합계 계산"""
-        sales = self.get_sales_by_year_month(year, month)
+    def get_sales_by_year_month_manager(self, year: int, month: Optional[int] = None, manager: Optional[str] = None) -> list[dict]:
+        """특정 년도/월/책임자의 매출 현황 조회"""
+        db = self._get_db()
+        try:
+            query = db.query(Sale).filter(Sale.year == year)
+            if month:
+                query = query.filter(Sale.month == month)
+            if manager and manager != 'all':
+                query = query.filter(Sale.manager == manager)
+            sales = query.order_by(Sale.created_at.desc()).all()
+            return [self._sale_to_dict(s) for s in sales]
+        finally:
+            self._close_db(db)
+
+    def get_sales_summary(self, year: int, month: int, manager: Optional[str] = None) -> dict:
+        """특정 년도/월의 매출 현황 합계 계산 (책임자 필터 옵션)"""
+        sales = self.get_sales_by_year_month_manager(year, month, manager)
         summary = {
             "total_sales": 0.0,
             "total_quantity": 0.0,
@@ -303,15 +317,15 @@ class TargetsService:
 
         return summary
 
-    def get_comparison_data(self, year: int, month: int) -> dict:
-        """목표 대비 실적, 전월 대비 계산"""
+    def get_comparison_data(self, year: int, month: int, manager: Optional[str] = None) -> dict:
+        """목표 대비 실적, 전월 대비 계산 (책임자 필터 옵션)"""
         target_summary = self.get_target_summary(year, month)
-        current_summary = self.get_sales_summary(year, month)
+        current_summary = self.get_sales_summary(year, month, manager)
 
         # 전월 데이터
         prev_month = month - 1 if month > 1 else 12
         prev_year = year if month > 1 else year - 1
-        prev_summary = self.get_sales_summary(prev_year, prev_month)
+        prev_summary = self.get_sales_summary(prev_year, prev_month, manager)
 
         def calc_rate(current: float, target: float) -> Optional[float]:
             if target == 0:

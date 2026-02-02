@@ -151,11 +151,12 @@ async def get_sales_summary(
 async def get_comparison(
     year: int,
     month: int,
+    manager: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
     service: TargetsService = Depends(get_targets_service)
 ):
-    """목표 대비 실적, 전월 대비 데이터 조회"""
-    return service.get_comparison_data(year, month)
+    """목표 대비 실적, 전월 대비 데이터 조회 (책임자 필터 옵션)"""
+    return service.get_comparison_data(year, month, manager)
 
 
 @router.get("/sales/{sale_id}")
