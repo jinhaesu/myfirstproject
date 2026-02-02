@@ -128,9 +128,21 @@ class TargetsService:
         finally:
             self._close_db(db)
 
-    def get_target_summary(self, year: int, month: Optional[int] = None) -> dict:
-        """특정 년도/월의 목표 합계 계산"""
-        targets = self.get_targets_by_year_month(year)
+    def get_targets_by_year_month_manager(self, year: int, month: Optional[int] = None, manager: Optional[str] = None) -> list[dict]:
+        """특정 년도/월/책임자의 목표 조회"""
+        db = self._get_db()
+        try:
+            query = db.query(Target).filter(Target.year == year)
+            if manager and manager != 'all':
+                query = query.filter(Target.manager == manager)
+            targets = query.order_by(Target.created_at.desc()).all()
+            return [self._target_to_dict(t) for t in targets]
+        finally:
+            self._close_db(db)
+
+    def get_target_summary(self, year: int, month: Optional[int] = None, manager: Optional[str] = None) -> dict:
+        """특정 년도/월의 목표 합계 계산 (책임자 필터 옵션)"""
+        targets = self.get_targets_by_year_month_manager(year, month, manager)
         summary = {
             "total_sales": 0.0,
             "total_quantity": 0.0,
@@ -319,7 +331,8 @@ class TargetsService:
 
     def get_comparison_data(self, year: int, month: int, manager: Optional[str] = None) -> dict:
         """목표 대비 실적, 전월 대비 계산 (책임자 필터 옵션)"""
-        target_summary = self.get_target_summary(year, month)
+        # 책임자가 선택되면 목표도 같은 책임자로 필터링
+        target_summary = self.get_target_summary(year, month, manager)
         current_summary = self.get_sales_summary(year, month, manager)
 
         # 전월 데이터
@@ -367,6 +380,120 @@ class TargetsService:
                 "marketing_change": calc_change(current_summary["total_marketing"], prev_summary["total_marketing"], prev_summary["has_data"]),
                 "has_data": prev_summary["has_data"],
             },
+        }
+
+    def get_realtime_indicator(self, year: int, month: int, manager: Optional[str] = None) -> dict:
+        """실시간 지표 계산 (당일 기준 목표 대비 달성률)"""
+        import calendar
+
+        today = datetime.now()
+        current_day = today.day
+
+        # 해당 월의 총 일수
+        days_in_month = calendar.monthrange(year, month)[1]
+
+        # 목표 데이터 (책임자 필터 적용)
+        target_summary = self.get_target_summary(year, month, manager)
+
+        # 실적 데이터 (책임자 필터 적용)
+        current_summary = self.get_sales_summary(year, month, manager)
+
+        # 당일 기준 목표 계산 (월 목표 / 총 일수 * 현재 일)
+        # 선택한 년월이 현재 년월이면 오늘 날짜, 아니면 마지막 날
+        if year == today.year and month == today.month:
+            target_day = current_day
+        else:
+            target_day = days_in_month
+
+        daily_target_sales = (target_summary["total_sales"] / days_in_month * target_day) if days_in_month > 0 else 0
+        daily_target_quantity = (target_summary["total_quantity"] / days_in_month * target_day) if days_in_month > 0 else 0
+        daily_target_contribution = (target_summary["total_contribution"] / days_in_month * target_day) if days_in_month > 0 else 0
+        daily_target_advertising = (target_summary["total_advertising"] / days_in_month * target_day) if days_in_month > 0 else 0
+
+        def calc_rate(current: float, target: float) -> Optional[float]:
+            if target == 0:
+                return None
+            return round((current / target) * 100, 1)
+
+        return {
+            "target_day": target_day,
+            "days_in_month": days_in_month,
+            "daily_target": {
+                "total_sales": round(daily_target_sales, 0),
+                "total_quantity": round(daily_target_quantity, 0),
+                "total_contribution": round(daily_target_contribution, 0),
+                "total_advertising": round(daily_target_advertising, 0),
+            },
+            "current": {
+                "total_sales": current_summary["total_sales"],
+                "total_quantity": current_summary["total_quantity"],
+                "total_marketing": current_summary["total_marketing"],
+                "total_contribution": current_summary["total_contribution"],
+            },
+            "achievement_rate": {
+                "sales_rate": calc_rate(current_summary["total_sales"], daily_target_sales),
+                "quantity_rate": calc_rate(current_summary["total_quantity"], daily_target_quantity),
+                "contribution_rate": calc_rate(current_summary["total_contribution"], daily_target_contribution),
+                "marketing_rate": calc_rate(current_summary["total_marketing"], daily_target_advertising),
+            }
+        }
+
+    def get_daily_sales_data(self, year: int, month: int, manager: Optional[str] = None) -> dict:
+        """일별 매출 데이터 (그래프용)"""
+        import calendar
+
+        days_in_month = calendar.monthrange(year, month)[1]
+        sales = self.get_sales_by_year_month_manager(year, month, manager)
+
+        # 일별 데이터 초기화
+        daily_data = {
+            "sales": [0.0] * days_in_month,
+            "quantity": [0.0] * days_in_month,
+            "contribution": [0.0] * days_in_month,
+            "marketing": [0.0] * days_in_month,
+        }
+
+        kpi_mapping = {
+            "매출": "sales",
+            "판매량": "quantity",
+            "공헌이익": "contribution",
+            "광고선전비": "marketing",
+        }
+
+        for sale in sales:
+            kpi_type = sale.get("kpi_type", "")
+            data_key = kpi_mapping.get(kpi_type)
+            if not data_key:
+                continue
+
+            grid_data = sale.get("grid_data", [])
+            for row in grid_data:
+                if not row or len(row) < 2:
+                    continue
+                # row[0]은 기준(행 이름), row[1:]은 일별 데이터
+                values = row[1:]
+                for day_idx, val in enumerate(values):
+                    if day_idx < days_in_month:
+                        daily_data[data_key][day_idx] += parse_number(val)
+
+        # 누계 계산
+        cumulative_data = {
+            "sales": [],
+            "quantity": [],
+            "contribution": [],
+            "marketing": [],
+        }
+
+        for key in cumulative_data:
+            cumsum = 0
+            for val in daily_data[key]:
+                cumsum += val
+                cumulative_data[key].append(cumsum)
+
+        return {
+            "days_in_month": days_in_month,
+            "daily": daily_data,
+            "cumulative": cumulative_data,
         }
 
     def _sale_to_dict(self, sale: Sale) -> dict:
