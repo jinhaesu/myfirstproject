@@ -113,11 +113,13 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
       if (selectedManager && selectedManager !== 'all') {
         url += `&manager=${encodeURIComponent(selectedManager)}`;
       }
+      console.log('[fetchComparison] URL:', url, 'selectedManager:', selectedManager);
       const res = await fetch(url, {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
+        console.log('[fetchComparison] Response:', data);
         setComparison(data);
       }
     } catch (error) {
