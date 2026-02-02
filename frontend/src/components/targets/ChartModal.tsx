@@ -91,8 +91,14 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
 
         if (res.ok) {
           const items = await res.json();
-          // 같은 kpi_type인 항목 찾기
-          const matchingItem = items.find((item: { kpi_type: string }) => item.kpi_type === data.kpi_type);
+          // 같은 title과 kpi_type인 항목 찾기 (먼저 title로 매칭, 없으면 kpi_type으로)
+          let matchingItem = items.find((item: { title: string; kpi_type: string }) =>
+            item.title === data.title && item.kpi_type === data.kpi_type
+          );
+          // title이 정확히 일치하지 않으면 kpi_type만으로 매칭
+          if (!matchingItem) {
+            matchingItem = items.find((item: { kpi_type: string }) => item.kpi_type === data.kpi_type);
+          }
           if (matchingItem) {
             setPreviousData({
               grid_data: matchingItem.grid_data,
