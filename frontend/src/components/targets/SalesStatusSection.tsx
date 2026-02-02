@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { SalesModal } from './SalesModal';
 import { DataItemActions } from './DataItemActions';
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -52,6 +55,45 @@ interface Comparison {
   };
 }
 
+interface RealtimeIndicator {
+  target_day: number;
+  days_in_month: number;
+  daily_target: {
+    total_sales: number;
+    total_quantity: number;
+    total_contribution: number;
+    total_advertising: number;
+  };
+  current: {
+    total_sales: number;
+    total_quantity: number;
+    total_marketing: number;
+    total_contribution: number;
+  };
+  achievement_rate: {
+    sales_rate: number | null;
+    quantity_rate: number | null;
+    contribution_rate: number | null;
+    marketing_rate: number | null;
+  };
+}
+
+interface DailyChartData {
+  days_in_month: number;
+  daily: {
+    sales: number[];
+    quantity: number[];
+    contribution: number[];
+    marketing: number[];
+  };
+  cumulative: {
+    sales: number[];
+    quantity: number[];
+    contribution: number[];
+    marketing: number[];
+  };
+}
+
 interface SalesStatusSectionProps {
   selectedYear: number;
   selectedMonth: number;
@@ -64,14 +106,18 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
   const [year, setYear] = useState(selectedYear);
   const [month, setMonth] = useState(selectedMonth);
   const [sales, setSales] = useState<Sale[]>([]);
-  const [allSales, setAllSales] = useState<Sale[]>([]); // 필터링 전 전체 데이터
+  const [allSales, setAllSales] = useState<Sale[]>([]);
   const [comparison, setComparison] = useState<Comparison | null>(null);
+  const [realtime, setRealtime] = useState<RealtimeIndicator | null>(null);
+  const [dailyChart, setDailyChart] = useState<DailyChartData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [selectedManager, setSelectedManager] = useState<string>('all');
+  const [excludeVat, setExcludeVat] = useState(false);
+  const [chartMode, setChartMode] = useState<'daily' | 'cumulative'>('cumulative');
+  const [showRealtimeChart, setShowRealtimeChart] = useState(false);
 
-  // 책임자 목록 추출
   const managers = useMemo(() => {
     const managerSet = new Set(allSales.map((sale) => sale.manager));
     return Array.from(managerSet).sort();
@@ -85,6 +131,11 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
     };
   };
 
+  // 부가세 계산 (부가세 별도 시 /1.1)
+  const applyVat = useCallback((value: number) => {
+    return excludeVat ? Math.round(value / 1.1) : value;
+  }, [excludeVat]);
+
   const fetchSales = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -94,7 +145,6 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
       if (res.ok) {
         const data = await res.json();
         setAllSales(data);
-        // 책임자 필터 적용
         if (selectedManager === 'all') {
           setSales(data);
         } else {
@@ -113,13 +163,11 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
       if (selectedManager && selectedManager !== 'all') {
         url += `&manager=${encodeURIComponent(selectedManager)}`;
       }
-      console.log('[fetchComparison] URL:', url, 'selectedManager:', selectedManager);
       const res = await fetch(url, {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
-        console.log('[fetchComparison] Response:', data);
         setComparison(data);
       }
     } catch (error) {
@@ -127,10 +175,48 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
     }
   }, [year, month, selectedManager]);
 
+  const fetchRealtime = useCallback(async () => {
+    try {
+      let url = `${API_BASE}/api/targets/sales/realtime?year=${year}&month=${month}`;
+      if (selectedManager && selectedManager !== 'all') {
+        url += `&manager=${encodeURIComponent(selectedManager)}`;
+      }
+      const res = await fetch(url, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRealtime(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch realtime:', error);
+    }
+  }, [year, month, selectedManager]);
+
+  const fetchDailyChart = useCallback(async () => {
+    try {
+      let url = `${API_BASE}/api/targets/sales/daily-chart?year=${year}&month=${month}`;
+      if (selectedManager && selectedManager !== 'all') {
+        url += `&manager=${encodeURIComponent(selectedManager)}`;
+      }
+      const res = await fetch(url, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDailyChart(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch daily chart:', error);
+    }
+  }, [year, month, selectedManager]);
+
   useEffect(() => {
     fetchSales();
     fetchComparison();
-  }, [fetchSales, fetchComparison]);
+    fetchRealtime();
+    fetchDailyChart();
+  }, [fetchSales, fetchComparison, fetchRealtime, fetchDailyChart]);
 
   const handleSave = async (data: Omit<Sale, 'id' | 'created_at'>) => {
     try {
@@ -150,6 +236,8 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
         setEditingSale(null);
         fetchSales();
         fetchComparison();
+        fetchRealtime();
+        fetchDailyChart();
       }
     } catch (error) {
       console.error('Failed to save sale:', error);
@@ -167,6 +255,8 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
       if (res.ok) {
         fetchSales();
         fetchComparison();
+        fetchRealtime();
+        fetchDailyChart();
       }
     } catch (error) {
       console.error('Failed to delete sale:', error);
@@ -179,6 +269,10 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
   };
 
   const formatNumber = (num: number) => {
+    return new Intl.NumberFormat('ko-KR').format(applyVat(num));
+  };
+
+  const formatNumberRaw = (num: number) => {
     return new Intl.NumberFormat('ko-KR').format(num);
   };
 
@@ -202,24 +296,46 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
     );
   };
 
+  // 차트 데이터 생성
+  const chartData = useMemo(() => {
+    if (!dailyChart) return [];
+    const data = chartMode === 'cumulative' ? dailyChart.cumulative : dailyChart.daily;
+    return Array.from({ length: dailyChart.days_in_month }, (_, i) => ({
+      day: `${i + 1}일`,
+      매출: applyVat(data.sales[i] || 0),
+    }));
+  }, [dailyChart, chartMode, applyVat]);
+
   return (
     <section className="mb-8">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         {/* 헤더 */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-800">매출 현황 및 실시간</h2>
-          <button
-            onClick={() => {
-              setEditingSale(null);
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            기입하기
-          </button>
+          <div className="flex items-center gap-3">
+            {/* 부가세 토글 */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={excludeVat}
+                onChange={(e) => setExcludeVat(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+              />
+              <span className="text-sm text-slate-600">부가세 별도</span>
+            </label>
+            <button
+              onClick={() => {
+                setEditingSale(null);
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              기입하기
+            </button>
+          </div>
         </div>
 
         {/* 년도/월 선택 & 합계 */}
@@ -270,7 +386,9 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
               {/* 현재 합계 */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-200">
-                  <p className="text-sm text-slate-500 mb-1">매출 합계</p>
+                  <p className="text-sm text-slate-500 mb-1">
+                    매출 합계 <span className="text-xs text-slate-400">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+                  </p>
                   <p className="text-xl font-bold text-blue-600">
                     {comparison.current.total_sales > 0 ? `${formatNumber(comparison.current.total_sales)}원` : '없음'}
                   </p>
@@ -278,17 +396,21 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
                 <div className="bg-white p-4 rounded-xl border border-slate-200">
                   <p className="text-sm text-slate-500 mb-1">판매수량 합계</p>
                   <p className="text-xl font-bold text-emerald-600">
-                    {comparison.current.total_quantity > 0 ? formatNumber(comparison.current.total_quantity) : '없음'}
+                    {comparison.current.total_quantity > 0 ? formatNumberRaw(comparison.current.total_quantity) : '없음'}
                   </p>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200">
-                  <p className="text-sm text-slate-500 mb-1">마케팅비</p>
+                  <p className="text-sm text-slate-500 mb-1">
+                    마케팅비 <span className="text-xs text-slate-400">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+                  </p>
                   <p className="text-xl font-bold text-orange-600">
                     {comparison.current.total_marketing > 0 ? `${formatNumber(comparison.current.total_marketing)}원` : '없음'}
                   </p>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200">
-                  <p className="text-sm text-slate-500 mb-1">공헌이익 합계</p>
+                  <p className="text-sm text-slate-500 mb-1">
+                    공헌이익 합계 <span className="text-xs text-slate-400">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+                  </p>
                   <p className="text-xl font-bold text-purple-600">
                     {comparison.current.total_contribution > 0 ? `${formatNumber(comparison.current.total_contribution)}원` : '없음'}
                   </p>
@@ -298,7 +420,12 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
               {/* 목표 대비 & 전월 대비 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-200">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3">목표 대비 달성률</h4>
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3">
+                    월간 목표 대비 달성률
+                    {selectedManager !== 'all' && (
+                      <span className="text-xs text-blue-500 ml-2">({selectedManager} 기준)</span>
+                    )}
+                  </h4>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <p className="text-xs text-slate-500">매출</p>
@@ -354,6 +481,125 @@ export function SalesStatusSection({ selectedYear, selectedMonth }: SalesStatusS
             </>
           )}
         </div>
+
+        {/* 실시간 지표 섹션 */}
+        {realtime && (
+          <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-slate-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-md font-semibold text-slate-800 flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                실시간 지표
+                <span className="text-xs font-normal text-slate-500">
+                  ({realtime.target_day}일/{realtime.days_in_month}일 기준)
+                </span>
+                {selectedManager !== 'all' && (
+                  <span className="text-xs text-blue-500">({selectedManager})</span>
+                )}
+              </h3>
+              <button
+                onClick={() => setShowRealtimeChart(!showRealtimeChart)}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                {showRealtimeChart ? '그래프 숨기기' : '그래프 보기'}
+              </button>
+            </div>
+
+            {/* 당일 기준 목표 대비 달성률 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                <p className="text-sm text-slate-500 mb-1">당일 기준 매출 목표</p>
+                <p className="text-lg font-bold text-slate-700">
+                  {formatNumber(realtime.daily_target.total_sales)}원
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  실적: {formatNumber(realtime.current.total_sales)}원
+                </p>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                <p className="text-sm text-slate-500 mb-1">당일 기준 매출 달성률</p>
+                <p className="text-2xl font-bold">{renderRate(realtime.achievement_rate.sales_rate)}</p>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                <p className="text-sm text-slate-500 mb-1">당일 기준 판매량 목표</p>
+                <p className="text-lg font-bold text-slate-700">
+                  {formatNumberRaw(realtime.daily_target.total_quantity)}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  실적: {formatNumberRaw(realtime.current.total_quantity)}
+                </p>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                <p className="text-sm text-slate-500 mb-1">당일 기준 판매량 달성률</p>
+                <p className="text-2xl font-bold">{renderRate(realtime.achievement_rate.quantity_rate)}</p>
+              </div>
+            </div>
+
+            {/* 실시간 그래프 */}
+            {showRealtimeChart && dailyChart && (
+              <div className="bg-white p-4 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-sm font-semibold text-slate-700">일별 매출 추이</h4>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setChartMode('daily')}
+                      className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                        chartMode === 'daily'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      일계
+                    </button>
+                    <button
+                      onClick={() => setChartMode('cumulative')}
+                      className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                        chartMode === 'cumulative'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      누계
+                    </button>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  {chartMode === 'cumulative' ? (
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                      <YAxis
+                        tickFormatter={(value) => new Intl.NumberFormat('ko-KR', { notation: 'compact' }).format(value)}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, '매출']}
+                      />
+                      <Legend />
+                      <Line type="monotone" dataKey="매출" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  ) : (
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                      <YAxis
+                        tickFormatter={(value) => new Intl.NumberFormat('ko-KR', { notation: 'compact' }).format(value)}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, '매출']}
+                      />
+                      <Legend />
+                      <Bar dataKey="매출" fill="#3B82F6" />
+                    </BarChart>
+                  )}
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 리스트 */}
         <div className="divide-y divide-slate-100">

@@ -159,6 +159,30 @@ async def get_comparison(
     return service.get_comparison_data(year, month, manager)
 
 
+@router.get("/sales/realtime")
+async def get_realtime_indicator(
+    year: int,
+    month: int,
+    manager: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    service: TargetsService = Depends(get_targets_service)
+):
+    """실시간 지표 조회 (당일 기준 목표 대비 달성률)"""
+    return service.get_realtime_indicator(year, month, manager)
+
+
+@router.get("/sales/daily-chart")
+async def get_daily_sales_chart(
+    year: int,
+    month: int,
+    manager: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    service: TargetsService = Depends(get_targets_service)
+):
+    """일별 매출 데이터 (그래프용)"""
+    return service.get_daily_sales_data(year, month, manager)
+
+
 @router.get("/sales/{sale_id}")
 async def get_sale(
     sale_id: str,
