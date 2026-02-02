@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ExcelGrid } from '@/components/grid/ExcelGrid';
 
 interface SalesModalProps {
