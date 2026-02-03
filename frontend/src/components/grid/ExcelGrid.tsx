@@ -33,10 +33,32 @@ export function ExcelGrid({
     onChange(newData);
   }, [data, onChange]);
 
-  // 행 추가
+  // 행 추가 (맨 아래)
   const handleAddRow = useCallback(() => {
     const newRow = new Array(columns.length + 1).fill('');
     onChange([...data, newRow]);
+  }, [data, columns.length, onChange]);
+
+  // 특정 위치에 행 삽입 (해당 행 아래에 추가)
+  const handleInsertRowBelow = useCallback((rowIndex: number) => {
+    const newRow = new Array(columns.length + 1).fill('');
+    const newData = [
+      ...data.slice(0, rowIndex + 1),
+      newRow,
+      ...data.slice(rowIndex + 1)
+    ];
+    onChange(newData);
+  }, [data, columns.length, onChange]);
+
+  // 특정 위치에 행 삽입 (해당 행 위에 추가)
+  const handleInsertRowAbove = useCallback((rowIndex: number) => {
+    const newRow = new Array(columns.length + 1).fill('');
+    const newData = [
+      ...data.slice(0, rowIndex),
+      newRow,
+      ...data.slice(rowIndex)
+    ];
+    onChange(newData);
   }, [data, columns.length, onChange]);
 
   // 행 삭제
@@ -150,6 +172,11 @@ export function ExcelGrid({
         <table className="w-full border-collapse">
           <thead className="bg-slate-100 sticky top-0 z-10">
             <tr>
+              {allowAddRow && (
+                <th className="border-r border-b border-slate-200 px-1 py-2 w-[70px] text-center text-xs font-medium text-slate-500">
+                  행 관리
+                </th>
+              )}
               <th className="border-r border-b border-slate-200 px-3 py-2 text-left text-sm font-semibold text-slate-700 min-w-[120px]">
                 기준
               </th>
@@ -161,14 +188,49 @@ export function ExcelGrid({
                   {col}
                 </th>
               ))}
-              {allowAddRow && (
-                <th className="border-b border-slate-200 px-2 py-2 w-10"></th>
-              )}
             </tr>
           </thead>
           <tbody>
             {data.map((row, rowIndex) => (
-              <tr key={rowIndex} className="hover:bg-slate-50">
+              <tr key={rowIndex} className="hover:bg-slate-50 group">
+                {/* 행 관리 버튼들 */}
+                {allowAddRow && (
+                  <td className="border-r border-b border-slate-200 px-1 py-1 bg-slate-50">
+                    <div className="flex items-center justify-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => handleInsertRowAbove(rowIndex)}
+                        className="p-0.5 text-slate-400 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100"
+                        title="위에 행 추가"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleInsertRowBelow(rowIndex)}
+                        className="p-0.5 text-slate-400 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100"
+                        title="아래에 행 추가"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRow(rowIndex)}
+                        className={`p-0.5 text-slate-400 hover:text-red-500 transition-colors ${data.length <= 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100'}`}
+                        title="행 삭제"
+                        disabled={data.length <= 1}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                )}
                 {/* 첫 번째 열 (기준) */}
                 <td
                   className={`border-r border-b border-slate-200 px-1 py-1 ${
@@ -226,21 +288,6 @@ export function ExcelGrid({
                     </td>
                   );
                 })}
-                {/* 삭제 버튼 */}
-                {allowAddRow && (
-                  <td className="border-b border-slate-200 px-1 py-1">
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteRow(rowIndex)}
-                      className="p-1 text-slate-400 hover:text-red-500 transition-colors"
-                      title="행 삭제"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </td>
-                )}
               </tr>
             ))}
           </tbody>

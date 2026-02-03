@@ -293,6 +293,43 @@ class TargetsService:
         finally:
             self._close_db(db)
 
+    def get_sales_summary_until_day(self, year: int, month: int, max_day: int, manager: Optional[str] = None) -> dict:
+        """특정 년도/월의 매출 현황 합계 계산 - 특정 일까지만 (당일 기준 실시간 지표용)"""
+        sales = self.get_sales_by_year_month_manager(year, month, manager)
+        summary = {
+            "total_sales": 0.0,
+            "total_quantity": 0.0,
+            "total_marketing": 0.0,
+            "total_contribution": 0.0,
+            "has_data": False,
+        }
+
+        kpi_mapping = {
+            "매출": "total_sales",
+            "판매량": "total_quantity",
+            "광고선전비": "total_marketing",
+            "공헌이익": "total_contribution",
+        }
+
+        for sale in sales:
+            summary["has_data"] = True
+            kpi_type = sale.get("kpi_type", "")
+            summary_key = kpi_mapping.get(kpi_type)
+            if not summary_key:
+                continue
+
+            grid_data = sale.get("grid_data", [])
+            for row in grid_data:
+                if not row or len(row) < 2:
+                    continue
+                # row[0]은 기준(행 이름), row[1:]은 일별 데이터
+                # max_day까지만 합산
+                values = row[1:max_day + 1]  # 1일부터 max_day일까지
+                for val in values:
+                    summary[summary_key] += parse_number(val)
+
+        return summary
+
     def get_sales_summary(self, year: int, month: int, manager: Optional[str] = None) -> dict:
         """특정 년도/월의 매출 현황 합계 계산 (책임자 필터 옵션)"""
         sales = self.get_sales_by_year_month_manager(year, month, manager)
@@ -395,15 +432,15 @@ class TargetsService:
         # 목표 데이터 (책임자 필터 적용)
         target_summary = self.get_target_summary(year, month, manager)
 
-        # 실적 데이터 (책임자 필터 적용)
-        current_summary = self.get_sales_summary(year, month, manager)
-
         # 당일 기준 목표 계산 (월 목표 / 총 일수 * 현재 일)
         # 선택한 년월이 현재 년월이면 오늘 날짜, 아니면 마지막 날
         if year == today.year and month == today.month:
             target_day = current_day
         else:
             target_day = days_in_month
+
+        # 실적 데이터 - 당일까지만 합산 (책임자 필터 적용)
+        current_summary = self.get_sales_summary_until_day(year, month, target_day, manager)
 
         daily_target_sales = (target_summary["total_sales"] / days_in_month * target_day) if days_in_month > 0 else 0
         daily_target_quantity = (target_summary["total_quantity"] / days_in_month * target_day) if days_in_month > 0 else 0
@@ -442,7 +479,15 @@ class TargetsService:
         """일별 매출 데이터 (그래프용)"""
         import calendar
 
+        today = datetime.now()
         days_in_month = calendar.monthrange(year, month)[1]
+
+        # 당일 기준 일자 계산
+        if year == today.year and month == today.month:
+            target_day = today.day
+        else:
+            target_day = days_in_month
+
         sales = self.get_sales_by_year_month_manager(year, month, manager)
 
         # 일별 데이터 초기화
@@ -492,9 +537,146 @@ class TargetsService:
 
         return {
             "days_in_month": days_in_month,
+            "target_day": target_day,
             "daily": daily_data,
             "cumulative": cumulative_data,
         }
+
+    def get_targets_by_manager(self, year: int, month: Optional[int] = None) -> dict:
+        """책임자별 목표 데이터 집계"""
+        targets = self.get_targets_by_year_month(year)
+        manager_data: dict = {}
+
+        kpi_mapping = {
+            "매출": "sales",
+            "판매량": "quantity",
+            "공헌이익": "contribution",
+            "광고선전비": "advertising",
+        }
+
+        for target in targets:
+            manager = target.get("manager", "미지정")
+            kpi_type = target.get("kpi_type", "")
+            data_key = kpi_mapping.get(kpi_type)
+            if not data_key:
+                continue
+
+            if manager not in manager_data:
+                manager_data[manager] = {"sales": 0, "quantity": 0, "contribution": 0, "advertising": 0}
+
+            grid_data = target.get("grid_data", [])
+            for row in grid_data:
+                if not row or len(row) < 2:
+                    continue
+                values = row[1:13]
+                if month is not None and 1 <= month <= 12:
+                    if len(values) >= month:
+                        manager_data[manager][data_key] += parse_number(values[month - 1])
+                else:
+                    for val in values:
+                        manager_data[manager][data_key] += parse_number(val)
+
+        return {"by_manager": manager_data}
+
+    def get_targets_by_criteria(self, year: int, month: Optional[int] = None) -> dict:
+        """기준별 목표 데이터 집계 (grid_data의 행 기준)"""
+        targets = self.get_targets_by_year_month(year)
+        criteria_data: dict = {}
+
+        kpi_mapping = {
+            "매출": "sales",
+            "판매량": "quantity",
+            "공헌이익": "contribution",
+            "광고선전비": "advertising",
+        }
+
+        for target in targets:
+            kpi_type = target.get("kpi_type", "")
+            data_key = kpi_mapping.get(kpi_type)
+            if not data_key:
+                continue
+
+            grid_data = target.get("grid_data", [])
+            for row in grid_data:
+                if not row or len(row) < 2:
+                    continue
+                criteria = row[0] or "미지정"
+                if criteria not in criteria_data:
+                    criteria_data[criteria] = {"sales": 0, "quantity": 0, "contribution": 0, "advertising": 0}
+
+                values = row[1:13]
+                if month is not None and 1 <= month <= 12:
+                    if len(values) >= month:
+                        criteria_data[criteria][data_key] += parse_number(values[month - 1])
+                else:
+                    for val in values:
+                        criteria_data[criteria][data_key] += parse_number(val)
+
+        return {"by_criteria": criteria_data}
+
+    def get_sales_by_manager(self, year: int, month: int) -> dict:
+        """책임자별 매출 데이터 집계"""
+        sales = self.get_sales_by_year_month(year, month)
+        manager_data: dict = {}
+
+        kpi_mapping = {
+            "매출": "sales",
+            "판매량": "quantity",
+            "공헌이익": "contribution",
+            "광고선전비": "marketing",
+        }
+
+        for sale in sales:
+            manager = sale.get("manager", "미지정")
+            kpi_type = sale.get("kpi_type", "")
+            data_key = kpi_mapping.get(kpi_type)
+            if not data_key:
+                continue
+
+            if manager not in manager_data:
+                manager_data[manager] = {"sales": 0, "quantity": 0, "contribution": 0, "marketing": 0}
+
+            grid_data = sale.get("grid_data", [])
+            for row in grid_data:
+                if not row or len(row) < 2:
+                    continue
+                values = row[1:]
+                for val in values:
+                    manager_data[manager][data_key] += parse_number(val)
+
+        return {"by_manager": manager_data}
+
+    def get_sales_by_criteria(self, year: int, month: int) -> dict:
+        """기준별 매출 데이터 집계 (grid_data의 행 기준)"""
+        sales = self.get_sales_by_year_month(year, month)
+        criteria_data: dict = {}
+
+        kpi_mapping = {
+            "매출": "sales",
+            "판매량": "quantity",
+            "공헌이익": "contribution",
+            "광고선전비": "marketing",
+        }
+
+        for sale in sales:
+            kpi_type = sale.get("kpi_type", "")
+            data_key = kpi_mapping.get(kpi_type)
+            if not data_key:
+                continue
+
+            grid_data = sale.get("grid_data", [])
+            for row in grid_data:
+                if not row or len(row) < 2:
+                    continue
+                criteria = row[0] or "미지정"
+                if criteria not in criteria_data:
+                    criteria_data[criteria] = {"sales": 0, "quantity": 0, "contribution": 0, "marketing": 0}
+
+                values = row[1:]
+                for val in values:
+                    criteria_data[criteria][data_key] += parse_number(val)
+
+        return {"by_criteria": criteria_data}
 
     def _sale_to_dict(self, sale: Sale) -> dict:
         """Sale 모델을 dict로 변환"""
