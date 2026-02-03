@@ -73,6 +73,28 @@ async def get_target_summary(
     return service.get_target_summary(year, month)
 
 
+@router.get("/chart/by-manager")
+async def get_targets_by_manager(
+    year: int,
+    month: Optional[int] = None,
+    current_user: dict = Depends(get_current_user),
+    service: TargetsService = Depends(get_targets_service)
+):
+    """책임자별 목표 데이터 조회"""
+    return service.get_targets_by_manager(year, month)
+
+
+@router.get("/chart/by-criteria")
+async def get_targets_by_criteria(
+    year: int,
+    month: Optional[int] = None,
+    current_user: dict = Depends(get_current_user),
+    service: TargetsService = Depends(get_targets_service)
+):
+    """기준별 목표 데이터 조회"""
+    return service.get_targets_by_criteria(year, month)
+
+
 @router.get("/{target_id}")
 async def get_target(
     target_id: str,
@@ -181,6 +203,28 @@ async def get_daily_sales_chart(
 ):
     """일별 매출 데이터 (그래프용)"""
     return service.get_daily_sales_data(year, month, manager)
+
+
+@router.get("/sales/chart/by-manager")
+async def get_sales_by_manager(
+    year: int,
+    month: int,
+    current_user: dict = Depends(get_current_user),
+    service: TargetsService = Depends(get_targets_service)
+):
+    """책임자별 매출 데이터 조회"""
+    return service.get_sales_by_manager(year, month)
+
+
+@router.get("/sales/chart/by-criteria")
+async def get_sales_by_criteria(
+    year: int,
+    month: int,
+    current_user: dict = Depends(get_current_user),
+    service: TargetsService = Depends(get_targets_service)
+):
+    """기준별 매출 데이터 조회"""
+    return service.get_sales_by_criteria(year, month)
 
 
 @router.get("/sales/{sale_id}")

@@ -94,6 +94,14 @@ interface DailyChartData {
   };
 }
 
+interface SalesChartData {
+  name: string;
+  매출: number;
+  판매량: number;
+  공헌이익: number;
+  마케팅비: number;
+}
+
 interface SalesStatusSectionProps {
   selectedYear: number;
   selectedMonth: number;
@@ -117,6 +125,12 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
   const [selectedManager, setSelectedManager] = useState<string>('all');
   const [chartMode, setChartMode] = useState<'daily' | 'cumulative'>('cumulative');
   const [showRealtimeChart, setShowRealtimeChart] = useState(false);
+
+  // 책임자별/기준별 차트 상태
+  const [showManagerChart, setShowManagerChart] = useState(false);
+  const [showCriteriaChart, setShowCriteriaChart] = useState(false);
+  const [managerChartData, setManagerChartData] = useState<SalesChartData[]>([]);
+  const [criteriaChartData, setCriteriaChartData] = useState<SalesChartData[]>([]);
 
   const managers = useMemo(() => {
     const managerSet = new Set(allSales.map((sale) => sale.manager));
@@ -211,12 +225,64 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
     }
   }, [year, month, selectedManager]);
 
+  const fetchManagerChartData = useCallback(async () => {
+    if (!showManagerChart) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/targets/sales/chart/by-manager?year=${year}&month=${month}`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const chartData: SalesChartData[] = Object.entries(data.by_manager || {}).map(([manager, values]: [string, any]) => ({
+          name: manager,
+          매출: values.매출 || 0,
+          판매량: values.판매량 || 0,
+          공헌이익: values.공헌이익 || 0,
+          마케팅비: values.마케팅비 || 0,
+        }));
+        setManagerChartData(chartData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch manager chart data:', error);
+    }
+  }, [year, month, showManagerChart]);
+
+  const fetchCriteriaChartData = useCallback(async () => {
+    if (!showCriteriaChart) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/targets/sales/chart/by-criteria?year=${year}&month=${month}`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const chartData: SalesChartData[] = Object.entries(data.by_criteria || {}).map(([criteria, values]: [string, any]) => ({
+          name: criteria,
+          매출: values.매출 || 0,
+          판매량: values.판매량 || 0,
+          공헌이익: values.공헌이익 || 0,
+          마케팅비: values.마케팅비 || 0,
+        }));
+        setCriteriaChartData(chartData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch criteria chart data:', error);
+    }
+  }, [year, month, showCriteriaChart]);
+
   useEffect(() => {
     fetchSales();
     fetchComparison();
     fetchRealtime();
     fetchDailyChart();
   }, [fetchSales, fetchComparison, fetchRealtime, fetchDailyChart]);
+
+  useEffect(() => {
+    fetchManagerChartData();
+  }, [fetchManagerChartData]);
+
+  useEffect(() => {
+    fetchCriteriaChartData();
+  }, [fetchCriteriaChartData]);
 
   const handleSave = async (data: Omit<Sale, 'id' | 'created_at'>) => {
     try {
@@ -466,9 +532,86 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                   )}
                 </div>
               </div>
+
+              {/* 차트 토글 체크박스 */}
+              <div className="flex items-center gap-6 mt-4 pt-4 border-t border-slate-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showManagerChart}
+                    onChange={(e) => setShowManagerChart(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm font-medium text-slate-700">책임자별 현황 지표</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showCriteriaChart}
+                    onChange={(e) => setShowCriteriaChart(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm font-medium text-slate-700">기준별 현황 지표</span>
+                </label>
+              </div>
             </>
           )}
         </div>
+
+        {/* 책임자별/기준별 차트 영역 */}
+        {(showManagerChart || showCriteriaChart) && (
+          <div className="px-6 py-4 border-b border-slate-200">
+            <div className={`grid gap-6 ${showManagerChart && showCriteriaChart ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
+              {/* 책임자별 차트 */}
+              {showManagerChart && managerChartData.length > 0 && (
+                <div className="bg-white p-4 rounded-xl border border-slate-200">
+                  <h3 className="text-sm font-semibold text-slate-700 mb-4">책임자별 현황 지표</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={managerChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => {
+                        if (value >= 100000000) return `${(value / 100000000).toFixed(0)}억`;
+                        if (value >= 10000) return `${(value / 10000).toFixed(0)}만`;
+                        return value.toString();
+                      }} />
+                      <Tooltip formatter={(value: number) => new Intl.NumberFormat('ko-KR').format(applyVat(value))} />
+                      <Legend />
+                      <Bar dataKey="매출" fill="#3b82f6" />
+                      <Bar dataKey="판매량" fill="#10b981" />
+                      <Bar dataKey="공헌이익" fill="#8b5cf6" />
+                      <Bar dataKey="마케팅비" fill="#f97316" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* 기준별 차트 */}
+              {showCriteriaChart && criteriaChartData.length > 0 && (
+                <div className="bg-white p-4 rounded-xl border border-slate-200">
+                  <h3 className="text-sm font-semibold text-slate-700 mb-4">기준별 현황 지표</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={criteriaChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => {
+                        if (value >= 100000000) return `${(value / 100000000).toFixed(0)}억`;
+                        if (value >= 10000) return `${(value / 10000).toFixed(0)}만`;
+                        return value.toString();
+                      }} />
+                      <Tooltip formatter={(value: number) => new Intl.NumberFormat('ko-KR').format(applyVat(value))} />
+                      <Legend />
+                      <Bar dataKey="매출" fill="#3b82f6" />
+                      <Bar dataKey="판매량" fill="#10b981" />
+                      <Bar dataKey="공헌이익" fill="#8b5cf6" />
+                      <Bar dataKey="마케팅비" fill="#f97316" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 실시간 지표 섹션 */}
         {realtime && (
