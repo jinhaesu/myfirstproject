@@ -26,6 +26,22 @@ interface PreviousPeriodData {
   month?: number;
 }
 
+interface DailyTargetData {
+  days_in_month: number;
+  daily: {
+    sales: number[];
+    quantity: number[];
+    contribution: number[];
+    advertising: number[];
+  };
+  cumulative: {
+    sales: number[];
+    quantity: number[];
+    contribution: number[];
+    advertising: number[];
+  };
+}
+
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
 function parseNumber(value: string | number | undefined | null): number {
@@ -53,8 +69,11 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
   const [selectedRows, setSelectedRows] = useState<number[]>([0]);
   const [showComparison, setShowComparison] = useState(false);
   const [showCumulative, setShowCumulative] = useState(false);
+  const [showTargetComparison, setShowTargetComparison] = useState(false);
   const [previousData, setPreviousData] = useState<PreviousPeriodData | null>(null);
+  const [targetData, setTargetData] = useState<DailyTargetData | null>(null);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
+  const [loadingTarget, setLoadingTarget] = useState(false);
 
   // 전년도/전월 데이터 가져오기
   useEffect(() => {
@@ -130,6 +149,38 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
     fetchPreviousData();
   }, [showComparison, data.year, data.month, data.kpi_type, type]);
 
+  // 목표 데이터 가져오기 (매출 현황에서만 사용)
+  useEffect(() => {
+    if (!showTargetComparison || type !== 'sales' || !data.year || !data.month) {
+      setTargetData(null);
+      return;
+    }
+
+    const fetchTargetData = async () => {
+      setLoadingTarget(true);
+      try {
+        const url = `${API_BASE}/api/targets/sales/daily-target?year=${data.year}&month=${data.month}`;
+        const res = await fetch(url, {
+          headers: getAuthHeaders(),
+        });
+
+        if (res.ok) {
+          const targetResponse = await res.json();
+          setTargetData(targetResponse);
+        } else {
+          setTargetData(null);
+        }
+      } catch (error) {
+        console.error('Failed to fetch target data:', error);
+        setTargetData(null);
+      } finally {
+        setLoadingTarget(false);
+      }
+    };
+
+    fetchTargetData();
+  }, [showTargetComparison, data.year, data.month, type]);
+
   // 비교 라벨 생성
   const comparisonLabel = useMemo(() => {
     if (type === 'target') {
@@ -150,7 +201,18 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
     }
   }, [type, data.year, data.month]);
 
-  // 차트 데이터 생성 (현재 데이터 + 비교 데이터)
+  // KPI 타입에 따른 목표 데이터 키 매핑
+  const getTargetDataKey = (kpiType: string): keyof DailyTargetData['daily'] | null => {
+    const mapping: Record<string, keyof DailyTargetData['daily']> = {
+      '매출': 'sales',
+      '판매량': 'quantity',
+      '공헌이익': 'contribution',
+      '광고선전비': 'advertising',
+    };
+    return mapping[kpiType] || null;
+  };
+
+  // 차트 데이터 생성 (현재 데이터 + 비교 데이터 + 목표 데이터)
   const chartData = useMemo(() => {
     const labels = type === 'target'
       ? ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
@@ -204,9 +266,20 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
         result[compDisplayLabel] = prevTotal;
       }
 
+      // 목표 데이터 추가 (매출 현황에서만)
+      if (showTargetComparison && targetData && type === 'sales') {
+        const targetKey = getTargetDataKey(data.kpi_type);
+        if (targetKey) {
+          const targetSource = showCumulative ? targetData.cumulative : targetData.daily;
+          const targetValue = targetSource[targetKey]?.[i] || 0;
+          const targetLabel = showCumulative ? '목표 누계' : '목표';
+          result[targetLabel] = targetValue;
+        }
+      }
+
       return result;
     });
-  }, [data.grid_data, selectedRows, type, showComparison, showCumulative, previousData, currentLabel, comparisonLabel]);
+  }, [data.grid_data, data.kpi_type, selectedRows, type, showComparison, showCumulative, showTargetComparison, previousData, targetData, currentLabel, comparisonLabel]);
 
   const rowNames = useMemo(() => {
     return data.grid_data.map((row, i) => ({
@@ -248,6 +321,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
       const elements = [];
       const displayLabel = showCumulative ? `${currentLabel} 누계` : currentLabel;
       const compDisplayLabel = showCumulative ? `${comparisonLabel} 누계` : comparisonLabel;
+      const targetLabel = showCumulative ? '목표 누계' : '목표';
 
       if (chartType === 'bar') {
         elements.push(
@@ -256,6 +330,11 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
         if (showComparison && previousData) {
           elements.push(
             <Bar key="previous" dataKey={compDisplayLabel} fill={COLORS[1]} name={compDisplayLabel} />
+          );
+        }
+        if (showTargetComparison && targetData && type === 'sales') {
+          elements.push(
+            <Bar key="target" dataKey={targetLabel} fill="#F97316" name={targetLabel} />
           );
         }
       } else if (chartType === 'line') {
@@ -267,6 +346,11 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
             <Line key="previous" type="monotone" dataKey={compDisplayLabel} stroke={COLORS[1]} strokeWidth={2} strokeDasharray="5 5" name={compDisplayLabel} />
           );
         }
+        if (showTargetComparison && targetData && type === 'sales') {
+          elements.push(
+            <Line key="target" type="monotone" dataKey={targetLabel} stroke="#F97316" strokeWidth={2} strokeDasharray="3 3" name={targetLabel} />
+          );
+        }
       } else {
         elements.push(
           <Area key="current" type="monotone" dataKey={displayLabel} stroke={COLORS[0]} fill={COLORS[0]} fillOpacity={0.3} name={displayLabel} />
@@ -274,6 +358,11 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
         if (showComparison && previousData) {
           elements.push(
             <Area key="previous" type="monotone" dataKey={compDisplayLabel} stroke={COLORS[1]} fill={COLORS[1]} fillOpacity={0.2} name={compDisplayLabel} />
+          );
+        }
+        if (showTargetComparison && targetData && type === 'sales') {
+          elements.push(
+            <Area key="target" type="monotone" dataKey={targetLabel} stroke="#F97316" fill="#F97316" fillOpacity={0.15} name={targetLabel} />
           );
         }
       }
@@ -377,6 +466,25 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                   </svg>
                 )}
               </label>
+
+              {/* 목표 값 보기 체크박스 (매출 현황에서만) */}
+              {type === 'sales' && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showTargetComparison}
+                    onChange={(e) => setShowTargetComparison(e.target.checked)}
+                    className="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500"
+                  />
+                  <span className="text-sm font-medium text-slate-600">목표 값 보기</span>
+                  {loadingTarget && (
+                    <svg className="w-4 h-4 animate-spin text-orange-500" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  )}
+                </label>
+              )}
             </div>
           </div>
 
@@ -459,8 +567,8 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
           </div>
 
           {/* 범례 설명 */}
-          {(showComparison && previousData) || showCumulative ? (
-            <div className="mt-4 flex items-center gap-6 text-sm text-slate-600">
+          {(showComparison && previousData) || showCumulative || (showTargetComparison && targetData) ? (
+            <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-slate-600">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[0] }} />
                 <span>{showCumulative ? `${currentLabel} 누계` : currentLabel} (현재)</span>
@@ -469,6 +577,12 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[1] }} />
                   <span>{showCumulative ? `${comparisonLabel} 누계` : comparisonLabel} (비교)</span>
+                </div>
+              )}
+              {showTargetComparison && targetData && type === 'sales' && (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: '#F97316' }} />
+                  <span>{showCumulative ? '목표 누계' : '목표'}</span>
                 </div>
               )}
             </div>

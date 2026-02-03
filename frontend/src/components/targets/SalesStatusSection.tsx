@@ -80,6 +80,7 @@ interface RealtimeIndicator {
 
 interface DailyChartData {
   days_in_month: number;
+  target_day: number;
   daily: {
     sales: number[];
     quantity: number[];
@@ -91,6 +92,34 @@ interface DailyChartData {
     quantity: number[];
     contribution: number[];
     marketing: number[];
+  };
+}
+
+interface DailyTargetData {
+  days_in_month: number;
+  monthly_target: {
+    total_sales: number;
+    total_quantity: number;
+    total_contribution: number;
+    total_advertising: number;
+  };
+  daily_target: {
+    sales: number;
+    quantity: number;
+    contribution: number;
+    advertising: number;
+  };
+  daily: {
+    sales: number[];
+    quantity: number[];
+    contribution: number[];
+    advertising: number[];
+  };
+  cumulative: {
+    sales: number[];
+    quantity: number[];
+    contribution: number[];
+    advertising: number[];
   };
 }
 
@@ -125,6 +154,8 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
   const [selectedManager, setSelectedManager] = useState<string>('all');
   const [chartMode, setChartMode] = useState<'daily' | 'cumulative'>('cumulative');
   const [showRealtimeChart, setShowRealtimeChart] = useState(false);
+  const [showTargetLine, setShowTargetLine] = useState(false);
+  const [dailyTargetData, setDailyTargetData] = useState<DailyTargetData | null>(null);
 
   // 책임자별/기준별 차트 상태
   const [showManagerChart, setShowManagerChart] = useState(false);
@@ -225,6 +256,24 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
     }
   }, [year, month, selectedManager]);
 
+  const fetchDailyTargetData = useCallback(async () => {
+    try {
+      let url = `${API_BASE}/api/targets/sales/daily-target?year=${year}&month=${month}`;
+      if (selectedManager && selectedManager !== 'all') {
+        url += `&manager=${encodeURIComponent(selectedManager)}`;
+      }
+      const res = await fetch(url, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDailyTargetData(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch daily target data:', error);
+    }
+  }, [year, month, selectedManager]);
+
   const fetchManagerChartData = useCallback(async () => {
     if (!showManagerChart) return;
     try {
@@ -274,7 +323,8 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
     fetchComparison();
     fetchRealtime();
     fetchDailyChart();
-  }, [fetchSales, fetchComparison, fetchRealtime, fetchDailyChart]);
+    fetchDailyTargetData();
+  }, [fetchSales, fetchComparison, fetchRealtime, fetchDailyChart, fetchDailyTargetData]);
 
   useEffect(() => {
     fetchManagerChartData();
@@ -362,15 +412,23 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
     );
   };
 
-  // 차트 데이터 생성
+  // 차트 데이터 생성 (목표 값 포함)
   const chartData = useMemo(() => {
     if (!dailyChart) return [];
-    const data = chartMode === 'cumulative' ? dailyChart.cumulative : dailyChart.daily;
-    return Array.from({ length: dailyChart.days_in_month }, (_, i) => ({
-      day: `${i + 1}일`,
-      매출: applyVat(data.sales[i] || 0),
-    }));
-  }, [dailyChart, chartMode, applyVat]);
+    const salesData = chartMode === 'cumulative' ? dailyChart.cumulative : dailyChart.daily;
+    const targetData = dailyTargetData ? (chartMode === 'cumulative' ? dailyTargetData.cumulative : dailyTargetData.daily) : null;
+
+    return Array.from({ length: dailyChart.days_in_month }, (_, i) => {
+      const item: { day: string; 매출: number; 목표?: number } = {
+        day: `${i + 1}일`,
+        매출: applyVat(salesData.sales[i] || 0),
+      };
+      if (showTargetLine && targetData) {
+        item.목표 = applyVat(targetData.sales[i] || 0);
+      }
+      return item;
+    });
+  }, [dailyChart, dailyTargetData, chartMode, applyVat, showTargetLine]);
 
   return (
     <section className="mb-8">
@@ -675,7 +733,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               <div className="bg-white p-4 rounded-xl border border-slate-200">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="text-sm font-semibold text-slate-700">일별 매출 추이</h4>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-3">
                     <button
                       onClick={() => setChartMode('daily')}
                       className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
@@ -696,6 +754,15 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                     >
                       누계
                     </button>
+                    <label className="flex items-center gap-1.5 cursor-pointer ml-2 pl-2 border-l border-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={showTargetLine}
+                        onChange={(e) => setShowTargetLine(e.target.checked)}
+                        className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500"
+                      />
+                      <span className="text-sm text-slate-600">목표 값 표시</span>
+                    </label>
                   </div>
                 </div>
                 <ResponsiveContainer width="100%" height={300}>
@@ -708,10 +775,13 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                         tick={{ fontSize: 12 }}
                       />
                       <Tooltip
-                        formatter={(value: number) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, '매출']}
+                        formatter={(value: number, name: string) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, name]}
                       />
                       <Legend />
                       <Line type="monotone" dataKey="매출" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                      {showTargetLine && (
+                        <Line type="monotone" dataKey="목표" stroke="#F97316" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                      )}
                     </LineChart>
                   ) : (
                     <BarChart data={chartData}>
@@ -722,10 +792,13 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                         tick={{ fontSize: 12 }}
                       />
                       <Tooltip
-                        formatter={(value: number) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, '매출']}
+                        formatter={(value: number, name: string) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, name]}
                       />
                       <Legend />
                       <Bar dataKey="매출" fill="#3B82F6" />
+                      {showTargetLine && (
+                        <Bar dataKey="목표" fill="#F97316" />
+                      )}
                     </BarChart>
                   )}
                 </ResponsiveContainer>
