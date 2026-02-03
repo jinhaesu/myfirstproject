@@ -548,10 +548,10 @@ class TargetsService:
         manager_data: dict = {}
 
         kpi_mapping = {
-            "매출": "sales",
-            "판매량": "quantity",
-            "공헌이익": "contribution",
-            "광고선전비": "advertising",
+            "매출": "매출",
+            "판매량": "판매량",
+            "공헌이익": "공헌이익",
+            "광고선전비": "광고선전비",
         }
 
         for target in targets:
@@ -562,7 +562,7 @@ class TargetsService:
                 continue
 
             if manager not in manager_data:
-                manager_data[manager] = {"sales": 0, "quantity": 0, "contribution": 0, "advertising": 0}
+                manager_data[manager] = {"매출": 0, "판매량": 0, "공헌이익": 0, "광고선전비": 0}
 
             grid_data = target.get("grid_data", [])
             for row in grid_data:
@@ -584,10 +584,10 @@ class TargetsService:
         criteria_data: dict = {}
 
         kpi_mapping = {
-            "매출": "sales",
-            "판매량": "quantity",
-            "공헌이익": "contribution",
-            "광고선전비": "advertising",
+            "매출": "매출",
+            "판매량": "판매량",
+            "공헌이익": "공헌이익",
+            "광고선전비": "광고선전비",
         }
 
         for target in targets:
@@ -602,7 +602,7 @@ class TargetsService:
                     continue
                 criteria = row[0] or "미지정"
                 if criteria not in criteria_data:
-                    criteria_data[criteria] = {"sales": 0, "quantity": 0, "contribution": 0, "advertising": 0}
+                    criteria_data[criteria] = {"매출": 0, "판매량": 0, "공헌이익": 0, "광고선전비": 0}
 
                 values = row[1:13]
                 if month is not None and 1 <= month <= 12:
@@ -620,10 +620,10 @@ class TargetsService:
         manager_data: dict = {}
 
         kpi_mapping = {
-            "매출": "sales",
-            "판매량": "quantity",
-            "공헌이익": "contribution",
-            "광고선전비": "marketing",
+            "매출": "매출",
+            "판매량": "판매량",
+            "공헌이익": "공헌이익",
+            "광고선전비": "마케팅비",
         }
 
         for sale in sales:
@@ -634,7 +634,7 @@ class TargetsService:
                 continue
 
             if manager not in manager_data:
-                manager_data[manager] = {"sales": 0, "quantity": 0, "contribution": 0, "marketing": 0}
+                manager_data[manager] = {"매출": 0, "판매량": 0, "공헌이익": 0, "마케팅비": 0}
 
             grid_data = sale.get("grid_data", [])
             for row in grid_data:
@@ -652,10 +652,10 @@ class TargetsService:
         criteria_data: dict = {}
 
         kpi_mapping = {
-            "매출": "sales",
-            "판매량": "quantity",
-            "공헌이익": "contribution",
-            "광고선전비": "marketing",
+            "매출": "매출",
+            "판매량": "판매량",
+            "공헌이익": "공헌이익",
+            "광고선전비": "마케팅비",
         }
 
         for sale in sales:
@@ -670,13 +670,60 @@ class TargetsService:
                     continue
                 criteria = row[0] or "미지정"
                 if criteria not in criteria_data:
-                    criteria_data[criteria] = {"sales": 0, "quantity": 0, "contribution": 0, "marketing": 0}
+                    criteria_data[criteria] = {"매출": 0, "판매량": 0, "공헌이익": 0, "마케팅비": 0}
 
                 values = row[1:]
                 for val in values:
                     criteria_data[criteria][data_key] += parse_number(val)
 
         return {"by_criteria": criteria_data}
+
+    def get_daily_target_data(self, year: int, month: int, manager: Optional[str] = None) -> dict:
+        """일별 목표 데이터 (그래프용) - 월 목표를 일수로 균등 분할"""
+        import calendar
+
+        days_in_month = calendar.monthrange(year, month)[1]
+
+        # 목표 데이터 (책임자 필터 적용)
+        target_summary = self.get_target_summary(year, month, manager)
+
+        # 일별 목표 (월 목표 / 해당 월 일수)
+        daily_target = {
+            "sales": target_summary["total_sales"] / days_in_month if days_in_month > 0 else 0,
+            "quantity": target_summary["total_quantity"] / days_in_month if days_in_month > 0 else 0,
+            "contribution": target_summary["total_contribution"] / days_in_month if days_in_month > 0 else 0,
+            "advertising": target_summary["total_advertising"] / days_in_month if days_in_month > 0 else 0,
+        }
+
+        # 일별 데이터 (모든 날짜에 동일한 일 목표)
+        daily_data = {
+            "sales": [daily_target["sales"]] * days_in_month,
+            "quantity": [daily_target["quantity"]] * days_in_month,
+            "contribution": [daily_target["contribution"]] * days_in_month,
+            "advertising": [daily_target["advertising"]] * days_in_month,
+        }
+
+        # 누적 목표 데이터
+        cumulative_data = {
+            "sales": [],
+            "quantity": [],
+            "contribution": [],
+            "advertising": [],
+        }
+
+        for key in cumulative_data:
+            cumsum = 0
+            for val in daily_data[key]:
+                cumsum += val
+                cumulative_data[key].append(cumsum)
+
+        return {
+            "days_in_month": days_in_month,
+            "monthly_target": target_summary,
+            "daily_target": daily_target,
+            "daily": daily_data,
+            "cumulative": cumulative_data,
+        }
 
     def _sale_to_dict(self, sale: Sale) -> dict:
         """Sale 모델을 dict로 변환"""

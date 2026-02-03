@@ -205,6 +205,18 @@ async def get_daily_sales_chart(
     return service.get_daily_sales_data(year, month, manager)
 
 
+@router.get("/sales/daily-target")
+async def get_daily_target_chart(
+    year: int,
+    month: int,
+    manager: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    service: TargetsService = Depends(get_targets_service)
+):
+    """일별 목표 데이터 (그래프용) - 월 목표를 일수로 균등 분할"""
+    return service.get_daily_target_data(year, month, manager)
+
+
 @router.get("/sales/chart/by-manager")
 async def get_sales_by_manager(
     year: int,
