@@ -221,22 +221,34 @@ async def get_daily_target_chart(
 async def get_sales_by_manager(
     year: int,
     month: int,
+    until_today: bool = True,
     current_user: dict = Depends(get_current_user),
     service: TargetsService = Depends(get_targets_service)
 ):
-    """책임자별 매출 데이터 조회"""
-    return service.get_sales_by_manager(year, month)
+    """책임자별 매출 데이터 조회 (당일 기준)"""
+    sales_data = service.get_sales_by_manager(year, month, until_today)
+    target_data = service.get_targets_by_manager_until_day(year, month)
+    return {
+        "sales": sales_data,
+        "targets": target_data,
+    }
 
 
 @router.get("/sales/chart/by-criteria")
 async def get_sales_by_criteria(
     year: int,
     month: int,
+    until_today: bool = True,
     current_user: dict = Depends(get_current_user),
     service: TargetsService = Depends(get_targets_service)
 ):
-    """기준별 매출 데이터 조회"""
-    return service.get_sales_by_criteria(year, month)
+    """기준별 매출 데이터 조회 (당일 기준)"""
+    sales_data = service.get_sales_by_criteria(year, month, until_today)
+    target_data = service.get_targets_by_criteria_until_day(year, month)
+    return {
+        "sales": sales_data,
+        "targets": target_data,
+    }
 
 
 @router.get("/sales/{sale_id}")

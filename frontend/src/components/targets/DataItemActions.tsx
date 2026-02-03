@@ -12,6 +12,7 @@ interface DataItemActionsProps {
     grid_data: string[][];
     year?: number;
     month?: number;
+    manager?: string;
   };
   type: 'target' | 'sales';
   onEdit: () => void;

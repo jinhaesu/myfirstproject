@@ -125,10 +125,19 @@ interface DailyTargetData {
 
 interface SalesChartData {
   name: string;
-  매출: number;
-  판매량: number;
-  공헌이익: number;
-  마케팅비: number;
+  현황_매출: number;
+  현황_판매량: number;
+  현황_공헌이익: number;
+  현황_마케팅비: number;
+  목표_매출: number;
+  목표_판매량: number;
+  목표_공헌이익: number;
+  목표_광고선전비: number;
+}
+
+interface ChartMetaInfo {
+  max_day: number;
+  days_in_month: number;
 }
 
 interface SalesStatusSectionProps {
@@ -162,6 +171,8 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
   const [showCriteriaChart, setShowCriteriaChart] = useState(false);
   const [managerChartData, setManagerChartData] = useState<SalesChartData[]>([]);
   const [criteriaChartData, setCriteriaChartData] = useState<SalesChartData[]>([]);
+  const [managerChartMeta, setManagerChartMeta] = useState<ChartMetaInfo | null>(null);
+  const [criteriaChartMeta, setCriteriaChartMeta] = useState<ChartMetaInfo | null>(null);
 
   const managers = useMemo(() => {
     const managerSet = new Set(allSales.map((sale) => sale.manager));
@@ -277,19 +288,33 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
   const fetchManagerChartData = useCallback(async () => {
     if (!showManagerChart) return;
     try {
-      const res = await fetch(`${API_BASE}/api/targets/sales/chart/by-manager?year=${year}&month=${month}`, {
+      const res = await fetch(`${API_BASE}/api/targets/sales/chart/by-manager?year=${year}&month=${month}&until_today=true`, {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
-        const chartData: SalesChartData[] = Object.entries(data.by_manager || {}).map(([manager, values]: [string, any]) => ({
+        const salesData = data.sales?.by_manager || {};
+        const targetData = data.targets?.by_manager || {};
+
+        // 모든 책임자 수집 (현황 + 목표)
+        const allManagers = new Set([...Object.keys(salesData), ...Object.keys(targetData)]);
+
+        const chartData: SalesChartData[] = Array.from(allManagers).map((manager) => ({
           name: manager,
-          매출: values.매출 || 0,
-          판매량: values.판매량 || 0,
-          공헌이익: values.공헌이익 || 0,
-          마케팅비: values.마케팅비 || 0,
+          현황_매출: salesData[manager]?.매출 || 0,
+          현황_판매량: salesData[manager]?.판매량 || 0,
+          현황_공헌이익: salesData[manager]?.공헌이익 || 0,
+          현황_마케팅비: salesData[manager]?.마케팅비 || 0,
+          목표_매출: targetData[manager]?.매출 || 0,
+          목표_판매량: targetData[manager]?.판매량 || 0,
+          목표_공헌이익: targetData[manager]?.공헌이익 || 0,
+          목표_광고선전비: targetData[manager]?.광고선전비 || 0,
         }));
         setManagerChartData(chartData);
+        setManagerChartMeta({
+          max_day: data.sales?.max_day || 0,
+          days_in_month: data.sales?.days_in_month || 0,
+        });
       }
     } catch (error) {
       console.error('Failed to fetch manager chart data:', error);
@@ -299,19 +324,33 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
   const fetchCriteriaChartData = useCallback(async () => {
     if (!showCriteriaChart) return;
     try {
-      const res = await fetch(`${API_BASE}/api/targets/sales/chart/by-criteria?year=${year}&month=${month}`, {
+      const res = await fetch(`${API_BASE}/api/targets/sales/chart/by-criteria?year=${year}&month=${month}&until_today=true`, {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
-        const chartData: SalesChartData[] = Object.entries(data.by_criteria || {}).map(([criteria, values]: [string, any]) => ({
+        const salesData = data.sales?.by_criteria || {};
+        const targetData = data.targets?.by_criteria || {};
+
+        // 모든 기준 수집 (현황 + 목표)
+        const allCriteria = new Set([...Object.keys(salesData), ...Object.keys(targetData)]);
+
+        const chartData: SalesChartData[] = Array.from(allCriteria).map((criteria) => ({
           name: criteria,
-          매출: values.매출 || 0,
-          판매량: values.판매량 || 0,
-          공헌이익: values.공헌이익 || 0,
-          마케팅비: values.마케팅비 || 0,
+          현황_매출: salesData[criteria]?.매출 || 0,
+          현황_판매량: salesData[criteria]?.판매량 || 0,
+          현황_공헌이익: salesData[criteria]?.공헌이익 || 0,
+          현황_마케팅비: salesData[criteria]?.마케팅비 || 0,
+          목표_매출: targetData[criteria]?.매출 || 0,
+          목표_판매량: targetData[criteria]?.판매량 || 0,
+          목표_공헌이익: targetData[criteria]?.공헌이익 || 0,
+          목표_광고선전비: targetData[criteria]?.광고선전비 || 0,
         }));
         setCriteriaChartData(chartData);
+        setCriteriaChartMeta({
+          max_day: data.sales?.max_day || 0,
+          days_in_month: data.sales?.days_in_month || 0,
+        });
       }
     } catch (error) {
       console.error('Failed to fetch criteria chart data:', error);
@@ -623,22 +662,31 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               {/* 책임자별 차트 */}
               {showManagerChart && managerChartData.length > 0 && (
                 <div className="bg-white p-4 rounded-xl border border-slate-200">
-                  <h3 className="text-sm font-semibold text-slate-700 mb-4">책임자별 현황 지표</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-slate-700">
+                      책임자별 현황 vs 목표 지표
+                      {managerChartMeta && (
+                        <span className="text-xs font-normal text-slate-500 ml-2">
+                          ({managerChartMeta.max_day}일/{managerChartMeta.days_in_month}일 기준)
+                        </span>
+                      )}
+                    </h3>
+                  </div>
+                  <ResponsiveContainer width="100%" height={350}>
                     <BarChart data={managerChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => {
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => {
                         if (value >= 100000000) return `${(value / 100000000).toFixed(0)}억`;
                         if (value >= 10000) return `${(value / 10000).toFixed(0)}만`;
                         return value.toString();
                       }} />
-                      <Tooltip formatter={(value: number) => new Intl.NumberFormat('ko-KR').format(applyVat(value))} />
-                      <Legend />
-                      <Bar dataKey="매출" fill="#3b82f6" />
-                      <Bar dataKey="판매량" fill="#10b981" />
-                      <Bar dataKey="공헌이익" fill="#8b5cf6" />
-                      <Bar dataKey="마케팅비" fill="#f97316" />
+                      <Tooltip formatter={(value: number, name: string) => [new Intl.NumberFormat('ko-KR').format(applyVat(value)), name]} />
+                      <Legend wrapperStyle={{ fontSize: '11px' }} />
+                      <Bar dataKey="현황_매출" fill="#3b82f6" name="현황 매출" />
+                      <Bar dataKey="목표_매출" fill="#93c5fd" name="목표 매출" />
+                      <Bar dataKey="현황_판매량" fill="#10b981" name="현황 판매량" />
+                      <Bar dataKey="목표_판매량" fill="#6ee7b7" name="목표 판매량" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -647,22 +695,31 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               {/* 기준별 차트 */}
               {showCriteriaChart && criteriaChartData.length > 0 && (
                 <div className="bg-white p-4 rounded-xl border border-slate-200">
-                  <h3 className="text-sm font-semibold text-slate-700 mb-4">기준별 현황 지표</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-slate-700">
+                      기준별 현황 vs 목표 지표
+                      {criteriaChartMeta && (
+                        <span className="text-xs font-normal text-slate-500 ml-2">
+                          ({criteriaChartMeta.max_day}일/{criteriaChartMeta.days_in_month}일 기준)
+                        </span>
+                      )}
+                    </h3>
+                  </div>
+                  <ResponsiveContainer width="100%" height={350}>
                     <BarChart data={criteriaChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => {
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => {
                         if (value >= 100000000) return `${(value / 100000000).toFixed(0)}억`;
                         if (value >= 10000) return `${(value / 10000).toFixed(0)}만`;
                         return value.toString();
                       }} />
-                      <Tooltip formatter={(value: number) => new Intl.NumberFormat('ko-KR').format(applyVat(value))} />
-                      <Legend />
-                      <Bar dataKey="매출" fill="#3b82f6" />
-                      <Bar dataKey="판매량" fill="#10b981" />
-                      <Bar dataKey="공헌이익" fill="#8b5cf6" />
-                      <Bar dataKey="마케팅비" fill="#f97316" />
+                      <Tooltip formatter={(value: number, name: string) => [new Intl.NumberFormat('ko-KR').format(applyVat(value)), name]} />
+                      <Legend wrapperStyle={{ fontSize: '11px' }} />
+                      <Bar dataKey="현황_매출" fill="#3b82f6" name="현황 매출" />
+                      <Bar dataKey="목표_매출" fill="#93c5fd" name="목표 매출" />
+                      <Bar dataKey="현황_판매량" fill="#10b981" name="현황 판매량" />
+                      <Bar dataKey="목표_판매량" fill="#6ee7b7" name="목표 판매량" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

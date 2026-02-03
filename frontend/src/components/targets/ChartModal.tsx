@@ -15,8 +15,17 @@ interface ChartModalProps {
     grid_data: string[][];
     year?: number;
     month?: number;
+    manager?: string;
   };
   type: 'target' | 'sales';
+}
+
+interface TargetEntryData {
+  grid_data: string[][];
+  title: string;
+  year: number;
+  manager: string;
+  kpi_type: string;
 }
 
 interface PreviousPeriodData {
@@ -24,22 +33,6 @@ interface PreviousPeriodData {
   title: string;
   year: number;
   month?: number;
-}
-
-interface DailyTargetData {
-  days_in_month: number;
-  daily: {
-    sales: number[];
-    quantity: number[];
-    contribution: number[];
-    advertising: number[];
-  };
-  cumulative: {
-    sales: number[];
-    quantity: number[];
-    contribution: number[];
-    advertising: number[];
-  };
 }
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
@@ -71,7 +64,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
   const [showCumulative, setShowCumulative] = useState(false);
   const [showTargetComparison, setShowTargetComparison] = useState(false);
   const [previousData, setPreviousData] = useState<PreviousPeriodData | null>(null);
-  const [targetData, setTargetData] = useState<DailyTargetData | null>(null);
+  const [targetData, setTargetData] = useState<TargetEntryData | null>(null);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
   const [loadingTarget, setLoadingTarget] = useState(false);
 
@@ -149,9 +142,9 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
     fetchPreviousData();
   }, [showComparison, data.year, data.month, data.kpi_type, type]);
 
-  // 목표 데이터 가져오기 (매출 현황에서만 사용)
+  // 목표 데이터 가져오기 (매출 현황에서만 사용 - 해당 책임자의 실제 목표 입력값)
   useEffect(() => {
-    if (!showTargetComparison || type !== 'sales' || !data.year || !data.month) {
+    if (!showTargetComparison || type !== 'sales' || !data.year || !data.manager) {
       setTargetData(null);
       return;
     }
@@ -159,14 +152,24 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
     const fetchTargetData = async () => {
       setLoadingTarget(true);
       try {
-        const url = `${API_BASE}/api/targets/sales/daily-target?year=${data.year}&month=${data.month}`;
+        // 해당 년도의 목표 데이터 조회
+        const url = `${API_BASE}/api/targets?year=${data.year}`;
         const res = await fetch(url, {
           headers: getAuthHeaders(),
         });
 
         if (res.ok) {
-          const targetResponse = await res.json();
-          setTargetData(targetResponse);
+          const targets = await res.json();
+          // 같은 manager + 같은 kpi_type인 목표 데이터 찾기
+          const matchingTarget = targets.find(
+            (t: TargetEntryData) => t.manager === data.manager && t.kpi_type === data.kpi_type
+          );
+
+          if (matchingTarget) {
+            setTargetData(matchingTarget);
+          } else {
+            setTargetData(null);
+          }
         } else {
           setTargetData(null);
         }
@@ -179,7 +182,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
     };
 
     fetchTargetData();
-  }, [showTargetComparison, data.year, data.month, type]);
+  }, [showTargetComparison, data.year, data.manager, data.kpi_type, type]);
 
   // 비교 라벨 생성
   const comparisonLabel = useMemo(() => {
@@ -201,17 +204,6 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
     }
   }, [type, data.year, data.month]);
 
-  // KPI 타입에 따른 목표 데이터 키 매핑
-  const getTargetDataKey = (kpiType: string): keyof DailyTargetData['daily'] | null => {
-    const mapping: Record<string, keyof DailyTargetData['daily']> = {
-      '매출': 'sales',
-      '판매량': 'quantity',
-      '공헌이익': 'contribution',
-      '광고선전비': 'advertising',
-    };
-    return mapping[kpiType] || null;
-  };
-
   // 차트 데이터 생성 (현재 데이터 + 비교 데이터 + 목표 데이터)
   const chartData = useMemo(() => {
     const labels = type === 'target'
@@ -220,6 +212,34 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
 
     let cumulativeCurrent = 0;
     let cumulativePrevious = 0;
+    let cumulativeTarget = 0;
+
+    // 목표 데이터에서 월 목표를 일 목표로 변환
+    const getDailyTargetValue = (): number => {
+      if (!targetData || !data.month) return 0;
+
+      // 해당 월의 일수 계산
+      const year = data.year || new Date().getFullYear();
+      const daysInMonth = new Date(year, data.month, 0).getDate();
+
+      // 선택된 행과 매칭되는 목표 행들의 월 목표 합산
+      let monthlyTargetTotal = 0;
+      selectedRows.forEach((rowIndex) => {
+        const currentRowName = data.grid_data[rowIndex]?.[0];
+        // 목표 grid_data에서 같은 기준(행 이름)의 행 찾기
+        const targetRow = targetData.grid_data.find(row => row[0] === currentRowName);
+        if (targetRow) {
+          // 해당 월의 목표값 (월 인덱스: 1월=1, 2월=2, ...)
+          const monthlyValue = parseNumber(targetRow[data.month!]);
+          monthlyTargetTotal += monthlyValue;
+        }
+      });
+
+      // 월 목표를 일수로 나눠서 일일 목표 계산
+      return monthlyTargetTotal / daysInMonth;
+    };
+
+    const dailyTarget = getDailyTargetValue();
 
     return labels.map((label, i) => {
       // 선택된 모든 행의 해당 열 값을 합산 (현재 데이터)
@@ -266,20 +286,23 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
         result[compDisplayLabel] = prevTotal;
       }
 
-      // 목표 데이터 추가 (매출 현황에서만)
+      // 목표 데이터 추가 (매출 현황에서만 - 해당 책임자의 실제 목표 입력값 기반)
       if (showTargetComparison && targetData && type === 'sales') {
-        const targetKey = getTargetDataKey(data.kpi_type);
-        if (targetKey) {
-          const targetSource = showCumulative ? targetData.cumulative : targetData.daily;
-          const targetValue = targetSource[targetKey]?.[i] || 0;
-          const targetLabel = showCumulative ? '목표 누계' : '목표';
-          result[targetLabel] = targetValue;
+        let targetValue = dailyTarget;
+
+        // 누계 모드일 경우 누적 합산
+        if (showCumulative) {
+          cumulativeTarget += dailyTarget;
+          targetValue = cumulativeTarget;
         }
+
+        const targetLabel = showCumulative ? '목표 누계' : '목표';
+        result[targetLabel] = Math.round(targetValue);
       }
 
       return result;
     });
-  }, [data.grid_data, data.kpi_type, selectedRows, type, showComparison, showCumulative, showTargetComparison, previousData, targetData, currentLabel, comparisonLabel]);
+  }, [data.grid_data, data.month, data.year, selectedRows, type, showComparison, showCumulative, showTargetComparison, previousData, targetData, currentLabel, comparisonLabel]);
 
   const rowNames = useMemo(() => {
     return data.grid_data.map((row, i) => ({
@@ -503,6 +526,26 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
               ) : (
                 <>
                   <span className="font-medium">{comparisonLabel}</span>에 동일한 KPI 유형({data.kpi_type})의 데이터가 없습니다
+                </>
+              )}
+            </div>
+          )}
+
+          {/* 목표 데이터 상태 표시 */}
+          {showTargetComparison && type === 'sales' && !loadingTarget && (
+            <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${
+              targetData
+                ? 'bg-orange-50 text-orange-700'
+                : 'bg-amber-50 text-amber-700'
+            }`}>
+              {targetData ? (
+                <>
+                  <span className="font-medium">{data.manager}</span>님의 {data.year}년 목표 데이터와 비교 중
+                  <span className="text-xs ml-2">({targetData.title})</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-medium">{data.manager}</span>님의 {data.year}년 <span className="font-medium">{data.kpi_type}</span> 목표 데이터가 없습니다
                 </>
               )}
             </div>
