@@ -144,7 +144,23 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
 
   // 목표 데이터 가져오기 (매출 현황에서만 사용 - 해당 책임자의 실제 목표 입력값)
   useEffect(() => {
+    // 디버그: 전달된 데이터 확인
+    console.log('[ChartModal] Target fetch check:', {
+      showTargetComparison,
+      type,
+      'data.year': data.year,
+      'data.month': data.month,
+      'data.manager': data.manager,
+      'data.kpi_type': data.kpi_type,
+    });
+
     if (!showTargetComparison || type !== 'sales' || !data.year || !data.manager) {
+      console.log('[ChartModal] Early return - missing data:', {
+        showTargetComparison,
+        typeIsSales: type === 'sales',
+        hasYear: !!data.year,
+        hasManager: !!data.manager,
+      });
       setTargetData(null);
       return;
     }
@@ -154,17 +170,21 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
       try {
         // 해당 년도의 목표 데이터 조회
         const url = `${API_BASE}/api/targets?year=${data.year}`;
+        console.log('[ChartModal] Fetching targets from:', url);
         const res = await fetch(url, {
           headers: getAuthHeaders(),
         });
 
         if (res.ok) {
           const targets = await res.json();
+          console.log('[ChartModal] Received targets:', targets.length, 'items');
 
           // 매칭을 위한 문자열 정규화 (공백 제거, 소문자 변환)
           const normalizeStr = (s: string | undefined | null) => (s || '').trim().toLowerCase();
           const searchManager = normalizeStr(data.manager);
           const searchKpiType = normalizeStr(data.kpi_type);
+
+          console.log('[ChartModal] Searching for:', { searchManager, searchKpiType });
 
           // 같은 manager + 같은 kpi_type인 목표 데이터 찾기
           const matchingTarget = targets.find(
@@ -174,6 +194,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
           );
 
           if (matchingTarget) {
+            console.log('[ChartModal] Found matching target:', matchingTarget.title);
             setTargetData(matchingTarget);
           } else {
             // 매칭 실패 시 디버그 정보 출력
@@ -188,6 +209,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
             setTargetData(null);
           }
         } else {
+          console.log('[ChartModal] Fetch failed with status:', res.status);
           setTargetData(null);
         }
       } catch (error) {
