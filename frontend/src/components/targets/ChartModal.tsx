@@ -169,7 +169,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
       setLoadingTarget(true);
       try {
         // 해당 년도의 목표 데이터 조회
-        const url = `${API_BASE}/api/targets?year=${data.year}`;
+        const url = `${API_BASE}/api/targets/?year=${data.year}`;
         console.log('[ChartModal] Fetching targets from:', url);
         const res = await fetch(url, {
           headers: getAuthHeaders(),
