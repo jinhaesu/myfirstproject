@@ -732,16 +732,21 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
         {realtime && (
           <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-slate-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-md font-semibold text-slate-800 flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                실시간 지표
-                <span className="text-xs font-normal text-slate-500">
-                  ({realtime.target_day}일/{realtime.days_in_month}일 기준)
-                </span>
-                {selectedManager !== 'all' && (
-                  <span className="text-xs text-blue-500">({selectedManager})</span>
-                )}
-              </h3>
+              <div className="flex flex-col">
+                <h3 className="text-md font-semibold text-slate-800 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  실시간 지표
+                  <span className="text-xs font-normal text-slate-500">
+                    ({realtime.target_day}일/{realtime.days_in_month}일 기준)
+                  </span>
+                  {selectedManager !== 'all' && (
+                    <span className="text-xs text-blue-500">({selectedManager})</span>
+                  )}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1 ml-4">
+                  * 당일(오늘)의 하루 전날을 기준으로 합산된 목표 값이 표시됩니다.
+                </p>
+              </div>
               <button
                 onClick={() => setShowRealtimeChart(!showRealtimeChart)}
                 className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
