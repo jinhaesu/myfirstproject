@@ -614,10 +614,21 @@ class TargetsService:
 
         return {"by_criteria": criteria_data}
 
-    def get_sales_by_manager(self, year: int, month: int) -> dict:
-        """책임자별 매출 데이터 집계"""
+    def get_sales_by_manager(self, year: int, month: int, until_today: bool = False) -> dict:
+        """책임자별 매출 데이터 집계 (당일 기준 옵션)"""
+        import calendar
+        from datetime import datetime
+
         sales = self.get_sales_by_year_month(year, month)
         manager_data: dict = {}
+
+        # 당일 기준 계산
+        today = datetime.now()
+        days_in_month = calendar.monthrange(year, month)[1]
+        if until_today and year == today.year and month == today.month:
+            max_day = today.day
+        else:
+            max_day = days_in_month
 
         kpi_mapping = {
             "매출": "매출",
@@ -640,16 +651,28 @@ class TargetsService:
             for row in grid_data:
                 if not row or len(row) < 2:
                     continue
-                values = row[1:]
+                # 당일 기준이면 max_day까지만 합산
+                values = row[1:max_day + 1] if until_today else row[1:]
                 for val in values:
                     manager_data[manager][data_key] += parse_number(val)
 
-        return {"by_manager": manager_data}
+        return {"by_manager": manager_data, "max_day": max_day, "days_in_month": days_in_month}
 
-    def get_sales_by_criteria(self, year: int, month: int) -> dict:
-        """기준별 매출 데이터 집계 (grid_data의 행 기준)"""
+    def get_sales_by_criteria(self, year: int, month: int, until_today: bool = False) -> dict:
+        """기준별 매출 데이터 집계 (grid_data의 행 기준, 당일 기준 옵션)"""
+        import calendar
+        from datetime import datetime
+
         sales = self.get_sales_by_year_month(year, month)
         criteria_data: dict = {}
+
+        # 당일 기준 계산
+        today = datetime.now()
+        days_in_month = calendar.monthrange(year, month)[1]
+        if until_today and year == today.year and month == today.month:
+            max_day = today.day
+        else:
+            max_day = days_in_month
 
         kpi_mapping = {
             "매출": "매출",
@@ -672,11 +695,102 @@ class TargetsService:
                 if criteria not in criteria_data:
                     criteria_data[criteria] = {"매출": 0, "판매량": 0, "공헌이익": 0, "마케팅비": 0}
 
-                values = row[1:]
+                # 당일 기준이면 max_day까지만 합산
+                values = row[1:max_day + 1] if until_today else row[1:]
                 for val in values:
                     criteria_data[criteria][data_key] += parse_number(val)
 
-        return {"by_criteria": criteria_data}
+        return {"by_criteria": criteria_data, "max_day": max_day, "days_in_month": days_in_month}
+
+    def get_targets_by_manager_until_day(self, year: int, month: int) -> dict:
+        """책임자별 목표 데이터 집계 (당일 기준 - 월 목표를 일수로 나눠서 당일까지 합산)"""
+        import calendar
+        from datetime import datetime
+
+        targets = self.get_targets_by_year_month(year)
+        manager_data: dict = {}
+
+        today = datetime.now()
+        days_in_month = calendar.monthrange(year, month)[1]
+        if year == today.year and month == today.month:
+            max_day = today.day
+        else:
+            max_day = days_in_month
+
+        kpi_mapping = {
+            "매출": "매출",
+            "판매량": "판매량",
+            "공헌이익": "공헌이익",
+            "광고선전비": "광고선전비",
+        }
+
+        for target in targets:
+            manager = target.get("manager", "미지정")
+            kpi_type = target.get("kpi_type", "")
+            data_key = kpi_mapping.get(kpi_type)
+            if not data_key:
+                continue
+
+            if manager not in manager_data:
+                manager_data[manager] = {"매출": 0, "판매량": 0, "공헌이익": 0, "광고선전비": 0}
+
+            grid_data = target.get("grid_data", [])
+            for row in grid_data:
+                if not row or len(row) < 2:
+                    continue
+                values = row[1:13]
+                if 1 <= month <= 12 and len(values) >= month:
+                    monthly_target = parse_number(values[month - 1])
+                    # 일 목표 = 월 목표 / 총 일수, 당일까지 합산 = 일 목표 * 당일
+                    daily_target_sum = (monthly_target / days_in_month) * max_day if days_in_month > 0 else 0
+                    manager_data[manager][data_key] += daily_target_sum
+
+        return {"by_manager": manager_data, "max_day": max_day, "days_in_month": days_in_month}
+
+    def get_targets_by_criteria_until_day(self, year: int, month: int) -> dict:
+        """기준별 목표 데이터 집계 (당일 기준 - 월 목표를 일수로 나눠서 당일까지 합산)"""
+        import calendar
+        from datetime import datetime
+
+        targets = self.get_targets_by_year_month(year)
+        criteria_data: dict = {}
+
+        today = datetime.now()
+        days_in_month = calendar.monthrange(year, month)[1]
+        if year == today.year and month == today.month:
+            max_day = today.day
+        else:
+            max_day = days_in_month
+
+        kpi_mapping = {
+            "매출": "매출",
+            "판매량": "판매량",
+            "공헌이익": "공헌이익",
+            "광고선전비": "광고선전비",
+        }
+
+        for target in targets:
+            kpi_type = target.get("kpi_type", "")
+            data_key = kpi_mapping.get(kpi_type)
+            if not data_key:
+                continue
+
+            grid_data = target.get("grid_data", [])
+            for row in grid_data:
+                if not row or len(row) < 2:
+                    continue
+                criteria = row[0] or "미지정"
+                if criteria not in criteria_data:
+                    criteria_data[criteria] = {"매출": 0, "판매량": 0, "공헌이익": 0, "광고선전비": 0}
+
+                values = row[1:13]
+                if 1 <= month <= 12 and len(values) >= month:
+                    monthly_target = parse_number(values[month - 1])
+                    # 일 목표 = 월 목표 / 총 일수, 당일까지 합산 = 일 목표 * 당일
+                    daily_target_sum = (monthly_target / days_in_month) * max_day if days_in_month > 0 else 0
+                    criteria_data[criteria][data_key] += daily_target_sum
+
+        return {"by_criteria": criteria_data, "max_day": max_day, "days_in_month": days_in_month}
 
     def get_daily_target_data(self, year: int, month: int, manager: Optional[str] = None) -> dict:
         """일별 목표 데이터 (그래프용) - 월 목표를 일수로 균등 분할"""
