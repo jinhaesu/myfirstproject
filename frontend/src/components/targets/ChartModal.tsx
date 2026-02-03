@@ -160,14 +160,31 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
 
         if (res.ok) {
           const targets = await res.json();
+
+          // 매칭을 위한 문자열 정규화 (공백 제거, 소문자 변환)
+          const normalizeStr = (s: string | undefined | null) => (s || '').trim().toLowerCase();
+          const searchManager = normalizeStr(data.manager);
+          const searchKpiType = normalizeStr(data.kpi_type);
+
           // 같은 manager + 같은 kpi_type인 목표 데이터 찾기
           const matchingTarget = targets.find(
-            (t: TargetEntryData) => t.manager === data.manager && t.kpi_type === data.kpi_type
+            (t: TargetEntryData) =>
+              normalizeStr(t.manager) === searchManager &&
+              normalizeStr(t.kpi_type) === searchKpiType
           );
 
           if (matchingTarget) {
             setTargetData(matchingTarget);
           } else {
+            // 매칭 실패 시 디버그 정보 출력
+            console.log('[ChartModal] Target matching failed:', {
+              searchManager,
+              searchKpiType,
+              availableTargets: targets.map((t: TargetEntryData) => ({
+                manager: t.manager,
+                kpi_type: t.kpi_type,
+              })),
+            });
             setTargetData(null);
           }
         } else {

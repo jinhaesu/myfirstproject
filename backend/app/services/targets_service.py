@@ -420,11 +420,16 @@ class TargetsService:
         }
 
     def get_realtime_indicator(self, year: int, month: int, manager: Optional[str] = None) -> dict:
-        """실시간 지표 계산 (당일 기준 목표 대비 달성률)"""
+        """실시간 지표 계산 (전날 기준 목표 대비 달성률)
+
+        실제로 데이터 기입자는 오늘(당일) 출근해서 어제(전날)까지의 데이터를 기입하므로,
+        2월 3일이면 2월 2일까지의 합계로 계산
+        """
         import calendar
 
         today = datetime.now()
-        current_day = today.day
+        # 전날 기준으로 계산 (오늘 - 1)
+        current_day = today.day - 1
 
         # 해당 월의 총 일수
         days_in_month = calendar.monthrange(year, month)[1]
@@ -432,10 +437,10 @@ class TargetsService:
         # 목표 데이터 (책임자 필터 적용)
         target_summary = self.get_target_summary(year, month, manager)
 
-        # 당일 기준 목표 계산 (월 목표 / 총 일수 * 현재 일)
-        # 선택한 년월이 현재 년월이면 오늘 날짜, 아니면 마지막 날
+        # 전날 기준 목표 계산 (월 목표 / 총 일수 * 전날까지)
+        # 선택한 년월이 현재 년월이면 어제 날짜, 아니면 마지막 날
         if year == today.year and month == today.month:
-            target_day = current_day
+            target_day = current_day  # 전날 기준
         else:
             target_day = days_in_month
 
@@ -476,15 +481,15 @@ class TargetsService:
         }
 
     def get_daily_sales_data(self, year: int, month: int, manager: Optional[str] = None) -> dict:
-        """일별 매출 데이터 (그래프용)"""
+        """일별 매출 데이터 (그래프용) - 전날 기준"""
         import calendar
 
         today = datetime.now()
         days_in_month = calendar.monthrange(year, month)[1]
 
-        # 당일 기준 일자 계산
+        # 전날 기준 일자 계산 (오늘 - 1)
         if year == today.year and month == today.month:
-            target_day = today.day
+            target_day = today.day - 1  # 전날 기준
         else:
             target_day = days_in_month
 
@@ -615,18 +620,18 @@ class TargetsService:
         return {"by_criteria": criteria_data}
 
     def get_sales_by_manager(self, year: int, month: int, until_today: bool = False) -> dict:
-        """책임자별 매출 데이터 집계 (당일 기준 옵션)"""
+        """책임자별 매출 데이터 집계 (전날 기준 옵션)"""
         import calendar
         from datetime import datetime
 
         sales = self.get_sales_by_year_month(year, month)
         manager_data: dict = {}
 
-        # 당일 기준 계산
+        # 전날 기준 계산 (오늘 - 1)
         today = datetime.now()
         days_in_month = calendar.monthrange(year, month)[1]
         if until_today and year == today.year and month == today.month:
-            max_day = today.day
+            max_day = today.day - 1  # 전날 기준
         else:
             max_day = days_in_month
 
@@ -659,18 +664,18 @@ class TargetsService:
         return {"by_manager": manager_data, "max_day": max_day, "days_in_month": days_in_month}
 
     def get_sales_by_criteria(self, year: int, month: int, until_today: bool = False) -> dict:
-        """기준별 매출 데이터 집계 (grid_data의 행 기준, 당일 기준 옵션)"""
+        """기준별 매출 데이터 집계 (grid_data의 행 기준, 전날 기준 옵션)"""
         import calendar
         from datetime import datetime
 
         sales = self.get_sales_by_year_month(year, month)
         criteria_data: dict = {}
 
-        # 당일 기준 계산
+        # 전날 기준 계산 (오늘 - 1)
         today = datetime.now()
         days_in_month = calendar.monthrange(year, month)[1]
         if until_today and year == today.year and month == today.month:
-            max_day = today.day
+            max_day = today.day - 1  # 전날 기준
         else:
             max_day = days_in_month
 
@@ -703,7 +708,7 @@ class TargetsService:
         return {"by_criteria": criteria_data, "max_day": max_day, "days_in_month": days_in_month}
 
     def get_targets_by_manager_until_day(self, year: int, month: int) -> dict:
-        """책임자별 목표 데이터 집계 (당일 기준 - 월 목표를 일수로 나눠서 당일까지 합산)"""
+        """책임자별 목표 데이터 집계 (전날 기준 - 월 목표를 일수로 나눠서 전날까지 합산)"""
         import calendar
         from datetime import datetime
 
@@ -713,7 +718,7 @@ class TargetsService:
         today = datetime.now()
         days_in_month = calendar.monthrange(year, month)[1]
         if year == today.year and month == today.month:
-            max_day = today.day
+            max_day = today.day - 1  # 전날 기준
         else:
             max_day = days_in_month
 
@@ -748,7 +753,7 @@ class TargetsService:
         return {"by_manager": manager_data, "max_day": max_day, "days_in_month": days_in_month}
 
     def get_targets_by_criteria_until_day(self, year: int, month: int) -> dict:
-        """기준별 목표 데이터 집계 (당일 기준 - 월 목표를 일수로 나눠서 당일까지 합산)"""
+        """기준별 목표 데이터 집계 (전날 기준 - 월 목표를 일수로 나눠서 전날까지 합산)"""
         import calendar
         from datetime import datetime
 
@@ -758,7 +763,7 @@ class TargetsService:
         today = datetime.now()
         days_in_month = calendar.monthrange(year, month)[1]
         if year == today.year and month == today.month:
-            max_day = today.day
+            max_day = today.day - 1  # 전날 기준
         else:
             max_day = days_in_month
 
