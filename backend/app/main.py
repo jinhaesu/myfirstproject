@@ -22,6 +22,7 @@ app = FastAPI(
     description="자연어로 BigQuery 데이터를 분석하는 채팅 API",
     version="1.0.0",
     lifespan=lifespan,
+    redirect_slashes=False,  # HTTPS 리다이렉트 문제 방지
 )
 
 # CORS 설정
