@@ -164,7 +164,9 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
   const [chartMode, setChartMode] = useState<'daily' | 'cumulative'>('cumulative');
   const [showRealtimeChart, setShowRealtimeChart] = useState(false);
   const [showTargetLine, setShowTargetLine] = useState(false);
+  const [showPreviousMonth, setShowPreviousMonth] = useState(false);
   const [dailyTargetData, setDailyTargetData] = useState<DailyTargetData | null>(null);
+  const [previousMonthChart, setPreviousMonthChart] = useState<DailyChartData | null>(null);
 
   // 책임자별/기준별 차트 상태
   const [showManagerChart, setShowManagerChart] = useState(false);
@@ -285,6 +287,35 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
     }
   }, [year, month, selectedManager]);
 
+  const fetchPreviousMonthChart = useCallback(async () => {
+    if (!showPreviousMonth) {
+      setPreviousMonthChart(null);
+      return;
+    }
+    try {
+      // 전월 계산
+      const prevMonth = month === 1 ? 12 : month - 1;
+      const prevYear = month === 1 ? year - 1 : year;
+
+      let url = `${API_BASE}/api/targets/sales/daily-chart?year=${prevYear}&month=${prevMonth}`;
+      if (selectedManager && selectedManager !== 'all') {
+        url += `&manager=${encodeURIComponent(selectedManager)}`;
+      }
+      const res = await fetch(url, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPreviousMonthChart(data);
+      } else {
+        setPreviousMonthChart(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch previous month chart:', error);
+      setPreviousMonthChart(null);
+    }
+  }, [year, month, selectedManager, showPreviousMonth]);
+
   const fetchManagerChartData = useCallback(async () => {
     if (!showManagerChart) return;
     try {
@@ -370,6 +401,10 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
   }, [fetchManagerChartData]);
 
   useEffect(() => {
+    fetchPreviousMonthChart();
+  }, [fetchPreviousMonthChart]);
+
+  useEffect(() => {
     fetchCriteriaChartData();
   }, [fetchCriteriaChartData]);
 
@@ -451,23 +486,35 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
     );
   };
 
-  // 차트 데이터 생성 (목표 값 포함)
+  // 전월 라벨 생성
+  const previousMonthLabel = useMemo(() => {
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    return `${prevYear}년 ${prevMonth}월`;
+  }, [year, month]);
+
+  // 차트 데이터 생성 (목표 값 + 전월 비교 포함)
   const chartData = useMemo(() => {
     if (!dailyChart) return [];
     const salesData = chartMode === 'cumulative' ? dailyChart.cumulative : dailyChart.daily;
     const targetData = dailyTargetData ? (chartMode === 'cumulative' ? dailyTargetData.cumulative : dailyTargetData.daily) : null;
+    const prevData = previousMonthChart ? (chartMode === 'cumulative' ? previousMonthChart.cumulative : previousMonthChart.daily) : null;
 
     return Array.from({ length: dailyChart.days_in_month }, (_, i) => {
-      const item: { day: string; 매출: number; 목표?: number } = {
+      const item: { day: string; 매출: number; 목표?: number; 전월?: number } = {
         day: `${i + 1}일`,
         매출: applyVat(salesData.sales[i] || 0),
       };
       if (showTargetLine && targetData) {
         item.목표 = applyVat(targetData.sales[i] || 0);
       }
+      if (showPreviousMonth && prevData) {
+        // 전월 데이터가 해당 일자에 있으면 표시 (전월 일수가 다를 수 있음)
+        item.전월 = applyVat(prevData.sales[i] || 0);
+      }
       return item;
     });
-  }, [dailyChart, dailyTargetData, chartMode, applyVat, showTargetLine]);
+  }, [dailyChart, dailyTargetData, previousMonthChart, chartMode, applyVat, showTargetLine, showPreviousMonth]);
 
   return (
     <section className="mb-8">
@@ -825,8 +872,24 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       />
                       <span className="text-sm text-slate-600">목표 값 표시</span>
                     </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer ml-2 pl-2 border-l border-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={showPreviousMonth}
+                        onChange={(e) => setShowPreviousMonth(e.target.checked)}
+                        className="w-4 h-4 text-emerald-500 rounded border-slate-300 focus:ring-emerald-500"
+                      />
+                      <span className="text-sm text-slate-600">전월 비교</span>
+                    </label>
                   </div>
                 </div>
+                {/* 전월 비교 안내 */}
+                {showPreviousMonth && (
+                  <p className="text-xs text-slate-500 mb-2">
+                    * 전월 ({previousMonthLabel}) 매출 데이터와 비교
+                    {!previousMonthChart && ' - 전월 데이터가 없습니다'}
+                  </p>
+                )}
                 <ResponsiveContainer width="100%" height={300}>
                   {chartMode === 'cumulative' ? (
                     <LineChart data={chartData}>
@@ -840,9 +903,12 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                         formatter={(value: number, name: string) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, name]}
                       />
                       <Legend />
-                      <Line type="monotone" dataKey="매출" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="매출" stroke="#3B82F6" strokeWidth={2} dot={false} name={`${year}년 ${month}월`} />
                       {showTargetLine && (
                         <Line type="monotone" dataKey="목표" stroke="#F97316" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                      )}
+                      {showPreviousMonth && previousMonthChart && (
+                        <Line type="monotone" dataKey="전월" stroke="#10B981" strokeWidth={2} strokeDasharray="3 3" dot={false} name={previousMonthLabel} />
                       )}
                     </LineChart>
                   ) : (
@@ -857,9 +923,12 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                         formatter={(value: number, name: string) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, name]}
                       />
                       <Legend />
-                      <Bar dataKey="매출" fill="#3B82F6" />
+                      <Bar dataKey="매출" fill="#3B82F6" name={`${year}년 ${month}월`} />
                       {showTargetLine && (
                         <Bar dataKey="목표" fill="#F97316" />
+                      )}
+                      {showPreviousMonth && previousMonthChart && (
+                        <Bar dataKey="전월" fill="#10B981" name={previousMonthLabel} />
                       )}
                     </BarChart>
                   )}
