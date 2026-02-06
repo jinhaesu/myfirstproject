@@ -614,6 +614,9 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                   </p>
                 </div>
               </div>
+              <p className="text-xs text-slate-400 mt-2">
+                * 해당 매출 합계는 책임자들이 해당 월에 날짜 무관 기입한 모든 매출 데이터의 합계입니다 (미리 기입한 매출도 합산 표시)
+              </p>
 
               {/* 목표 대비 & 전월 대비 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
