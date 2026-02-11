@@ -12,3 +12,5 @@ email-validator
 resend
 sqlalchemy
 psycopg2-binary
+pandas
+openpyxl
