@@ -51,6 +51,23 @@ interface DailySummary {
   };
 }
 
+interface ChannelDailySale {
+  channel_id: string;
+  channel_name: string;
+  year: number;
+  month: number;
+  day: number;
+  gross_sales: number;
+  net_sales: number;
+  order_count: number;
+  quantity: number;
+}
+
+interface TargetData {
+  kpi_type: string;
+  grid_data: (string | number)[][];
+}
+
 const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
 const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` }));
 
@@ -94,6 +111,7 @@ function ChannelsPageContent() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [channelSummary, setChannelSummary] = useState<ChannelSummary[]>([]);
   const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
+  const [channelDailyDetail, setChannelDailyDetail] = useState<ChannelDailySale[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
@@ -207,11 +225,14 @@ function ChannelsPageContent() {
   const fetchSummary = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [channelRes, dailyRes] = await Promise.all([
+      const [channelRes, dailyRes, detailRes] = await Promise.all([
         fetch(`${API_BASE}/api/channels/sales/by-channel?year=${year}&month=${month}`, {
           headers: getAuthHeaders(),
         }),
         fetch(`${API_BASE}/api/channels/sales/summary?year=${year}&month=${month}`, {
+          headers: getAuthHeaders(),
+        }),
+        fetch(`${API_BASE}/api/channels/sales/detail?year=${year}&month=${month}`, {
           headers: getAuthHeaders(),
         }),
       ]);
@@ -224,36 +245,75 @@ function ChannelsPageContent() {
         const data = await dailyRes.json();
         setDailySummary(data);
       }
+      if (detailRes.ok) {
+        const data = await detailRes.json();
+        setChannelDailyDetail(data);
+      }
     } catch (error) {
       console.error('Failed to fetch summary:', error);
     }
     setIsLoading(false);
   }, [year, month]);
 
-  // 목표 지표 fetch
+  // 목표 지표 fetch - raw 데이터에서 선택된 채널만 필터링
+  const [allTargets, setAllTargets] = useState<TargetData[]>([]);
+
   const fetchTarget = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/targets/summary?year=${year}&month=${month}`, {
+      const res = await fetch(`${API_BASE}/api/targets?year=${year}`, {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
-        setMonthlyTarget(data.total_sales != null ? data.total_sales : null);
+        setAllTargets(data);
       } else {
+        setAllTargets([]);
         setMonthlyTarget(null);
       }
     } catch {
+      setAllTargets([]);
       setMonthlyTarget(null);
     }
-  }, [year, month]);
+  }, [year]);
 
   useEffect(() => {
     if (showTarget) {
       fetchTarget();
     } else {
+      setAllTargets([]);
       setMonthlyTarget(null);
     }
   }, [showTarget, fetchTarget]);
+
+  // 선택된 채널에 해당하는 목표 매출 계산
+  useEffect(() => {
+    if (!showTarget || allTargets.length === 0) {
+      if (!showTarget) setMonthlyTarget(null);
+      return;
+    }
+    const parseNum = (v: string | number | null | undefined): number => {
+      if (v == null || v === '') return 0;
+      if (typeof v === 'number') return v;
+      return parseFloat(String(v).replace(/,/g, '')) || 0;
+    };
+
+    let total = 0;
+    for (const target of allTargets) {
+      if (target.kpi_type !== '매출') continue;
+      const grid = target.grid_data || [];
+      for (const row of grid) {
+        if (!row || row.length < 2) continue;
+        const criteriaName = String(row[0]);
+        // 선택된 채널명과 매칭
+        if (!selectedSyncChannels.has(criteriaName)) continue;
+        const values = row.slice(1, 13);
+        if (month >= 1 && month <= 12 && values.length >= month) {
+          total += parseNum(values[month - 1]);
+        }
+      }
+    }
+    setMonthlyTarget(total > 0 ? total : null);
+  }, [allTargets, selectedSyncChannels, month, showTarget]);
 
   // 채널명 → API 동기화 엔드포인트 매핑 (연동 구현된 채널만)
   const SYNC_ENDPOINTS: Record<string, string> = {
@@ -404,18 +464,49 @@ function ChannelsPageContent() {
       color: COLORS[i % COLORS.length],
     }));
 
-  // 일별 차트 데이터 (목표 누적선 포함)
-  const dailyChartData = dailySummary?.daily.map(d => {
-    const entry: Record<string, string | number> = {
-      day: `${d.day}일`,
-      매출: chartMode === 'cumulative' ? d.cumulative_gross : d.gross_sales,
-      주문: d.order_count,
-    };
-    if (showTarget && monthlyTarget && dailySummary.days_in_month > 0) {
-      entry['목표'] = Math.round(d.day * (monthlyTarget / dailySummary.days_in_month));
+  // 연동 채널 필터 적용된 일별 차트 데이터
+  const dailyChartData = (() => {
+    if (!dailySummary) return [];
+    const daysInMonth = dailySummary.days_in_month;
+
+    // 선택된 채널만 필터한 일별 집계
+    const filteredDetail = channelDailyDetail.filter(d => {
+      if (syncChannelNames.includes(d.channel_name)) {
+        return selectedSyncChannels.has(d.channel_name);
+      }
+      return true;
+    });
+
+    // 일별 합산
+    const dailyMap: Record<number, { gross_sales: number; order_count: number }> = {};
+    for (let day = 1; day <= daysInMonth; day++) {
+      dailyMap[day] = { gross_sales: 0, order_count: 0 };
     }
-    return entry;
-  }) || [];
+    for (const d of filteredDetail) {
+      if (dailyMap[d.day]) {
+        dailyMap[d.day].gross_sales += d.gross_sales || 0;
+        dailyMap[d.day].order_count += d.order_count || 0;
+      }
+    }
+
+    // 누계 계산 + 차트 데이터 생성
+    let cumulative = 0;
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const day = i + 1;
+      const dayData = dailyMap[day];
+      cumulative += dayData.gross_sales;
+
+      const entry: Record<string, string | number> = {
+        day: `${day}일`,
+        매출: chartMode === 'cumulative' ? cumulative : dayData.gross_sales,
+        주문: dayData.order_count,
+      };
+      if (showTarget && monthlyTarget && daysInMonth > 0) {
+        entry['목표'] = Math.round(day * (monthlyTarget / daysInMonth));
+      }
+      return entry;
+    });
+  })();
 
   // 카테고리별 합계
   const categoryTotals = filteredChannelSummary.reduce((acc, c) => {
@@ -652,31 +743,27 @@ function ChannelsPageContent() {
                 >
                   누계
                 </button>
-                {chartMode === 'daily' && (
-                  <>
-                    <div className="w-px h-6 bg-slate-200" />
-                    <button
-                      onClick={() => setChartType('bar')}
-                      className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                        chartType === 'bar'
-                          ? 'bg-indigo-500 text-white'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      막대
-                    </button>
-                    <button
-                      onClick={() => setChartType('line')}
-                      className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                        chartType === 'line'
-                          ? 'bg-indigo-500 text-white'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      선형
-                    </button>
-                  </>
-                )}
+                <div className="w-px h-6 bg-slate-200" />
+                <button
+                  onClick={() => setChartType('bar')}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                    chartType === 'bar'
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  막대
+                </button>
+                <button
+                  onClick={() => setChartType('line')}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                    chartType === 'line'
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  선형
+                </button>
               </div>
             </div>
             {isLoading ? (
@@ -685,7 +772,7 @@ function ChannelsPageContent() {
               </div>
             ) : dailyChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
-                {chartMode === 'cumulative' || (chartMode === 'daily' && chartType === 'line') ? (
+                {chartType === 'line' ? (
                   <LineChart data={dailyChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" tick={{ fontSize: 11 }} />
