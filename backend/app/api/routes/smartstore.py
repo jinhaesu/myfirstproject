@@ -33,8 +33,8 @@ def get_channel_service() -> ChannelService:
 
 
 class SyncRequest(BaseModel):
-    year: int
-    month: int
+    start_date: str  # YYYY-MM-DD
+    end_date: str    # YYYY-MM-DD
     channel_id: Optional[str] = None
 
 
@@ -97,25 +97,28 @@ async def sync_sales(
     sync_log = channel_service.create_sync_log(channel_id, channel_name, "api")
 
     try:
-        # 매출 데이터 조회
-        daily_sales = await service.get_daily_sales(data.year, data.month)
+        # 날짜 범위로 매출 데이터 조회 (월별 그룹핑)
+        monthly_data = await service.get_daily_sales_by_range(data.start_date, data.end_date)
 
         # 채널 매출 데이터로 변환
         sales_list = []
-        for day_data in daily_sales:
-            sales_list.append({
-                "channel_id": channel_id,
-                "channel_name": channel_name,
-                "year": data.year,
-                "month": data.month,
-                "day": day_data["day"],
-                "gross_sales": day_data["gross_sales"],
-                "net_sales": day_data["net_sales"],
-                "order_count": day_data["order_count"],
-                "quantity": day_data["quantity"],
-                "commission": day_data["commission"],
-                "source": "smartstore_api",
-            })
+        total_days = 0
+        for _ym, days in monthly_data.items():
+            total_days += len(days)
+            for day_data in days:
+                sales_list.append({
+                    "channel_id": channel_id,
+                    "channel_name": channel_name,
+                    "year": day_data["year"],
+                    "month": day_data["month"],
+                    "day": day_data["day"],
+                    "gross_sales": day_data["gross_sales"],
+                    "net_sales": day_data["net_sales"],
+                    "order_count": day_data["order_count"],
+                    "quantity": day_data["quantity"],
+                    "commission": day_data["commission"],
+                    "source": "smartstore_api",
+                })
 
         # 데이터 저장
         result = channel_service.bulk_upsert_sales(sales_list, sync_log["id"])
@@ -124,16 +127,17 @@ async def sync_sales(
         channel_service.update_sync_log(sync_log["id"], {
             "status": "success" if not result["errors"] else "partial",
             "completed_at": datetime.utcnow(),
-            "records_processed": len(daily_sales),
+            "records_processed": total_days,
             "records_created": result["created"],
             "error_message": str(result["errors"][:3]) if result["errors"] else None,
         })
 
         return {
             "success": True,
-            "message": f"{data.year}년 {data.month}월 매출 데이터 동기화 완료",
+            "message": f"{data.start_date} ~ {data.end_date} 매출 동기화 완료",
             "channel_id": channel_id,
-            "processed": len(daily_sales),
+            "period": f"{data.start_date} ~ {data.end_date}",
+            "processed": total_days,
             "created": result["created"],
             "errors": len(result["errors"]),
         }
@@ -175,8 +179,8 @@ async def get_orders(
 
 @router.get("/daily-sales")
 async def get_daily_sales(
-    year: int,
-    month: int,
+    start_date: str,
+    end_date: str,
     _: dict = Depends(get_current_user),
 ):
     """스마트스토어 일별 매출 조회 (저장하지 않고 조회만)"""
@@ -186,15 +190,21 @@ async def get_daily_sales(
         raise HTTPException(status_code=400, detail="API 인증 정보가 설정되지 않았습니다")
 
     try:
-        daily_sales = await service.get_daily_sales(year, month)
-        total_gross = sum(d["gross_sales"] for d in daily_sales)
-        total_net = sum(d["net_sales"] for d in daily_sales)
-        total_orders = sum(d["order_count"] for d in daily_sales)
+        monthly_data = await service.get_daily_sales_by_range(start_date, end_date)
+
+        total_gross = 0
+        total_net = 0
+        total_orders = 0
+        for days in monthly_data.values():
+            for d in days:
+                total_gross += d["gross_sales"]
+                total_net += d["net_sales"]
+                total_orders += d["order_count"]
 
         return {
-            "year": year,
-            "month": month,
-            "daily": daily_sales,
+            "start_date": start_date,
+            "end_date": end_date,
+            "monthly": monthly_data,
             "summary": {
                 "total_gross_sales": total_gross,
                 "total_net_sales": total_net,

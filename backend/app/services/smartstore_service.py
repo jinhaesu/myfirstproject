@@ -152,32 +152,24 @@ class SmartStoreService:
 
         return all_orders
 
-    async def get_daily_sales(
+    async def get_daily_sales_by_range(
         self,
-        year: int,
-        month: int,
-    ) -> list[dict]:
-        """일별 매출 데이터 조회
+        start_date: str,
+        end_date: str,
+    ) -> dict[str, list[dict]]:
+        """날짜 범위 기반 일별 매출 데이터 조회
 
         Args:
-            year: 년도
-            month: 월
+            start_date: 시작일 (YYYY-MM-DD)
+            end_date: 종료일 (YYYY-MM-DD)
 
         Returns:
-            일별 매출 데이터 리스트
+            월별로 그룹핑된 일별 매출 데이터 {"2026-01": [...], "2026-02": [...]}
         """
-        from calendar import monthrange
-
-        days_in_month = monthrange(year, month)[1]
-        start_date = f"{year}-{month:02d}-01"
-        end_date = f"{year}-{month:02d}-{days_in_month:02d}"
-
-        # 주문 목록 조회
         orders = await self._fetch_orders_for_period(start_date, end_date)
 
-        # 일별 집계
-        # 응답 구조: contents[].content.order.paymentDate, contents[].content.productOrder.*
-        daily_sales = {}
+        # 월별 → 일별 집계
+        monthly_sales: dict[str, dict[int, dict]] = {}
         for item in orders:
             content = item.get("content", item)
             order_info = content.get("order", {})
@@ -195,12 +187,18 @@ class SmartStoreService:
             try:
                 date_str = paid_at.split("T")[0]
                 paid_date = datetime.strptime(date_str, "%Y-%m-%d")
+                year_month = f"{paid_date.year}-{paid_date.month:02d}"
                 day = paid_date.day
             except (ValueError, IndexError):
                 continue
 
-            if day not in daily_sales:
-                daily_sales[day] = {
+            if year_month not in monthly_sales:
+                monthly_sales[year_month] = {}
+
+            if day not in monthly_sales[year_month]:
+                monthly_sales[year_month][day] = {
+                    "year": paid_date.year,
+                    "month": paid_date.month,
                     "day": day,
                     "gross_sales": 0,
                     "net_sales": 0,
@@ -209,19 +207,24 @@ class SmartStoreService:
                     "commission": 0,
                 }
 
-            daily_sales[day]["gross_sales"] += product_order.get("totalPaymentAmount", 0)
-            daily_sales[day]["net_sales"] += product_order.get("expectedSettlementAmount", 0)
-            daily_sales[day]["order_count"] += 1
-            daily_sales[day]["quantity"] += product_order.get("quantity", 0)
+            entry = monthly_sales[year_month][day]
+            entry["gross_sales"] += product_order.get("totalPaymentAmount", 0)
+            entry["net_sales"] += product_order.get("expectedSettlementAmount", 0)
+            entry["order_count"] += 1
+            entry["quantity"] += product_order.get("quantity", 0)
             commission = (
                 product_order.get("paymentCommission", 0)
                 + product_order.get("saleCommission", 0)
                 + product_order.get("knowledgeShoppingSellingInterlockCommission", 0)
                 + product_order.get("channelCommission", 0)
             )
-            daily_sales[day]["commission"] += commission
+            entry["commission"] += commission
 
-        result = sorted(daily_sales.values(), key=lambda x: x["day"])
+        # 정렬하여 반환
+        result = {}
+        for ym, days in monthly_sales.items():
+            result[ym] = sorted(days.values(), key=lambda x: x["day"])
+
         return result
 
     async def get_product_orders(
