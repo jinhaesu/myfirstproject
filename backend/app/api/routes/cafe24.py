@@ -35,6 +35,14 @@ def get_channel_service() -> ChannelService:
     return ChannelService()
 
 
+def _get_frontend_url() -> str:
+    """FRONTEND_URL 환경변수에서 https:// 보장"""
+    url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    if url and not url.startswith("http"):
+        url = f"https://{url}"
+    return url
+
+
 class SyncRequest(BaseModel):
     start_date: Optional[str] = None  # YYYY-MM-DD
     end_date: Optional[str] = None    # YYYY-MM-DD
@@ -114,7 +122,7 @@ async def oauth_callback(
     service = get_cafe24_service()
 
     if not service.is_configured():
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        frontend_url = _get_frontend_url()
         return RedirectResponse(
             url=f"{frontend_url}/channels?cafe24_error=not_configured"
         )
@@ -136,13 +144,13 @@ async def oauth_callback(
         # 토큰을 Channel.config에 저장
         service._save_token_to_channel(channel_id, token_data)
 
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        frontend_url = _get_frontend_url()
         return RedirectResponse(
             url=f"{frontend_url}/channels?cafe24_connected=true"
         )
 
     except Exception as e:
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        frontend_url = _get_frontend_url()
         return RedirectResponse(
             url=f"{frontend_url}/channels?cafe24_error={str(e)[:100]}"
         )
