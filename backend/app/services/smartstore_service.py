@@ -5,6 +5,7 @@ API 문서: https://apicenter.commerce.naver.com/
 """
 import os
 import time
+import asyncio
 import bcrypt
 import base64
 import httpx
@@ -99,12 +100,42 @@ class SmartStoreService:
         response.raise_for_status()
         return response.json()
 
+    async def _fetch_one_day(
+        self,
+        client: httpx.AsyncClient,
+        date_str: str,
+    ) -> list[dict]:
+        """하루치 주문 조회"""
+        from_time = f"{date_str}T00:00:00.000+09:00"
+        day_orders = []
+        page = 1
+        while True:
+            data = await self._request(
+                client,
+                "GET",
+                "/external/v1/pay-order/seller/product-orders",
+                params={
+                    "from": from_time,
+                    "rangeType": "PAYED_DATETIME",
+                    "pageSize": 100,
+                    "page": page,
+                }
+            )
+            orders = data.get("data", {}).get("contents", [])
+            day_orders.extend(orders)
+
+            has_next = data.get("data", {}).get("pagination", {}).get("hasNext", False)
+            if not has_next or len(orders) < 100:
+                break
+            page += 1
+        return day_orders
+
     async def _fetch_orders_for_period(
         self,
         start_date: str,
         end_date: str,
     ) -> list[dict]:
-        """조건형 상품 주문 조회 (하루 단위 분할)
+        """조건형 상품 주문 조회 (병렬 처리)
 
         Args:
             start_date: 시작일 (YYYY-MM-DD)
@@ -118,37 +149,33 @@ class SmartStoreService:
         if end_dt > today:
             end_dt = today
 
+        # 조회할 날짜 목록 생성
+        dates = []
+        current = start_dt
+        while current <= end_dt:
+            dates.append(current.strftime("%Y-%m-%d"))
+            current += timedelta(days=1)
+
+        if not dates:
+            return []
+
         all_orders = []
 
-        # 단일 클라이언트로 모든 요청 처리 (연결 재사용)
+        # 5일씩 병렬 호출 (API rate limit 고려)
         async with httpx.AsyncClient(timeout=30) as client:
-            current = start_dt
-            while current <= end_dt:
-                from_time = current.strftime("%Y-%m-%dT00:00:00.000+09:00")
+            # 토큰 미리 확보
+            await self._get_access_token(client)
 
-                page = 1
-                while True:
-                    data = await self._request(
-                        client,
-                        "GET",
-                        "/external/v1/pay-order/seller/product-orders",
-                        params={
-                            "from": from_time,
-                            "rangeType": "PAYED_DATETIME",
-                            "pageSize": 100,
-                            "page": page,
-                        }
-                    )
-                    orders = data.get("data", {}).get("contents", [])
-                    all_orders.extend(orders)
-
-                    # 다음 페이지가 있는지 확인
-                    has_next = data.get("data", {}).get("pagination", {}).get("hasNext", False)
-                    if not has_next or len(orders) < 100:
-                        break
-                    page += 1
-
-                current += timedelta(days=1)
+            for i in range(0, len(dates), 5):
+                batch = dates[i:i + 5]
+                results = await asyncio.gather(
+                    *[self._fetch_one_day(client, d) for d in batch],
+                    return_exceptions=True,
+                )
+                for r in results:
+                    if isinstance(r, Exception):
+                        continue
+                    all_orders.extend(r)
 
         return all_orders
 
