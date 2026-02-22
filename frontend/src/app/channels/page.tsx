@@ -63,11 +63,6 @@ interface ChannelDailySale {
   quantity: number;
 }
 
-interface TargetData {
-  title: string;
-  kpi_type: string;
-  grid_data: (string | number)[][];
-}
 
 const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
 const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` }));
@@ -256,87 +251,60 @@ function ChannelsPageContent() {
     setIsLoading(false);
   }, [year, month]);
 
-  // 목표 지표 fetch - raw 데이터에서 선택된 채널만 필터링
-  const [allTargets, setAllTargets] = useState<TargetData[]>([]);
+  // 목표 지표 fetch - by-criteria API로 기준명별 매출 목표 가져오기
+  const [targetByCriteria, setTargetByCriteria] = useState<Record<string, Record<string, number>>>({});
 
   const fetchTarget = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/targets?year=${year}`, {
+      const res = await fetch(`${API_BASE}/api/targets/chart/by-criteria?year=${year}&month=${month}`, {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
-        setAllTargets(data);
+        setTargetByCriteria(data.by_criteria || {});
       } else {
-        setAllTargets([]);
+        setTargetByCriteria({});
         setMonthlyTarget(null);
       }
     } catch {
-      setAllTargets([]);
+      setTargetByCriteria({});
       setMonthlyTarget(null);
     }
-  }, [year]);
+  }, [year, month]);
 
   useEffect(() => {
     if (showTarget) {
       fetchTarget();
     } else {
-      setAllTargets([]);
+      setTargetByCriteria({});
       setMonthlyTarget(null);
     }
   }, [showTarget, fetchTarget]);
 
-  // 선택된 채널에 해당하는 목표 매출 계산
+  // 선택된 채널에 해당하는 목표 매출 합산
   useEffect(() => {
-    if (!showTarget || allTargets.length === 0) {
-      if (!showTarget) setMonthlyTarget(null);
+    if (!showTarget) {
+      setMonthlyTarget(null);
       return;
     }
-    const parseNum = (v: string | number | null | undefined): number => {
-      if (v == null || v === '') return 0;
-      if (typeof v === 'number') return v;
-      return parseFloat(String(v).replace(/,/g, '')) || 0;
-    };
-
-    const selectedNames = Array.from(selectedSyncChannels);
+    const criteriaNames = Object.keys(targetByCriteria);
+    if (criteriaNames.length === 0) {
+      setMonthlyTarget(null);
+      return;
+    }
 
     let total = 0;
-    for (const target of allTargets) {
-      if (target.kpi_type !== '매출') continue;
-      const grid = target.grid_data || [];
-
-      // Case 1: title 자체가 채널명과 일치 → 해당 target의 모든 row 합산
-      const titleMatchesChannel = selectedNames.some(name =>
-        target.title === name || target.title.includes(name)
+    for (const [criteria, values] of Object.entries(targetByCriteria)) {
+      // 선택된 채널명과 기준명 매칭 (정확 일치 또는 포함)
+      const matches = Array.from(selectedSyncChannels).some(name =>
+        criteria === name || criteria.includes(name) || name.includes(criteria)
       );
-
-      if (titleMatchesChannel) {
-        for (const row of grid) {
-          if (!row || row.length < 2) continue;
-          const values = row.slice(1, 13);
-          if (month >= 1 && month <= 12 && values.length >= month) {
-            total += parseNum(values[month - 1]);
-          }
-        }
-        continue; // title로 매칭된 target은 row[0] 매칭 스킵
-      }
-
-      // Case 2: row[0] (기준명)이 채널명과 일치 → 해당 row만 합산
-      for (const row of grid) {
-        if (!row || row.length < 2) continue;
-        const criteriaName = String(row[0]);
-        const rowMatchesChannel = selectedNames.some(name =>
-          criteriaName === name || criteriaName.includes(name)
-        );
-        if (!rowMatchesChannel) continue;
-        const values = row.slice(1, 13);
-        if (month >= 1 && month <= 12 && values.length >= month) {
-          total += parseNum(values[month - 1]);
-        }
+      if (matches) {
+        total += values['매출'] || 0;
       }
     }
     setMonthlyTarget(total > 0 ? total : null);
-  }, [allTargets, selectedSyncChannels, month, showTarget]);
+  }, [targetByCriteria, selectedSyncChannels, showTarget]);
 
   // 채널명 → API 동기화 엔드포인트 매핑 (연동 구현된 채널만)
   const SYNC_ENDPOINTS: Record<string, string> = {
