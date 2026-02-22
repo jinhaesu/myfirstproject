@@ -33,8 +33,10 @@ def get_channel_service() -> ChannelService:
 
 
 class SyncRequest(BaseModel):
-    start_date: str  # YYYY-MM-DD
-    end_date: str    # YYYY-MM-DD
+    start_date: Optional[str] = None  # YYYY-MM-DD
+    end_date: Optional[str] = None    # YYYY-MM-DD
+    year: Optional[int] = None        # 하위 호환
+    month: Optional[int] = None       # 하위 호환
     channel_id: Optional[str] = None
 
 
@@ -96,9 +98,21 @@ async def sync_sales(
     # 동기화 로그 생성
     sync_log = channel_service.create_sync_log(channel_id, channel_name, "api")
 
+    # 날짜 범위 결정: start_date/end_date 우선, 없으면 year/month에서 계산
+    start_date = data.start_date
+    end_date = data.end_date
+    if not start_date or not end_date:
+        if data.year and data.month:
+            from calendar import monthrange
+            days_in_month = monthrange(data.year, data.month)[1]
+            start_date = f"{data.year}-{data.month:02d}-01"
+            end_date = f"{data.year}-{data.month:02d}-{days_in_month:02d}"
+        else:
+            raise HTTPException(status_code=400, detail="start_date/end_date 또는 year/month를 지정해주세요")
+
     try:
         # 날짜 범위로 매출 데이터 조회 (월별 그룹핑)
-        monthly_data = await service.get_daily_sales_by_range(data.start_date, data.end_date)
+        monthly_data = await service.get_daily_sales_by_range(start_date, end_date)
 
         # 채널 매출 데이터로 변환
         sales_list = []
@@ -134,9 +148,9 @@ async def sync_sales(
 
         return {
             "success": True,
-            "message": f"{data.start_date} ~ {data.end_date} 매출 동기화 완료",
+            "message": f"{start_date} ~ {end_date} 매출 동기화 완료",
             "channel_id": channel_id,
-            "period": f"{data.start_date} ~ {data.end_date}",
+            "period": f"{start_date} ~ {end_date}",
             "processed": total_days,
             "created": result["created"],
             "errors": len(result["errors"]),
