@@ -173,7 +173,8 @@ export default function ChannelsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setSyncResult({ type: 'success', message: `[${channel.name}] ${data.message}` });
+        const debugInfo = data.debug ? ` (주문 ${data.debug.raw_orders_count}건, 집계 ${data.debug.daily_sales_count}일)` : '';
+        setSyncResult({ type: 'success', message: `[${channel.name}] ${data.message}${debugInfo}` });
         fetchSummary();
       } else {
         setSyncResult({ type: 'error', message: `[${channel.name}] ${data.detail || '동기화 실패'}` });
