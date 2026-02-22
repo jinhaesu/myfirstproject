@@ -86,6 +86,9 @@ export default function ChannelsPage() {
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [chartMode, setChartMode] = useState<'daily' | 'cumulative'>('cumulative');
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncingChannelId, setSyncingChannelId] = useState<string | null>(null);
+  const [syncResult, setSyncResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
@@ -147,6 +150,84 @@ export default function ChannelsPage() {
     }
     setIsLoading(false);
   }, [year, month]);
+
+  // 채널명 → API 동기화 엔드포인트 매핑 (연동 구현된 채널만)
+  const SYNC_ENDPOINTS: Record<string, string> = {
+    '스마트스토어': '/api/smartstore/sync',
+  };
+
+  const syncChannel = async (channel: Channel) => {
+    const endpoint = SYNC_ENDPOINTS[channel.name];
+    if (!endpoint) {
+      setSyncResult({ type: 'error', message: `${channel.name}은 아직 API 연동이 준비되지 않았습니다` });
+      return;
+    }
+
+    setSyncingChannelId(channel.id);
+    setSyncResult(null);
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ year, month, channel_id: channel.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncResult({ type: 'success', message: `[${channel.name}] ${data.message}` });
+        fetchSummary();
+      } else {
+        setSyncResult({ type: 'error', message: `[${channel.name}] ${data.detail || '동기화 실패'}` });
+      }
+    } catch (err) {
+      setSyncResult({ type: 'error', message: `[${channel.name}] 동기화 중 오류가 발생했습니다` });
+    }
+    setSyncingChannelId(null);
+  };
+
+  const syncAll = async () => {
+    setIsSyncing(true);
+    setSyncResult(null);
+    const apiChannels = channels.filter(c => SYNC_ENDPOINTS[c.name]);
+    if (apiChannels.length === 0) {
+      setSyncResult({ type: 'error', message: 'API 연동된 채널이 없습니다' });
+      setIsSyncing(false);
+      return;
+    }
+
+    const results: string[] = [];
+    const errors: string[] = [];
+
+    for (const channel of apiChannels) {
+      const endpoint = SYNC_ENDPOINTS[channel.name];
+      try {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ year, month, channel_id: channel.id }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          results.push(channel.name);
+        } else {
+          errors.push(`${channel.name}: ${data.detail || '실패'}`);
+        }
+      } catch {
+        errors.push(`${channel.name}: 오류 발생`);
+      }
+    }
+
+    const message = [
+      results.length > 0 ? `성공: ${results.join(', ')}` : '',
+      errors.length > 0 ? `실패: ${errors.join(', ')}` : '',
+    ].filter(Boolean).join(' / ');
+
+    setSyncResult({
+      type: errors.length === 0 ? 'success' : results.length > 0 ? 'success' : 'error',
+      message,
+    });
+    fetchSummary();
+    setIsSyncing(false);
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -251,6 +332,20 @@ export default function ChannelsPage() {
             <p className="text-slate-500 mt-1">모든 판매 채널의 매출을 한눈에 확인하세요</p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={syncAll}
+              disabled={isSyncing}
+              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            >
+              {isSyncing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  동기화 중...
+                </>
+              ) : (
+                '전체 동기화'
+              )}
+            </button>
             {channels.length === 0 && (
               <button
                 onClick={initializeChannels}
@@ -261,6 +356,22 @@ export default function ChannelsPage() {
             )}
           </div>
         </div>
+
+        {/* 동기화 결과 메시지 */}
+        {syncResult && (
+          <div className={`mb-4 p-4 rounded-xl flex items-center justify-between ${
+            syncResult.type === 'success'
+              ? 'bg-green-50 border border-green-200 text-green-700'
+              : 'bg-red-50 border border-red-200 text-red-700'
+          }`}>
+            <span>{syncResult.message}</span>
+            <button onClick={() => setSyncResult(null)} className="hover:opacity-70">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
 
         {/* 필터 & 총합계 */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
@@ -471,11 +582,7 @@ export default function ChannelsPage() {
                 return (
                   <div
                     key={channel.id}
-                    className="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => {
-                      setSelectedChannel(channel);
-                      setShowUploadModal(true);
-                    }}
+                    className="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium text-slate-800">{channel.name}</h4>
@@ -493,6 +600,9 @@ export default function ChannelsPage() {
                       {channel.integration_type === 'api' && '🔗 API 연동'}
                       {channel.integration_type === 'rpa' && '🤖 RPA 자동화'}
                       {channel.integration_type === 'manual' && '📤 수동 업로드'}
+                      {SYNC_ENDPOINTS[channel.name] && (
+                        <span className="ml-2 text-green-500 text-xs font-medium">연동완료</span>
+                      )}
                     </div>
                     {summary ? (
                       <div className="space-y-1">
@@ -510,6 +620,31 @@ export default function ChannelsPage() {
                         데이터 없음
                       </div>
                     )}
+                    <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
+                      <button
+                        onClick={() => syncChannel(channel)}
+                        disabled={syncingChannelId === channel.id || isSyncing}
+                        className="flex-1 px-3 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
+                      >
+                        {syncingChannelId === channel.id ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                            동기화 중
+                          </>
+                        ) : (
+                          '동기화'
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedChannel(channel);
+                          setShowUploadModal(true);
+                        }}
+                        className="flex-1 px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        수동입력
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -560,15 +695,24 @@ export default function ChannelsPage() {
                           {channel.integration_type === 'manual' && '📤'}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => {
-                              setSelectedChannel(channel);
-                              setShowUploadModal(true);
-                            }}
-                            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                          >
-                            업로드
-                          </button>
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => syncChannel(channel)}
+                              disabled={syncingChannelId === channel.id || isSyncing}
+                              className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              {syncingChannelId === channel.id ? '...' : '동기화'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedChannel(channel);
+                                setShowUploadModal(true);
+                              }}
+                              className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                            >
+                              수동입력
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
