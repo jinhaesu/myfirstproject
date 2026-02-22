@@ -260,3 +260,48 @@ async def sync_sales(
             "error_message": str(e),
         })
         raise HTTPException(status_code=500, detail=f"동기화 실패: {str(e)}")
+
+
+@router.get("/debug-raw")
+async def debug_raw_orders(
+    start_date: str = Query(default="2026-02-01"),
+    end_date: str = Query(default="2026-02-01"),
+    channel_service: ChannelService = Depends(get_channel_service),
+):
+    """카페24 API 원본 응답 확인 (디버그용)"""
+    service = get_cafe24_service()
+
+    if not service.is_configured():
+        return {"error": "API 인증 정보가 설정되지 않았습니다"}
+
+    channel = channel_service.get_channel_by_name("카페24")
+    if not channel:
+        return {"error": "카페24 채널이 없습니다"}
+
+    channel_id = channel["id"]
+    if not service.has_token(channel_id):
+        return {"error": "OAuth 토큰이 없습니다"}
+
+    try:
+        import httpx
+        access_token = await service._get_valid_access_token(channel_id)
+        async with httpx.AsyncClient(timeout=15) as client:
+            data = await service._request(
+                client, access_token, "GET",
+                "/api/v2/admin/orders",
+                params={
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "limit": 3,
+                    "offset": 0,
+                },
+            )
+        # 주문 1~3건의 원본 데이터 반환
+        orders = data.get("orders", [])
+        return {
+            "total_orders": len(orders),
+            "raw_orders": orders,
+            "all_keys": list(orders[0].keys()) if orders else [],
+        }
+    except Exception as e:
+        return {"error": str(e)}
