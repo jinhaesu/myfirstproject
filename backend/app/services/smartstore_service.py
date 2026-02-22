@@ -5,8 +5,7 @@ API 문서: https://apicenter.commerce.naver.com/
 """
 import os
 import time
-import hmac
-import hashlib
+import bcrypt
 import base64
 import httpx
 from datetime import datetime, timedelta
@@ -38,14 +37,13 @@ class SmartStoreService:
         self._token_expires_at: Optional[datetime] = None
 
     def _generate_signature(self, timestamp: str) -> str:
-        """HMAC 서명 생성"""
-        message = f"{self.config.client_id}_{timestamp}"
-        signature = hmac.new(
+        """bcrypt 전자서명 생성"""
+        password = f"{self.config.client_id}_{timestamp}"
+        hashed = bcrypt.hashpw(
+            password.encode('utf-8'),
             self.config.client_secret.encode('utf-8'),
-            message.encode('utf-8'),
-            hashlib.sha256
-        ).digest()
-        return base64.b64encode(signature).decode('utf-8')
+        )
+        return base64.b64encode(hashed).decode('utf-8')
 
     async def _get_access_token(self) -> str:
         """OAuth 토큰 발급"""
@@ -54,7 +52,7 @@ class SmartStoreService:
             if datetime.now() < self._token_expires_at - timedelta(minutes=5):
                 return self._token
 
-        timestamp = str(int(time.time() * 1000))
+        timestamp = str(int((time.time() - 3) * 1000))
         signature = self._generate_signature(timestamp)
 
         async with httpx.AsyncClient() as client:
