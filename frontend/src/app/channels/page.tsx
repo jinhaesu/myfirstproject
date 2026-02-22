@@ -64,6 +64,7 @@ interface ChannelDailySale {
 }
 
 interface TargetData {
+  title: string;
   kpi_type: string;
   grid_data: (string | number)[][];
 }
@@ -297,15 +298,37 @@ function ChannelsPageContent() {
       return parseFloat(String(v).replace(/,/g, '')) || 0;
     };
 
+    const selectedNames = Array.from(selectedSyncChannels);
+
     let total = 0;
     for (const target of allTargets) {
       if (target.kpi_type !== '매출') continue;
       const grid = target.grid_data || [];
+
+      // Case 1: title 자체가 채널명과 일치 → 해당 target의 모든 row 합산
+      const titleMatchesChannel = selectedNames.some(name =>
+        target.title === name || target.title.includes(name)
+      );
+
+      if (titleMatchesChannel) {
+        for (const row of grid) {
+          if (!row || row.length < 2) continue;
+          const values = row.slice(1, 13);
+          if (month >= 1 && month <= 12 && values.length >= month) {
+            total += parseNum(values[month - 1]);
+          }
+        }
+        continue; // title로 매칭된 target은 row[0] 매칭 스킵
+      }
+
+      // Case 2: row[0] (기준명)이 채널명과 일치 → 해당 row만 합산
       for (const row of grid) {
         if (!row || row.length < 2) continue;
         const criteriaName = String(row[0]);
-        // 선택된 채널명과 매칭
-        if (!selectedSyncChannels.has(criteriaName)) continue;
+        const rowMatchesChannel = selectedNames.some(name =>
+          criteriaName === name || criteriaName.includes(name)
+        );
+        if (!rowMatchesChannel) continue;
         const values = row.slice(1, 13);
         if (month >= 1 && month <= 12 && values.length >= month) {
           total += parseNum(values[month - 1]);
