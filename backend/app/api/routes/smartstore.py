@@ -129,6 +129,12 @@ async def sync_sales(
             "error_message": str(result["errors"][:3]) if result["errors"] else None,
         })
 
+        # raw 주문 수도 확인
+        raw_orders = await service._fetch_orders_for_period(
+            f"{data.year}-{data.month:02d}-01",
+            f"{data.year}-{data.month:02d}-{__import__('calendar').monthrange(data.year, data.month)[1]:02d}"
+        )
+
         return {
             "success": True,
             "message": f"{data.year}년 {data.month}월 매출 데이터 동기화 완료",
@@ -136,6 +142,11 @@ async def sync_sales(
             "processed": len(daily_sales),
             "created": result["created"],
             "errors": len(result["errors"]),
+            "debug": {
+                "raw_orders_count": len(raw_orders),
+                "daily_sales_count": len(daily_sales),
+                "sample_raw_order": raw_orders[0] if raw_orders else None,
+            }
         }
 
     except Exception as e:
@@ -203,3 +214,39 @@ async def get_daily_sales(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"매출 조회 실패: {str(e)}")
+
+
+@router.get("/debug-raw")
+async def debug_raw_response(
+    year: int,
+    month: int,
+    day: int = 1,
+    _: dict = Depends(get_current_user),
+):
+    """API 원본 응답 확인 (디버그용)"""
+    service = get_smartstore_service()
+
+    if not service.is_configured():
+        raise HTTPException(status_code=400, detail="API 인증 정보가 설정되지 않았습니다")
+
+    from_time = f"{year}-{month:02d}-{day:02d}T00:00:00.000+09:00"
+
+    try:
+        raw = await service._request(
+            "GET",
+            "/external/v1/pay-order/seller/product-orders",
+            params={
+                "from": from_time,
+                "rangeType": "PAYED_DATETIME",
+                "productOrderStatuses": "PAYED",
+                "pageSize": 5,
+                "page": 1,
+            }
+        )
+        return {
+            "query_date": f"{year}-{month:02d}-{day:02d}",
+            "raw_response_keys": list(raw.keys()) if isinstance(raw, dict) else type(raw).__name__,
+            "raw_response": raw,
+        }
+    except Exception as e:
+        return {"error": str(e)}
