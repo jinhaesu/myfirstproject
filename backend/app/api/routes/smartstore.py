@@ -212,6 +212,8 @@ async def debug_raw_response(
     day: int = 1,
 ):
     """API 원본 응답 확인 (디버그용 - 인증 불필요)"""
+    import httpx
+
     service = get_smartstore_service()
 
     if not service.is_configured():
@@ -220,53 +222,41 @@ async def debug_raw_response(
     from_time = f"{year}-{month:02d}-{day:02d}T00:00:00.000+09:00"
     results = {}
 
-    # 테스트 1: PAYED 상태 조회
-    try:
-        raw1 = await service._request(
-            "GET",
-            "/external/v1/pay-order/seller/product-orders",
-            params={
-                "from": from_time,
-                "rangeType": "PAYED_DATETIME",
-                "productOrderStatuses": "PAYED",
-                "pageSize": 5,
-                "page": 1,
-            }
-        )
-        results["test1_payed"] = raw1
-    except Exception as e:
-        results["test1_payed_error"] = str(e)
+    async with httpx.AsyncClient(timeout=15) as client:
+        # 테스트 1: PAYED 상태 조회
+        try:
+            raw1 = await service._request(
+                client,
+                "GET",
+                "/external/v1/pay-order/seller/product-orders",
+                params={
+                    "from": from_time,
+                    "rangeType": "PAYED_DATETIME",
+                    "productOrderStatuses": "PAYED",
+                    "pageSize": 5,
+                    "page": 1,
+                }
+            )
+            results["test1_payed"] = raw1
+        except Exception as e:
+            results["test1_payed_error"] = str(e)
 
-    # 테스트 2: 상태 필터 없이 조회
-    try:
-        raw2 = await service._request(
-            "GET",
-            "/external/v1/pay-order/seller/product-orders",
-            params={
-                "from": from_time,
-                "rangeType": "PAYED_DATETIME",
-                "pageSize": 5,
-                "page": 1,
-            }
-        )
-        results["test2_no_status"] = raw2
-    except Exception as e:
-        results["test2_no_status_error"] = str(e)
-
-    # 테스트 3: rangeType 없이 조회
-    try:
-        raw3 = await service._request(
-            "GET",
-            "/external/v1/pay-order/seller/product-orders",
-            params={
-                "from": from_time,
-                "pageSize": 5,
-                "page": 1,
-            }
-        )
-        results["test3_no_range_type"] = raw3
-    except Exception as e:
-        results["test3_no_range_type_error"] = str(e)
+        # 테스트 2: 상태 필터 없이 조회
+        try:
+            raw2 = await service._request(
+                client,
+                "GET",
+                "/external/v1/pay-order/seller/product-orders",
+                params={
+                    "from": from_time,
+                    "rangeType": "PAYED_DATETIME",
+                    "pageSize": 5,
+                    "page": 1,
+                }
+            )
+            results["test2_no_status"] = raw2
+        except Exception as e:
+            results["test2_no_status_error"] = str(e)
 
     return {
         "query_date": f"{year}-{month:02d}-{day:02d}",
