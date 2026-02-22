@@ -181,7 +181,7 @@ class Cafe24Service:
         headers = kwargs.pop("headers", {})
         headers["Authorization"] = f"Bearer {access_token}"
         headers["Content-Type"] = "application/json"
-        headers["X-Cafe24-Api-Version"] = "2024-06-01"
+        headers["X-Cafe24-Api-Version"] = "2025-12-01"
 
         response = await client.request(
             method,
@@ -189,7 +189,12 @@ class Cafe24Service:
             headers=headers,
             **kwargs,
         )
-        response.raise_for_status()
+        if response.status_code >= 400:
+            error_body = response.text
+            raise Exception(
+                f"Cafe24 API 오류 (status={response.status_code}, "
+                f"url={response.url}): {error_body}"
+            )
         return response.json()
 
     async def get_daily_sales_by_range(
@@ -249,9 +254,9 @@ class Cafe24Service:
             entry = monthly_sales[year_month][day]
 
             # 주문 금액 집계
-            total_price = float(order.get("total_price", 0) or 0)
-            entry["gross_sales"] += total_price
-            entry["net_sales"] += total_price
+            payment_amount = float(order.get("payment_amount", 0) or 0)
+            entry["gross_sales"] += payment_amount
+            entry["net_sales"] += payment_amount
             entry["order_count"] += 1
 
             # 수량 집계
@@ -294,14 +299,14 @@ class Cafe24Service:
                         "GET",
                         "/api/v2/admin/orders",
                         params={
-                            "order_date_min": f"{start_date}T00:00:00+09:00",
-                            "order_date_max": f"{end_date}T23:59:59+09:00",
+                            "start_date": start_date,
+                            "end_date": end_date,
                             "limit": limit,
                             "offset": offset,
                         },
                     )
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 429:
+                except Exception as e:
+                    if "429" in str(e):
                         # Rate limit: 잠시 대기 후 재시도
                         await asyncio.sleep(1)
                         continue
