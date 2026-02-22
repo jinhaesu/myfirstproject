@@ -254,14 +254,14 @@ class Cafe24Service:
             entry["net_sales"] += total_price
             entry["order_count"] += 1
 
-            # 수량 집계 (주문 아이템)
+            # 수량 집계
             items = order.get("items", [])
-            for item in items:
-                entry["quantity"] += int(item.get("quantity", 0) or 0)
-
-            # 아이템이 없으면 주문 수량 기본 1
-            if not items:
-                entry["quantity"] += 1
+            if items:
+                for item in items:
+                    entry["quantity"] += int(item.get("quantity", 0) or 0)
+            else:
+                # items가 embed되지 않은 경우 주문 1건으로 집계
+                entry["quantity"] += int(order.get("total_quantity", 1) or 1)
 
         # 정렬하여 반환
         result = {}
@@ -294,11 +294,10 @@ class Cafe24Service:
                         "GET",
                         "/api/v2/admin/orders",
                         params={
-                            "start_date": start_date,
-                            "end_date": end_date,
+                            "start_date": f"{start_date}T00:00:00+09:00",
+                            "end_date": f"{end_date}T23:59:59+09:00",
                             "limit": limit,
                             "offset": offset,
-                            "embed": "items",
                         },
                     )
                 except httpx.HTTPStatusError as e:
