@@ -113,7 +113,7 @@ class SmartStoreService:
         start_date: str,
         end_date: str,
     ) -> list[dict]:
-        """기간별 주문 목록 조회 (최대 24시간 단위로 분할 요청)
+        """조건형 상품 주문 조회 (하루 단위 분할)
 
         Args:
             start_date: 시작일 (YYYY-MM-DD)
@@ -122,51 +122,43 @@ class SmartStoreService:
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
         end_dt = datetime.strptime(end_date, "%Y-%m-%d")
 
-        all_product_order_ids = []
+        # 오늘 이후 날짜는 조회하지 않음
+        today = datetime.now()
+        if end_dt > today:
+            end_dt = today
+
+        all_orders = []
 
         # 하루 단위로 분할 조회 (API 제한: 최대 24시간)
         current = start_dt
         while current <= end_dt:
             from_time = current.strftime("%Y-%m-%dT00:00:00.000+09:00")
-            to_time = current.strftime("%Y-%m-%dT23:59:59.999+09:00")
 
-            try:
-                data = await self._request(
-                    "GET",
-                    "/external/v1/pay-order/seller/product-orders/last-changed-statuses",
-                    params={
-                        "lastChangedFrom": from_time,
-                        "lastChangedTo": to_time,
-                        "lastChangedType": "PAYED",
-                    }
-                )
-                statuses = data.get("data", {}).get("lastChangeStatuses", [])
-                for item in statuses:
-                    pid = item.get("productOrderId")
-                    if pid:
-                        all_product_order_ids.append(pid)
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code != 404:
-                    raise
+            page = 1
+            while True:
+                try:
+                    data = await self._request(
+                        "GET",
+                        "/external/v1/pay-order/seller/product-orders",
+                        params={
+                            "from": from_time,
+                            "rangeType": "PAYED_DATETIME",
+                            "productOrderStatuses": "PAYED",
+                            "pageSize": 100,
+                            "page": page,
+                        }
+                    )
+                    orders = data.get("data", {}).get("contents", [])
+                    all_orders.extend(orders)
+
+                    # 다음 페이지가 있는지 확인
+                    if len(orders) < 100:
+                        break
+                    page += 1
+                except Exception:
+                    break
+
             current += timedelta(days=1)
-
-        if not all_product_order_ids:
-            return []
-
-        # 상품 주문 상세 조회 (최대 300개씩)
-        all_orders = []
-        for i in range(0, len(all_product_order_ids), 300):
-            batch = all_product_order_ids[i:i+300]
-            try:
-                detail = await self._request(
-                    "POST",
-                    "/external/v1/pay-order/seller/product-orders/query",
-                    json={"productOrderIds": batch}
-                )
-                orders = detail.get("data", [])
-                all_orders.extend(orders)
-            except httpx.HTTPStatusError:
-                pass
 
         return all_orders
 
@@ -196,30 +188,40 @@ class SmartStoreService:
         # 일별 집계
         daily_sales = {}
         for order in orders:
-            product_order = order.get("productOrder", {})
-            paid_at = product_order.get("paymentDate", "")
-            if paid_at:
-                try:
-                    paid_date = datetime.fromisoformat(paid_at.replace("+09:00", "+09:00").split("+")[0])
-                    day = paid_date.day
-                except (ValueError, IndexError):
-                    continue
+            # 응답 구조: {"productOrder": {...}} 또는 직접 필드
+            product_order = order.get("productOrder", order)
+            paid_at = (
+                product_order.get("paymentDate")
+                or product_order.get("paidAt")
+                or product_order.get("payedDateTime")
+                or ""
+            )
+            if not paid_at:
+                continue
 
-                if day not in daily_sales:
-                    daily_sales[day] = {
-                        "day": day,
-                        "gross_sales": 0,
-                        "net_sales": 0,
-                        "order_count": 0,
-                        "quantity": 0,
-                        "commission": 0,
-                    }
+            try:
+                # +09:00 등 timezone 제거 후 파싱
+                date_str = paid_at.split("+")[0].split("T")[0]
+                paid_date = datetime.strptime(date_str, "%Y-%m-%d")
+                day = paid_date.day
+            except (ValueError, IndexError):
+                continue
 
-                daily_sales[day]["gross_sales"] += product_order.get("totalPaymentAmount", 0)
-                daily_sales[day]["net_sales"] += product_order.get("expectedSettlementAmount", 0)
-                daily_sales[day]["order_count"] += 1
-                daily_sales[day]["quantity"] += product_order.get("quantity", 0)
-                daily_sales[day]["commission"] += product_order.get("commissionAmount", 0)
+            if day not in daily_sales:
+                daily_sales[day] = {
+                    "day": day,
+                    "gross_sales": 0,
+                    "net_sales": 0,
+                    "order_count": 0,
+                    "quantity": 0,
+                    "commission": 0,
+                }
+
+            daily_sales[day]["gross_sales"] += product_order.get("totalPaymentAmount", 0)
+            daily_sales[day]["net_sales"] += product_order.get("expectedSettlementAmount", 0)
+            daily_sales[day]["order_count"] += 1
+            daily_sales[day]["quantity"] += product_order.get("quantity", 0)
+            daily_sales[day]["commission"] += product_order.get("commissionAmount", 0)
 
         result = sorted(daily_sales.values(), key=lambda x: x["day"])
         return result
