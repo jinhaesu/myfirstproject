@@ -156,18 +156,16 @@ export default function ChannelsPage() {
     '스마트스토어': '/api/smartstore/sync',
   };
 
-  // 최근 2개월 (현재 선택 월 + 이전 월) 계산
-  const getSyncMonths = () => {
-    const targets: { year: number; month: number }[] = [];
-    // 이전 월
-    if (month === 1) {
-      targets.push({ year: year - 1, month: 12 });
-    } else {
-      targets.push({ year, month: month - 1 });
-    }
-    // 현재 월
-    targets.push({ year, month });
-    return targets;
+  // 동기화 날짜 범위 계산 (이전 월 1일 ~ 오늘)
+  const getSyncDateRange = () => {
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const startDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
+
+    const today = new Date();
+    const endDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    return { startDate, endDate };
   };
 
   const syncChannel = async (channel: Channel) => {
@@ -180,38 +178,27 @@ export default function ChannelsPage() {
     setSyncingChannelId(channel.id);
     setSyncResult(null);
 
-    const syncMonths = getSyncMonths();
-    const results: string[] = [];
-    const errors: string[] = [];
+    const { startDate, endDate } = getSyncDateRange();
 
-    for (const m of syncMonths) {
-      try {
-        const res = await fetch(`${API_BASE}${endpoint}`, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ year: m.year, month: m.month, channel_id: channel.id }),
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ start_date: startDate, end_date: endDate, channel_id: channel.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncResult({
+          type: 'success',
+          message: `[${channel.name}] ${data.message} (${data.processed || 0}일, ${data.created || 0}건 저장)`,
         });
-        const data = await res.json();
-        if (res.ok) {
-          results.push(`${m.year}.${m.month}월: ${data.processed || 0}일, ${data.created || 0}건`);
-        } else {
-          errors.push(`${m.year}.${m.month}월: ${data.detail || '실패'}`);
-        }
-      } catch (err: any) {
-        errors.push(`${m.year}.${m.month}월: ${err?.message || '네트워크 오류'}`);
+        fetchSummary();
+      } else {
+        setSyncResult({ type: 'error', message: `[${channel.name}] ${data.detail || '동기화 실패'}` });
       }
+    } catch (err: any) {
+      setSyncResult({ type: 'error', message: `[${channel.name}] ${err?.message || '네트워크 오류'}` });
     }
-
-    const message = [
-      results.length > 0 ? `[${channel.name}] 동기화 완료 - ${results.join(' / ')}` : '',
-      errors.length > 0 ? `실패: ${errors.join(' / ')}` : '',
-    ].filter(Boolean).join(' | ');
-
-    setSyncResult({
-      type: errors.length === 0 ? 'success' : results.length > 0 ? 'success' : 'error',
-      message,
-    });
-    fetchSummary();
     setSyncingChannelId(null);
   };
 
@@ -225,28 +212,26 @@ export default function ChannelsPage() {
       return;
     }
 
-    const syncMonths = getSyncMonths();
+    const { startDate, endDate } = getSyncDateRange();
     const results: string[] = [];
     const errors: string[] = [];
 
     for (const channel of apiChannels) {
       const endpoint = SYNC_ENDPOINTS[channel.name];
-      for (const m of syncMonths) {
-        try {
-          const res = await fetch(`${API_BASE}${endpoint}`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ year: m.year, month: m.month, channel_id: channel.id }),
-          });
-          const data = await res.json();
-          if (res.ok) {
-            results.push(`${channel.name} ${m.month}월`);
-          } else {
-            errors.push(`${channel.name} ${m.month}월: ${data.detail || '실패'}`);
-          }
-        } catch (err: any) {
-          errors.push(`${channel.name} ${m.month}월: ${err?.message || '네트워크 오류'}`);
+      try {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ start_date: startDate, end_date: endDate, channel_id: channel.id }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          results.push(`${channel.name}: ${data.processed || 0}일`);
+        } else {
+          errors.push(`${channel.name}: ${data.detail || '실패'}`);
         }
+      } catch (err: any) {
+        errors.push(`${channel.name}: ${err?.message || '네트워크 오류'}`);
       }
     }
 

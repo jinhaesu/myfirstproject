@@ -45,7 +45,7 @@ class SmartStoreService:
         )
         return base64.b64encode(hashed).decode('utf-8')
 
-    async def _get_access_token(self) -> str:
+    async def _get_access_token(self, client: httpx.AsyncClient) -> str:
         """OAuth 토큰 발급"""
         # 캐시된 토큰이 유효하면 재사용
         if self._token and self._token_expires_at:
@@ -55,58 +55,49 @@ class SmartStoreService:
         timestamp = str(int((time.time() - 3) * 1000))
         signature = self._generate_signature(timestamp)
 
-        async with httpx.AsyncClient() as client:
-            # 요청 시 사용되는 IP 확인용
-            try:
-                ip_res = await client.get("https://api.ipify.org?format=json", timeout=5)
-                outbound_ip = ip_res.json().get("ip", "unknown")
-            except Exception:
-                outbound_ip = "unknown"
-
-            response = await client.post(
-                f"{self.config.base_url}/external/v1/oauth2/token",
-                headers={
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-                data={
-                    "client_id": self.config.client_id,
-                    "timestamp": timestamp,
-                    "client_secret_sign": signature,
-                    "grant_type": "client_credentials",
-                    "type": "SELF",
-                },
+        response = await client.post(
+            f"{self.config.base_url}/external/v1/oauth2/token",
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            data={
+                "client_id": self.config.client_id,
+                "timestamp": timestamp,
+                "client_secret_sign": signature,
+                "grant_type": "client_credentials",
+                "type": "SELF",
+            },
+        )
+        if response.status_code != 200:
+            error_body = response.text
+            raise Exception(
+                f"토큰 발급 실패 (status={response.status_code}): {error_body}"
             )
-            if response.status_code != 200:
-                error_body = response.text
-                raise Exception(
-                    f"토큰 발급 실패 (status={response.status_code}, ip={outbound_ip}): {error_body}"
-                )
-            data = response.json()
+        data = response.json()
 
-            self._token = data["access_token"]
-            # 토큰 만료 시간 설정 (기본 24시간)
-            expires_in = data.get("expires_in", 86400)
-            self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+        self._token = data["access_token"]
+        # 토큰 만료 시간 설정 (기본 24시간)
+        expires_in = data.get("expires_in", 86400)
+        self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
 
-            return self._token
+        return self._token
 
-    async def _request(self, method: str, endpoint: str, **kwargs) -> dict:
-        """API 요청"""
-        token = await self._get_access_token()
+    async def _request(self, client: httpx.AsyncClient, method: str, endpoint: str, **kwargs) -> dict:
+        """API 요청 (공유 클라이언트 사용)"""
+        token = await self._get_access_token(client)
 
         headers = kwargs.pop("headers", {})
         headers["Authorization"] = f"Bearer {token}"
         headers["Content-Type"] = "application/json"
 
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.request(
-                method,
-                f"{self.config.base_url}{endpoint}",
-                headers=headers,
-                **kwargs
-            )
-            response.raise_for_status()
-            return response.json()
+        response = await client.request(
+            method,
+            f"{self.config.base_url}{endpoint}",
+            headers=headers,
+            **kwargs
+        )
+        response.raise_for_status()
+        return response.json()
 
     async def _fetch_orders_for_period(
         self,
@@ -129,62 +120,56 @@ class SmartStoreService:
 
         all_orders = []
 
-        # 하루 단위로 분할 조회 (API 제한: 최대 24시간)
-        current = start_dt
-        while current <= end_dt:
-            from_time = current.strftime("%Y-%m-%dT00:00:00.000+09:00")
+        # 단일 클라이언트로 모든 요청 처리 (연결 재사용)
+        async with httpx.AsyncClient(timeout=30) as client:
+            current = start_dt
+            while current <= end_dt:
+                from_time = current.strftime("%Y-%m-%dT00:00:00.000+09:00")
 
-            page = 1
-            while True:
-                data = await self._request(
-                    "GET",
-                    "/external/v1/pay-order/seller/product-orders",
-                    params={
-                        "from": from_time,
-                        "rangeType": "PAYED_DATETIME",
-                        "pageSize": 100,
-                        "page": page,
-                    }
-                )
-                orders = data.get("data", {}).get("contents", [])
-                all_orders.extend(orders)
+                page = 1
+                while True:
+                    data = await self._request(
+                        client,
+                        "GET",
+                        "/external/v1/pay-order/seller/product-orders",
+                        params={
+                            "from": from_time,
+                            "rangeType": "PAYED_DATETIME",
+                            "pageSize": 100,
+                            "page": page,
+                        }
+                    )
+                    orders = data.get("data", {}).get("contents", [])
+                    all_orders.extend(orders)
 
-                # 다음 페이지가 있는지 확인
-                has_next = data.get("data", {}).get("pagination", {}).get("hasNext", False)
-                if not has_next or len(orders) < 100:
-                    break
-                page += 1
+                    # 다음 페이지가 있는지 확인
+                    has_next = data.get("data", {}).get("pagination", {}).get("hasNext", False)
+                    if not has_next or len(orders) < 100:
+                        break
+                    page += 1
 
-            current += timedelta(days=1)
+                current += timedelta(days=1)
 
         return all_orders
 
-    async def get_daily_sales(
+    async def get_daily_sales_by_range(
         self,
-        year: int,
-        month: int,
-    ) -> list[dict]:
-        """일별 매출 데이터 조회
+        start_date: str,
+        end_date: str,
+    ) -> dict[str, list[dict]]:
+        """날짜 범위 기반 일별 매출 데이터 조회
 
         Args:
-            year: 년도
-            month: 월
+            start_date: 시작일 (YYYY-MM-DD)
+            end_date: 종료일 (YYYY-MM-DD)
 
         Returns:
-            일별 매출 데이터 리스트
+            월별로 그룹핑된 일별 매출 데이터 {"2026-01": [...], "2026-02": [...]}
         """
-        from calendar import monthrange
-
-        days_in_month = monthrange(year, month)[1]
-        start_date = f"{year}-{month:02d}-01"
-        end_date = f"{year}-{month:02d}-{days_in_month:02d}"
-
-        # 주문 목록 조회
         orders = await self._fetch_orders_for_period(start_date, end_date)
 
-        # 일별 집계
-        # 응답 구조: contents[].content.order.paymentDate, contents[].content.productOrder.*
-        daily_sales = {}
+        # 월별 → 일별 집계
+        monthly_sales: dict[str, dict[int, dict]] = {}
         for item in orders:
             content = item.get("content", item)
             order_info = content.get("order", {})
@@ -202,12 +187,18 @@ class SmartStoreService:
             try:
                 date_str = paid_at.split("T")[0]
                 paid_date = datetime.strptime(date_str, "%Y-%m-%d")
+                year_month = f"{paid_date.year}-{paid_date.month:02d}"
                 day = paid_date.day
             except (ValueError, IndexError):
                 continue
 
-            if day not in daily_sales:
-                daily_sales[day] = {
+            if year_month not in monthly_sales:
+                monthly_sales[year_month] = {}
+
+            if day not in monthly_sales[year_month]:
+                monthly_sales[year_month][day] = {
+                    "year": paid_date.year,
+                    "month": paid_date.month,
                     "day": day,
                     "gross_sales": 0,
                     "net_sales": 0,
@@ -216,19 +207,24 @@ class SmartStoreService:
                     "commission": 0,
                 }
 
-            daily_sales[day]["gross_sales"] += product_order.get("totalPaymentAmount", 0)
-            daily_sales[day]["net_sales"] += product_order.get("expectedSettlementAmount", 0)
-            daily_sales[day]["order_count"] += 1
-            daily_sales[day]["quantity"] += product_order.get("quantity", 0)
+            entry = monthly_sales[year_month][day]
+            entry["gross_sales"] += product_order.get("totalPaymentAmount", 0)
+            entry["net_sales"] += product_order.get("expectedSettlementAmount", 0)
+            entry["order_count"] += 1
+            entry["quantity"] += product_order.get("quantity", 0)
             commission = (
                 product_order.get("paymentCommission", 0)
                 + product_order.get("saleCommission", 0)
                 + product_order.get("knowledgeShoppingSellingInterlockCommission", 0)
                 + product_order.get("channelCommission", 0)
             )
-            daily_sales[day]["commission"] += commission
+            entry["commission"] += commission
 
-        result = sorted(daily_sales.values(), key=lambda x: x["day"])
+        # 정렬하여 반환
+        result = {}
+        for ym, days in monthly_sales.items():
+            result[ym] = sorted(days.values(), key=lambda x: x["day"])
+
         return result
 
     async def get_product_orders(
@@ -247,7 +243,8 @@ class SmartStoreService:
     async def test_connection(self) -> dict:
         """API 연결 테스트"""
         try:
-            token = await self._get_access_token()
+            async with httpx.AsyncClient(timeout=10) as client:
+                await self._get_access_token(client)
             return {
                 "success": True,
                 "message": "스마트스토어 API 연결 성공",
