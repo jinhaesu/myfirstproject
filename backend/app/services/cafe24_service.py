@@ -181,7 +181,7 @@ class Cafe24Service:
         headers = kwargs.pop("headers", {})
         headers["Authorization"] = f"Bearer {access_token}"
         headers["Content-Type"] = "application/json"
-        headers["X-Cafe24-Api-Version"] = "2024-06-01"
+        headers["X-Cafe24-Api-Version"] = "2025-12-01"
 
         response = await client.request(
             method,
