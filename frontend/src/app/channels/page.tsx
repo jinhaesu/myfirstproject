@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
+  BarChart, Bar, LineChart, Line, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -104,6 +104,14 @@ function ChannelsPageContent() {
   const [syncResult, setSyncResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [cafe24Connecting, setCafe24Connecting] = useState(false);
 
+  // 연동 채널 필터
+  const [selectedSyncChannels, setSelectedSyncChannels] = useState<Set<string>>(new Set(['스마트스토어', '카페24']));
+  // 목표 지표
+  const [showTarget, setShowTarget] = useState(false);
+  const [monthlyTarget, setMonthlyTarget] = useState<number | null>(null);
+  // 차트 유형
+  const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
+
   // 카페24 OAuth 연동 완료 쿼리 파라미터 처리
   useEffect(() => {
     const cafe24Connected = searchParams.get('cafe24_connected');
@@ -135,6 +143,18 @@ function ChannelsPageContent() {
       setSyncResult({ type: 'error', message: `카페24 연동 실패: ${err?.message || '네트워크 오류'}` });
       setCafe24Connecting(false);
     }
+  };
+
+  const toggleSyncChannel = (channelName: string) => {
+    setSelectedSyncChannels(prev => {
+      const next = new Set(prev);
+      if (next.has(channelName)) {
+        next.delete(channelName);
+      } else {
+        next.add(channelName);
+      }
+      return next;
+    });
   };
 
   // 동기화 날짜 범위 (기본: 현재 선택된 월의 1일 ~ 말일)
@@ -209,6 +229,31 @@ function ChannelsPageContent() {
     }
     setIsLoading(false);
   }, [year, month]);
+
+  // 목표 지표 fetch
+  const fetchTarget = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/targets/summary?year=${year}&month=${month}`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMonthlyTarget(data.total_sales != null ? data.total_sales : null);
+      } else {
+        setMonthlyTarget(null);
+      }
+    } catch {
+      setMonthlyTarget(null);
+    }
+  }, [year, month]);
+
+  useEffect(() => {
+    if (showTarget) {
+      fetchTarget();
+    } else {
+      setMonthlyTarget(null);
+    }
+  }, [showTarget, fetchTarget]);
 
   // 채널명 → API 동기화 엔드포인트 매핑 (연동 구현된 채널만)
   const SYNC_ENDPOINTS: Record<string, string> = {
@@ -338,8 +383,19 @@ function ChannelsPageContent() {
     return formatNumber(num);
   };
 
+  // 연동 채널 필터 적용된 채널 서머리
+  const syncChannelNames = Object.keys(SYNC_ENDPOINTS);
+  const filteredChannelSummary = channelSummary.filter(c => {
+    // 연동 채널이면 selectedSyncChannels에 포함되어야 표시
+    if (syncChannelNames.includes(c.channel_name)) {
+      return selectedSyncChannels.has(c.channel_name);
+    }
+    // 비연동 채널은 항상 표시
+    return true;
+  });
+
   // 채널별 파이차트 데이터
-  const pieChartData = channelSummary
+  const pieChartData = filteredChannelSummary
     .filter(c => c.gross_sales > 0)
     .sort((a, b) => b.gross_sales - a.gross_sales)
     .map((c, i) => ({
@@ -348,15 +404,21 @@ function ChannelsPageContent() {
       color: COLORS[i % COLORS.length],
     }));
 
-  // 일별 차트 데이터
-  const dailyChartData = dailySummary?.daily.map(d => ({
-    day: `${d.day}일`,
-    매출: chartMode === 'cumulative' ? d.cumulative_gross : d.gross_sales,
-    주문: d.order_count,
-  })) || [];
+  // 일별 차트 데이터 (목표 누적선 포함)
+  const dailyChartData = dailySummary?.daily.map(d => {
+    const entry: Record<string, string | number> = {
+      day: `${d.day}일`,
+      매출: chartMode === 'cumulative' ? d.cumulative_gross : d.gross_sales,
+      주문: d.order_count,
+    };
+    if (showTarget && monthlyTarget && dailySummary.days_in_month > 0) {
+      entry['목표'] = Math.round(d.day * (monthlyTarget / dailySummary.days_in_month));
+    }
+    return entry;
+  }) || [];
 
   // 카테고리별 합계
-  const categoryTotals = channelSummary.reduce((acc, c) => {
+  const categoryTotals = filteredChannelSummary.reduce((acc, c) => {
     const channel = channels.find(ch => ch.id === c.channel_id);
     const category = channel?.category || '기타';
     if (!acc[category]) {
@@ -491,9 +553,37 @@ function ChannelsPageContent() {
             </div>
           </div>
 
+          {/* 연동 채널 필터 + 목표 지표 체크박스 */}
+          <div className="flex flex-wrap items-center gap-4 mb-6 pt-2 border-t border-slate-100">
+            <span className="text-sm font-medium text-slate-600">연동 채널:</span>
+            {syncChannelNames.map(name => (
+              <label key={name} className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={selectedSyncChannels.has(name)}
+                  onChange={() => toggleSyncChannel(name)}
+                  className="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500"
+                />
+                <span className="text-sm text-slate-700">{name}</span>
+              </label>
+            ))}
+
+            <div className="w-px h-6 bg-slate-200" />
+
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showTarget}
+                onChange={() => setShowTarget(prev => !prev)}
+                className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+              />
+              <span className="text-sm text-slate-700">목표 지표</span>
+            </label>
+          </div>
+
           {/* 총합계 카드 */}
           {dailySummary && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className={`grid grid-cols-2 gap-4 ${showTarget && monthlyTarget ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
                 <p className="text-sm text-blue-600 mb-1">총 매출</p>
                 <p className="text-2xl font-bold text-blue-700">
@@ -518,6 +608,19 @@ function ChannelsPageContent() {
                   {channelSummary.length}개
                 </p>
               </div>
+              {showTarget && monthlyTarget !== null && (
+                <div className="bg-gradient-to-br from-rose-50 to-rose-100 p-4 rounded-xl border border-rose-200">
+                  <p className="text-sm text-rose-600 mb-1">월 목표 / 달성률</p>
+                  <p className="text-2xl font-bold text-rose-700">
+                    {formatCurrency(monthlyTarget)}원
+                  </p>
+                  <p className="text-sm text-rose-500 mt-1">
+                    {dailySummary.total.gross_sales > 0
+                      ? `${((dailySummary.total.gross_sales / monthlyTarget) * 100).toFixed(1)}%`
+                      : '0%'}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -549,6 +652,31 @@ function ChannelsPageContent() {
                 >
                   누계
                 </button>
+                {chartMode === 'daily' && (
+                  <>
+                    <div className="w-px h-6 bg-slate-200" />
+                    <button
+                      onClick={() => setChartType('bar')}
+                      className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                        chartType === 'bar'
+                          ? 'bg-indigo-500 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      막대
+                    </button>
+                    <button
+                      onClick={() => setChartType('line')}
+                      className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                        chartType === 'line'
+                          ? 'bg-indigo-500 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      선형
+                    </button>
+                  </>
+                )}
               </div>
             </div>
             {isLoading ? (
@@ -557,24 +685,30 @@ function ChannelsPageContent() {
               </div>
             ) : dailyChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
-                {chartMode === 'cumulative' ? (
+                {chartMode === 'cumulative' || (chartMode === 'daily' && chartType === 'line') ? (
                   <LineChart data={dailyChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={(value) => formatCurrency(value)} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value: number) => [`${formatNumber(value)}원`, '매출']} />
+                    <Tooltip formatter={(value: number, name: string) => [`${formatNumber(value)}원`, name]} />
                     <Legend />
                     <Line type="monotone" dataKey="매출" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                    {showTarget && monthlyTarget && (
+                      <Line type="monotone" dataKey="목표" stroke="#F43F5E" strokeWidth={2} strokeDasharray="6 3" dot={false} />
+                    )}
                   </LineChart>
                 ) : (
-                  <BarChart data={dailyChartData}>
+                  <ComposedChart data={dailyChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={(value) => formatCurrency(value)} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value: number) => [`${formatNumber(value)}원`, '매출']} />
+                    <Tooltip formatter={(value: number, name: string) => [`${formatNumber(value)}원`, name]} />
                     <Legend />
                     <Bar dataKey="매출" fill="#3B82F6" />
-                  </BarChart>
+                    {showTarget && monthlyTarget && (
+                      <Line type="monotone" dataKey="목표" stroke="#F43F5E" strokeWidth={2} strokeDasharray="6 3" dot={false} />
+                    )}
+                  </ComposedChart>
                 )}
               </ResponsiveContainer>
             ) : (
