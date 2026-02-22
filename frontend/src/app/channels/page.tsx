@@ -493,7 +493,8 @@ function ChannelsPageContent() {
         주문: dayData.order_count,
       };
       if (showTarget && monthlyTarget && daysInMonth > 0) {
-        entry['목표'] = Math.round(day * (monthlyTarget / daysInMonth));
+        const dailyTarget = monthlyTarget / daysInMonth;
+        entry['목표'] = Math.round(chartMode === 'cumulative' ? day * dailyTarget : dailyTarget);
       }
       return entry;
     });
