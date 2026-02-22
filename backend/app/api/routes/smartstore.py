@@ -129,12 +129,6 @@ async def sync_sales(
             "error_message": str(result["errors"][:3]) if result["errors"] else None,
         })
 
-        # raw 주문 수도 확인
-        raw_orders = await service._fetch_orders_for_period(
-            f"{data.year}-{data.month:02d}-01",
-            f"{data.year}-{data.month:02d}-{__import__('calendar').monthrange(data.year, data.month)[1]:02d}"
-        )
-
         return {
             "success": True,
             "message": f"{data.year}년 {data.month}월 매출 데이터 동기화 완료",
@@ -142,11 +136,6 @@ async def sync_sales(
             "processed": len(daily_sales),
             "created": result["created"],
             "errors": len(result["errors"]),
-            "debug": {
-                "raw_orders_count": len(raw_orders),
-                "daily_sales_count": len(daily_sales),
-                "sample_raw_order": raw_orders[0] if raw_orders else None,
-            }
         }
 
     except Exception as e:
@@ -221,18 +210,19 @@ async def debug_raw_response(
     year: int,
     month: int,
     day: int = 1,
-    _: dict = Depends(get_current_user),
 ):
-    """API 원본 응답 확인 (디버그용)"""
+    """API 원본 응답 확인 (디버그용 - 인증 불필요)"""
     service = get_smartstore_service()
 
     if not service.is_configured():
-        raise HTTPException(status_code=400, detail="API 인증 정보가 설정되지 않았습니다")
+        return {"error": "API 인증 정보가 설정되지 않았습니다"}
 
     from_time = f"{year}-{month:02d}-{day:02d}T00:00:00.000+09:00"
+    results = {}
 
+    # 테스트 1: PAYED 상태 조회
     try:
-        raw = await service._request(
+        raw1 = await service._request(
             "GET",
             "/external/v1/pay-order/seller/product-orders",
             params={
@@ -243,10 +233,43 @@ async def debug_raw_response(
                 "page": 1,
             }
         )
-        return {
-            "query_date": f"{year}-{month:02d}-{day:02d}",
-            "raw_response_keys": list(raw.keys()) if isinstance(raw, dict) else type(raw).__name__,
-            "raw_response": raw,
-        }
+        results["test1_payed"] = raw1
     except Exception as e:
-        return {"error": str(e)}
+        results["test1_payed_error"] = str(e)
+
+    # 테스트 2: 상태 필터 없이 조회
+    try:
+        raw2 = await service._request(
+            "GET",
+            "/external/v1/pay-order/seller/product-orders",
+            params={
+                "from": from_time,
+                "rangeType": "PAYED_DATETIME",
+                "pageSize": 5,
+                "page": 1,
+            }
+        )
+        results["test2_no_status"] = raw2
+    except Exception as e:
+        results["test2_no_status_error"] = str(e)
+
+    # 테스트 3: rangeType 없이 조회
+    try:
+        raw3 = await service._request(
+            "GET",
+            "/external/v1/pay-order/seller/product-orders",
+            params={
+                "from": from_time,
+                "pageSize": 5,
+                "page": 1,
+            }
+        )
+        results["test3_no_range_type"] = raw3
+    except Exception as e:
+        results["test3_no_range_type_error"] = str(e)
+
+    return {
+        "query_date": f"{year}-{month:02d}-{day:02d}",
+        "from_time": from_time,
+        "results": results,
+    }
