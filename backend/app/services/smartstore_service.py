@@ -56,6 +56,13 @@ class SmartStoreService:
         signature = self._generate_signature(timestamp)
 
         async with httpx.AsyncClient() as client:
+            # 요청 시 사용되는 IP 확인용
+            try:
+                ip_res = await client.get("https://api.ipify.org?format=json", timeout=5)
+                outbound_ip = ip_res.json().get("ip", "unknown")
+            except Exception:
+                outbound_ip = "unknown"
+
             response = await client.post(
                 f"{self.config.base_url}/external/v1/oauth2/token",
                 headers={
@@ -69,7 +76,11 @@ class SmartStoreService:
                     "type": "SELF",
                 },
             )
-            response.raise_for_status()
+            if response.status_code != 200:
+                error_body = response.text
+                raise Exception(
+                    f"토큰 발급 실패 (status={response.status_code}, ip={outbound_ip}): {error_body}"
+                )
             data = response.json()
 
             self._token = data["access_token"]
