@@ -136,27 +136,24 @@ class SmartStoreService:
 
             page = 1
             while True:
-                try:
-                    data = await self._request(
-                        "GET",
-                        "/external/v1/pay-order/seller/product-orders",
-                        params={
-                            "from": from_time,
-                            "rangeType": "PAYED_DATETIME",
-                            "productOrderStatuses": "PAYED",
-                            "pageSize": 100,
-                            "page": page,
-                        }
-                    )
-                    orders = data.get("data", {}).get("contents", [])
-                    all_orders.extend(orders)
+                data = await self._request(
+                    "GET",
+                    "/external/v1/pay-order/seller/product-orders",
+                    params={
+                        "from": from_time,
+                        "rangeType": "PAYED_DATETIME",
+                        "pageSize": 100,
+                        "page": page,
+                    }
+                )
+                orders = data.get("data", {}).get("contents", [])
+                all_orders.extend(orders)
 
-                    # 다음 페이지가 있는지 확인
-                    if len(orders) < 100:
-                        break
-                    page += 1
-                except Exception:
+                # 다음 페이지가 있는지 확인
+                has_next = data.get("data", {}).get("pagination", {}).get("hasNext", False)
+                if not has_next or len(orders) < 100:
                     break
+                page += 1
 
             current += timedelta(days=1)
 

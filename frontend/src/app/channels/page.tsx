@@ -173,8 +173,7 @@ export default function ChannelsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        const processedInfo = data.processed ? ` (${data.processed}일, ${data.created}건 저장)` : '';
-        setSyncResult({ type: 'success', message: `[${channel.name}] ${data.message}${processedInfo}` });
+        setSyncResult({ type: 'success', message: `[${channel.name}] ${data.message} (${data.processed || 0}일, ${data.created || 0}건 저장)` });
         fetchSummary();
       } else {
         setSyncResult({ type: 'error', message: `[${channel.name}] ${data.detail || '동기화 실패'}` });
