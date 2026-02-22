@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
@@ -73,8 +73,21 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function ChannelsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <ChannelsPageContent />
+    </Suspense>
+  );
+}
+
+function ChannelsPageContent() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -89,6 +102,40 @@ export default function ChannelsPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncingChannelId, setSyncingChannelId] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [cafe24Connecting, setCafe24Connecting] = useState(false);
+
+  // 카페24 OAuth 연동 완료 쿼리 파라미터 처리
+  useEffect(() => {
+    const cafe24Connected = searchParams.get('cafe24_connected');
+    const cafe24Error = searchParams.get('cafe24_error');
+    if (cafe24Connected === 'true') {
+      setSyncResult({ type: 'success', message: '카페24 OAuth 연동이 완료되었습니다!' });
+      router.replace('/channels');
+    } else if (cafe24Error) {
+      setSyncResult({ type: 'error', message: `카페24 연동 실패: ${cafe24Error}` });
+      router.replace('/channels');
+    }
+  }, [searchParams, router]);
+
+  const connectCafe24 = async () => {
+    setCafe24Connecting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/cafe24/oauth/authorize`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        window.location.href = data.authorize_url;
+      } else {
+        const data = await res.json();
+        setSyncResult({ type: 'error', message: data.detail || '카페24 연동 URL 생성 실패' });
+        setCafe24Connecting(false);
+      }
+    } catch (err: any) {
+      setSyncResult({ type: 'error', message: `카페24 연동 실패: ${err?.message || '네트워크 오류'}` });
+      setCafe24Connecting(false);
+    }
+  };
 
   // 동기화 날짜 범위 (기본: 현재 선택된 월의 1일 ~ 말일)
   const getDefaultDates = (y: number, m: number) => {
@@ -166,6 +213,7 @@ export default function ChannelsPage() {
   // 채널명 → API 동기화 엔드포인트 매핑 (연동 구현된 채널만)
   const SYNC_ENDPOINTS: Record<string, string> = {
     '스마트스토어': '/api/smartstore/sync',
+    '카페24': '/api/cafe24/sync',
   };
 
   const syncChannel = async (channel: Channel) => {
@@ -662,20 +710,46 @@ export default function ChannelsPage() {
                       </div>
                     )}
                     <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
-                      <button
-                        onClick={() => syncChannel(channel)}
-                        disabled={syncingChannelId === channel.id || isSyncing}
-                        className="flex-1 px-3 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
-                      >
-                        {syncingChannelId === channel.id ? (
-                          <>
-                            <div className="w-3 h-3 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
-                            동기화 중
-                          </>
-                        ) : (
-                          '동기화'
-                        )}
-                      </button>
+                      {channel.name === '카페24' && !SYNC_ENDPOINTS[channel.name] ? null : channel.name === '카페24' ? (
+                        <>
+                          <button
+                            onClick={connectCafe24}
+                            disabled={cafe24Connecting}
+                            className="flex-1 px-3 py-1.5 text-xs bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {cafe24Connecting ? 'OAuth 연동 중...' : 'OAuth 연동'}
+                          </button>
+                          <button
+                            onClick={() => syncChannel(channel)}
+                            disabled={syncingChannelId === channel.id || isSyncing}
+                            className="flex-1 px-3 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
+                          >
+                            {syncingChannelId === channel.id ? (
+                              <>
+                                <div className="w-3 h-3 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                                동기화 중
+                              </>
+                            ) : (
+                              '동기화'
+                            )}
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => syncChannel(channel)}
+                          disabled={syncingChannelId === channel.id || isSyncing}
+                          className="flex-1 px-3 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
+                        >
+                          {syncingChannelId === channel.id ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                              동기화 중
+                            </>
+                          ) : (
+                            '동기화'
+                          )}
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           setSelectedChannel(channel);

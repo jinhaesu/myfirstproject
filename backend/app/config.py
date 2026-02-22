@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     # 사용자 설정 (JSON 형식: [{"email":"admin@example.com","password":"hashed","name":"Admin"}])
     USERS_JSON: str = "[]"
 
+    # 카페24
+    CAFE24_CLIENT_ID: str = ""
+    CAFE24_CLIENT_SECRET: str = ""
+    CAFE24_MALL_ID: str = ""
+    CAFE24_REDIRECT_URI: str = ""
+    FRONTEND_URL: str = "http://localhost:3000"
+
     # Resend 이메일 설정
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = "noreply@yourdomain.com"
