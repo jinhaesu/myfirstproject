@@ -156,6 +156,20 @@ export default function ChannelsPage() {
     '스마트스토어': '/api/smartstore/sync',
   };
 
+  // 최근 2개월 (현재 선택 월 + 이전 월) 계산
+  const getSyncMonths = () => {
+    const months: { year: number; month: number }[] = [];
+    // 이전 월
+    if (month === 1) {
+      months.push({ year: year - 1, month: 12 });
+    } else {
+      months.push({ year, month: month - 1 });
+    }
+    // 현재 월
+    months.push({ year, month });
+    return months;
+  };
+
   const syncChannel = async (channel: Channel) => {
     const endpoint = SYNC_ENDPOINTS[channel.name];
     if (!endpoint) {
@@ -165,22 +179,39 @@ export default function ChannelsPage() {
 
     setSyncingChannelId(channel.id);
     setSyncResult(null);
-    try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ year, month, channel_id: channel.id }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSyncResult({ type: 'success', message: `[${channel.name}] ${data.message} (${data.processed || 0}일, ${data.created || 0}건 저장)` });
-        fetchSummary();
-      } else {
-        setSyncResult({ type: 'error', message: `[${channel.name}] ${data.detail || '동기화 실패'}` });
+
+    const syncMonths = getSyncMonths();
+    const results: string[] = [];
+    const errors: string[] = [];
+
+    for (const m of syncMonths) {
+      try {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ year: m.year, month: m.month, channel_id: channel.id }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          results.push(`${m.year}.${m.month}월: ${data.processed || 0}일, ${data.created || 0}건`);
+        } else {
+          errors.push(`${m.year}.${m.month}월: ${data.detail || '실패'}`);
+        }
+      } catch (err) {
+        errors.push(`${m.year}.${m.month}월: 오류 발생`);
       }
-    } catch (err) {
-      setSyncResult({ type: 'error', message: `[${channel.name}] 동기화 중 오류가 발생했습니다` });
     }
+
+    const message = [
+      results.length > 0 ? `[${channel.name}] 동기화 완료 - ${results.join(' / ')}` : '',
+      errors.length > 0 ? `실패: ${errors.join(' / ')}` : '',
+    ].filter(Boolean).join(' | ');
+
+    setSyncResult({
+      type: errors.length === 0 ? 'success' : results.length > 0 ? 'success' : 'error',
+      message,
+    });
+    fetchSummary();
     setSyncingChannelId(null);
   };
 
@@ -194,25 +225,28 @@ export default function ChannelsPage() {
       return;
     }
 
+    const syncMonths = getSyncMonths();
     const results: string[] = [];
     const errors: string[] = [];
 
     for (const channel of apiChannels) {
       const endpoint = SYNC_ENDPOINTS[channel.name];
-      try {
-        const res = await fetch(`${API_BASE}${endpoint}`, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ year, month, channel_id: channel.id }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          results.push(channel.name);
-        } else {
-          errors.push(`${channel.name}: ${data.detail || '실패'}`);
+      for (const m of syncMonths) {
+        try {
+          const res = await fetch(`${API_BASE}${endpoint}`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ year: m.year, month: m.month, channel_id: channel.id }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            results.push(`${channel.name} ${m.month}월`);
+          } else {
+            errors.push(`${channel.name} ${m.month}월: ${data.detail || '실패'}`);
+          }
+        } catch {
+          errors.push(`${channel.name} ${m.month}월: 오류 발생`);
         }
-      } catch {
-        errors.push(`${channel.name}: 오류 발생`);
       }
     }
 
