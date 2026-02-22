@@ -53,3 +53,15 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.get("/api/server-ip")
+async def get_server_ip():
+    """서버 외부 IP 확인 (API 허용 IP 설정용)"""
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.get("https://api.ipify.org?format=json", timeout=5)
+            return res.json()
+    except Exception as e:
+        return {"error": str(e)}

@@ -97,32 +97,67 @@ class SmartStoreService:
             response.raise_for_status()
             return response.json()
 
-    async def get_order_stats(
+    async def _fetch_orders_for_period(
         self,
         start_date: str,
         end_date: str,
-    ) -> dict:
-        """주문 통계 조회
+    ) -> list[dict]:
+        """기간별 주문 목록 조회 (최대 24시간 단위로 분할 요청)
 
         Args:
             start_date: 시작일 (YYYY-MM-DD)
             end_date: 종료일 (YYYY-MM-DD)
         """
-        # 날짜를 datetime으로 변환
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
         end_dt = datetime.strptime(end_date, "%Y-%m-%d")
 
-        # 커머스 API는 ISO 포맷 필요
-        data = await self._request(
-            "POST",
-            "/external/v1/pay-order/seller/orders/search",
-            json={
-                "searchTimeType": "PAYED",  # 결제일 기준
-                "searchStartDate": start_dt.strftime("%Y-%m-%dT00:00:00.000+09:00"),
-                "searchEndDate": end_dt.strftime("%Y-%m-%dT23:59:59.999+09:00"),
-            }
-        )
-        return data
+        all_product_order_ids = []
+
+        # 하루 단위로 분할 조회 (API 제한: 최대 24시간)
+        current = start_dt
+        while current <= end_dt:
+            from_time = current.strftime("%Y-%m-%dT00:00:00.000+09:00")
+            to_time = current.strftime("%Y-%m-%dT23:59:59.999+09:00")
+
+            try:
+                data = await self._request(
+                    "GET",
+                    "/external/v1/pay-order/seller/product-orders/last-changed-statuses",
+                    params={
+                        "lastChangedFrom": from_time,
+                        "lastChangedTo": to_time,
+                        "lastChangedType": "PAYED",
+                    }
+                )
+                statuses = data.get("data", {}).get("lastChangeStatuses", [])
+                for item in statuses:
+                    pid = item.get("productOrderId")
+                    if pid:
+                        all_product_order_ids.append(pid)
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code != 404:
+                    raise
+            current += timedelta(days=1)
+
+        if not all_product_order_ids:
+            return []
+
+        # 상품 주문 상세 조회 (최대 300개씩)
+        all_orders = []
+        for i in range(0, len(all_product_order_ids), 300):
+            batch = all_product_order_ids[i:i+300]
+            try:
+                detail = await self._request(
+                    "POST",
+                    "/external/v1/pay-order/seller/product-orders/query",
+                    json={"productOrderIds": batch}
+                )
+                orders = detail.get("data", [])
+                all_orders.extend(orders)
+            except httpx.HTTPStatusError:
+                pass
+
+        return all_orders
 
     async def get_daily_sales(
         self,
@@ -145,16 +180,19 @@ class SmartStoreService:
         end_date = f"{year}-{month:02d}-{days_in_month:02d}"
 
         # 주문 목록 조회
-        orders_data = await self.get_order_stats(start_date, end_date)
+        orders = await self._fetch_orders_for_period(start_date, end_date)
 
         # 일별 집계
         daily_sales = {}
-        for order in orders_data.get("data", []):
-            # 결제일 파싱
-            paid_at = order.get("paidAt", "")
+        for order in orders:
+            product_order = order.get("productOrder", {})
+            paid_at = product_order.get("paymentDate", "")
             if paid_at:
-                paid_date = datetime.fromisoformat(paid_at.replace("+09:00", ""))
-                day = paid_date.day
+                try:
+                    paid_date = datetime.fromisoformat(paid_at.replace("+09:00", "+09:00").split("+")[0])
+                    day = paid_date.day
+                except (ValueError, IndexError):
+                    continue
 
                 if day not in daily_sales:
                     daily_sales[day] = {
@@ -166,17 +204,12 @@ class SmartStoreService:
                         "commission": 0,
                     }
 
-                # 금액 합산
-                daily_sales[day]["gross_sales"] += order.get("totalPaymentAmount", 0)
-                daily_sales[day]["net_sales"] += order.get("expectedSettlementAmount", 0)
+                daily_sales[day]["gross_sales"] += product_order.get("totalPaymentAmount", 0)
+                daily_sales[day]["net_sales"] += product_order.get("expectedSettlementAmount", 0)
                 daily_sales[day]["order_count"] += 1
-                daily_sales[day]["quantity"] += sum(
-                    item.get("quantity", 0)
-                    for item in order.get("productOrders", [])
-                )
-                daily_sales[day]["commission"] += order.get("commissionAmount", 0)
+                daily_sales[day]["quantity"] += product_order.get("quantity", 0)
+                daily_sales[day]["commission"] += product_order.get("commissionAmount", 0)
 
-        # 리스트로 변환 및 정렬
         result = sorted(daily_sales.values(), key=lambda x: x["day"])
         return result
 
@@ -184,31 +217,14 @@ class SmartStoreService:
         self,
         start_date: str,
         end_date: str,
-        page_index: int = 1,
-        page_size: int = 100,
-    ) -> dict:
+    ) -> list[dict]:
         """상품 주문 목록 조회
 
         Args:
             start_date: 시작일 (YYYY-MM-DD)
             end_date: 종료일 (YYYY-MM-DD)
-            page_index: 페이지 번호
-            page_size: 페이지 크기
         """
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-
-        return await self._request(
-            "POST",
-            "/external/v1/pay-order/seller/product-orders/search",
-            json={
-                "searchTimeType": "PAYED",
-                "searchStartDate": start_dt.strftime("%Y-%m-%dT00:00:00.000+09:00"),
-                "searchEndDate": end_dt.strftime("%Y-%m-%dT23:59:59.999+09:00"),
-                "pageIndex": page_index,
-                "pageSize": page_size,
-            }
-        )
+        return await self._fetch_orders_for_period(start_date, end_date)
 
     async def test_connection(self) -> dict:
         """API 연결 테스트"""
