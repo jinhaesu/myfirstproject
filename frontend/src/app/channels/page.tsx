@@ -90,6 +90,18 @@ export default function ChannelsPage() {
   const [syncingChannelId, setSyncingChannelId] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // 동기화 날짜 범위 (기본: 현재 선택된 월의 1일 ~ 말일)
+  const getDefaultDates = (y: number, m: number) => {
+    const daysInMonth = new Date(y, m, 0).getDate();
+    return {
+      start: `${y}-${String(m).padStart(2, '0')}-01`,
+      end: `${y}-${String(m).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`,
+    };
+  };
+  const defaults = getDefaultDates(year, month);
+  const [syncStartDate, setSyncStartDate] = useState(defaults.start);
+  const [syncEndDate, setSyncEndDate] = useState(defaults.end);
+
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
     return {
@@ -156,18 +168,6 @@ export default function ChannelsPage() {
     '스마트스토어': '/api/smartstore/sync',
   };
 
-  // 동기화 날짜 범위 계산 (이전 월 1일 ~ 오늘)
-  const getSyncDateRange = () => {
-    const prevMonth = month === 1 ? 12 : month - 1;
-    const prevYear = month === 1 ? year - 1 : year;
-    const startDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
-
-    const today = new Date();
-    const endDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-    return { startDate, endDate };
-  };
-
   const syncChannel = async (channel: Channel) => {
     const endpoint = SYNC_ENDPOINTS[channel.name];
     if (!endpoint) {
@@ -178,13 +178,11 @@ export default function ChannelsPage() {
     setSyncingChannelId(channel.id);
     setSyncResult(null);
 
-    const { startDate, endDate } = getSyncDateRange();
-
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ start_date: startDate, end_date: endDate, channel_id: channel.id }),
+        body: JSON.stringify({ start_date: syncStartDate, end_date: syncEndDate, channel_id: channel.id }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -194,7 +192,7 @@ export default function ChannelsPage() {
         });
         fetchSummary();
       } else {
-        setSyncResult({ type: 'error', message: `[${channel.name}] ${data.detail || '동기화 실패'}` });
+        setSyncResult({ type: 'error', message: `[${channel.name}] ${typeof data.detail === 'string' ? data.detail : '동기화 실패'}` });
       }
     } catch (err: any) {
       setSyncResult({ type: 'error', message: `[${channel.name}] ${err?.message || '네트워크 오류'}` });
@@ -212,7 +210,6 @@ export default function ChannelsPage() {
       return;
     }
 
-    const { startDate, endDate } = getSyncDateRange();
     const results: string[] = [];
     const errors: string[] = [];
 
@@ -222,13 +219,13 @@ export default function ChannelsPage() {
         const res = await fetch(`${API_BASE}${endpoint}`, {
           method: 'POST',
           headers: getAuthHeaders(),
-          body: JSON.stringify({ start_date: startDate, end_date: endDate, channel_id: channel.id }),
+          body: JSON.stringify({ start_date: syncStartDate, end_date: syncEndDate, channel_id: channel.id }),
         });
         const data = await res.json();
         if (res.ok) {
           results.push(`${channel.name}: ${data.processed || 0}일`);
         } else {
-          errors.push(`${channel.name}: ${data.detail || '실패'}`);
+          errors.push(`${channel.name}: ${typeof data.detail === 'string' ? data.detail : '실패'}`);
         }
       } catch (err: any) {
         errors.push(`${channel.name}: ${err?.message || '네트워크 오류'}`);
@@ -247,6 +244,13 @@ export default function ChannelsPage() {
     fetchSummary();
     setIsSyncing(false);
   };
+
+  // 년/월 변경 시 동기화 날짜 범위도 업데이트
+  useEffect(() => {
+    const d = getDefaultDates(year, month);
+    setSyncStartDate(d.start);
+    setSyncEndDate(d.end);
+  }, [year, month]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -395,8 +399,9 @@ export default function ChannelsPage() {
         {/* 필터 & 총합계 */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
           <div className="flex flex-wrap items-center gap-4 mb-6">
+            {/* 대시보드 조회 기간 */}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-slate-600">년도:</label>
+              <label className="text-sm font-medium text-slate-600">조회:</label>
               <select
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value))}
@@ -406,9 +411,6 @@ export default function ChannelsPage() {
                   <option key={y} value={y}>{y}년</option>
                 ))}
               </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-slate-600">월:</label>
               <select
                 value={month}
                 onChange={(e) => setMonth(Number(e.target.value))}
@@ -418,6 +420,26 @@ export default function ChannelsPage() {
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="w-px h-8 bg-slate-200" />
+
+            {/* 동기화 기간 */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-slate-600">동기화 기간:</label>
+              <input
+                type="date"
+                value={syncStartDate}
+                onChange={(e) => setSyncStartDate(e.target.value)}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <span className="text-slate-400">~</span>
+              <input
+                type="date"
+                value={syncEndDate}
+                onChange={(e) => setSyncEndDate(e.target.value)}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
             </div>
           </div>
 
