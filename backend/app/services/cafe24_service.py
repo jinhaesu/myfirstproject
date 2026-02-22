@@ -294,8 +294,8 @@ class Cafe24Service:
                         "GET",
                         "/api/v2/admin/orders",
                         params={
-                            "start_date": f"{start_date}T00:00:00+09:00",
-                            "end_date": f"{end_date}T23:59:59+09:00",
+                            "order_date_min": f"{start_date}T00:00:00+09:00",
+                            "order_date_max": f"{end_date}T23:59:59+09:00",
                             "limit": limit,
                             "offset": offset,
                         },
@@ -328,10 +328,6 @@ class Cafe24Service:
                     access_token,
                     "GET",
                     "/api/v2/admin/orders/count",
-                    params={
-                        "start_date": datetime.now().strftime("%Y-%m-%d"),
-                        "end_date": datetime.now().strftime("%Y-%m-%d"),
-                    },
                 )
             return {
                 "success": True,
