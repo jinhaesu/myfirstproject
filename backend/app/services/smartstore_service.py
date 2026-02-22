@@ -186,22 +186,24 @@ class SmartStoreService:
         orders = await self._fetch_orders_for_period(start_date, end_date)
 
         # 일별 집계
+        # 응답 구조: contents[].content.order.paymentDate, contents[].content.productOrder.*
         daily_sales = {}
-        for order in orders:
-            # 응답 구조: {"productOrder": {...}} 또는 직접 필드
-            product_order = order.get("productOrder", order)
-            paid_at = (
-                product_order.get("paymentDate")
-                or product_order.get("paidAt")
-                or product_order.get("payedDateTime")
-                or ""
-            )
+        for item in orders:
+            content = item.get("content", item)
+            order_info = content.get("order", {})
+            product_order = content.get("productOrder", {})
+
+            # 취소된 주문 제외
+            status = product_order.get("productOrderStatus", "")
+            if status in ("CANCELED", "RETURNED"):
+                continue
+
+            paid_at = order_info.get("paymentDate", "")
             if not paid_at:
                 continue
 
             try:
-                # +09:00 등 timezone 제거 후 파싱
-                date_str = paid_at.split("+")[0].split("T")[0]
+                date_str = paid_at.split("T")[0]
                 paid_date = datetime.strptime(date_str, "%Y-%m-%d")
                 day = paid_date.day
             except (ValueError, IndexError):
@@ -221,7 +223,13 @@ class SmartStoreService:
             daily_sales[day]["net_sales"] += product_order.get("expectedSettlementAmount", 0)
             daily_sales[day]["order_count"] += 1
             daily_sales[day]["quantity"] += product_order.get("quantity", 0)
-            daily_sales[day]["commission"] += product_order.get("commissionAmount", 0)
+            commission = (
+                product_order.get("paymentCommission", 0)
+                + product_order.get("saleCommission", 0)
+                + product_order.get("knowledgeShoppingSellingInterlockCommission", 0)
+                + product_order.get("channelCommission", 0)
+            )
+            daily_sales[day]["commission"] += commission
 
         result = sorted(daily_sales.values(), key=lambda x: x["day"])
         return result

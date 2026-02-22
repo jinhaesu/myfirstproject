@@ -129,12 +129,6 @@ async def sync_sales(
             "error_message": str(result["errors"][:3]) if result["errors"] else None,
         })
 
-        # raw 주문 수도 확인
-        raw_orders = await service._fetch_orders_for_period(
-            f"{data.year}-{data.month:02d}-01",
-            f"{data.year}-{data.month:02d}-{__import__('calendar').monthrange(data.year, data.month)[1]:02d}"
-        )
-
         return {
             "success": True,
             "message": f"{data.year}년 {data.month}월 매출 데이터 동기화 완료",
@@ -142,11 +136,6 @@ async def sync_sales(
             "processed": len(daily_sales),
             "created": result["created"],
             "errors": len(result["errors"]),
-            "debug": {
-                "raw_orders_count": len(raw_orders),
-                "daily_sales_count": len(daily_sales),
-                "sample_raw_order": raw_orders[0] if raw_orders else None,
-            }
         }
 
     except Exception as e:
