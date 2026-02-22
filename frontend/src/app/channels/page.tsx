@@ -158,16 +158,16 @@ export default function ChannelsPage() {
 
   // 최근 2개월 (현재 선택 월 + 이전 월) 계산
   const getSyncMonths = () => {
-    const months: { year: number; month: number }[] = [];
+    const targets: { year: number; month: number }[] = [];
     // 이전 월
     if (month === 1) {
-      months.push({ year: year - 1, month: 12 });
+      targets.push({ year: year - 1, month: 12 });
     } else {
-      months.push({ year, month: month - 1 });
+      targets.push({ year, month: month - 1 });
     }
     // 현재 월
-    months.push({ year, month });
-    return months;
+    targets.push({ year, month });
+    return targets;
   };
 
   const syncChannel = async (channel: Channel) => {
@@ -197,8 +197,8 @@ export default function ChannelsPage() {
         } else {
           errors.push(`${m.year}.${m.month}월: ${data.detail || '실패'}`);
         }
-      } catch (err) {
-        errors.push(`${m.year}.${m.month}월: 오류 발생`);
+      } catch (err: any) {
+        errors.push(`${m.year}.${m.month}월: ${err?.message || '네트워크 오류'}`);
       }
     }
 
@@ -244,8 +244,8 @@ export default function ChannelsPage() {
           } else {
             errors.push(`${channel.name} ${m.month}월: ${data.detail || '실패'}`);
           }
-        } catch {
-          errors.push(`${channel.name} ${m.month}월: 오류 발생`);
+        } catch (err: any) {
+          errors.push(`${channel.name} ${m.month}월: ${err?.message || '네트워크 오류'}`);
         }
       }
     }

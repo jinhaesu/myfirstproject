@@ -98,7 +98,7 @@ class SmartStoreService:
         headers["Authorization"] = f"Bearer {token}"
         headers["Content-Type"] = "application/json"
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             response = await client.request(
                 method,
                 f"{self.config.base_url}{endpoint}",
