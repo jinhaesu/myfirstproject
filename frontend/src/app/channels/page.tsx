@@ -310,6 +310,8 @@ function ChannelsPageContent() {
   const SYNC_ENDPOINTS: Record<string, string> = {
     '스마트스토어': '/api/smartstore/sync',
     '카페24': '/api/cafe24/sync',
+    '쿠팡 WING': '/api/coupang-wing/sync',
+    '쿠팡 로켓': '/api/coupang-rocket/sync',
   };
 
   const syncChannel = async (channel: Channel) => {
