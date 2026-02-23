@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api.routes import chat, tables, query, auth, targets, ai, channels, smartstore, cafe24
+from app.api.routes import chat, tables, query, auth, targets, ai, channels, smartstore, cafe24, coupang_wing, coupang_rocket
 from app.database import init_db
 
 settings = get_settings()
@@ -44,6 +44,8 @@ app.include_router(ai.router, prefix="/api", tags=["ai"])
 app.include_router(channels.router, prefix="/api", tags=["channels"])
 app.include_router(smartstore.router, prefix="/api", tags=["smartstore"])
 app.include_router(cafe24.router, prefix="/api", tags=["cafe24"])
+app.include_router(coupang_wing.router, prefix="/api", tags=["coupang-wing"])
+app.include_router(coupang_rocket.router, prefix="/api", tags=["coupang-rocket"])
 
 
 @app.get("/")
