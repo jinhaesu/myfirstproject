@@ -221,3 +221,61 @@ async def sync_sales(
             "error_message": str(e),
         })
         raise HTTPException(status_code=500, detail=f"동기화 실패: {str(e)}")
+
+
+@router.get("/debug-raw")
+async def debug_raw_response(
+    start_date: str,
+    end_date: str,
+    channel_service: ChannelService = Depends(get_channel_service),
+):
+    """API 원본 응답 확인 (디버그용)"""
+    service = get_coupang_wing_service()
+
+    # DB에서 credential 로드
+    channel = channel_service.get_channel_by_name("쿠팡 WING")
+    if channel and channel.get("config"):
+        config = channel["config"]
+        if config.get("vendor_id") and config.get("access_key") and config.get("secret_key"):
+            service.update_config(config["vendor_id"], config["access_key"], config["secret_key"])
+
+    if not service.is_configured():
+        return {"error": "API 인증 정보가 설정되지 않았습니다"}
+
+    import httpx
+    path = f"/v2/providers/openapi/apis/api/v4/vendors/{service.config.vendor_id}/ordersheets"
+
+    results = {}
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            raw = await service._request(
+                client, "GET", path,
+                params={
+                    "createdAtFrom": start_date,
+                    "createdAtTo": end_date,
+                    "status": "INSTRUCT",
+                    "maxPerPage": 5,
+                }
+            )
+            results["instruct"] = raw
+        except Exception as e:
+            results["instruct_error"] = str(e)
+
+        try:
+            raw2 = await service._request(
+                client, "GET", path,
+                params={
+                    "createdAtFrom": start_date,
+                    "createdAtTo": end_date,
+                    "maxPerPage": 5,
+                }
+            )
+            results["no_status"] = raw2
+        except Exception as e:
+            results["no_status_error"] = str(e)
+
+    return {
+        "vendor_id": service.config.vendor_id,
+        "query": f"{start_date} ~ {end_date}",
+        "results": results,
+    }

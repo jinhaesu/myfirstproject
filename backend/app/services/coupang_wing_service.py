@@ -5,10 +5,12 @@ Coupang Open API를 통해 쿠팡 Wing 매출 데이터를 조회합니다.
 API 문서: https://developers.coupangcorp.com/
 """
 import os
+import time
 import hmac
 import hashlib
 import uuid
 import asyncio
+import urllib.parse
 import httpx
 from datetime import datetime, timedelta
 from typing import Optional
@@ -45,14 +47,14 @@ class CoupangWingService:
             secret_key=secret_key,
         )
 
-    def _generate_authorization(self, method: str, path: str, datetime_str: str) -> str:
+    def _generate_authorization(self, method: str, path: str, query: str, datetime_str: str) -> str:
         """HMAC-SHA256 Authorization 헤더 생성
 
         쿠팡 Open API 인증 규격:
-        message = datetime + method + path
+        message = datetime + method + path + query (구분자 없이 직접 연결)
         signature = HMAC-SHA256(secret_key, message)
         """
-        message = datetime_str + method.upper() + path
+        message = datetime_str + method.upper() + path + query
         signature = hmac.new(
             self.config.secret_key.encode("utf-8"),
             message.encode("utf-8"),
@@ -74,13 +76,19 @@ class CoupangWingService:
         **kwargs,
     ) -> dict:
         """API 요청 (HMAC 서명 포함)"""
-        datetime_str = datetime.utcnow().strftime("%y%m%dT%H%M%S")
-        authorization = self._generate_authorization(method, path, datetime_str)
+        # GMT+0 기준 datetime (Z 접미사 포함)
+        os.environ['TZ'] = 'GMT+0'
+        datetime_str = time.strftime('%y%m%d') + 'T' + time.strftime('%H%M%S') + 'Z'
+
+        # GET 요청이면 query string을 서명에 포함
+        params = kwargs.get("params", {})
+        query = urllib.parse.urlencode(params) if params else ""
+        authorization = self._generate_authorization(method, path, query, datetime_str)
 
         headers = kwargs.pop("headers", {})
         headers["Authorization"] = authorization
         headers["Content-Type"] = "application/json;charset=UTF-8"
-        headers["X-Reqeust-ID"] = str(uuid.uuid4())  # 쿠팡 스펙 오타 유지
+        headers["X-EXTENDED-TIMEOUT"] = "90000"
 
         url = f"{self.config.base_url}{path}"
         response = await client.request(method, url, headers=headers, **kwargs)
@@ -107,7 +115,7 @@ class CoupangWingService:
             params = {
                 "createdAtFrom": created_from,
                 "createdAtTo": created_to,
-                "status": "ACCEPT",
+                "status": "INSTRUCT",
                 "maxPerPage": 50,
             }
             if next_token:
@@ -252,7 +260,7 @@ class CoupangWingService:
                     params={
                         "createdAtFrom": f"{today}T00:00:00",
                         "createdAtTo": f"{today}T23:59:59",
-                        "status": "ACCEPT",
+                        "status": "INSTRUCT",
                         "maxPerPage": 1,
                     }
                 )
