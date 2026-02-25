@@ -221,29 +221,25 @@ class CoupangWingService:
             return []
 
         all_orders = []
-        all_statuses = ["ACCEPT", "INSTRUCT", "DEPARTURE", "DELIVERING", "FINAL_DELIVERY"]
+        # 매출 집계에 필요한 핵심 상태만 조회 (속도 최적화)
+        all_statuses = ["INSTRUCT", "DEPARTURE", "DELIVERING", "FINAL_DELIVERY"]
 
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             for chunk_from, chunk_to in chunks:
-                # 상태별 순차 호출 (rate limit 방지)
-                for status in all_statuses:
-                    try:
-                        orders = await self._fetch_ordersheets(
-                            client, chunk_from, chunk_to, status=status
-                        )
-                        if orders:
-                            logger.info(
-                                f"주문 조회 성공: {status} ({chunk_from}~{chunk_to}) -> {len(orders)}건"
-                            )
-                            all_orders.extend(orders)
-                        else:
-                            logger.debug(f"주문 없음: {status} ({chunk_from}~{chunk_to})")
-                    except Exception as e:
-                        logger.error(
-                            f"주문 조회 실패: {status} ({chunk_from}~{chunk_to}): {str(e)}"
-                        )
-                    # 요청 간 딜레이
-                    await asyncio.sleep(0.3)
+                # 2개씩 병렬 호출 (rate limit과 속도의 균형)
+                for i in range(0, len(all_statuses), 2):
+                    batch = all_statuses[i:i + 2]
+                    tasks = [
+                        self._fetch_ordersheets(client, chunk_from, chunk_to, status=s)
+                        for s in batch
+                    ]
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    for idx, r in enumerate(results):
+                        if isinstance(r, Exception):
+                            logger.warning(f"주문 조회 실패: {batch[idx]} ({chunk_from}~{chunk_to}): {str(r)}")
+                        elif r:
+                            logger.info(f"주문 조회: {batch[idx]} ({chunk_from}~{chunk_to}) -> {len(r)}건")
+                            all_orders.extend(r)
 
         logger.info(f"전체 주문 조회 완료: {len(all_orders)}건 ({actual_start}~{actual_end})")
         return all_orders
