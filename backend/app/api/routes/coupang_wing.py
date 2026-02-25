@@ -290,6 +290,61 @@ async def debug_sync_logs(
     return {"logs": logs}
 
 
+@router.get("/debug-test-sync")
+async def debug_test_sync(
+    start_date: str = Query(..., description="시작일 (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="종료일 (YYYY-MM-DD)"),
+    channel_service: ChannelService = Depends(get_channel_service),
+):
+    """동기화 플로우 직접 테스트 (인증 불필요, 디버그용)
+
+    백그라운드 작업이 아닌 동기 방식으로 실행하여 어디서 실패하는지 확인합니다.
+    """
+    import time
+    service = get_coupang_wing_service()
+    steps = []
+
+    # credential 로드
+    channel = channel_service.get_channel_by_name("쿠팡 WING")
+    if channel and channel.get("config"):
+        config = channel["config"]
+        if config.get("vendor_id") and config.get("access_key") and config.get("secret_key"):
+            service.update_config(config["vendor_id"], config["access_key"], config["secret_key"])
+    steps.append({"step": "config", "ok": service.is_configured()})
+
+    if not service.is_configured():
+        return {"steps": steps, "error": "not configured"}
+
+    # API 호출
+    t0 = time.time()
+    try:
+        monthly_data = await service.get_daily_sales_by_range(start_date, end_date)
+        elapsed = round(time.time() - t0, 1)
+        total_days = sum(len(days) for days in monthly_data.values())
+        total_orders = sum(
+            d.get("order_count", 0) for days in monthly_data.values() for d in days
+        )
+        steps.append({
+            "step": "api_fetch",
+            "ok": True,
+            "elapsed_sec": elapsed,
+            "months": list(monthly_data.keys()),
+            "total_days": total_days,
+            "total_orders": total_orders,
+        })
+    except Exception as e:
+        elapsed = round(time.time() - t0, 1)
+        steps.append({
+            "step": "api_fetch",
+            "ok": False,
+            "elapsed_sec": elapsed,
+            "error": str(e)[:300],
+        })
+        return {"steps": steps}
+
+    return {"steps": steps, "message": f"동기화 테스트 완료: {total_days}일, {total_orders}건"}
+
+
 @router.get("/debug-orders")
 async def debug_orders(
     start_date: str = Query(..., description="시작일 (YYYY-MM-DD)"),
