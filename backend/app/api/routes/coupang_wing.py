@@ -1,13 +1,16 @@
 """쿠팡 Wing API 연동 라우트"""
+import logging
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
 from app.services.coupang_wing_service import get_coupang_wing_service, CoupangWingService
 from app.services.channel_service import ChannelService
 from app.services.auth_service import AuthService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/coupang-wing", tags=["coupang-wing"])
 security = HTTPBearer()
@@ -215,9 +218,126 @@ async def sync_sales(
         }
 
     except Exception as e:
+        error_detail = (
+            f"동기화 실패 (기간: {start_date} ~ {end_date}): {str(e)}"
+        )
+        logger.error(error_detail)
         channel_service.update_sync_log(sync_log["id"], {
             "status": "failed",
             "completed_at": datetime.utcnow(),
-            "error_message": str(e),
+            "error_message": error_detail,
         })
-        raise HTTPException(status_code=500, detail=f"동기화 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=error_detail)
+
+
+@router.get("/debug-orders")
+async def debug_orders(
+    start_date: str = Query(..., description="시작일 (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="종료일 (YYYY-MM-DD)"),
+    _: dict = Depends(get_current_user),
+    channel_service: ChannelService = Depends(get_channel_service),
+):
+    """디버그용 주문 원본 데이터 조회 (최대 10건)
+
+    지정된 날짜 범위의 주문 데이터를 원본 형태로 반환합니다.
+    모든 주문 상태(ACCEPT, INSTRUCT, DEPARTURE, DELIVERING, FINAL_DELIVERY)를 조회합니다.
+    """
+    service = get_coupang_wing_service()
+
+    # DB에서 credential 로드
+    channel = channel_service.get_channel_by_name("쿠팡 WING")
+    if channel and channel.get("config"):
+        config = channel["config"]
+        if config.get("vendor_id") and config.get("access_key") and config.get("secret_key"):
+            service.update_config(config["vendor_id"], config["access_key"], config["secret_key"])
+
+    if not service.is_configured():
+        return {"error": "API 인증 정보가 설정되지 않았습니다"}
+
+    try:
+        import httpx as _httpx
+        async with _httpx.AsyncClient(timeout=30) as client:
+            orders = await service._fetch_ordersheets(
+                client,
+                start_date,
+                end_date,
+            )
+
+        # 최대 10건만 반환
+        limited_orders = orders[:10]
+
+        return {
+            "vendor_id": service.config.vendor_id,
+            "period": f"{start_date} ~ {end_date}",
+            "total_orders": len(orders),
+            "returned_orders": len(limited_orders),
+            "orders": limited_orders,
+        }
+    except Exception as e:
+        logger.error(f"디버그 주문 조회 실패 ({start_date} ~ {end_date}): {str(e)}")
+        return {
+            "error": f"주문 조회 실패: {str(e)}",
+            "period": f"{start_date} ~ {end_date}",
+        }
+
+
+@router.get("/debug-raw")
+async def debug_raw_response(
+    start_date: str,
+    end_date: str,
+    channel_service: ChannelService = Depends(get_channel_service),
+):
+    """API 원본 응답 확인 (디버그용)"""
+    service = get_coupang_wing_service()
+
+    # DB에서 credential 로드
+    channel = channel_service.get_channel_by_name("쿠팡 WING")
+    if channel and channel.get("config"):
+        config = channel["config"]
+        if config.get("vendor_id") and config.get("access_key") and config.get("secret_key"):
+            service.update_config(config["vendor_id"], config["access_key"], config["secret_key"])
+
+    if not service.is_configured():
+        return {"error": "API 인증 정보가 설정되지 않았습니다"}
+
+    import httpx
+    path = f"/v2/providers/openapi/apis/api/v4/vendors/{service.config.vendor_id}/ordersheets"
+
+    results = {}
+    async with httpx.AsyncClient(timeout=15) as client:
+        # 여러 상태로 테스트
+        for test_status in ["INSTRUCT", "ACCEPT", "DEPARTURE"]:
+            try:
+                raw = await service._request(
+                    client, "GET", path,
+                    params={
+                        "createdAtFrom": start_date,
+                        "createdAtTo": end_date,
+                        "status": test_status,
+                        "maxPerPage": 5,
+                    }
+                )
+                results[test_status] = raw
+            except Exception as e:
+                results[f"{test_status}_error"] = str(e)
+
+        # status 없이 조회
+        try:
+            raw2 = await service._request(
+                client, "GET", path,
+                params={
+                    "createdAtFrom": start_date,
+                    "createdAtTo": end_date,
+                    "maxPerPage": 5,
+                }
+            )
+            results["no_status"] = raw2
+        except Exception as e:
+            results["no_status_error"] = str(e)
+
+    return {
+        "vendor_id": service.config.vendor_id,
+        "query": f"{start_date} ~ {end_date}",
+        "note": "날짜 형식: YYYY-MM-DD (예: 2026-02-01)",
+        "results": results,
+    }
