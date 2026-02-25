@@ -140,8 +140,9 @@ class CoupangWingService:
         path = f"/v2/providers/openapi/apis/api/v4/vendors/{self.config.vendor_id}/ordersheets"
         all_orders = []
         next_token = ""
+        max_pages = 20  # 무한루프 방지
 
-        while True:
+        for page in range(max_pages):
             params = {
                 "createdAtFrom": created_from,
                 "createdAtTo": created_to,
@@ -153,33 +154,28 @@ class CoupangWingService:
 
             data = await self._request(client, "GET", path, params=params)
 
-            # 응답 구조 파싱: data가 list일 수도, dict(content 포함)일 수도 있음
+            # 응답 구조 파싱
             raw_data = data.get("data", [])
+            orders = []
+            new_token = ""
+
             if isinstance(raw_data, list):
                 orders = raw_data
+                new_token = data.get("nextToken", "")
             elif isinstance(raw_data, dict):
-                # 중첩 구조: {"data": {"content": [...], ...}}
                 orders = raw_data.get("content", raw_data.get("orderSheets", []))
                 if not isinstance(orders, list):
                     orders = []
-                # nextToken이 data 내부에 있을 수 있음
-                if not next_token:
-                    next_token = raw_data.get("nextToken", "")
+                new_token = raw_data.get("nextToken", "") or data.get("nextToken", "")
             else:
-                orders = []
+                new_token = data.get("nextToken", "")
 
             if orders:
                 all_orders.extend(orders)
-                logger.info(f"주문 조회 ({status}, {created_from}~{created_to}): {len(orders)}건")
-            else:
-                logger.debug(
-                    f"주문 없음 ({status}, {created_from}~{created_to}), "
-                    f"응답 keys={list(data.keys()) if isinstance(data, dict) else 'N/A'}, "
-                    f"data type={type(raw_data).__name__}"
-                )
+                logger.info(f"주문 조회 ({status}, {created_from}~{created_to}): page {page+1}, {len(orders)}건")
 
-            if not next_token:
-                next_token = data.get("nextToken", "")
+            # 다음 페이지 토큰 갱신 (매 반복마다 새로 설정)
+            next_token = new_token
             if not next_token or not orders:
                 break
 
@@ -190,10 +186,7 @@ class CoupangWingService:
         start_date: str,
         end_date: str,
     ) -> list[dict]:
-        """기간별 주문 조회 (전체 기간 직접 조회, 상태별 순차 호출)
-
-        쿠팡 API는 최대 31일 범위를 지원하므로 일별 분할 없이 직접 조회합니다.
-        Rate limit 방지를 위해 상태별로 순차적으로 호출합니다.
+        """기간별 주문 조회 — 순차 호출, 빠른 타임아웃
 
         Args:
             start_date: 시작일 (YYYY-MM-DD)
@@ -221,25 +214,21 @@ class CoupangWingService:
             return []
 
         all_orders = []
-        # 매출 집계에 필요한 핵심 상태만 조회 (속도 최적화)
         all_statuses = ["INSTRUCT", "DEPARTURE", "DELIVERING", "FINAL_DELIVERY"]
 
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=15) as client:
             for chunk_from, chunk_to in chunks:
-                # 2개씩 병렬 호출 (rate limit과 속도의 균형)
-                for i in range(0, len(all_statuses), 2):
-                    batch = all_statuses[i:i + 2]
-                    tasks = [
-                        self._fetch_ordersheets(client, chunk_from, chunk_to, status=s)
-                        for s in batch
-                    ]
-                    results = await asyncio.gather(*tasks, return_exceptions=True)
-                    for idx, r in enumerate(results):
-                        if isinstance(r, Exception):
-                            logger.warning(f"주문 조회 실패: {batch[idx]} ({chunk_from}~{chunk_to}): {str(r)}")
-                        elif r:
-                            logger.info(f"주문 조회: {batch[idx]} ({chunk_from}~{chunk_to}) -> {len(r)}건")
-                            all_orders.extend(r)
+                # 순차 호출 (안정성 우선)
+                for status in all_statuses:
+                    try:
+                        orders = await self._fetch_ordersheets(
+                            client, chunk_from, chunk_to, status=status,
+                        )
+                        if orders:
+                            logger.info(f"주문: {status} ({chunk_from}~{chunk_to}) -> {len(orders)}건")
+                            all_orders.extend(orders)
+                    except Exception as e:
+                        logger.warning(f"주문 조회 실패: {status} ({chunk_from}~{chunk_to}): {e}")
 
         logger.info(f"전체 주문 조회 완료: {len(all_orders)}건 ({actual_start}~{actual_end})")
         return all_orders
