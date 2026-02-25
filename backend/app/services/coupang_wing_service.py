@@ -128,35 +128,15 @@ class CoupangWingService:
         client: httpx.AsyncClient,
         created_from: str,
         created_to: str,
-        status: Optional[str] = None,
+        status: Optional[str] = "INSTRUCT",
     ) -> list[dict]:
-        """주문서 조회 (페이지네이션 포함, 다중 상태 지원)
+        """주문서 조회 (페이지네이션 포함)
 
         Args:
-            created_from: 시작일시 (ISO 8601, e.g. "2026-02-01T00:00:00")
-            created_to: 종료일시 (ISO 8601, e.g. "2026-02-28T23:59:59")
-            status: 주문 상태 필터 (None이면 모든 상태 조회)
-                    지원 상태: ACCEPT, INSTRUCT, DEPARTURE, DELIVERING, FINAL_DELIVERY
+            created_from: 시작일 (YYYY-MM-DD, e.g. "2026-02-01")
+            created_to: 종료일 (YYYY-MM-DD, e.g. "2026-02-28")
+            status: 주문 상태 필터 (필수: ACCEPT, INSTRUCT, DEPARTURE, DELIVERING, FINAL_DELIVERY)
         """
-        # status가 None이면 모든 상태를 병렬로 조회
-        if status is None:
-            all_statuses = ["ACCEPT", "INSTRUCT", "DEPARTURE", "DELIVERING", "FINAL_DELIVERY"]
-            tasks = [
-                self._fetch_ordersheets(client, created_from, created_to, status=s)
-                for s in all_statuses
-            ]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            all_orders = []
-            for i, r in enumerate(results):
-                if isinstance(r, Exception):
-                    logger.warning(
-                        f"주문 상태 '{all_statuses[i]}' 조회 실패 "
-                        f"({created_from}~{created_to}): {str(r)}"
-                    )
-                    continue
-                all_orders.extend(r)
-            return all_orders
-
         path = f"/v2/providers/openapi/apis/api/v4/vendors/{self.config.vendor_id}/ordersheets"
         all_orders = []
         next_token = ""
@@ -210,7 +190,10 @@ class CoupangWingService:
         start_date: str,
         end_date: str,
     ) -> list[dict]:
-        """기간별 주문 조회 (일 단위 분할, 병렬 처리)
+        """기간별 주문 조회 (전체 기간 직접 조회, 상태별 순차 호출)
+
+        쿠팡 API는 최대 31일 범위를 지원하므로 일별 분할 없이 직접 조회합니다.
+        Rate limit 방지를 위해 상태별로 순차적으로 호출합니다.
 
         Args:
             start_date: 시작일 (YYYY-MM-DD)
@@ -223,40 +206,46 @@ class CoupangWingService:
         if end_dt > today:
             end_dt = today
 
-        dates = []
-        current = start_dt
-        while current <= end_dt:
-            dates.append(current.strftime("%Y-%m-%d"))
-            current += timedelta(days=1)
+        actual_start = start_dt.strftime("%Y-%m-%d")
+        actual_end = end_dt.strftime("%Y-%m-%d")
 
-        if not dates:
+        # 31일 초과면 청크로 분할
+        chunks = []
+        chunk_start = start_dt
+        while chunk_start <= end_dt:
+            chunk_end = min(chunk_start + timedelta(days=30), end_dt)
+            chunks.append((chunk_start.strftime("%Y-%m-%d"), chunk_end.strftime("%Y-%m-%d")))
+            chunk_start = chunk_end + timedelta(days=1)
+
+        if not chunks:
             return []
 
         all_orders = []
+        all_statuses = ["ACCEPT", "INSTRUCT", "DEPARTURE", "DELIVERING", "FINAL_DELIVERY"]
 
-        async with httpx.AsyncClient(timeout=30) as client:
-            # 3일씩 병렬 호출 (API rate limit 고려)
-            for i in range(0, len(dates), 3):
-                batch = dates[i:i + 3]
-                tasks = []
-                for d in batch:
-                    # 쿠팡 v4 일단위 API는 YYYY-MM-DD 형식만 지원
-                    tasks.append(self._fetch_ordersheets(client, d, d))
-
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                for idx, r in enumerate(results):
-                    if isinstance(r, Exception):
-                        failed_date = batch[idx] if idx < len(batch) else "unknown"
-                        logger.error(
-                            f"주문 조회 실패 (날짜: {failed_date}): {str(r)}"
+        async with httpx.AsyncClient(timeout=60) as client:
+            for chunk_from, chunk_to in chunks:
+                # 상태별 순차 호출 (rate limit 방지)
+                for status in all_statuses:
+                    try:
+                        orders = await self._fetch_ordersheets(
+                            client, chunk_from, chunk_to, status=status
                         )
-                        continue
-                    all_orders.extend(r)
+                        if orders:
+                            logger.info(
+                                f"주문 조회 성공: {status} ({chunk_from}~{chunk_to}) -> {len(orders)}건"
+                            )
+                            all_orders.extend(orders)
+                        else:
+                            logger.debug(f"주문 없음: {status} ({chunk_from}~{chunk_to})")
+                    except Exception as e:
+                        logger.error(
+                            f"주문 조회 실패: {status} ({chunk_from}~{chunk_to}): {str(e)}"
+                        )
+                    # 요청 간 딜레이
+                    await asyncio.sleep(0.3)
 
-                # rate limit 방지를 위한 딜레이
-                if i + 3 < len(dates):
-                    await asyncio.sleep(0.5)
-
+        logger.info(f"전체 주문 조회 완료: {len(all_orders)}건 ({actual_start}~{actual_end})")
         return all_orders
 
     async def get_daily_sales_by_range(
