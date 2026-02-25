@@ -147,7 +147,7 @@ class CoupangWingService:
                 "createdAtFrom": created_from,
                 "createdAtTo": created_to,
                 "status": status,
-                "maxPerPage": 100,
+                "maxPerPage": 50,
             }
             if next_token:
                 params["nextToken"] = next_token
@@ -214,9 +214,7 @@ class CoupangWingService:
             return []
 
         all_orders = []
-        # 핵심 상태만 조회 (속도 최적화: 4개→2개로 API 호출 절반 감소)
-        # INSTRUCT: 신규/처리중 주문, FINAL_DELIVERY: 배송 완료 주문
-        all_statuses = ["INSTRUCT", "FINAL_DELIVERY"]
+        all_statuses = ["INSTRUCT", "DEPARTURE", "DELIVERING", "FINAL_DELIVERY"]
 
         async with httpx.AsyncClient(timeout=15) as client:
             for chunk_from, chunk_to in chunks:
