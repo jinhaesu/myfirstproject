@@ -118,6 +118,11 @@ function ChannelsPageContent() {
   const [syncResult, setSyncResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [cafe24Connecting, setCafe24Connecting] = useState(false);
 
+  // 쿠팡 설정 모달
+  const [showCoupangSettings, setShowCoupangSettings] = useState(false);
+  const [coupangWingStatus, setCoupangWingStatus] = useState<{configured: boolean; connected: boolean; message: string} | null>(null);
+  const [coupangRocketStatus, setCoupangRocketStatus] = useState<{configured: boolean; connected: boolean; message: string; playwright_installed?: boolean} | null>(null);
+
   // 연동 채널 필터
   const [selectedSyncChannels, setSelectedSyncChannels] = useState<Set<string>>(new Set(['스마트스토어', '카페24']));
   // 목표 지표
@@ -421,6 +426,32 @@ function ChannelsPageContent() {
       fetchSummary();
     }
   }, [user, fetchSummary]);
+
+  // 쿠팡 채널 상태 조회
+  const fetchCoupangStatus = useCallback(async () => {
+    try {
+      const [wingRes, rocketRes] = await Promise.all([
+        fetch(`${API_BASE}/api/coupang-wing/status`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/api/coupang-rocket/status`, { headers: getAuthHeaders() }),
+      ]);
+      if (wingRes.ok) {
+        const data = await wingRes.json();
+        setCoupangWingStatus(data);
+      }
+      if (rocketRes.ok) {
+        const data = await rocketRes.json();
+        setCoupangRocketStatus(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Coupang status:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchCoupangStatus();
+    }
+  }, [user, fetchCoupangStatus]);
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('ko-KR').format(Math.round(num));
@@ -965,6 +996,14 @@ function ChannelsPageContent() {
                           )}
                         </button>
                       )}
+                      {(channel.name === '쿠팡 WING' || channel.name === '쿠팡 로켓') && (
+                        <button
+                          onClick={() => setShowCoupangSettings(true)}
+                          className="flex-1 px-3 py-1.5 text-xs bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors"
+                        >
+                          설정
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           setSelectedChannel(channel);
@@ -1033,6 +1072,14 @@ function ChannelsPageContent() {
                             >
                               {syncingChannelId === channel.id ? '...' : '동기화'}
                             </button>
+                            {(channel.name === '쿠팡 WING' || channel.name === '쿠팡 로켓') && (
+                              <button
+                                onClick={() => setShowCoupangSettings(true)}
+                                className="px-3 py-1 text-sm bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors"
+                              >
+                                설정
+                              </button>
+                            )}
                             <button
                               onClick={() => {
                                 setSelectedChannel(channel);
@@ -1071,7 +1118,429 @@ function ChannelsPageContent() {
           }}
         />
       )}
+
+      {/* 쿠팡 설정 모달 */}
+      {showCoupangSettings && (
+        <CoupangSettingsModal
+          onClose={() => setShowCoupangSettings(false)}
+          coupangWingStatus={coupangWingStatus}
+          coupangRocketStatus={coupangRocketStatus}
+          onStatusUpdate={() => fetchCoupangStatus()}
+        />
+      )}
     </main>
+  );
+}
+
+// 쿠팡 설정 모달 컴포넌트
+function CoupangSettingsModal({
+  onClose,
+  coupangWingStatus,
+  coupangRocketStatus,
+  onStatusUpdate,
+}: {
+  onClose: () => void;
+  coupangWingStatus: { configured: boolean; connected: boolean; message: string } | null;
+  coupangRocketStatus: { configured: boolean; connected: boolean; message: string; playwright_installed?: boolean } | null;
+  onStatusUpdate: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'wing' | 'rocket'>('wing');
+
+  // 쿠팡 WING 폼
+  const [wingVendorId, setWingVendorId] = useState('');
+  const [wingAccessKey, setWingAccessKey] = useState('');
+  const [wingSecretKey, setWingSecretKey] = useState('');
+  const [wingSaving, setWingSaving] = useState(false);
+  const [wingTesting, setWingTesting] = useState(false);
+  const [wingMessage, setWingMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // 쿠팡 로켓 폼
+  const [rocketLoginId, setRocketLoginId] = useState('');
+  const [rocketLoginPassword, setRocketLoginPassword] = useState('');
+  const [rocketSaving, setRocketSaving] = useState(false);
+  const [rocketTesting, setRocketTesting] = useState(false);
+  const [rocketMessage, setRocketMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+  };
+
+  // 쿠팡 WING 저장
+  const saveWingCredentials = async () => {
+    if (!wingVendorId || !wingAccessKey || !wingSecretKey) {
+      setWingMessage({ type: 'error', text: '모든 필드를 입력해주세요' });
+      return;
+    }
+    setWingSaving(true);
+    setWingMessage(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/coupang-wing/credentials`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          vendor_id: wingVendorId,
+          access_key: wingAccessKey,
+          secret_key: wingSecretKey,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWingMessage({ type: 'success', text: data.message || '저장되었습니다' });
+        onStatusUpdate();
+      } else {
+        setWingMessage({ type: 'error', text: typeof data.detail === 'string' ? data.detail : '저장 실패' });
+      }
+    } catch (err: any) {
+      setWingMessage({ type: 'error', text: err?.message || '네트워크 오류' });
+    }
+    setWingSaving(false);
+  };
+
+  // 쿠팡 WING 연결 테스트
+  const testWingConnection = async () => {
+    setWingTesting(true);
+    setWingMessage(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/coupang-wing/status`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.connected) {
+          setWingMessage({ type: 'success', text: data.message || '연결 성공' });
+        } else if (data.configured) {
+          setWingMessage({ type: 'error', text: data.message || '인증 정보가 설정되었으나 연결에 실패했습니다' });
+        } else {
+          setWingMessage({ type: 'error', text: data.message || '인증 정보가 설정되지 않았습니다' });
+        }
+        onStatusUpdate();
+      } else {
+        setWingMessage({ type: 'error', text: '상태 조회 실패' });
+      }
+    } catch (err: any) {
+      setWingMessage({ type: 'error', text: err?.message || '네트워크 오류' });
+    }
+    setWingTesting(false);
+  };
+
+  // 쿠팡 로켓 저장
+  const saveRocketCredentials = async () => {
+    if (!rocketLoginId || !rocketLoginPassword) {
+      setRocketMessage({ type: 'error', text: '모든 필드를 입력해주세요' });
+      return;
+    }
+    setRocketSaving(true);
+    setRocketMessage(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/coupang-rocket/credentials`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          login_id: rocketLoginId,
+          login_password: rocketLoginPassword,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setRocketMessage({ type: 'success', text: data.message || '저장되었습니다' });
+        onStatusUpdate();
+      } else {
+        setRocketMessage({ type: 'error', text: typeof data.detail === 'string' ? data.detail : '저장 실패' });
+      }
+    } catch (err: any) {
+      setRocketMessage({ type: 'error', text: err?.message || '네트워크 오류' });
+    }
+    setRocketSaving(false);
+  };
+
+  // 쿠팡 로켓 연결 테스트
+  const testRocketConnection = async () => {
+    setRocketTesting(true);
+    setRocketMessage(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/coupang-rocket/status`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.connected) {
+          setRocketMessage({ type: 'success', text: data.message || '연결 성공' });
+        } else if (data.configured) {
+          setRocketMessage({ type: 'error', text: data.message || '인증 정보가 설정되었으나 연결에 실패했습니다' });
+        } else {
+          setRocketMessage({ type: 'error', text: data.message || '인증 정보가 설정되지 않았습니다' });
+        }
+        onStatusUpdate();
+      } else {
+        setRocketMessage({ type: 'error', text: '상태 조회 실패' });
+      }
+    } catch (err: any) {
+      setRocketMessage({ type: 'error', text: err?.message || '네트워크 오류' });
+    }
+    setRocketTesting(false);
+  };
+
+  const wingStatus = coupangWingStatus;
+  const rocketStatus = coupangRocketStatus;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+        {/* 헤더 */}
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-800">쿠팡 채널 설정</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 탭 */}
+        <div className="px-6 pt-4">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('wing')}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'wing'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              쿠팡 WING
+            </button>
+            <button
+              onClick={() => setActiveTab('rocket')}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'rocket'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              쿠팡 로켓
+            </button>
+          </div>
+        </div>
+
+        {/* 탭 컨텐츠 */}
+        <div className="p-6">
+          {activeTab === 'wing' ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  업체코드 (Vendor ID)
+                </label>
+                <input
+                  type="text"
+                  value={wingVendorId}
+                  onChange={(e) => setWingVendorId(e.target.value)}
+                  placeholder="업체코드를 입력하세요"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Access Key
+                </label>
+                <input
+                  type="text"
+                  value={wingAccessKey}
+                  onChange={(e) => setWingAccessKey(e.target.value)}
+                  placeholder="Access Key를 입력하세요"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Secret Key
+                </label>
+                <input
+                  type="password"
+                  value={wingSecretKey}
+                  onChange={(e) => setWingSecretKey(e.target.value)}
+                  placeholder="Secret Key를 입력하세요"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* 상태 표시 */}
+              <div className="flex items-center gap-2 text-sm">
+                {wingStatus ? (
+                  wingStatus.connected ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                      <span className="text-green-700">연결됨</span>
+                    </>
+                  ) : wingStatus.configured ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                      <span className="text-amber-700">설정됨 (미연결)</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+                      <span className="text-slate-500">미설정</span>
+                    </>
+                  )
+                ) : (
+                  <>
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+                    <span className="text-slate-500">상태 확인 중...</span>
+                  </>
+                )}
+              </div>
+
+              {/* 메시지 */}
+              {wingMessage && (
+                <div className={`p-3 text-sm rounded-lg ${
+                  wingMessage.type === 'success'
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  {wingMessage.text}
+                </div>
+              )}
+
+              {/* 버튼 */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={testWingConnection}
+                  disabled={wingTesting}
+                  className="flex-1 px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  {wingTesting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                      테스트 중...
+                    </>
+                  ) : (
+                    '연결 테스트'
+                  )}
+                </button>
+                <button
+                  onClick={saveWingCredentials}
+                  disabled={wingSaving}
+                  className="flex-1 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  {wingSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      저장 중...
+                    </>
+                  ) : (
+                    '저장'
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  로그인 ID
+                </label>
+                <input
+                  type="text"
+                  value={rocketLoginId}
+                  onChange={(e) => setRocketLoginId(e.target.value)}
+                  placeholder="쿠팡 로그인 ID를 입력하세요"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  로그인 비밀번호
+                </label>
+                <input
+                  type="password"
+                  value={rocketLoginPassword}
+                  onChange={(e) => setRocketLoginPassword(e.target.value)}
+                  placeholder="로그인 비밀번호를 입력하세요"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* 상태 표시 */}
+              <div className="flex items-center gap-2 text-sm">
+                {rocketStatus ? (
+                  rocketStatus.connected ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                      <span className="text-green-700">연결됨</span>
+                    </>
+                  ) : rocketStatus.configured ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                      <span className="text-amber-700">설정됨 (미연결)</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+                      <span className="text-slate-500">미설정</span>
+                    </>
+                  )
+                ) : (
+                  <>
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+                    <span className="text-slate-500">상태 확인 중...</span>
+                  </>
+                )}
+                {rocketStatus && rocketStatus.playwright_installed === false && (
+                  <span className="ml-2 text-xs text-red-500">(Playwright 미설치)</span>
+                )}
+              </div>
+
+              {/* 메시지 */}
+              {rocketMessage && (
+                <div className={`p-3 text-sm rounded-lg ${
+                  rocketMessage.type === 'success'
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  {rocketMessage.text}
+                </div>
+              )}
+
+              {/* 버튼 */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={testRocketConnection}
+                  disabled={rocketTesting}
+                  className="flex-1 px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  {rocketTesting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                      테스트 중...
+                    </>
+                  ) : (
+                    '연결 테스트'
+                  )}
+                </button>
+                <button
+                  onClick={saveRocketCredentials}
+                  disabled={rocketSaving}
+                  className="flex-1 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  {rocketSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      저장 중...
+                    </>
+                  ) : (
+                    '저장'
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

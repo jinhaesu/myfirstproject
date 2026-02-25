@@ -5,16 +5,18 @@ Coupang Open API를 통해 쿠팡 Wing 매출 데이터를 조회합니다.
 API 문서: https://developers.coupangcorp.com/
 """
 import os
-import time
 import hmac
 import hashlib
 import uuid
 import asyncio
+import logging
 import urllib.parse
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -76,9 +78,8 @@ class CoupangWingService:
         **kwargs,
     ) -> dict:
         """API 요청 (HMAC 서명 포함)"""
-        # GMT+0 기준 datetime (Z 접미사 포함)
-        os.environ['TZ'] = 'GMT+0'
-        datetime_str = time.strftime('%y%m%d') + 'T' + time.strftime('%H%M%S') + 'Z'
+        # UTC 기준 datetime (yyMMddTHHmmssZ 형식)
+        datetime_str = datetime.now(timezone.utc).strftime('%y%m%dT%H%M%SZ')
 
         # GET 요청이면 query string을 서명에 포함
         params = kwargs.get("params", {})
@@ -91,8 +92,22 @@ class CoupangWingService:
         headers["X-EXTENDED-TIMEOUT"] = "90000"
 
         url = f"{self.config.base_url}{path}"
-        response = await client.request(method, url, headers=headers, **kwargs)
-        response.raise_for_status()
+        try:
+            response = await client.request(method, url, headers=headers, **kwargs)
+        except httpx.TimeoutException as e:
+            logger.error(f"API 요청 타임아웃: {method} {path} - {str(e)}")
+            raise RuntimeError(f"API 요청 타임아웃: {method} {path}") from e
+
+        if response.status_code != 200:
+            body_preview = response.text[:500] if response.text else "(빈 응답)"
+            logger.error(
+                f"API 오류 응답: {method} {path} -> "
+                f"status={response.status_code}, body={body_preview}"
+            )
+            raise RuntimeError(
+                f"API 오류: status={response.status_code}, body={body_preview}"
+            )
+
         return response.json()
 
     async def _fetch_ordersheets(
@@ -100,13 +115,35 @@ class CoupangWingService:
         client: httpx.AsyncClient,
         created_from: str,
         created_to: str,
+        status: Optional[str] = None,
     ) -> list[dict]:
-        """주문서 조회 (페이지네이션 포함)
+        """주문서 조회 (페이지네이션 포함, 다중 상태 지원)
 
         Args:
             created_from: 시작일시 (ISO 8601, e.g. "2026-02-01T00:00:00")
             created_to: 종료일시 (ISO 8601, e.g. "2026-02-28T23:59:59")
+            status: 주문 상태 필터 (None이면 모든 상태 조회)
+                    지원 상태: ACCEPT, INSTRUCT, DEPARTURE, DELIVERING, FINAL_DELIVERY
         """
+        # status가 None이면 모든 상태를 병렬로 조회
+        if status is None:
+            all_statuses = ["ACCEPT", "INSTRUCT", "DEPARTURE", "DELIVERING", "FINAL_DELIVERY"]
+            tasks = [
+                self._fetch_ordersheets(client, created_from, created_to, status=s)
+                for s in all_statuses
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            all_orders = []
+            for i, r in enumerate(results):
+                if isinstance(r, Exception):
+                    logger.warning(
+                        f"주문 상태 '{all_statuses[i]}' 조회 실패 "
+                        f"({created_from}~{created_to}): {str(r)}"
+                    )
+                    continue
+                all_orders.extend(r)
+            return all_orders
+
         path = f"/v2/providers/openapi/apis/api/v4/vendors/{self.config.vendor_id}/ordersheets"
         all_orders = []
         next_token = ""
@@ -115,7 +152,7 @@ class CoupangWingService:
             params = {
                 "createdAtFrom": created_from,
                 "createdAtTo": created_to,
-                "status": "INSTRUCT",
+                "status": status,
                 "maxPerPage": 50,
             }
             if next_token:
@@ -173,10 +210,18 @@ class CoupangWingService:
                     tasks.append(self._fetch_ordersheets(client, from_dt, to_dt))
 
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-                for r in results:
+                for idx, r in enumerate(results):
                     if isinstance(r, Exception):
+                        failed_date = batch[idx] if idx < len(batch) else "unknown"
+                        logger.error(
+                            f"주문 조회 실패 (날짜: {failed_date}): {str(r)}"
+                        )
                         continue
                     all_orders.extend(r)
+
+                # rate limit 방지를 위한 딜레이
+                if i + 3 < len(dates):
+                    await asyncio.sleep(0.5)
 
         return all_orders
 
@@ -195,6 +240,23 @@ class CoupangWingService:
             월별로 그룹핑된 일별 매출 데이터 {"2026-01": [...], "2026-02": [...]}
         """
         orders = await self._fetch_orders_for_period(start_date, end_date)
+
+        # orderId 기준 중복 제거 (다중 상태 조회 시 동일 주문 중복 방지)
+        seen_order_ids: set = set()
+        unique_orders = []
+        for order in orders:
+            order_id = order.get("orderId")
+            if order_id and order_id in seen_order_ids:
+                continue
+            if order_id:
+                seen_order_ids.add(order_id)
+            unique_orders.append(order)
+
+        logger.info(
+            f"주문 조회 완료: 전체 {len(orders)}건, 중복 제거 후 {len(unique_orders)}건 "
+            f"({start_date} ~ {end_date})"
+        )
+        orders = unique_orders
 
         monthly_sales: dict[str, dict[int, dict]] = {}
 
@@ -249,29 +311,58 @@ class CoupangWingService:
         return result
 
     async def test_connection(self) -> dict:
-        """API 연결 테스트"""
+        """API 연결 테스트 (상세 오류 정보 포함)"""
         try:
             path = f"/v2/providers/openapi/apis/api/v4/vendors/{self.config.vendor_id}/ordersheets"
             async with httpx.AsyncClient(timeout=10) as client:
                 # 오늘 날짜로 1건만 조회 테스트
-                today = datetime.now().strftime("%Y-%m-%d")
-                await self._request(
-                    client, "GET", path,
-                    params={
-                        "createdAtFrom": f"{today}T00:00:00",
-                        "createdAtTo": f"{today}T23:59:59",
-                        "status": "INSTRUCT",
-                        "maxPerPage": 1,
+                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+                # 직접 HTTP 요청으로 상세 응답 확인
+                datetime_str = datetime.now(timezone.utc).strftime('%y%m%dT%H%M%SZ')
+                params = {
+                    "createdAtFrom": f"{today}T00:00:00",
+                    "createdAtTo": f"{today}T23:59:59",
+                    "status": "INSTRUCT",
+                    "maxPerPage": 1,
+                }
+                query = urllib.parse.urlencode(params)
+                authorization = self._generate_authorization("GET", path, query, datetime_str)
+
+                headers = {
+                    "Authorization": authorization,
+                    "Content-Type": "application/json;charset=UTF-8",
+                    "X-EXTENDED-TIMEOUT": "90000",
+                }
+                url = f"{self.config.base_url}{path}"
+                response = await client.request("GET", url, headers=headers, params=params)
+
+                if response.status_code == 200:
+                    return {
+                        "success": True,
+                        "message": "쿠팡 Wing API 연결 성공",
+                        "status_code": 200,
                     }
-                )
+                else:
+                    body_preview = response.text[:300] if response.text else "(빈 응답)"
+                    return {
+                        "success": False,
+                        "message": f"연결 실패: HTTP {response.status_code}",
+                        "status_code": response.status_code,
+                        "response_body": body_preview,
+                    }
+
+        except httpx.TimeoutException:
             return {
-                "success": True,
-                "message": "쿠팡 Wing API 연결 성공",
+                "success": False,
+                "message": "연결 실패: 요청 타임아웃 (10초 초과)",
+                "status_code": None,
             }
         except Exception as e:
             return {
                 "success": False,
                 "message": f"연결 실패: {str(e)}",
+                "status_code": None,
             }
 
     def is_configured(self) -> bool:
