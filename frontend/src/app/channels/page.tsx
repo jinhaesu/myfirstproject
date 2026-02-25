@@ -478,6 +478,16 @@ function ChannelsPageContent() {
     return true;
   });
 
+  // 필터된 채널 기준 합계 (총 매출/주문/판매수량 카드용)
+  const filteredTotal = filteredChannelSummary.reduce(
+    (acc, c) => ({
+      gross_sales: acc.gross_sales + (c.gross_sales || 0),
+      order_count: acc.order_count + (c.order_count || 0),
+      quantity: acc.quantity + (c.quantity || 0),
+    }),
+    { gross_sales: 0, order_count: 0, quantity: 0 },
+  );
+
   // 채널별 파이차트 데이터
   const pieChartData = filteredChannelSummary
     .filter(c => c.gross_sales > 0)
@@ -697,31 +707,31 @@ function ChannelsPageContent() {
             </label>
           </div>
 
-          {/* 총합계 카드 */}
+          {/* 총합계 카드 (선택된 채널 기준) */}
           {dailySummary && (
             <div className={`grid grid-cols-2 gap-4 ${showTarget && monthlyTarget ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
                 <p className="text-sm text-blue-600 mb-1">총 매출</p>
                 <p className="text-2xl font-bold text-blue-700">
-                  {formatCurrency(dailySummary.total.gross_sales)}원
+                  {formatCurrency(filteredTotal.gross_sales)}원
                 </p>
               </div>
               <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 rounded-xl border border-emerald-200">
                 <p className="text-sm text-emerald-600 mb-1">총 주문</p>
                 <p className="text-2xl font-bold text-emerald-700">
-                  {formatNumber(dailySummary.total.order_count)}건
+                  {formatNumber(filteredTotal.order_count)}건
                 </p>
               </div>
               <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-xl border border-amber-200">
                 <p className="text-sm text-amber-600 mb-1">총 판매수량</p>
                 <p className="text-2xl font-bold text-amber-700">
-                  {formatNumber(dailySummary.total.quantity)}개
+                  {formatNumber(filteredTotal.quantity)}개
                 </p>
               </div>
               <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
                 <p className="text-sm text-purple-600 mb-1">활성 채널</p>
                 <p className="text-2xl font-bold text-purple-700">
-                  {channelSummary.length}개
+                  {filteredChannelSummary.length}개
                 </p>
               </div>
               {showTarget && monthlyTarget !== null && (
@@ -731,8 +741,8 @@ function ChannelsPageContent() {
                     {formatCurrency(monthlyTarget)}원
                   </p>
                   <p className="text-sm text-rose-500 mt-1">
-                    {dailySummary.total.gross_sales > 0
-                      ? `${((dailySummary.total.gross_sales / monthlyTarget) * 100).toFixed(1)}%`
+                    {filteredTotal.gross_sales > 0
+                      ? `${((filteredTotal.gross_sales / monthlyTarget) * 100).toFixed(1)}%`
                       : '0%'}
                   </p>
                 </div>
