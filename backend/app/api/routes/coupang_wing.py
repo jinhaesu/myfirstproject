@@ -3,7 +3,7 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
@@ -133,11 +133,14 @@ async def _run_sync_task(
     sync_log_id: str,
 ):
     """백그라운드에서 실행되는 동기화 작업"""
+    logger.info(f"[BG] 동기화 작업 시작: {sync_log_id[:8]}... ({start_date}~{end_date})")
     channel_service = ChannelService()
     try:
         channel_service.update_sync_log(sync_log_id, {"status": "running"})
+        logger.info(f"[BG] 상태 -> running")
 
         monthly_data = await service.get_daily_sales_by_range(start_date, end_date)
+        logger.info(f"[BG] API 조회 완료: {len(monthly_data)} 월")
 
         sales_list = []
         total_days = 0
@@ -158,6 +161,7 @@ async def _run_sync_task(
                     "source": "coupang_wing_api",
                 })
 
+        logger.info(f"[BG] DB 저장 시작: {total_days}일, {len(sales_list)}건")
         result = channel_service.bulk_upsert_sales(sales_list, sync_log_id)
 
         channel_service.update_sync_log(sync_log_id, {
@@ -168,24 +172,26 @@ async def _run_sync_task(
             "error_message": str(result["errors"][:3]) if result["errors"] else None,
         })
         logger.info(
-            f"쿠팡 Wing 동기화 완료: {start_date}~{end_date}, "
+            f"[BG] 동기화 완료: {start_date}~{end_date}, "
             f"{total_days}일, {result['created']}건"
         )
 
     except Exception as e:
         error_detail = f"동기화 실패 ({start_date}~{end_date}): {str(e)}"
-        logger.error(error_detail)
-        channel_service.update_sync_log(sync_log_id, {
-            "status": "failed",
-            "completed_at": datetime.utcnow(),
-            "error_message": error_detail,
-        })
+        logger.error(f"[BG] {error_detail}")
+        try:
+            channel_service.update_sync_log(sync_log_id, {
+                "status": "failed",
+                "completed_at": datetime.utcnow(),
+                "error_message": error_detail,
+            })
+        except Exception as e2:
+            logger.error(f"[BG] sync_log 업데이트도 실패: {e2}")
 
 
 @router.post("/sync")
 async def sync_sales(
     data: SyncRequest,
-    background_tasks: BackgroundTasks,
     _: dict = Depends(get_current_user),
     channel_service: ChannelService = Depends(get_channel_service),
 ):
@@ -235,10 +241,11 @@ async def sync_sales(
     # 동기화 로그 생성
     sync_log = channel_service.create_sync_log(channel_id, channel_name, "api")
 
-    # 백그라운드 작업 등록 — 즉시 응답
-    background_tasks.add_task(
-        _run_sync_task,
-        service, channel_id, channel_name, start_date, end_date, sync_log["id"],
+    # asyncio.create_task로 백그라운드 실행 (BackgroundTasks보다 안정적)
+    asyncio.create_task(
+        _run_sync_task(
+            service, channel_id, channel_name, start_date, end_date, sync_log["id"],
+        )
     )
 
     return {
@@ -272,6 +279,15 @@ async def get_sync_status(
         "started_at": log.get("started_at"),
         "completed_at": log.get("completed_at"),
     }
+
+
+@router.get("/debug-sync-logs")
+async def debug_sync_logs(
+    channel_service: ChannelService = Depends(get_channel_service),
+):
+    """최근 동기화 로그 조회 (디버그용, 인증 불필요)"""
+    logs = channel_service.get_recent_sync_logs(limit=5)
+    return {"logs": logs}
 
 
 @router.get("/debug-orders")
