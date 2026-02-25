@@ -319,6 +319,38 @@ function ChannelsPageContent() {
     '쿠팡 로켓': '/api/coupang-rocket/sync',
   };
 
+  // 폴링 기반 동기화 상태 확인
+  const pollSyncStatus = async (channelName: string, syncLogId: string, endpoint: string): Promise<void> => {
+    const statusUrl = `${API_BASE}${endpoint.replace('/sync', `/sync-status/${syncLogId}`)}`;
+    const maxAttempts = 60; // 최대 2분 (2초 × 60)
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const res = await fetch(statusUrl, { headers: getAuthHeaders() });
+        if (!res.ok) continue;
+        const status = await res.json();
+        if (status.finished) {
+          if (status.status === 'success' || status.status === 'partial') {
+            setSyncResult({
+              type: 'success',
+              message: `[${channelName}] 동기화 완료 (${status.records_processed || 0}일, ${status.records_created || 0}건 저장)`,
+            });
+            fetchSummary();
+          } else {
+            setSyncResult({
+              type: 'error',
+              message: `[${channelName}] ${status.error_message || '동기화 실패'}`,
+            });
+          }
+          return;
+        }
+      } catch {
+        // 폴링 실패 시 계속 시도
+      }
+    }
+    setSyncResult({ type: 'error', message: `[${channelName}] 동기화 시간 초과 (2분)` });
+  };
+
   const syncChannel = async (channel: Channel) => {
     const endpoint = SYNC_ENDPOINTS[channel.name];
     if (!endpoint) {
@@ -337,11 +369,18 @@ function ChannelsPageContent() {
       });
       const data = await res.json();
       if (res.ok) {
-        setSyncResult({
-          type: 'success',
-          message: `[${channel.name}] ${data.message} (${data.processed || 0}일, ${data.created || 0}건 저장)`,
-        });
-        fetchSummary();
+        // 백그라운드 작업 방식 (sync_log_id가 있으면 폴링)
+        if (data.sync_log_id) {
+          setSyncResult({ type: 'success', message: `[${channel.name}] 동기화 진행 중...` });
+          await pollSyncStatus(channel.name, data.sync_log_id, endpoint);
+        } else {
+          // 기존 방식 (즉시 응답)
+          setSyncResult({
+            type: 'success',
+            message: `[${channel.name}] ${data.message} (${data.processed || 0}일, ${data.created || 0}건 저장)`,
+          });
+          fetchSummary();
+        }
       } else {
         setSyncResult({ type: 'error', message: `[${channel.name}] ${typeof data.detail === 'string' ? data.detail : '동기화 실패'}` });
       }

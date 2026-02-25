@@ -1,8 +1,9 @@
 """쿠팡 Wing API 연동 라우트"""
+import asyncio
 import logging
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
@@ -123,13 +124,72 @@ async def save_credentials(
     }
 
 
+async def _run_sync_task(
+    service: CoupangWingService,
+    channel_id: str,
+    channel_name: str,
+    start_date: str,
+    end_date: str,
+    sync_log_id: str,
+):
+    """백그라운드에서 실행되는 동기화 작업"""
+    channel_service = ChannelService()
+    try:
+        channel_service.update_sync_log(sync_log_id, {"status": "running"})
+
+        monthly_data = await service.get_daily_sales_by_range(start_date, end_date)
+
+        sales_list = []
+        total_days = 0
+        for _ym, days in monthly_data.items():
+            total_days += len(days)
+            for day_data in days:
+                sales_list.append({
+                    "channel_id": channel_id,
+                    "channel_name": channel_name,
+                    "year": day_data["year"],
+                    "month": day_data["month"],
+                    "day": day_data["day"],
+                    "gross_sales": day_data["gross_sales"],
+                    "net_sales": day_data["net_sales"],
+                    "order_count": day_data["order_count"],
+                    "quantity": day_data["quantity"],
+                    "commission": day_data["commission"],
+                    "source": "coupang_wing_api",
+                })
+
+        result = channel_service.bulk_upsert_sales(sales_list, sync_log_id)
+
+        channel_service.update_sync_log(sync_log_id, {
+            "status": "success" if not result["errors"] else "partial",
+            "completed_at": datetime.utcnow(),
+            "records_processed": total_days,
+            "records_created": result["created"],
+            "error_message": str(result["errors"][:3]) if result["errors"] else None,
+        })
+        logger.info(
+            f"쿠팡 Wing 동기화 완료: {start_date}~{end_date}, "
+            f"{total_days}일, {result['created']}건"
+        )
+
+    except Exception as e:
+        error_detail = f"동기화 실패 ({start_date}~{end_date}): {str(e)}"
+        logger.error(error_detail)
+        channel_service.update_sync_log(sync_log_id, {
+            "status": "failed",
+            "completed_at": datetime.utcnow(),
+            "error_message": error_detail,
+        })
+
+
 @router.post("/sync")
 async def sync_sales(
     data: SyncRequest,
+    background_tasks: BackgroundTasks,
     _: dict = Depends(get_current_user),
     channel_service: ChannelService = Depends(get_channel_service),
 ):
-    """쿠팡 Wing 매출 데이터 동기화"""
+    """쿠팡 Wing 매출 데이터 동기화 (백그라운드 실행)"""
     service = get_coupang_wing_service()
 
     # DB에서 credential 로드
@@ -160,9 +220,6 @@ async def sync_sales(
             })
             channel_id = channel["id"]
 
-    # 동기화 로그 생성
-    sync_log = channel_service.create_sync_log(channel_id, channel_name, "api")
-
     # 날짜 범위 결정
     start_date = data.start_date
     end_date = data.end_date
@@ -175,59 +232,46 @@ async def sync_sales(
         else:
             raise HTTPException(status_code=400, detail="start_date/end_date 또는 year/month를 지정해주세요")
 
-    try:
-        monthly_data = await service.get_daily_sales_by_range(start_date, end_date)
+    # 동기화 로그 생성
+    sync_log = channel_service.create_sync_log(channel_id, channel_name, "api")
 
-        sales_list = []
-        total_days = 0
-        for _ym, days in monthly_data.items():
-            total_days += len(days)
-            for day_data in days:
-                sales_list.append({
-                    "channel_id": channel_id,
-                    "channel_name": channel_name,
-                    "year": day_data["year"],
-                    "month": day_data["month"],
-                    "day": day_data["day"],
-                    "gross_sales": day_data["gross_sales"],
-                    "net_sales": day_data["net_sales"],
-                    "order_count": day_data["order_count"],
-                    "quantity": day_data["quantity"],
-                    "commission": day_data["commission"],
-                    "source": "coupang_wing_api",
-                })
+    # 백그라운드 작업 등록 — 즉시 응답
+    background_tasks.add_task(
+        _run_sync_task,
+        service, channel_id, channel_name, start_date, end_date, sync_log["id"],
+    )
 
-        result = channel_service.bulk_upsert_sales(sales_list, sync_log["id"])
+    return {
+        "success": True,
+        "message": f"{start_date} ~ {end_date} 동기화 시작됨",
+        "sync_log_id": sync_log["id"],
+        "channel_id": channel_id,
+        "period": f"{start_date} ~ {end_date}",
+    }
 
-        channel_service.update_sync_log(sync_log["id"], {
-            "status": "success" if not result["errors"] else "partial",
-            "completed_at": datetime.utcnow(),
-            "records_processed": total_days,
-            "records_created": result["created"],
-            "error_message": str(result["errors"][:3]) if result["errors"] else None,
-        })
 
-        return {
-            "success": True,
-            "message": f"{start_date} ~ {end_date} 매출 동기화 완료",
-            "channel_id": channel_id,
-            "period": f"{start_date} ~ {end_date}",
-            "processed": total_days,
-            "created": result["created"],
-            "errors": len(result["errors"]),
-        }
+@router.get("/sync-status/{sync_log_id}")
+async def get_sync_status(
+    sync_log_id: str,
+    _: dict = Depends(get_current_user),
+    channel_service: ChannelService = Depends(get_channel_service),
+):
+    """동기화 작업 상태 조회 (폴링용)"""
+    log = channel_service.get_sync_log(sync_log_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="동기화 로그를 찾을 수 없습니다")
 
-    except Exception as e:
-        error_detail = (
-            f"동기화 실패 (기간: {start_date} ~ {end_date}): {str(e)}"
-        )
-        logger.error(error_detail)
-        channel_service.update_sync_log(sync_log["id"], {
-            "status": "failed",
-            "completed_at": datetime.utcnow(),
-            "error_message": error_detail,
-        })
-        raise HTTPException(status_code=500, detail=error_detail)
+    finished = log["status"] in ("success", "partial", "failed")
+    return {
+        "sync_log_id": log["id"],
+        "status": log["status"],
+        "finished": finished,
+        "records_processed": log.get("records_processed", 0),
+        "records_created": log.get("records_created", 0),
+        "error_message": log.get("error_message"),
+        "started_at": log.get("started_at"),
+        "completed_at": log.get("completed_at"),
+    }
 
 
 @router.get("/debug-orders")

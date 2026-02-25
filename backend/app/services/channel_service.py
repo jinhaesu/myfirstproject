@@ -447,6 +447,15 @@ class ChannelService:
         finally:
             self._close_db(db)
 
+    def get_sync_log(self, log_id: str) -> Optional[dict]:
+        """동기화 로그 단건 조회"""
+        db = self._get_db()
+        try:
+            log = db.query(ChannelSyncLog).filter(ChannelSyncLog.id == log_id).first()
+            return self._sync_log_to_dict(log)
+        finally:
+            self._close_db(db)
+
     def get_recent_sync_logs(self, channel_id: Optional[str] = None, limit: int = 20) -> list[dict]:
         """최근 동기화 로그 조회"""
         db = self._get_db()
