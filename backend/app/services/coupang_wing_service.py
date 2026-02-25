@@ -303,12 +303,14 @@ class CoupangWingService:
             # 주문 아이템별 금액 집계
             order_items = order.get("orderItems", [])
             for item in order_items:
-                price = item.get("vendorItemPrice", 0) or 0
-                qty = item.get("quantity", 1) or 1
-                shipping = item.get("shippingPrice", 0) or 0
+                # salesPrice: 판매가, orderPrice: 주문가, discountPrice: 할인
+                sales_price = item.get("salesPrice", 0) or 0
+                order_price = item.get("orderPrice", 0) or 0
+                discount = item.get("discountPrice", 0) or 0
+                qty = item.get("shippingCount", 1) or 1
 
-                entry["gross_sales"] += price * qty
-                entry["net_sales"] += price * qty  # 정산금 별도 계산 어려움
+                entry["gross_sales"] += sales_price * qty
+                entry["net_sales"] += (order_price - discount) * qty
                 entry["quantity"] += qty
 
         # 정렬하여 반환
