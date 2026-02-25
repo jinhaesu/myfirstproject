@@ -82,16 +82,27 @@ class CoupangWingService:
         datetime_str = datetime.now(timezone.utc).strftime('%y%m%dT%H%M%SZ')
 
         # GET 요청이면 query string을 서명에 포함
+        # 중요: httpx가 보내는 query string과 동일한 형식으로 서명해야 함
         params = kwargs.get("params", {})
-        query = urllib.parse.urlencode(params) if params else ""
+        if params:
+            # httpx는 quote(safe=...) 방식으로 인코딩 — urllib과 동일하게 맞춤
+            query = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+        else:
+            query = ""
         authorization = self._generate_authorization(method, path, query, datetime_str)
 
         headers = kwargs.pop("headers", {})
         headers["Authorization"] = authorization
         headers["Content-Type"] = "application/json;charset=UTF-8"
         headers["X-EXTENDED-TIMEOUT"] = "90000"
+        headers["X-Requested-By"] = self.config.access_key
 
         url = f"{self.config.base_url}{path}"
+        if params:
+            # query string을 직접 URL에 붙여서 서명과 100% 일치시킴
+            url = f"{url}?{query}"
+            kwargs.pop("params", None)
+
         try:
             response = await client.request(method, url, headers=headers, **kwargs)
         except httpx.TimeoutException as e:
@@ -108,7 +119,9 @@ class CoupangWingService:
                 f"API 오류: status={response.status_code}, body={body_preview}"
             )
 
-        return response.json()
+        result = response.json()
+        logger.debug(f"API 응답: {method} {path} -> keys={list(result.keys()) if isinstance(result, dict) else type(result)}")
+        return result
 
     async def _fetch_ordersheets(
         self,
@@ -160,11 +173,33 @@ class CoupangWingService:
 
             data = await self._request(client, "GET", path, params=params)
 
-            orders = data.get("data", [])
-            if isinstance(orders, list):
-                all_orders.extend(orders)
+            # 응답 구조 파싱: data가 list일 수도, dict(content 포함)일 수도 있음
+            raw_data = data.get("data", [])
+            if isinstance(raw_data, list):
+                orders = raw_data
+            elif isinstance(raw_data, dict):
+                # 중첩 구조: {"data": {"content": [...], ...}}
+                orders = raw_data.get("content", raw_data.get("orderSheets", []))
+                if not isinstance(orders, list):
+                    orders = []
+                # nextToken이 data 내부에 있을 수 있음
+                if not next_token:
+                    next_token = raw_data.get("nextToken", "")
+            else:
+                orders = []
 
-            next_token = data.get("nextToken", "")
+            if orders:
+                all_orders.extend(orders)
+                logger.info(f"주문 조회 ({status}, {created_from}~{created_to}): {len(orders)}건")
+            else:
+                logger.debug(
+                    f"주문 없음 ({status}, {created_from}~{created_to}), "
+                    f"응답 keys={list(data.keys()) if isinstance(data, dict) else 'N/A'}, "
+                    f"data type={type(raw_data).__name__}"
+                )
+
+            if not next_token:
+                next_token = data.get("nextToken", "")
             if not next_token or not orders:
                 break
 
@@ -205,9 +240,8 @@ class CoupangWingService:
                 batch = dates[i:i + 3]
                 tasks = []
                 for d in batch:
-                    from_dt = f"{d}T00:00:00"
-                    to_dt = f"{d}T23:59:59"
-                    tasks.append(self._fetch_ordersheets(client, from_dt, to_dt))
+                    # 쿠팡 v4 일단위 API는 YYYY-MM-DD 형식만 지원
+                    tasks.append(self._fetch_ordersheets(client, d, d))
 
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 for idx, r in enumerate(results):
@@ -321,8 +355,8 @@ class CoupangWingService:
                 # 직접 HTTP 요청으로 상세 응답 확인
                 datetime_str = datetime.now(timezone.utc).strftime('%y%m%dT%H%M%SZ')
                 params = {
-                    "createdAtFrom": f"{today}T00:00:00",
-                    "createdAtTo": f"{today}T23:59:59",
+                    "createdAtFrom": today,
+                    "createdAtTo": today,
                     "status": "INSTRUCT",
                     "maxPerPage": 1,
                 }

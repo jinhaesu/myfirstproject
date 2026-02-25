@@ -259,8 +259,8 @@ async def debug_orders(
         async with _httpx.AsyncClient(timeout=30) as client:
             orders = await service._fetch_ordersheets(
                 client,
-                f"{start_date}T00:00:00",
-                f"{end_date}T23:59:59",
+                start_date,
+                end_date,
             )
 
         # 최대 10건만 반환
@@ -305,20 +305,23 @@ async def debug_raw_response(
 
     results = {}
     async with httpx.AsyncClient(timeout=15) as client:
-        try:
-            raw = await service._request(
-                client, "GET", path,
-                params={
-                    "createdAtFrom": start_date,
-                    "createdAtTo": end_date,
-                    "status": "INSTRUCT",
-                    "maxPerPage": 5,
-                }
-            )
-            results["instruct"] = raw
-        except Exception as e:
-            results["instruct_error"] = str(e)
+        # 여러 상태로 테스트
+        for test_status in ["INSTRUCT", "ACCEPT", "DEPARTURE"]:
+            try:
+                raw = await service._request(
+                    client, "GET", path,
+                    params={
+                        "createdAtFrom": start_date,
+                        "createdAtTo": end_date,
+                        "status": test_status,
+                        "maxPerPage": 5,
+                    }
+                )
+                results[test_status] = raw
+            except Exception as e:
+                results[f"{test_status}_error"] = str(e)
 
+        # status 없이 조회
         try:
             raw2 = await service._request(
                 client, "GET", path,
@@ -335,5 +338,6 @@ async def debug_raw_response(
     return {
         "vendor_id": service.config.vendor_id,
         "query": f"{start_date} ~ {end_date}",
+        "note": "날짜 형식: YYYY-MM-DD (예: 2026-02-01)",
         "results": results,
     }
