@@ -6,6 +6,7 @@ Playwright를 이용한 브라우저 자동화로 매출 데이터를 수집합�
 import asyncio
 import logging
 import os
+import subprocess
 import tempfile
 from datetime import datetime, timedelta
 from typing import Optional
@@ -152,6 +153,20 @@ class CoupangRocketService:
             return True
         except ImportError:
             return False
+
+    async def _launch_browser(self, playwright):
+        """Launch browser with fallback - reinstall if binary missing"""
+        launch_args = ["--no-sandbox", "--disable-dev-shm-usage"]
+        try:
+            return await playwright.chromium.launch(headless=True, args=launch_args)
+        except Exception as e:
+            logger.warning(f"Browser launch failed, reinstalling chromium: {e}")
+            subprocess.run(
+                ["python", "-m", "playwright", "install", "chromium"],
+                capture_output=True,
+                timeout=120,
+            )
+            return await playwright.chromium.launch(headless=True, args=launch_args)
 
     async def _take_screenshot(self, page, name: str) -> str:
         """디버그용 스크린샷 저장
@@ -645,7 +660,7 @@ class CoupangRocketService:
         monthly_sales: dict[str, dict[int, dict]] = {}
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await self._launch_browser(p)
             context = await browser.new_context(
                 viewport={"width": 1920, "height": 1080},
                 locale="ko-KR",
@@ -745,7 +760,7 @@ class CoupangRocketService:
             from playwright.async_api import async_playwright
 
             async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
+                browser = await self._launch_browser(p)
                 context = await browser.new_context(
                     viewport={"width": 1920, "height": 1080},
                     locale="ko-KR",

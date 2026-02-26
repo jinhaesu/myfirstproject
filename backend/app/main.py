@@ -1,3 +1,5 @@
+import subprocess
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,12 +10,32 @@ from app.api.routes import chat, tables, query, auth, targets, ai, channels, sma
 from app.database import init_db
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+
+def _install_playwright_browsers():
+    """Ensure Playwright chromium browser is installed for RPA features"""
+    try:
+        result = subprocess.run(
+            ["python", "-m", "playwright", "install", "chromium"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            logger.info("Playwright chromium browser ready")
+        else:
+            logger.warning(f"Playwright install warning: {result.stderr}")
+    except Exception as e:
+        logger.warning(f"Playwright browser install skipped: {e}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """앱 시작 시 데이터베이스 테이블 초기화"""
     init_db()
+    # Ensure Playwright browsers are available
+    _install_playwright_browsers()
     yield
 
 

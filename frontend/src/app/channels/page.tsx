@@ -116,12 +116,63 @@ function ChannelsPageContent() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncingChannelId, setSyncingChannelId] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [playwrightRetryCount, setPlaywrightRetryCount] = useState(0);
+  const [playwrightRetryChannel, setPlaywrightRetryChannel] = useState<Channel | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [cafe24Connecting, setCafe24Connecting] = useState(false);
 
   // 쿠팡 설정 모달
   const [showCoupangSettings, setShowCoupangSettings] = useState(false);
   const [coupangWingStatus, setCoupangWingStatus] = useState<{configured: boolean; connected: boolean; message: string} | null>(null);
   const [coupangRocketStatus, setCoupangRocketStatus] = useState<{configured: boolean; connected: boolean; message: string; playwright_installed?: boolean} | null>(null);
+
+  const isPlaywrightError = (msg: string) =>
+    /Playwright|BrowserType|Executable doesn't exist|playwright install/i.test(msg);
+  const PLAYWRIGHT_USER_MSG = '서버에서 브라우저 엔진을 초기화하는 중입니다. 잠시 후 다시 시도해주세요. (서버 재시작 후 첫 동기화 시 1-2분 소요될 수 있습니다)';
+
+  const retrySync = useCallback(async (channel: Channel) => {
+    if (playwrightRetryCount >= 2) {
+      setSyncResult({ type: 'error', message: `[${channel.name}] 브라우저 엔진 준비가 완료되지 않았습니다. 잠시 후 다시 시도해주세요.` });
+      setPlaywrightRetryCount(0);
+      setPlaywrightRetryChannel(null);
+      return;
+    }
+    setIsRetrying(true);
+    setSyncResult({ type: 'error', message: `[${channel.name}] 재시도 중... (${playwrightRetryCount + 1}/2)` });
+    await new Promise(r => setTimeout(r, 3000));
+    setPlaywrightRetryCount(prev => prev + 1);
+    setIsRetrying(false);
+    // Trigger sync again
+    const endpoint = SYNC_ENDPOINTS[channel.name];
+    if (!endpoint) return;
+    setSyncingChannelId(channel.id);
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ start_date: syncStartDate, end_date: syncEndDate, channel_id: channel.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncResult({ type: 'success', message: `[${channel.name}] ${data.message} (${data.processed || 0}일, ${data.created || 0}건 저장)` });
+        setPlaywrightRetryCount(0);
+        setPlaywrightRetryChannel(null);
+        fetchSummary();
+      } else {
+        const errMsg = typeof data.detail === 'string' ? data.detail : '동기화 실패';
+        if (isPlaywrightError(errMsg)) {
+          setSyncResult({ type: 'error', message: `[${channel.name}] ${PLAYWRIGHT_USER_MSG}` });
+          setPlaywrightRetryChannel(channel);
+        } else {
+          setSyncResult({ type: 'error', message: `[${channel.name}] ${errMsg}` });
+          setPlaywrightRetryChannel(null);
+        }
+      }
+    } catch (err: any) {
+      setSyncResult({ type: 'error', message: `[${channel.name}] ${err?.message || '네트워크 오류'}` });
+    }
+    setSyncingChannelId(null);
+  }, [playwrightRetryCount, syncStartDate, syncEndDate]);
 
   // 연동 채널 필터
   const [selectedSyncChannels, setSelectedSyncChannels] = useState<Set<string>>(new Set(['스마트스토어', '카페24']));
@@ -343,10 +394,24 @@ function ChannelsPageContent() {
         });
         fetchSummary();
       } else {
-        setSyncResult({ type: 'error', message: `[${channel.name}] ${typeof data.detail === 'string' ? data.detail : '동기화 실패'}` });
+        const errMsg = typeof data.detail === 'string' ? data.detail : '동기화 실패';
+        if (isPlaywrightError(errMsg)) {
+          setSyncResult({ type: 'error', message: `[${channel.name}] ${PLAYWRIGHT_USER_MSG}` });
+          setPlaywrightRetryChannel(channel);
+          setPlaywrightRetryCount(0);
+        } else {
+          setSyncResult({ type: 'error', message: `[${channel.name}] ${errMsg}` });
+        }
       }
     } catch (err: any) {
-      setSyncResult({ type: 'error', message: `[${channel.name}] ${err?.message || '네트워크 오류'}` });
+      const errMsg = err?.message || '네트워크 오류';
+      if (isPlaywrightError(errMsg)) {
+        setSyncResult({ type: 'error', message: `[${channel.name}] ${PLAYWRIGHT_USER_MSG}` });
+        setPlaywrightRetryChannel(channel);
+        setPlaywrightRetryCount(0);
+      } else {
+        setSyncResult({ type: 'error', message: `[${channel.name}] ${errMsg}` });
+      }
     }
     setSyncingChannelId(null);
   };
@@ -376,10 +441,12 @@ function ChannelsPageContent() {
         if (res.ok) {
           results.push(`${channel.name}: ${data.processed || 0}일`);
         } else {
-          errors.push(`${channel.name}: ${typeof data.detail === 'string' ? data.detail : '실패'}`);
+          const errMsg = typeof data.detail === 'string' ? data.detail : '실패';
+          errors.push(`${channel.name}: ${isPlaywrightError(errMsg) ? PLAYWRIGHT_USER_MSG : errMsg}`);
         }
       } catch (err: any) {
-        errors.push(`${channel.name}: ${err?.message || '네트워크 오류'}`);
+        const errMsg = err?.message || '네트워크 오류';
+        errors.push(`${channel.name}: ${isPlaywrightError(errMsg) ? PLAYWRIGHT_USER_MSG : errMsg}`);
       }
     }
 
@@ -624,11 +691,22 @@ function ChannelsPageContent() {
               : 'bg-red-50 border border-red-200 text-red-700'
           }`}>
             <span>{syncResult.message}</span>
-            <button onClick={() => setSyncResult(null)} className="hover:opacity-70">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              {playwrightRetryChannel && syncResult.type === 'error' && playwrightRetryCount < 2 && (
+                <button
+                  onClick={() => retrySync(playwrightRetryChannel)}
+                  disabled={isRetrying}
+                  className="px-3 py-1 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                >
+                  {isRetrying ? '재시도 중...' : '재시도'}
+                </button>
+              )}
+              <button onClick={() => { setSyncResult(null); setPlaywrightRetryChannel(null); setPlaywrightRetryCount(0); }} className="hover:opacity-70">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
         )}
 
@@ -1500,7 +1578,7 @@ function CoupangSettingsModal({
                   </>
                 )}
                 {rocketStatus && rocketStatus.playwright_installed === false && (
-                  <span className="ml-2 text-xs text-red-500">(Playwright 미설치)</span>
+                  <span className="ml-2 text-xs text-amber-600">서버에서 브라우저 엔진을 준비 중입니다. 1-2분 후 새로고침해주세요.</span>
                 )}
               </div>
 

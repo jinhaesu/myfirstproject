@@ -1,5 +1,6 @@
 """쿠팡 로켓(Supplier Hub) RPA 연동 라우트"""
 import logging
+import os
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
@@ -63,6 +64,93 @@ def _load_credentials_from_db(
         if config.get("login_id") and config.get("login_password"):
             service.update_config(config["login_id"], config["login_password"])
     return channel
+
+
+@router.get("/health")
+async def playwright_health_check():
+    """Playwright 브라우저 상태 진단 (인증 불필요)"""
+    import sys
+
+    result = {
+        "python_version": sys.version,
+        "playwright_importable": False,
+        "browser_binary_exists": False,
+        "browser_launch_ok": False,
+        "browser_path": None,
+        "errors": [],
+    }
+
+    # Step 1: Check import
+    try:
+        import playwright
+        result["playwright_importable"] = True
+        result["playwright_version"] = playwright.__version__
+    except ImportError as e:
+        result["errors"].append(f"playwright import failed: {e}")
+        return result
+
+    # Step 2: Check browser binary
+    try:
+        env_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "")
+        default_paths = [
+            "/root/.cache/ms-playwright",
+            "/home/.cache/ms-playwright",
+            os.path.expanduser("~/.cache/ms-playwright"),
+        ]
+
+        for check_path in ([env_path] if env_path else []) + default_paths:
+            if os.path.exists(check_path):
+                result["browser_path"] = check_path
+                try:
+                    contents = os.listdir(check_path)
+                    result["browser_contents"] = contents
+                    result["browser_binary_exists"] = len(contents) > 0
+                except Exception:
+                    pass
+                break
+    except Exception as e:
+        result["errors"].append(f"browser check failed: {e}")
+
+    # Step 3: Try actual browser launch
+    try:
+        from playwright.async_api import async_playwright
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage"]
+            )
+            result["browser_launch_ok"] = True
+            result["browser_version"] = browser.version
+            await browser.close()
+    except Exception as e:
+        result["errors"].append(f"browser launch failed: {e}")
+
+    return result
+
+
+@router.post("/install-browser")
+async def install_playwright_browser(
+    _: dict = Depends(get_current_user),
+):
+    """Playwright 브라우저 수동 설치 (관리자용)"""
+    import subprocess
+    try:
+        proc = subprocess.run(
+            ["python", "-m", "playwright", "install", "chromium"],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        return {
+            "success": proc.returncode == 0,
+            "stdout": proc.stdout[-500:] if proc.stdout else "",
+            "stderr": proc.stderr[-500:] if proc.stderr else "",
+            "message": "설치 완료" if proc.returncode == 0 else "설치 실패",
+        }
+    except subprocess.TimeoutExpired:
+        return {"success": False, "message": "설치 타임아웃 (3분 초과)"}
+    except Exception as e:
+        return {"success": False, "message": f"설치 오류: {e}"}
 
 
 @router.get("/status")
