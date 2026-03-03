@@ -4,7 +4,7 @@ import { useState, FormEvent, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = '/api';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -33,7 +33,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/send-otp`, {
+      const response = await fetch(`${API_BASE}/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -63,7 +63,7 @@ export default function LoginPage() {
     const otpCode = otp.join('');
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/verify-otp`, {
+      const response = await fetch(`${API_BASE}/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp: otpCode }),
