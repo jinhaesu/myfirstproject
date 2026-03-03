@@ -126,6 +126,18 @@ function ChannelsPageContent() {
   const [coupangWingStatus, setCoupangWingStatus] = useState<{configured: boolean; connected: boolean; message: string} | null>(null);
   const [coupangRocketStatus, setCoupangRocketStatus] = useState<{configured: boolean; connected: boolean; message: string; playwright_installed?: boolean} | null>(null);
 
+  // 동기화 날짜 범위 (기본: 현재 선택된 월의 1일 ~ 말일)
+  const getDefaultDates = (y: number, m: number) => {
+    const daysInMonth = new Date(y, m, 0).getDate();
+    return {
+      start: `${y}-${String(m).padStart(2, '0')}-01`,
+      end: `${y}-${String(m).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`,
+    };
+  };
+  const defaults = getDefaultDates(year, month);
+  const [syncStartDate, setSyncStartDate] = useState(defaults.start);
+  const [syncEndDate, setSyncEndDate] = useState(defaults.end);
+
   const isPlaywrightError = (msg: string) =>
     /Playwright|BrowserType|Executable doesn't exist|playwright install/i.test(msg);
   const PLAYWRIGHT_USER_MSG = '서버에서 브라우저 엔진을 초기화하는 중입니다. 잠시 후 다시 시도해주세요. (서버 재시작 후 첫 동기화 시 1-2분 소요될 수 있습니다)';
@@ -226,18 +238,6 @@ function ChannelsPageContent() {
       return next;
     });
   };
-
-  // 동기화 날짜 범위 (기본: 현재 선택된 월의 1일 ~ 말일)
-  const getDefaultDates = (y: number, m: number) => {
-    const daysInMonth = new Date(y, m, 0).getDate();
-    return {
-      start: `${y}-${String(m).padStart(2, '0')}-01`,
-      end: `${y}-${String(m).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`,
-    };
-  };
-  const defaults = getDefaultDates(year, month);
-  const [syncStartDate, setSyncStartDate] = useState(defaults.start);
-  const [syncEndDate, setSyncEndDate] = useState(defaults.end);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
