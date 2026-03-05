@@ -1,4 +1,6 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException
+from google.api_core.exceptions import GoogleAPIError
 
 from app.config import get_settings
 from app.api.deps import get_bigquery_service, get_sql_generator
@@ -7,6 +9,7 @@ from app.services.sql_generator import SQLGenerator
 from app.models.schemas import ChatRequest, ChatResponse
 from app.api.routes.auth import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -22,7 +25,7 @@ async def chat(
     dataset_id = request.dataset_id or settings.BIGQUERY_DATASET_ID
 
     if not dataset_id:
-        raise HTTPException(status_code=400, detail="dataset_id가 필요합니다")
+        raise HTTPException(status_code=400, detail="dataset_id가 필요합니다. 테이블을 선택해주세요.")
 
     try:
         # 1. 테이블 스키마 조회
@@ -58,6 +61,17 @@ async def chat(
         )
 
     except ValueError as e:
+        # AI 서비스 오류 또는 SQL 검증 실패
         raise HTTPException(status_code=400, detail=str(e))
+    except GoogleAPIError as e:
+        logger.error(f"BigQuery 오류: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"데이터베이스 쿼리 실행 중 오류가 발생했습니다: {str(e).split(chr(10))[0]}"
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"채팅 처리 중 예기치 않은 오류: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="요청 처리 중 오류가 발생했습니다. 다시 시도해주세요."
+        )

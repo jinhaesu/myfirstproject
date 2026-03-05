@@ -1,9 +1,12 @@
 import json
+import logging
 from google.cloud import bigquery
 from google.oauth2 import service_account
 from typing import Any
 
 from app.models.schemas import ColumnInfo, TableSchema
+
+logger = logging.getLogger(__name__)
 
 
 class BigQueryService:
@@ -77,18 +80,37 @@ class BigQueryService:
             row_dict = {}
             for col in columns:
                 value = row[col]
-                # BigQuery 타입을 JSON 직렬화 가능한 형태로 변환
-                if hasattr(value, 'isoformat'):
-                    value = value.isoformat()
-                elif hasattr(value, '__float__'):
-                    value = float(value)
-                row_dict[col] = value
+                row_dict[col] = self._convert_value(value)
             rows.append(row_dict)
 
             if len(rows) >= limit:
                 break
 
         return columns, rows
+
+    def _convert_value(self, value: Any) -> Any:
+        """BigQuery 타입을 JSON 직렬화 가능한 형태로 안전하게 변환"""
+        if value is None:
+            return None
+        try:
+            if hasattr(value, 'isoformat'):
+                return value.isoformat()
+            elif isinstance(value, (list, tuple)):
+                return [self._convert_value(v) for v in value]
+            elif isinstance(value, dict):
+                return {k: self._convert_value(v) for k, v in value.items()}
+            elif hasattr(value, '__float__'):
+                f = float(value)
+                # 정수면 int로 변환
+                if f == int(f) and abs(f) < 2**53:
+                    return int(f)
+                return f
+            elif isinstance(value, bytes):
+                return value.decode('utf-8', errors='replace')
+            else:
+                return value
+        except Exception:
+            return str(value)
 
     def format_schema_for_prompt(self, schema: TableSchema) -> str:
         """LLM 프롬프트용 스키마 포맷팅"""

@@ -17,10 +17,24 @@ async function fetchAPI<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: getAuthHeaders(),
-    ...options,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${endpoint}`, {
+      headers: getAuthHeaders(),
+      signal: controller.signal,
+      ...options,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('요청 시간이 초과되었습니다. 다시 시도해주세요.');
+    }
+    throw new Error('서버에 연결할 수 없습니다. 네트워크를 확인해주세요.');
+  }
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     // 401 에러시 로그아웃 처리
