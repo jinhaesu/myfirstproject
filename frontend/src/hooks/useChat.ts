@@ -33,15 +33,20 @@ export function useChat(tableId: string, datasetId?: string) {
           dataset_id: datasetId,
         });
 
+        // 응답 유효성 검사
+        const explanation = response.explanation || '결과를 가져왔습니다.';
+        const columns = response.columns || [];
+        const rows = response.rows || [];
+
         // AI 응답 추가
         const assistantMessage: Message = {
           id: generateId(),
           role: 'assistant',
-          content: response.explanation,
+          content: explanation,
           sql: response.sql,
-          columns: response.columns,
-          rows: response.rows,
-          row_count: response.row_count,
+          columns: columns,
+          rows: rows,
+          row_count: response.row_count ?? rows.length,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
@@ -53,7 +58,7 @@ export function useChat(tableId: string, datasetId?: string) {
         const errorMsg: Message = {
           id: generateId(),
           role: 'assistant',
-          content: `오류: ${errorMessage}`,
+          content: `죄송합니다. 요청 처리 중 문제가 발생했습니다.\n\n${errorMessage}\n\n다른 방식으로 질문을 시도해보세요.`,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errorMsg]);
