@@ -12,6 +12,8 @@ from app.api.routes.auth import get_current_user
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+MAX_SQL_RETRIES = 2
+
 
 @router.post("/chat")
 async def chat(
@@ -40,8 +42,38 @@ async def chat(
             project_id=settings.GCP_PROJECT_ID
         )
 
-        # 3. SQL 실행
-        columns, rows = bq_service.execute_query(sql)
+        # 3. SQL 실행 (실패 시 자동 수정 재시도)
+        columns, rows = None, None
+        last_error = None
+
+        for attempt in range(1 + MAX_SQL_RETRIES):
+            try:
+                columns, rows = bq_service.execute_query(sql)
+                last_error = None
+                break
+            except (GoogleAPIError, Exception) as e:
+                last_error = e
+                error_msg = str(e)
+                logger.warning(f"SQL 실행 실패 (시도 {attempt + 1}): {error_msg[:200]}")
+
+                if attempt < MAX_SQL_RETRIES:
+                    # Claude에게 에러를 피드백하여 SQL 수정
+                    try:
+                        sql = sql_gen.fix_sql(
+                            question=request.question,
+                            schema=schema,
+                            schema_text=schema_text,
+                            project_id=settings.GCP_PROJECT_ID,
+                            failed_sql=sql,
+                            error_message=error_msg
+                        )
+                        logger.info(f"SQL 자동 수정 완료 (시도 {attempt + 2})")
+                    except ValueError as fix_err:
+                        logger.error(f"SQL 수정 실패: {fix_err}")
+                        break
+
+        if last_error is not None:
+            raise last_error
 
         # 4. 결과 설명 생성
         explanation = sql_gen.explain_results(
@@ -61,13 +93,12 @@ async def chat(
         )
 
     except ValueError as e:
-        # AI 서비스 오류 또는 SQL 검증 실패
         raise HTTPException(status_code=400, detail=str(e))
     except GoogleAPIError as e:
         logger.error(f"BigQuery 오류: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"데이터베이스 쿼리 실행 중 오류가 발생했습니다: {str(e).split(chr(10))[0]}"
+            detail=f"데이터 쿼리 실행 중 오류가 발생했습니다: {str(e).split(chr(10))[0]}"
         )
     except Exception as e:
         logger.error(f"채팅 처리 중 예기치 않은 오류: {e}", exc_info=True)

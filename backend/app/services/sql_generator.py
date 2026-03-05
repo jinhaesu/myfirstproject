@@ -5,7 +5,7 @@ from typing import Any
 
 from app.services.llm_service import LLMService
 from app.models.prompts import (
-    SQL_GENERATION_SYSTEM, SQL_GENERATION_PROMPT,
+    SQL_GENERATION_SYSTEM, SQL_GENERATION_PROMPT, SQL_FIX_PROMPT,
     RESULT_EXPLANATION_SYSTEM, RESULT_EXPLANATION_PROMPT,
 )
 from app.models.schemas import TableSchema
@@ -43,6 +43,33 @@ class SQLGenerator:
         self._validate_sql(sql)
 
         logger.info(f"Generated SQL for question: {question[:50]}...")
+        return sql
+
+    def fix_sql(
+        self,
+        question: str,
+        schema: TableSchema,
+        schema_text: str,
+        project_id: str,
+        failed_sql: str,
+        error_message: str
+    ) -> str:
+        """BigQuery 실행 오류가 발생한 SQL을 수정"""
+        prompt = SQL_FIX_PROMPT.format(
+            project_id=project_id,
+            dataset_id=schema.dataset_id,
+            table_id=schema.table_name,
+            schema=schema_text,
+            question=question,
+            failed_sql=failed_sql,
+            error_message=error_message
+        )
+
+        sql = self.llm.generate(prompt, system=SQL_GENERATION_SYSTEM, max_tokens=2048)
+        sql = self._clean_sql(sql)
+        self._validate_sql(sql)
+
+        logger.info(f"Fixed SQL for question: {question[:50]}...")
         return sql
 
     def explain_results(
