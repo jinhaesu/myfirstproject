@@ -100,7 +100,7 @@ export default function CampaignPlanner() {
         product_image_urls: productImageUrls.filter((u) => u.trim()),
         additional_notes: additionalNotes || null,
       });
-      setCurrentPlan(result);
+      setCurrentPlan(result as CampaignPlanData);
       setActiveSection('plan');
       await loadPlans();
     } catch (e: any) {
@@ -115,7 +115,7 @@ export default function CampaignPlanner() {
     setCreatingCreative(true);
     try {
       const result = await campaignPlannerApi.generateCreative(currentPlan.id);
-      setCurrentPlan(result);
+      setCurrentPlan(result as CampaignPlanData);
       setActiveSection('creative');
     } catch (e: any) {
       alert(e.message || '소재 브리프 생성에 실패했습니다.');
@@ -136,7 +136,7 @@ export default function CampaignPlanner() {
       await loadPlans();
       // Reload current plan to get updated status
       const updated = await campaignPlannerApi.getPlan(currentPlan.id);
-      setCurrentPlan(updated);
+      setCurrentPlan(updated as CampaignPlanData);
     } catch (e: any) {
       setDraftError(e.message || 'Meta 캠페인 생성에 실패했습니다.');
     } finally {
@@ -147,7 +147,7 @@ export default function CampaignPlanner() {
   const handleViewPlan = async (planId: string) => {
     try {
       const plan = await campaignPlannerApi.getPlan(planId);
-      setCurrentPlan(plan);
+      setCurrentPlan(plan as CampaignPlanData);
       setActiveSection('plan');
       setDraftResult(null);
       setDraftError(null);

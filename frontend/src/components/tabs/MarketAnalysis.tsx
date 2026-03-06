@@ -204,7 +204,7 @@ export default function MarketAnalysis() {
   const fetchKeywords = useCallback(async () => {
     try {
       const data = await marketAnalysisApi.getKeywords();
-      setKeywords(data);
+      setKeywords(data as Keyword[]);
     } catch (err) {
       console.error('키워드 목록 조회 실패:', err);
     }
@@ -219,7 +219,7 @@ export default function MarketAnalysis() {
     try {
       setLoading(true);
       const data = await marketAnalysisApi.getMetrics(keywordId, activePlatform || undefined, days);
-      setMetrics(data);
+      setMetrics(data as MetricPoint[]);
     } catch (err) {
       console.error('메트릭 조회 실패:', err);
     } finally {
@@ -231,7 +231,7 @@ export default function MarketAnalysis() {
   const fetchSentiment = useCallback(async (keywordId: string) => {
     try {
       const data = await marketAnalysisApi.getSentiment(keywordId, activePlatform || undefined, days);
-      setSentimentData(data);
+      setSentimentData(data as SentimentData[]);
     } catch (err) {
       console.error('감성 분석 조회 실패:', err);
     }
@@ -242,9 +242,9 @@ export default function MarketAnalysis() {
     if (selectedIds.size < 2) return;
     try {
       setLoading(true);
-      const ids = Array.from(selectedIds).join(',');
+      const ids = Array.from(selectedIds);
       const data = await marketAnalysisApi.compare(ids, activePlatform || undefined, days);
-      setCompareData(data);
+      setCompareData(data as CompareData);
     } catch (err) {
       console.error('비교 데이터 조회 실패:', err);
     } finally {
@@ -273,7 +273,7 @@ export default function MarketAnalysis() {
     try {
       await marketAnalysisApi.createKeyword({
         keyword: newKeyword.trim(),
-        category: newCategory.trim() || null,
+        category: newCategory.trim() || undefined,
       });
       setNewKeyword('');
       setNewCategory('');
@@ -315,7 +315,7 @@ export default function MarketAnalysis() {
   const handleCollect = async (id: string) => {
     try {
       setCollectingId(id);
-      await marketAnalysisApi.collectKeyword(id);
+      await marketAnalysisApi.collectMetrics(id);
       if (activeKeywordId === id) {
         fetchMetrics(id);
         fetchSentiment(id);
