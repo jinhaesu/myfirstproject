@@ -30,6 +30,20 @@ class Settings(BaseSettings):
     CAFE24_REDIRECT_URI: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # Meta (Facebook) Ads
+    META_ACCESS_TOKEN: str = ""
+    META_AD_ACCOUNT_ID: str = ""
+
+    # Naver API (시장 분석)
+    NAVER_CLIENT_ID: str = ""
+    NAVER_CLIENT_SECRET: str = ""
+
+    # YouTube Data API
+    YOUTUBE_API_KEY: str = ""
+
+    # Instagram (Meta Graph API 토큰 공유)
+    INSTAGRAM_ACCESS_TOKEN: str = ""
+
     # Resend 이메일 설정
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = "noreply@yourdomain.com"

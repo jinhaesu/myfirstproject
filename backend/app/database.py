@@ -36,4 +36,8 @@ def init_db():
     if engine is not None:
         # 모델을 먼저 import해서 Base.metadata에 등록
         from app.db_models import Target, Sale  # noqa: F401
+        from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401
+        from app.models.scheduled_report import ScheduledReport  # noqa: F401
+        from app.models.keyword_monitor import MonitoredKeyword, KeywordMetrics, KeywordSentiment  # noqa: F401
+        from app.models.campaign_plan import CampaignPlan  # noqa: F401
         Base.metadata.create_all(bind=engine)
