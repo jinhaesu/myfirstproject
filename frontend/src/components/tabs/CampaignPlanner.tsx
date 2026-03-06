@@ -71,8 +71,8 @@ export default function CampaignPlanner() {
   const loadPlans = useCallback(async () => {
     setLoadingPlans(true);
     try {
-      const data = await campaignPlannerApi.listPlans();
-      setPlans(data);
+      const data = await campaignPlannerApi.getPlans();
+      setPlans(data as CampaignPlanData[]);
     } catch (e) {
       console.error('기획서 목록 로드 실패:', e);
     } finally {
