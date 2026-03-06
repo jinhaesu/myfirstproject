@@ -83,15 +83,11 @@ app = FastAPI(
     redirect_slashes=False,  # HTTPS 리다이렉트 문제 방지
 )
 
-# CORS 설정 — FRONTEND_URL도 허용 (Vercel→Railway 직접 호출 지원)
-origins = settings.allowed_origins_list
-if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
-    origins.append(settings.FRONTEND_URL)
-
+# CORS 설정 — 모든 오리진 허용 (JWT 인증으로 보안 유지)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
