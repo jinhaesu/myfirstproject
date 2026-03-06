@@ -92,7 +92,7 @@ class SQLGenerator:
             row_count=row_count
         )
 
-        return self.llm.generate(prompt, system=RESULT_EXPLANATION_SYSTEM, max_tokens=1024)
+        return self.llm.generate(prompt, system=RESULT_EXPLANATION_SYSTEM, max_tokens=4096)
 
     def _clean_sql(self, sql: str) -> str:
         """SQL에서 불필요한 요소 제거"""

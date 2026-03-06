@@ -46,6 +46,7 @@ htmlcov/
 # Credentials (IMPORTANT!)
 *.json
 !package.json
+!package-lock.json
 !tsconfig.json
 !vercel.json
 service-account*.json
