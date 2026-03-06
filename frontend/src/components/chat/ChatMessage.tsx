@@ -11,18 +11,17 @@ interface ChatMessageProps {
   message: Message;
 }
 
+const COLLAPSED_MAX_LENGTH = 500;
+
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const [showChart, setShowChart] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
-  const handleCopySql = () => {
-    if (message.sql) {
-      navigator.clipboard.writeText(message.sql);
-      setCopiedSql(true);
-      setTimeout(() => setCopiedSql(false), 2000);
-    }
-  };
+  const isLongContent = !isUser && message.content.length > COLLAPSED_MAX_LENGTH;
+  const displayContent = isLongContent && !expanded
+    ? message.content.slice(0, COLLAPSED_MAX_LENGTH) + '...'
+    : message.content;
 
   const handleDownloadCsv = () => {
     if (!message.columns || !message.rows) return;
@@ -52,7 +51,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
   const handleDownloadWord = async () => {
     const children: (Paragraph | Table)[] = [];
 
-    // Title
     children.push(
       new Paragraph({
         text: '데이터 분석 결과',
@@ -61,7 +59,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
       })
     );
 
-    // Timestamp
     children.push(
       new Paragraph({
         children: [
@@ -75,7 +72,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
       })
     );
 
-    // Analysis content
     children.push(
       new Paragraph({
         text: '분석 내용',
@@ -99,30 +95,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
       );
     }
 
-    // SQL query
-    if (message.sql) {
-      children.push(
-        new Paragraph({
-          text: '실행된 SQL 쿼리',
-          heading: HeadingLevel.HEADING_2,
-          spacing: { before: 300, after: 100 },
-        })
-      );
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: message.sql,
-              font: 'Consolas',
-              size: 20,
-            }),
-          ],
-          spacing: { after: 200 },
-        })
-      );
-    }
-
-    // Data table
     if (message.columns && message.rows && message.rows.length > 0) {
       children.push(
         new Paragraph({
@@ -144,7 +116,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
         right: borderStyle,
       };
 
-      // Header row
       const headerRow = new TableRow({
         children: message.columns.map(
           (col) =>
@@ -162,7 +133,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
         ),
       });
 
-      // Data rows
       const dataRows = message.rows.map(
         (row) =>
           new TableRow({
@@ -218,44 +188,17 @@ export function ChatMessage({ message }: ChatMessageProps) {
       >
         {/* 메시지 내용 */}
         <p className={`text-[13px] whitespace-pre-wrap leading-relaxed ${isUser ? '' : 'text-slate-700'}`}>
-          {message.content}
+          {displayContent}
         </p>
 
-        {/* SQL 쿼리 (AI 응답일 때만) */}
-        {!isUser && message.sql && (
-          <div className="mt-3">
-            <div className="flex items-center justify-between mb-1.5">
-              <h4 className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-                실행된 SQL
-              </h4>
-              <button
-                onClick={handleCopySql}
-                className="text-xs px-2 py-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors flex items-center gap-1"
-              >
-                {copiedSql ? (
-                  <>
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    복사됨
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    복사
-                  </>
-                )}
-              </button>
-            </div>
-            <pre className="bg-slate-900 text-green-400 p-3 rounded-xl text-xs overflow-x-auto font-mono">
-              {message.sql}
-            </pre>
-          </div>
+        {/* 더보기 / 접기 버튼 */}
+        {isLongContent && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="mt-2 text-xs font-semibold text-blue-500 hover:text-blue-700 transition-colors"
+          >
+            {expanded ? '접기 ▲' : '더보기 ▼'}
+          </button>
         )}
 
         {/* 결과 테이블 (AI 응답일 때만) */}
