@@ -30,8 +30,8 @@ export function ChatContainer({ tableId, datasetId }: ChatContainerProps) {
             </svg>
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-800">데이터 분석 채팅</h2>
-            <p className="text-sm text-slate-500">
+            <h2 className="text-base font-bold text-slate-800">데이터 분석 채팅</h2>
+            <p className="text-xs text-slate-500">
               테이블: <span className="font-semibold text-blue-600">{tableId || '선택 안됨'}</span>
             </p>
           </div>
@@ -60,7 +60,7 @@ export function ChatContainer({ tableId, datasetId }: ChatContainerProps) {
       )}
 
       {/* 메시지 영역 */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-slate-50/50 to-white">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-slate-50/50 to-white">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mb-6">
@@ -68,8 +68,8 @@ export function ChatContainer({ tableId, datasetId }: ChatContainerProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-slate-700 mb-2">데이터에 대해 질문하세요</h3>
-            <p className="text-slate-500 mb-6">AI가 자연어를 SQL로 변환하여 데이터를 분석합니다</p>
+            <h3 className="text-lg font-bold text-slate-700 mb-2">데이터에 대해 질문하세요</h3>
+            <p className="text-sm text-slate-500 mb-6">AI가 자연어를 SQL로 변환하여 데이터를 분석합니다</p>
             <div className="space-y-2">
               <div className="px-4 py-2 bg-white rounded-full shadow-sm border border-slate-200 text-sm text-slate-600">
                 &quot;지난달 매출 상위 10개 제품은?&quot;
@@ -96,7 +96,7 @@ export function ChatContainer({ tableId, datasetId }: ChatContainerProps) {
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
-                <span className="text-slate-600 font-medium">AI가 분석 중입니다...</span>
+                <span className="text-sm text-slate-600 font-medium">AI가 분석 중입니다...</span>
               </div>
             </div>
           </div>

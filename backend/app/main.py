@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api.routes import chat, tables, query, auth, targets, ai, channels, smartstore, cafe24, coupang_wing, coupang_rocket
+from app.api.routes import chat, tables, query, auth, targets, ai, channels, smartstore, cafe24, coupang_wing, coupang_rocket, analytics, market_analysis, campaign_planner
 from app.database import init_db
 
 settings = get_settings()
@@ -30,12 +30,48 @@ def _install_playwright_browsers():
         logger.warning(f"Playwright browser install skipped: {e}")
 
 
+async def _startup_catchup_rules():
+    """서버 시작 시 24시간 이상 미체크 사용자 룰 catch-up"""
+    import asyncio
+    from datetime import datetime, timezone, timedelta
+    from app.database import SessionLocal
+    from app.models.auto_rule import AutoRule
+    from app.services.meta_ads_service import MetaAdsService
+    from app.services.rule_engine import run_rules
+
+    if not SessionLocal:
+        return
+    # 잠시 대기 후 실행
+    await asyncio.sleep(5)
+    db = SessionLocal()
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        stale_rules = db.query(AutoRule).filter(
+            AutoRule.enabled == True,
+            (AutoRule.last_checked_at == None) | (AutoRule.last_checked_at < cutoff),
+        ).all()
+        user_ids = list(set(r.user_id for r in stale_rules))
+        for uid in user_ids:
+            try:
+                meta = MetaAdsService()
+                await run_rules(db, uid, meta)
+            except Exception as e:
+                logger.warning(f"Startup catch-up failed for {uid}: {e}")
+    except Exception as e:
+        logger.warning(f"Startup catch-up error: {e}")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """앱 시작 시 데이터베이스 테이블 초기화"""
     init_db()
     # Ensure Playwright browsers are available
     _install_playwright_browsers()
+    # 룰 catch-up (백그라운드)
+    import asyncio
+    asyncio.create_task(_startup_catchup_rules())
     yield
 
 
@@ -68,6 +104,9 @@ app.include_router(smartstore.router, prefix="/api", tags=["smartstore"])
 app.include_router(cafe24.router, prefix="/api", tags=["cafe24"])
 app.include_router(coupang_wing.router, prefix="/api", tags=["coupang-wing"])
 app.include_router(coupang_rocket.router, prefix="/api", tags=["coupang-rocket"])
+app.include_router(analytics.router, prefix="/api", tags=["analytics"])
+app.include_router(market_analysis.router, prefix="/api", tags=["market-analysis"])
+app.include_router(campaign_planner.router, prefix="/api", tags=["campaign-planner"])
 
 
 @app.get("/")
