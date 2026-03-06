@@ -11,17 +11,9 @@ interface ChatMessageProps {
   message: Message;
 }
 
-const COLLAPSED_MAX_LENGTH = 500;
-
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const [showChart, setShowChart] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  const isLongContent = !isUser && message.content.length > COLLAPSED_MAX_LENGTH;
-  const displayContent = isLongContent && !expanded
-    ? message.content.slice(0, COLLAPSED_MAX_LENGTH) + '...'
-    : message.content;
 
   const handleDownloadCsv = () => {
     if (!message.columns || !message.rows) return;
@@ -85,10 +77,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
       children.push(
         new Paragraph({
           children: [
-            new TextRun({
-              text: line,
-              size: 22,
-            }),
+            new TextRun({ text: line, size: 22 }),
           ],
           spacing: { after: 80 },
         })
@@ -104,75 +93,34 @@ export function ChatMessage({ message }: ChatMessageProps) {
         })
       );
 
-      const borderStyle = {
-        style: BorderStyle.SINGLE,
-        size: 1,
-        color: 'CCCCCC',
-      };
-      const borders = {
-        top: borderStyle,
-        bottom: borderStyle,
-        left: borderStyle,
-        right: borderStyle,
-      };
+      const borderStyle = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
+      const borders = { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle };
 
       const headerRow = new TableRow({
-        children: message.columns.map(
-          (col) =>
-            new TableCell({
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({ text: col, bold: true, size: 18, font: 'Malgun Gothic' }),
-                  ],
-                }),
-              ],
-              borders,
-              shading: { fill: 'E8E8E8' },
-            })
+        children: message.columns.map((col) =>
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: col, bold: true, size: 18, font: 'Malgun Gothic' })] })],
+            borders,
+            shading: { fill: 'E8E8E8' },
+          })
         ),
       });
 
-      const dataRows = message.rows.map(
-        (row) =>
-          new TableRow({
-            children: message.columns!.map(
-              (col) =>
-                new TableCell({
-                  children: [
-                    new Paragraph({
-                      children: [
-                        new TextRun({
-                          text: row[col] != null ? String(row[col]) : '',
-                          size: 18,
-                          font: 'Malgun Gothic',
-                        }),
-                      ],
-                    }),
-                  ],
-                  borders,
-                })
-            ),
-          })
+      const dataRows = message.rows.map((row) =>
+        new TableRow({
+          children: message.columns!.map((col) =>
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: row[col] != null ? String(row[col]) : '', size: 18, font: 'Malgun Gothic' })] })],
+              borders,
+            })
+          ),
+        })
       );
 
-      const table = new Table({
-        rows: [headerRow, ...dataRows],
-        width: { size: 100, type: WidthType.PERCENTAGE },
-      });
-
-      children.push(table);
+      children.push(new Table({ rows: [headerRow, ...dataRows], width: { size: 100, type: WidthType.PERCENTAGE } }));
     }
 
-    const doc = new Document({
-      sections: [
-        {
-          properties: {},
-          children,
-        },
-      ],
-    });
-
+    const doc = new Document({ sections: [{ properties: {}, children }] });
     const blob = await Packer.toBlob(doc);
     saveAs(blob, `분석결과_${new Date().toISOString().slice(0, 10)}.docx`);
   };
@@ -186,22 +134,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
             : 'bg-white border border-slate-200 shadow-md'
         }`}
       >
-        {/* 메시지 내용 */}
-        <p className={`text-[13px] whitespace-pre-wrap leading-relaxed ${isUser ? '' : 'text-slate-700'}`}>
-          {displayContent}
-        </p>
+        {/* 메시지 내용 — 전체 표시, 잘림 없음 */}
+        <div className={`text-[13px] whitespace-pre-wrap leading-relaxed break-words ${isUser ? '' : 'text-slate-700'}`}>
+          {message.content}
+        </div>
 
-        {/* 더보기 / 접기 버튼 */}
-        {isLongContent && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="mt-2 text-xs font-semibold text-blue-500 hover:text-blue-700 transition-colors"
-          >
-            {expanded ? '접기 ▲' : '더보기 ▼'}
-          </button>
-        )}
-
-        {/* 결과 테이블 (AI 응답일 때만) */}
+        {/* 결과 테이블 */}
         {!isUser && message.columns && message.rows && message.rows.length > 0 && (
           <div className="mt-3">
             <div className="flex items-center justify-between mb-2">
@@ -215,9 +153,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 <button
                   onClick={() => setShowChart(!showChart)}
                   className={`text-xs px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 ${
-                    showChart
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'
+                    showChart ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50'
                   }`}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -249,7 +185,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
           </div>
         )}
 
-        {/* Word 다운로드 버튼 (AI 응답이 길 경우) */}
+        {/* Word 다운로드 */}
         {!isUser && message.content.length > 200 && (
           <div className="mt-3 pt-3 border-t border-slate-100">
             <button
@@ -265,11 +201,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         )}
 
         {/* 타임스탬프 */}
-        <p
-          className={`text-[10px] mt-2 flex items-center gap-1 ${
-            isUser ? 'text-blue-200' : 'text-slate-400'
-          }`}
-        >
+        <p className={`text-[10px] mt-2 flex items-center gap-1 ${isUser ? 'text-blue-200' : 'text-slate-400'}`}>
           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
