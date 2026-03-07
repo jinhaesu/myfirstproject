@@ -11,9 +11,13 @@ interface ChatMessageProps {
   message: Message;
 }
 
+const COLLAPSE_THRESHOLD = 500; // 글자 수 기준
+
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const [showChart, setShowChart] = useState(false);
+  const isLong = !isUser && message.content.length > COLLAPSE_THRESHOLD;
+  const [expanded, setExpanded] = useState(false);
 
   const handleDownloadCsv = () => {
     if (!message.columns || !message.rows) return;
@@ -134,9 +138,32 @@ export function ChatMessage({ message }: ChatMessageProps) {
             : 'bg-white border border-slate-200 shadow-md'
         }`}
       >
-        {/* 메시지 내용 — 전체 표시, 잘림 없음 */}
-        <div className={`text-[13px] whitespace-pre-wrap leading-relaxed break-words ${isUser ? '' : 'text-slate-700'}`}>
-          {message.content}
+        {/* 메시지 내용 */}
+        <div className="relative">
+          <div
+            className={`text-[13px] whitespace-pre-wrap leading-relaxed break-words ${isUser ? '' : 'text-slate-700'} ${
+              isLong && !expanded ? 'max-h-[300px] overflow-hidden' : ''
+            }`}
+          >
+            {message.content}
+          </div>
+          {isLong && !expanded && (
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+          )}
+          {isLong && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="mt-1 text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+            >
+              <svg
+                className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              {expanded ? '접기' : '더보기'}
+            </button>
+          )}
         </div>
 
         {/* 결과 테이블 */}
