@@ -1,14 +1,21 @@
 import os
 import re
+import json
 import tempfile
+import logging
 from collections import OrderedDict
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 from app.services.targets_service import TargetsService
 from app.api.routes.auth import get_current_user
+from app.database import get_db, SessionLocal
+from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/targets", tags=["targets"])
@@ -570,3 +577,216 @@ async def delete_sale(
     if not service.delete_sale(sale_id):
         raise HTTPException(status_code=404, detail="매출 현황 데이터를 찾을 수 없습니다")
     return {"message": "삭제되었습니다"}
+
+
+# === 리포트 스케줄 관리 ===
+
+class ReportScheduleCreate(BaseModel):
+    name: str = "영업 지표 리포트"
+    recipients: str  # comma-separated emails
+    schedule_days: str  # comma-separated: 월,화,수
+    schedule_time: str = "09:00"
+    year: int
+    month: Optional[int] = None
+    auto_send: bool = True
+
+
+class ReportScheduleUpdate(BaseModel):
+    name: Optional[str] = None
+    recipients: Optional[str] = None
+    schedule_days: Optional[str] = None
+    schedule_time: Optional[str] = None
+    year: Optional[int] = None
+    month: Optional[int] = None
+    auto_send: Optional[bool] = None
+
+
+@router.get("/report/schedules")
+async def list_report_schedules(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """리포트 이메일 스케줄 목록 조회"""
+    from app.db_models import TargetReportSchedule
+    schedules = db.query(TargetReportSchedule).filter(
+        TargetReportSchedule.user_id == current_user.get("sub", "")
+    ).order_by(TargetReportSchedule.created_at.desc()).all()
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "recipients": s.recipients,
+            "schedule_days": s.schedule_days,
+            "schedule_time": s.schedule_time,
+            "year": s.year,
+            "month": s.month,
+            "auto_send": s.auto_send,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        }
+        for s in schedules
+    ]
+
+
+@router.post("/report/schedules")
+async def create_report_schedule(
+    data: ReportScheduleCreate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """리포트 이메일 스케줄 생성"""
+    from app.db_models import TargetReportSchedule
+    schedule = TargetReportSchedule(
+        name=data.name,
+        recipients=data.recipients,
+        schedule_days=data.schedule_days,
+        schedule_time=data.schedule_time,
+        year=data.year,
+        month=data.month,
+        auto_send=data.auto_send,
+        user_id=current_user.get("sub", ""),
+    )
+    db.add(schedule)
+    db.commit()
+    db.refresh(schedule)
+    return {
+        "id": schedule.id,
+        "name": schedule.name,
+        "recipients": schedule.recipients,
+        "schedule_days": schedule.schedule_days,
+        "schedule_time": schedule.schedule_time,
+        "year": schedule.year,
+        "month": schedule.month,
+        "auto_send": schedule.auto_send,
+    }
+
+
+@router.put("/report/schedules/{schedule_id}")
+async def update_report_schedule(
+    schedule_id: int,
+    data: ReportScheduleUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """리포트 이메일 스케줄 수정"""
+    from app.db_models import TargetReportSchedule
+    schedule = db.query(TargetReportSchedule).filter(
+        TargetReportSchedule.id == schedule_id,
+        TargetReportSchedule.user_id == current_user.get("sub", ""),
+    ).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="스케줄을 찾을 수 없습니다")
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(schedule, key, value)
+    db.commit()
+    return {"message": "수정되었습니다"}
+
+
+@router.delete("/report/schedules/{schedule_id}")
+async def delete_report_schedule(
+    schedule_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """리포트 이메일 스케줄 삭제"""
+    from app.db_models import TargetReportSchedule
+    schedule = db.query(TargetReportSchedule).filter(
+        TargetReportSchedule.id == schedule_id,
+        TargetReportSchedule.user_id == current_user.get("sub", ""),
+    ).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="스케줄을 찾을 수 없습니다")
+    db.delete(schedule)
+    db.commit()
+    return {"message": "삭제되었습니다"}
+
+
+@router.post("/report/send")
+async def send_report_email(
+    year: int,
+    month: int,
+    recipients: str,  # comma-separated
+    current_user: dict = Depends(get_current_user),
+    service: TargetsService = Depends(get_targets_service),
+):
+    """리포트를 이메일로 즉시 발송"""
+    try:
+        from app.config import get_settings
+        import resend
+
+        settings = get_settings()
+        if not settings.RESEND_API_KEY:
+            raise HTTPException(status_code=400, detail="이메일 설정이 되어있지 않습니다 (RESEND_API_KEY)")
+
+        resend.api_key = settings.RESEND_API_KEY
+
+        # 데이터 수집
+        targets = service.get_targets_by_year_month(year, month)
+        sales = service.get_sales_by_year_month(year, month)
+        by_manager_target = service.get_targets_by_manager(year, month)
+        by_manager_sales = service.get_sales_by_manager(year, month, until_today=False)
+
+        # HTML 리포트 생성
+        html = _build_report_html(year, month, targets, sales, by_manager_target, by_manager_sales)
+
+        email_list = [e.strip() for e in recipients.split(",") if e.strip()]
+        if not email_list:
+            raise HTTPException(status_code=400, detail="수신자 이메일이 필요합니다")
+
+        resend.Emails.send({
+            "from": settings.RESEND_FROM_EMAIL,
+            "to": email_list,
+            "subject": f"[Nuldam] {year}년 {month}월 영업 지표 리포트",
+            "html": html,
+        })
+        return {"message": f"{len(email_list)}명에게 리포트를 발송했습니다"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Report email send failed: {e}")
+        raise HTTPException(status_code=500, detail=f"이메일 발송 실패: {str(e)}")
+
+
+def _build_report_html(year, month, targets, sales, by_manager_target, by_manager_sales):
+    """리포트 HTML 생성"""
+    managers_target = by_manager_target.get("by_manager", {})
+    managers_sales = by_manager_sales.get("by_manager", {})
+    all_managers = sorted(set(list(managers_target.keys()) + list(managers_sales.keys())))
+
+    rows_html = ""
+    for mgr in all_managers:
+        t_sales = managers_target.get(mgr, {}).get("매출", 0)
+        a_sales = managers_sales.get(mgr, {}).get("매출", 0)
+        rate = round(a_sales / t_sales * 100, 1) if t_sales > 0 else 0
+        color = "#10b981" if rate >= 100 else "#f59e0b" if rate >= 80 else "#ef4444"
+        rows_html += f"""
+        <tr>
+            <td style="padding:8px;border:1px solid #e2e8f0">{mgr}</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right">{t_sales:,.0f}원</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right">{a_sales:,.0f}원</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:{color};font-weight:bold">{rate}%</td>
+        </tr>"""
+
+    return f"""
+    <div style="font-family:sans-serif;max-width:700px;margin:0 auto;padding:20px">
+        <h1 style="color:#1e40af;border-bottom:2px solid #3b82f6;padding-bottom:10px">
+            {year}년 {month}월 영업 지표 리포트
+        </h1>
+        <p style="color:#64748b">생성일: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+        <h2 style="color:#334155;margin-top:20px">담당자별 목표 vs 실적</h2>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+            <thead>
+                <tr style="background:#f1f5f9">
+                    <th style="padding:8px;border:1px solid #e2e8f0;text-align:left">담당자</th>
+                    <th style="padding:8px;border:1px solid #e2e8f0;text-align:right">목표 매출</th>
+                    <th style="padding:8px;border:1px solid #e2e8f0;text-align:right">실적 매출</th>
+                    <th style="padding:8px;border:1px solid #e2e8f0;text-align:right">달성률</th>
+                </tr>
+            </thead>
+            <tbody>{rows_html}</tbody>
+        </table>
+        <p style="color:#94a3b8;font-size:12px;margin-top:30px">
+            이 리포트는 Nuldam Analytics에서 자동 생성되었습니다.
+        </p>
+    </div>
+    """

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import { TargetListSection } from '@/components/targets/TargetListSection';
 import { SalesStatusSection } from '@/components/targets/SalesStatusSection';
+import { ReportSection } from '@/components/targets/ReportSection';
 
 export default function TargetsPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -56,6 +57,13 @@ export default function TargetsPage() {
             <span className="text-sm font-medium text-slate-700">부가세 별도</span>
           </label>
         </div>
+
+        {/* 리포트 섹션 */}
+        <ReportSection
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          excludeVat={excludeVat}
+        />
 
         {/* 목표 리스트 섹션 */}
         <TargetListSection
