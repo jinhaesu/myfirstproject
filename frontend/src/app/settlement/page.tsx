@@ -15,6 +15,56 @@ import {
 
 const API_BASE = ''; // Next.js rewrite proxy를 통해 /api/* → 백엔드로 전달
 
+// ─────────────────────────────────────────────
+// 전체 36개 채널 목록 (프론트엔드 하드코딩 — 백엔드 없이도 UI 동작)
+// ─────────────────────────────────────────────
+const ALL_CHANNELS = [
+  { name: '카페24', category: '오픈마켓', type: 'api', loginUrl: 'https://eclogin.cafe24.com/Shop/', settlementUrl: '', note: '카페24 어드민 → 정산관리' },
+  { name: '스마트스토어', category: '오픈마켓', type: 'rpa', loginUrl: 'https://sell.smartstore.naver.com/', settlementUrl: 'https://sell.smartstore.naver.com/#/settlement/list', note: '스마트스토어 센터 → 정산관리 → 정산내역' },
+  { name: '쿠팡 WING', category: '오픈마켓', type: 'rpa', loginUrl: 'https://wing.coupang.com/login', settlementUrl: 'https://wing.coupang.com/settlement/list', note: 'WING → 정산관리 → 정산내역 조회' },
+  { name: '쿠팡 로켓', category: '오픈마켓', type: 'rpa', loginUrl: 'https://supplier.coupang.com/login', settlementUrl: 'https://supplier.coupang.com/ecp/settlement/salelist', note: 'Supplier Hub → 정산관리' },
+  { name: '11번가', category: '오픈마켓', type: 'rpa', loginUrl: 'https://soffice.11st.co.kr/login', settlementUrl: '', note: '셀러오피스 → 정산관리' },
+  { name: '지마켓', category: '오픈마켓', type: 'rpa', loginUrl: 'https://www.esmplus.com/Member/SignIn/LogOn', settlementUrl: '', note: 'ESM+ → 정산관리' },
+  { name: '옥션', category: '오픈마켓', type: 'rpa', loginUrl: 'https://www.esmplus.com/Member/SignIn/LogOn', settlementUrl: '', note: 'ESM+ → 정산관리' },
+  { name: '에이블리', category: '오픈마켓', type: 'rpa', loginUrl: 'https://partners.a-bly.com/login', settlementUrl: '', note: '셀러센터 → 정산관리' },
+  { name: '알리익스프레스', category: '오픈마켓', type: 'rpa', loginUrl: 'https://seller.aliexpress.com/', settlementUrl: '', note: '셀러센터 → 정산' },
+  { name: '카카오선물하기', category: '소셜커머스', type: 'rpa', loginUrl: 'https://gift-biz.kakao.com/login', settlementUrl: '', note: '파트너 어드민 → 정산' },
+  { name: '카카오톡스토어', category: '소셜커머스', type: 'rpa', loginUrl: 'https://store-sell.kakao.com/login', settlementUrl: '', note: '판매자센터 → 정산관리' },
+  { name: '카카오스타일', category: '소셜커머스', type: 'rpa', loginUrl: 'https://partner.kakaostyle.com/login', settlementUrl: '', note: '파트너센터 → 정산' },
+  { name: '토스', category: '소셜커머스', type: 'rpa', loginUrl: 'https://seller.toss.im/login', settlementUrl: '', note: '토스 셀러센터 → 정산' },
+  { name: '올리브영', category: '버티컬', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산관리' },
+  { name: '올웨이즈', category: '버티컬', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산' },
+  { name: '마켓컬리', category: '버티컬', type: 'rpa', loginUrl: 'https://partners.kurly.com/login', settlementUrl: '', note: '파트너센터 → 정산' },
+  { name: '롯데 홈쇼핑', category: '홈쇼핑', type: 'rpa', loginUrl: '', settlementUrl: '', note: '협력사 시스템 → 정산' },
+  { name: 'GS 샵', category: '홈쇼핑', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산' },
+  { name: 'NS MALL', category: '홈쇼핑', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산' },
+  { name: '신세계 TV 쇼핑', category: '홈쇼핑', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산' },
+  { name: 'CJ온스타일', category: '홈쇼핑', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산' },
+  { name: '롯데온', category: '백화점', type: 'rpa', loginUrl: '', settlementUrl: '', note: '셀러오피스 → 정산' },
+  { name: '롯데 백화점', category: '백화점', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '팔도감', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '이지웰', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '라이프케어', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '삼성카드쇼핑', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '농협몰', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '베네피아', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '홈플러스', category: '대형마트', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '메가마트', category: '대형마트', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '이마트', category: '대형마트', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: 'GS25', category: '편의점', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: 'CU', category: '편의점', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '삼성웰스토리', category: 'B2B', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: 'CJ프레시웨이', category: 'B2B', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '아워홈', category: 'B2B', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+];
+
+// 카테고리별 그룹핑
+const CHANNELS_BY_CATEGORY = ALL_CHANNELS.reduce((acc, ch) => {
+  if (!acc[ch.category]) acc[ch.category] = [];
+  acc[ch.category].push(ch);
+  return acc;
+}, {} as Record<string, typeof ALL_CHANNELS>);
+
 const COLORS = [
   '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899',
   '#06B6D4', '#84CC16', '#F97316', '#6366F1', '#14B8A6', '#A855F7',
@@ -155,6 +205,15 @@ const fetchApi = async (path: string, options: RequestInit = {}) => {
     throw new Error(errBody.detail || `API error: ${res.status}`);
   }
   return res.json();
+};
+
+/** API 호출 실패 시 기본값 반환 (UI가 깨지지 않도록) */
+const fetchSafe = async <T,>(path: string, defaultValue: T, options: RequestInit = {}): Promise<T> => {
+  try {
+    return await fetchApi(path, options);
+  } catch {
+    return defaultValue;
+  }
 };
 
 const fetchApiBlob = async (path: string, options: RequestInit = {}) => {
@@ -327,15 +386,18 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
     setIsLoading(true);
     try {
       const [monthlyData, yearlyData, compData] = await Promise.all([
-        fetchApi(`/api/settlement/monthly?year=${year}&month=${month}`),
-        fetchApi(`/api/settlement/yearly-summary?year=${year}`),
-        fetchApi(`/api/settlement/comparison?year=${year}&month=${month}`),
+        fetchSafe(`/api/settlement/monthly?year=${year}&month=${month}`, []),
+        fetchSafe(`/api/settlement/yearly-summary?year=${year}`, null),
+        fetchSafe(`/api/settlement/comparison?year=${year}&month=${month}`, []),
       ]);
-      setRecords(Array.isArray(monthlyData) ? monthlyData : monthlyData.records || []);
+      setRecords(Array.isArray(monthlyData) ? monthlyData : monthlyData?.records || []);
       setYearlySummary(yearlyData);
-      setComparisons(Array.isArray(compData) ? compData : compData.comparisons || []);
+      setComparisons(Array.isArray(compData) ? compData : compData?.comparisons || []);
     } catch (err: any) {
-      setToast({ type: 'error', message: `데이터 로드 실패: ${err.message}` });
+      // 에러가 나도 빈 데이터로 UI를 보여줌
+      setRecords([]);
+      setYearlySummary(null);
+      setComparisons([]);
     } finally {
       setIsLoading(false);
     }
@@ -952,31 +1014,30 @@ function ManualInputModal({
 // ═══════════════════════════════════════════════
 
 function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; message: string } | null) => void }) {
-  const [configs, setConfigs] = useState<RpaConfig[]>([]);
+  const [savedConfigs, setSavedConfigs] = useState<Record<string, SavedRpaConfig>>({});
   const [logs, setLogs] = useState<CollectionLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [collectingChannelId, setCollectingChannelId] = useState<string | null>(null);
+  const [collectingChannel, setCollectingChannel] = useState<string | null>(null);
   const [collectingAll, setCollectingAll] = useState(false);
   const [year] = useState(new Date().getFullYear());
   const [month] = useState(new Date().getMonth() + 1);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
+  // RPA 가능한 채널만 필터
+  const rpaChannels = useMemo(() => ALL_CHANNELS.filter((ch) => ch.type !== 'manual'), []);
+
   const fetchConfigs = useCallback(async () => {
-    try {
-      const data = await fetchApi('/api/settlement/rpa-configs');
-      setConfigs(Array.isArray(data) ? data : data.configs || []);
-    } catch (err: any) {
-      setToast({ type: 'error', message: `RPA 설정 로드 실패: ${err.message}` });
+    const data = await fetchSafe('/api/settlement/rpa-configs', []);
+    const map: Record<string, SavedRpaConfig> = {};
+    if (Array.isArray(data)) {
+      data.forEach((c: any) => { if (c.channel_name) map[c.channel_name] = c; });
     }
-  }, [setToast]);
+    setSavedConfigs(map);
+  }, []);
 
   const fetchLogs = useCallback(async () => {
-    try {
-      const data = await fetchApi(`/api/settlement/collection-logs?limit=20`);
-      setLogs(Array.isArray(data) ? data : data.logs || []);
-    } catch {
-      // silently fail for polling
-    }
+    const data = await fetchSafe(`/api/settlement/collection-logs?limit=20`, []);
+    setLogs(Array.isArray(data) ? data : []);
   }, []);
 
   useEffect(() => {
@@ -1000,23 +1061,24 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
     };
   }, [collectingChannelId, collectingAll, fetchLogs]);
 
-  const handleCollect = async (config: RpaConfig) => {
-    setCollectingChannelId(config.channel_id);
+  const handleCollect = async (channelName: string) => {
+    const saved = savedConfigs[channelName];
+    if (!saved?.login_id) {
+      setToast({ type: 'error', message: `${channelName}: 먼저 RPA 설정 탭에서 로그인 정보를 입력하세요` });
+      return;
+    }
+    setCollectingChannel(channelName);
     try {
       await fetchApi('/api/settlement/rpa-collect', {
         method: 'POST',
-        body: JSON.stringify({
-          channel_id: config.channel_id,
-          year,
-          month,
-        }),
+        body: JSON.stringify({ channel_name: channelName, year, month }),
       });
-      setToast({ type: 'success', message: `[${config.channel_name}] 수집 시작됨` });
+      setToast({ type: 'success', message: `[${channelName}] 수집 시작됨` });
       await fetchLogs();
     } catch (err: any) {
       setToast({ type: 'error', message: `수집 실패: ${err.message}` });
     } finally {
-      setCollectingChannelId(null);
+      setCollectingChannel(null);
     }
   };
 
@@ -1055,12 +1117,12 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
     }
   };
 
-  // Map latest log per channel for quick status lookup
+  // Map latest log per channel
   const latestLogByChannel = useMemo(() => {
     const map: Record<string, CollectionLog> = {};
     logs.forEach((log) => {
-      if (!map[log.channel_id] || new Date(log.started_at) > new Date(map[log.channel_id].started_at)) {
-        map[log.channel_id] = log;
+      if (!map[log.channel_name] || new Date(log.started_at) > new Date(map[log.channel_name].started_at)) {
+        map[log.channel_name] = log;
       }
     });
     return map;
@@ -1074,8 +1136,8 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
     );
   }
 
-  const enabledConfigs = configs.filter((c) => c.is_enabled);
-  const disabledConfigs = configs.filter((c) => !c.is_enabled);
+  const configuredChannels = rpaChannels.filter((ch) => savedConfigs[ch.name]?.login_id);
+  const unconfiguredChannels = rpaChannels.filter((ch) => !savedConfigs[ch.name]?.login_id);
 
   return (
     <div className="space-y-6">
@@ -1087,66 +1149,51 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
         </div>
         <button
           onClick={handleCollectAll}
-          disabled={collectingAll || enabledConfigs.length === 0}
+          disabled={collectingAll || configuredChannels.length === 0}
           className="px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-2"
         >
           {collectingAll ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              수집 중...
-            </>
+            <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 수집 중...</>
           ) : (
-            <>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-              전체 수집
-            </>
+            <>전체 수집 ({configuredChannels.length}개 채널)</>
           )}
         </button>
       </div>
 
-      {/* Progress indicator */}
-      {(collectingChannelId || collectingAll) && (
+      {/* Progress */}
+      {(collectingChannel || collectingAll) && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
           <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-blue-700">데이터 수집이 진행 중입니다. 로그를 자동으로 갱신합니다...</span>
+          <span className="text-sm text-blue-700">데이터 수집이 진행 중입니다...</span>
         </div>
       )}
 
-      {/* Enabled Channels Grid */}
+      {/* 수집 가능 채널 */}
       <div>
-        <h4 className="text-md font-semibold text-slate-700 mb-3">활성 채널 ({enabledConfigs.length}개)</h4>
-        {enabledConfigs.length === 0 ? (
+        <h4 className="text-md font-semibold text-slate-700 mb-3">수집 가능 ({configuredChannels.length}개 채널 — 로그인 정보 설정됨)</h4>
+        {configuredChannels.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-400">
-            활성화된 RPA 채널이 없습니다. RPA 설정 탭에서 채널을 활성화하세요.
+            <p>설정된 채널이 없습니다.</p>
+            <p className="text-sm mt-1">&quot;RPA 설정&quot; 탭에서 채널별 로그인 정보를 먼저 입력하세요.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {enabledConfigs.map((config) => {
-              const latestLog = latestLogByChannel[config.channel_id];
-              const isCollecting = collectingChannelId === config.channel_id;
+            {configuredChannels.map((ch) => {
+              const latestLog = latestLogByChannel[ch.name];
+              const isCollecting = collectingChannel === ch.name;
               return (
-                <div key={config.channel_id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                <div key={ch.name} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <span
-                        className="inline-block px-2 py-0.5 text-xs rounded-full font-medium mb-1"
-                        style={{
-                          backgroundColor: `${CATEGORY_COLORS[config.category] || '#6B7280'}20`,
-                          color: CATEGORY_COLORS[config.category] || '#6B7280',
-                        }}
-                      >
-                        {config.category}
+                      <span className="inline-block px-2 py-0.5 text-xs rounded-full font-medium mb-1" style={{ backgroundColor: `${CATEGORY_COLORS[ch.category] || '#6B7280'}20`, color: CATEGORY_COLORS[ch.category] || '#6B7280' }}>
+                        {ch.category}
                       </span>
-                      <h5 className="font-semibold text-slate-800">{config.channel_name}</h5>
+                      <h5 className="font-semibold text-slate-800">{ch.name}</h5>
                     </div>
                     {latestLog && getStatusBadge(latestLog.status)}
                   </div>
                   <div className="text-xs text-slate-500 space-y-1 mb-3">
-                    <p>수집 방식: {config.download_type || '-'}</p>
-                    <p>자동 수집일: 매월 {config.auto_collect_day}일</p>
-                    {config.last_collected_at && (
-                      <p>마지막 수집: {new Date(config.last_collected_at).toLocaleString('ko-KR')}</p>
-                    )}
+                    <p>ID: {savedConfigs[ch.name]?.login_id}</p>
                     {latestLog?.settlement_amount != null && (
                       <p className="text-emerald-600 font-medium">수집 금액: {fmtWon(latestLog.settlement_amount)}</p>
                     )}
@@ -1155,18 +1202,11 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
                     )}
                   </div>
                   <button
-                    onClick={() => handleCollect(config)}
+                    onClick={() => handleCollect(ch.name)}
                     disabled={isCollecting}
                     className="w-full px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {isCollecting ? (
-                      <>
-                        <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                        수집 중...
-                      </>
-                    ) : (
-                      '수집 실행'
-                    )}
+                    {isCollecting ? (<><div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /> 수집 중...</>) : '수집 실행'}
                   </button>
                 </div>
               );
@@ -1175,22 +1215,15 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
         )}
       </div>
 
-      {/* Disabled Channels */}
-      {disabledConfigs.length > 0 && (
+      {/* 미설정 채널 */}
+      {unconfiguredChannels.length > 0 && (
         <div>
-          <h4 className="text-md font-semibold text-slate-500 mb-3">비활성 채널 ({disabledConfigs.length}개)</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {disabledConfigs.map((config) => (
-              <div key={config.channel_id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 opacity-60">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <span className="inline-block px-2 py-0.5 text-xs rounded-full font-medium bg-slate-100 text-slate-500 mb-1">
-                      {config.category}
-                    </span>
-                    <h5 className="font-semibold text-slate-600">{config.channel_name}</h5>
-                  </div>
-                  <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-500 rounded-full">비활성</span>
-                </div>
+          <h4 className="text-md font-semibold text-slate-400 mb-3">미설정 ({unconfiguredChannels.length}개 — RPA 설정 탭에서 로그인 정보 입력 필요)</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {unconfiguredChannels.map((ch) => (
+              <div key={ch.name} className="bg-white rounded-lg border border-slate-200 p-3 opacity-50">
+                <span className="text-xs text-slate-400">{ch.category}</span>
+                <p className="font-medium text-slate-500 text-sm">{ch.name}</p>
               </div>
             ))}
           </div>
@@ -1216,16 +1249,14 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
             </thead>
             <tbody className="divide-y divide-slate-100">
               {logs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-8 text-slate-400">수집 로그가 없습니다</td>
-                </tr>
+                <tr><td colSpan={6} className="text-center py-8 text-slate-400">수집 로그가 없습니다</td></tr>
               ) : (
                 logs.slice(0, 10).map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50">
                     <td className="px-4 py-2 font-medium text-slate-700">{log.channel_name}</td>
                     <td className="px-4 py-2 text-slate-600">{log.year}년 {log.month}월</td>
                     <td className="px-4 py-2 text-center">{getStatusBadge(log.status)}</td>
-                    <td className="px-4 py-2 text-slate-600">{new Date(log.started_at).toLocaleString('ko-KR')}</td>
+                    <td className="px-4 py-2 text-slate-600">{log.started_at ? new Date(log.started_at).toLocaleString('ko-KR') : '-'}</td>
                     <td className="px-4 py-2 text-right font-mono text-slate-700">{log.settlement_amount != null ? fmtWon(log.settlement_amount) : '-'}</td>
                     <td className="px-4 py-2 text-red-500 text-xs max-w-[200px] truncate" title={log.error_message || ''}>{log.error_message || '-'}</td>
                   </tr>
@@ -1243,92 +1274,102 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
 // TAB 3: RPA Settings (RPA 설정)
 // ═══════════════════════════════════════════════
 
-function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; message: string } | null) => void }) {
-  const [configs, setConfigs] = useState<RpaConfig[]>([]);
-  const [defaults, setDefaults] = useState<RpaDefault[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [editingConfig, setEditingConfig] = useState<RpaConfig | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [testingChannelId, setTestingChannelId] = useState<string | null>(null);
+interface SavedRpaConfig {
+  channel_id?: string;
+  channel_name: string;
+  login_url?: string;
+  login_id?: string;
+  has_password?: boolean;
+  login_password?: string;
+  settlement_url?: string;
+  selectors?: Record<string, string>;
+  download_type?: string;
+  auto_collect_day?: number;
+  is_enabled?: boolean;
+}
 
+function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; message: string } | null) => void }) {
+  const [savedConfigs, setSavedConfigs] = useState<Record<string, SavedRpaConfig>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [editingChannel, setEditingChannel] = useState<typeof ALL_CHANNELS[0] | null>(null);
+  const [editForm, setEditForm] = useState<SavedRpaConfig | null>(null);
+  const [testingChannel, setTestingChannel] = useState<string | null>(null);
+  const [savingChannel, setSavingChannel] = useState<string | null>(null);
+
+  // 저장된 RPA 설정 로드 (실패해도 OK — 빈 상태로 시작)
   const fetchData = useCallback(async () => {
     setIsLoading(true);
-    try {
-      const [configData, defaultData] = await Promise.all([
-        fetchApi('/api/settlement/rpa-configs'),
-        fetchApi('/api/settlement/rpa-defaults').catch(() => []),
-      ]);
-      setConfigs(Array.isArray(configData) ? configData : configData.configs || []);
-      setDefaults(Array.isArray(defaultData) ? defaultData : defaultData.defaults || []);
-    } catch (err: any) {
-      setToast({ type: 'error', message: `RPA 설정 로드 실패: ${err.message}` });
-    } finally {
-      setIsLoading(false);
+    const data = await fetchSafe('/api/settlement/rpa-configs', []);
+    const configMap: Record<string, SavedRpaConfig> = {};
+    if (Array.isArray(data)) {
+      data.forEach((c: any) => { if (c.channel_name) configMap[c.channel_name] = c; });
     }
-  }, [setToast]);
+    setSavedConfigs(configMap);
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const handleToggle = async (config: RpaConfig) => {
+  const handleEdit = (channel: typeof ALL_CHANNELS[0]) => {
+    const saved = savedConfigs[channel.name] || {};
+    setEditingChannel(channel);
+    setEditForm({
+      channel_name: channel.name,
+      login_url: saved.login_url || channel.loginUrl || '',
+      login_id: saved.login_id || '',
+      login_password: '',
+      settlement_url: saved.settlement_url || channel.settlementUrl || '',
+      selectors: saved.selectors || {},
+      download_type: saved.download_type || 'scrape',
+      auto_collect_day: saved.auto_collect_day || 5,
+      is_enabled: saved.is_enabled ?? true,
+    });
+  };
+
+  const handleSave = async () => {
+    if (!editForm || !editingChannel) return;
+    setSavingChannel(editingChannel.name);
     try {
       await fetchApi('/api/settlement/rpa-config', {
         method: 'POST',
-        body: JSON.stringify({ ...config, is_enabled: !config.is_enabled }),
+        body: JSON.stringify({
+          channel_id: editingChannel.name,
+          channel_name: editingChannel.name,
+          ...editForm,
+        }),
       });
-      setToast({ type: 'success', message: `${config.channel_name} ${config.is_enabled ? '비활성화' : '활성화'} 완료` });
-      fetchData();
-    } catch (err: any) {
-      setToast({ type: 'error', message: `변경 실패: ${err.message}` });
-    }
-  };
-
-  const handleTest = async (config: RpaConfig) => {
-    setTestingChannelId(config.channel_id);
-    try {
-      const result = await fetchApi('/api/settlement/rpa-test', {
-        method: 'POST',
-        body: JSON.stringify({ channel_id: config.channel_id }),
-      });
-      setToast({ type: 'success', message: `[${config.channel_name}] 연결 테스트 성공: ${result.message || '정상'}` });
-    } catch (err: any) {
-      setToast({ type: 'error', message: `[${config.channel_name}] 연결 테스트 실패: ${err.message}` });
-    } finally {
-      setTestingChannelId(null);
-    }
-  };
-
-  const handleEdit = (config: RpaConfig) => {
-    setEditingConfig({ ...config });
-    setShowEditModal(true);
-  };
-
-  const handleSaveConfig = async (updatedConfig: RpaConfig) => {
-    try {
-      await fetchApi('/api/settlement/rpa-config', {
-        method: 'POST',
-        body: JSON.stringify(updatedConfig),
-      });
-      setToast({ type: 'success', message: `${updatedConfig.channel_name} 설정 저장 완료` });
-      setShowEditModal(false);
-      setEditingConfig(null);
+      setToast({ type: 'success', message: `${editingChannel.name} 설정 저장 완료` });
+      setEditingChannel(null);
+      setEditForm(null);
       fetchData();
     } catch (err: any) {
       setToast({ type: 'error', message: `저장 실패: ${err.message}` });
+    } finally {
+      setSavingChannel(null);
     }
   };
 
-  // Group configs by category
-  const groupedConfigs = useMemo(() => {
-    const map: Record<string, RpaConfig[]> = {};
-    configs.forEach((c) => {
-      const cat = c.category || '기타';
-      if (!map[cat]) map[cat] = [];
-      map[cat].push(c);
-    });
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
-  }, [configs]);
+  const handleTest = async (channelName: string) => {
+    const saved = savedConfigs[channelName];
+    if (!saved?.login_id) {
+      setToast({ type: 'error', message: `${channelName}: 먼저 로그인 정보를 설정하세요` });
+      return;
+    }
+    setTestingChannel(channelName);
+    try {
+      const result = await fetchApi('/api/settlement/rpa-test', {
+        method: 'POST',
+        body: JSON.stringify({ channel_name: channelName, login_url: saved.login_url, login_id: saved.login_id, login_password: saved.login_password || '' }),
+      });
+      setToast({ type: result.success ? 'success' : 'error', message: `[${channelName}] ${result.message || '테스트 완료'}` });
+    } catch (err: any) {
+      setToast({ type: 'error', message: `[${channelName}] 연결 테스트 실패: ${err.message}` });
+    } finally {
+      setTestingChannel(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -1350,277 +1391,193 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
             <li><strong>로그인 ID / 비밀번호</strong> — 해당 채널에 등록된 판매자 계정 정보</li>
             <li><strong>정산 페이지 URL</strong> — 로그인 후 정산/결산 내역을 확인하는 페이지 주소</li>
             <li><strong>다운로드 방식</strong> — 해당 채널에서 정산 데이터를 가져오는 방법 (웹 스크래핑 / 엑셀 다운로드)</li>
-            <li><strong>CSS Selectors (선택)</strong> — 기본 셀렉터로 로그인/데이터 추출이 안 될 때만 커스터마이징</li>
           </ol>
-          <p className="mt-2 text-amber-600">각 채널의 &quot;편집&quot; 버튼을 눌러 설정하세요. 설정 후 &quot;연결 테스트&quot;로 로그인이 되는지 확인할 수 있습니다.</p>
+          <p className="mt-2 text-amber-600">각 채널의 <strong>&quot;편집&quot;</strong> 버튼을 눌러 설정하세요. 설정 후 <strong>&quot;연결 테스트&quot;</strong>로 로그인이 되는지 확인할 수 있습니다.</p>
         </div>
       </div>
 
-      {/* 채널별 참고 URL 가이드 */}
-      <details className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <summary className="px-5 py-3 cursor-pointer text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-          채널별 셀러 어드민 URL 참고 (클릭해서 펼치기)
-        </summary>
-        <div className="px-5 py-3 border-t border-slate-100 text-xs text-slate-600 space-y-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {[
-              { ch: '스마트스토어', url: 'https://sell.smartstore.naver.com/', note: '정산관리 → 정산내역' },
-              { ch: '쿠팡 WING', url: 'https://wing.coupang.com/', note: '정산관리 → 정산내역 조회' },
-              { ch: '쿠팡 로켓', url: 'https://supplier.coupang.com/', note: '정산관리 → 매출현황' },
-              { ch: '11번가', url: 'https://soffice.11st.co.kr/', note: '정산관리 → 정산내역' },
-              { ch: '지마켓/옥션', url: 'https://www.esmplus.com/', note: 'ESM+ → 정산관리' },
-              { ch: '카카오선물하기', url: 'https://gift-biz.kakao.com/', note: '파트너 어드민 → 정산' },
-              { ch: '카카오톡스토어', url: 'https://store-sell.kakao.com/', note: '판매자센터 → 정산관리' },
-              { ch: '카카오스타일', url: 'https://partner.kakaostyle.com/', note: '파트너센터 → 정산' },
-              { ch: '올리브영', url: 'https://global.oliveyoung.com/ (글로벌) / 별도 파트너센터', note: '정산관리' },
-              { ch: '마켓컬리', url: 'https://partners.kurly.com/', note: '파트너센터 → 정산' },
-              { ch: '롯데온', url: 'https://partner.lotteon.com/', note: '셀러오피스 → 정산' },
-              { ch: '롯데 홈쇼핑', url: 'https://partner.lotteimall.com/', note: '협력사 시스템 → 정산' },
-              { ch: 'GS 샵', url: 'https://partner.gsshop.com/', note: '파트너센터 → 정산' },
-              { ch: 'CJ온스타일', url: 'https://partner.cjonstyle.com/', note: '파트너센터 → 정산' },
-              { ch: '에이블리', url: 'https://partners.a-bly.com/', note: '셀러센터 → 정산관리' },
-              { ch: '토스', url: 'https://seller.toss.im/', note: '토스 셀러센터 → 정산' },
-            ].map(({ ch, url, note }) => (
-              <div key={ch} className="flex items-start gap-2 bg-slate-50 rounded-lg p-2">
-                <span className="font-medium text-slate-800 min-w-[90px]">{ch}</span>
-                <div>
-                  <span className="text-blue-600 break-all">{url}</span>
-                  <span className="text-slate-400 ml-1">→ {note}</span>
-                </div>
-              </div>
-            ))}
+      {/* 전체 36개 채널 — 카테고리별 그룹 */}
+      {Object.entries(CHANNELS_BY_CATEGORY).map(([category, channels]) => (
+        <div key={category} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div
+            className="px-4 py-3 border-b border-slate-200 flex items-center gap-2"
+            style={{ backgroundColor: `${CATEGORY_COLORS[category] || '#6B7280'}10` }}
+          >
+            <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[category] || '#6B7280' }} />
+            <h4 className="font-semibold text-slate-800">{category}</h4>
+            <span className="text-sm text-slate-500">({channels.length}개 채널)</span>
           </div>
-          <p className="text-slate-400 mt-2">* 위 URL은 참고용이며, 실제 URL은 채널별로 다를 수 있습니다. 직접 확인 후 입력하세요.</p>
-          <p className="text-slate-400">* 복지몰, 대형마트, 편의점, B2B 채널은 별도 파트너 시스템이 있거나 수동 입력(엑셀 업로드)을 권장합니다.</p>
-        </div>
-      </details>
+          <div className="divide-y divide-slate-100">
+            {channels.map((ch) => {
+              const saved = savedConfigs[ch.name];
+              const isConfigured = !!(saved?.login_id);
+              const isTesting = testingChannel === ch.name;
+              const isManual = ch.type === 'manual';
 
-      {configs.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-          <p className="text-slate-500 mb-3">아직 등록된 RPA 설정이 없습니다.</p>
-          <p className="text-sm text-slate-400 mb-4">백엔드가 배포되면 채널 목록이 자동으로 표시됩니다.<br/>또는 &quot;RPA 수집&quot; 탭에서 개별 채널 수집을 시도하면 자동 생성됩니다.</p>
-        </div>
-      ) : (
-        groupedConfigs.map(([category, items]) => (
-          <div key={category} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div
-              className="px-4 py-3 border-b border-slate-200 flex items-center gap-2"
-              style={{ backgroundColor: `${CATEGORY_COLORS[category] || '#6B7280'}10` }}
-            >
-              <span
-                className="inline-block w-3 h-3 rounded-full"
-                style={{ backgroundColor: CATEGORY_COLORS[category] || '#6B7280' }}
-              />
-              <h4 className="font-semibold text-slate-800">{category}</h4>
-              <span className="text-sm text-slate-500">({items.length})</span>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {items.map((config) => {
-                const isTesting = testingChannelId === config.channel_id;
-                const defaultInfo = defaults.find((d) => d.channel_name === config.channel_name);
-                return (
-                  <div key={config.channel_id} className="p-4 flex flex-wrap items-center gap-4">
-                    <div className="flex-1 min-w-[200px]">
-                      <h5 className="font-medium text-slate-800">{config.channel_name}</h5>
-                      <div className="text-xs text-slate-500 mt-1 space-y-0.5">
-                        <p>로그인 URL: {config.login_url || defaultInfo?.login_url || <span className="text-slate-400">미설정</span>}</p>
-                        <p>정산 URL: {config.settlement_url || defaultInfo?.settlement_url || <span className="text-slate-400">미설정</span>}</p>
-                        <p>수집 방식: {config.download_type || defaultInfo?.download_type || '-'}</p>
-                        <p>자동 수집일: 매월 {config.auto_collect_day}일</p>
-                        {config.login_id && <p>로그인 ID: {config.login_id}</p>}
-                      </div>
-                    </div>
+              return (
+                <div key={ch.name} className="p-4 flex flex-wrap items-center gap-4">
+                  {/* 채널 정보 */}
+                  <div className="flex-1 min-w-[250px]">
                     <div className="flex items-center gap-2">
-                      {/* Enable/Disable Toggle */}
-                      <button
-                        onClick={() => handleToggle(config)}
-                        className={`relative w-12 h-6 rounded-full transition-colors ${config.is_enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
-                      >
-                        <span
-                          className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${config.is_enabled ? 'left-6' : 'left-0.5'}`}
-                        />
-                      </button>
-                      <button
-                        onClick={() => handleTest(config)}
-                        disabled={isTesting}
-                        className="px-3 py-1.5 text-xs bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-50"
-                      >
-                        {isTesting ? '테스트 중...' : '연결 테스트'}
-                      </button>
-                      <button
-                        onClick={() => handleEdit(config)}
-                        className="px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                      >
-                        편집
-                      </button>
+                      <h5 className="font-medium text-slate-800">{ch.name}</h5>
+                      {isManual ? (
+                        <span className="px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full">수동입력</span>
+                      ) : isConfigured ? (
+                        <span className="px-2 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 rounded-full">설정완료</span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-600 rounded-full">미설정</span>
+                      )}
+                      <span className="px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-600 rounded-full">{ch.type.toUpperCase()}</span>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {isManual ? (
+                        <p>{ch.note} — 결산 현황 탭에서 엑셀 업로드 또는 수동 입력하세요</p>
+                      ) : (
+                        <>
+                          <p>로그인: {saved?.login_url || ch.loginUrl || <span className="text-red-400">URL 미설정</span>}
+                            {saved?.login_id && <span className="text-emerald-600 ml-1">(ID: {saved.login_id})</span>}
+                          </p>
+                          <p>정산: {saved?.settlement_url || ch.settlementUrl || <span className="text-red-400">URL 미설정</span>}</p>
+                          <p className="text-slate-400">{ch.note}</p>
+                        </>
+                      )}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* 액션 버튼 */}
+                  <div className="flex items-center gap-2">
+                    {!isManual && (
+                      <>
+                        <button
+                          onClick={() => handleTest(ch.name)}
+                          disabled={isTesting || !isConfigured}
+                          className="px-3 py-1.5 text-xs bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={!isConfigured ? '먼저 편집에서 로그인 정보를 설정하세요' : ''}
+                        >
+                          {isTesting ? '테스트 중...' : '연결 테스트'}
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => handleEdit(ch)}
+                      className="px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+                    >
+                      편집
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))
-      )}
-
-      {/* Edit Modal */}
-      {showEditModal && editingConfig && (
-        <RpaConfigEditModal
-          config={editingConfig}
-          onClose={() => { setShowEditModal(false); setEditingConfig(null); }}
-          onSave={handleSaveConfig}
-        />
-      )}
-    </div>
-  );
-}
-
-// ─── RPA Config Edit Modal ───
-
-function RpaConfigEditModal({
-  config,
-  onClose,
-  onSave,
-}: {
-  config: RpaConfig;
-  onClose: () => void;
-  onSave: (c: RpaConfig) => void;
-}) {
-  const [form, setForm] = useState<RpaConfig>({ ...config });
-  const [saving, setSaving] = useState(false);
-  const [selectorsText, setSelectorsText] = useState(
-    config.selectors ? JSON.stringify(config.selectors, null, 2) : '{}'
-  );
-
-  const updateField = (field: keyof RpaConfig, value: any) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const selectors = JSON.parse(selectorsText);
-      onSave({ ...form, selectors });
-    } catch {
-      alert('Selectors JSON 형식이 올바르지 않습니다.');
-    }
-    setSaving(false);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6 border-b border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-800">{form.channel_name} RPA 설정</h3>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* 설정 안내 */}
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1">
-            <p className="font-semibold">설정 방법:</p>
-            <p>1. 해당 채널의 셀러 어드민에 웹브라우저로 직접 로그인해 보세요.</p>
-            <p>2. 로그인 페이지 URL을 &quot;로그인 URL&quot;에 붙여넣으세요.</p>
-            <p>3. 로그인 후 정산/결산 내역 페이지로 이동한 뒤 그 URL을 &quot;정산 페이지 URL&quot;에 붙여넣으세요.</p>
-            <p>4. 사용하시는 ID/비밀번호를 입력하세요.</p>
-            <p>5. 저장 후 &quot;연결 테스트&quot;로 정상 동작을 확인하세요.</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">로그인 URL <span className="text-red-500">*</span></label>
-            <input
-              type="url"
-              value={form.login_url}
-              onChange={(e) => updateField('login_url', e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="예: https://sell.smartstore.naver.com/"
-            />
-            <p className="text-xs text-slate-400 mt-1">셀러 어드민(파트너센터) 로그인 페이지 주소</p>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">로그인 ID</label>
-              <input
-                type="text"
-                value={form.login_id}
-                onChange={(e) => updateField('login_id', e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+      ))}
+
+      {/* 편집 모달 */}
+      {editingChannel && editForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setEditingChannel(null); setEditForm(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-800">{editingChannel.name} RPA 설정</h3>
+              <p className="text-xs text-slate-500 mt-1">{editingChannel.note}</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">로그인 비밀번호</label>
-              <input
-                type="password"
-                value={form.login_password}
-                onChange={(e) => updateField('login_password', e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+            <div className="p-6 space-y-4">
+              {/* 설정 안내 */}
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1">
+                <p className="font-semibold">설정 방법:</p>
+                <p>1. 해당 채널의 셀러 어드민에 웹브라우저로 직접 로그인해 보세요.</p>
+                <p>2. 로그인 페이지 URL을 아래 &quot;로그인 URL&quot;에 붙여넣으세요.</p>
+                <p>3. 로그인 후 정산/결산 내역 페이지로 이동한 뒤 그 URL을 &quot;정산 페이지 URL&quot;에 붙여넣으세요.</p>
+                <p>4. 사용하시는 ID/비밀번호를 입력하세요.</p>
+                <p>5. 저장 후 &quot;연결 테스트&quot;로 정상 동작을 확인하세요.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">로그인 URL <span className="text-red-500">*</span></label>
+                <input
+                  type="url"
+                  value={editForm.login_url || ''}
+                  onChange={(e) => setEditForm({ ...editForm, login_url: e.target.value })}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder={editingChannel.loginUrl || 'https://...'}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">로그인 ID <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={editForm.login_id || ''}
+                    onChange={(e) => setEditForm({ ...editForm, login_id: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="셀러 계정 ID"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">로그인 비밀번호 <span className="text-red-500">*</span></label>
+                  <input
+                    type="password"
+                    value={editForm.login_password || ''}
+                    onChange={(e) => setEditForm({ ...editForm, login_password: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder={savedConfigs[editingChannel.name]?.has_password ? '(저장됨 — 변경 시 입력)' : '비밀번호'}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">정산 페이지 URL <span className="text-red-500">*</span></label>
+                <input
+                  type="url"
+                  value={editForm.settlement_url || ''}
+                  onChange={(e) => setEditForm({ ...editForm, settlement_url: e.target.value })}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder={editingChannel.settlementUrl || '정산 내역 페이지 URL'}
+                />
+                <p className="text-xs text-slate-400 mt-1">로그인 후 정산/결산 내역을 확인하는 페이지의 URL</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">다운로드 방식</label>
+                  <select
+                    value={editForm.download_type || 'scrape'}
+                    onChange={(e) => setEditForm({ ...editForm, download_type: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="scrape">웹 스크래핑 (테이블 읽기)</option>
+                    <option value="excel_download">엑셀 다운로드</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">자동 수집일 (매월)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={28}
+                    value={editForm.auto_collect_day || 5}
+                    onChange={(e) => setEditForm({ ...editForm, auto_collect_day: Number(e.target.value) })}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  onClick={() => { setEditingChannel(null); setEditForm(null); }}
+                  className="px-4 py-2 text-sm text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={savingChannel === editingChannel.name}
+                  className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                >
+                  {savingChannel === editingChannel.name ? '저장 중...' : '저장'}
+                </button>
+              </div>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">정산 페이지 URL <span className="text-red-500">*</span></label>
-            <input
-              type="url"
-              value={form.settlement_url}
-              onChange={(e) => updateField('settlement_url', e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="예: https://sell.smartstore.naver.com/#/settlement/list"
-            />
-            <p className="text-xs text-slate-400 mt-1">로그인 후 정산/결산 내역을 확인하는 페이지의 URL</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">CSS Selectors (JSON) — 선택사항</label>
-            <textarea
-              value={selectorsText}
-              onChange={(e) => setSelectorsText(e.target.value)}
-              rows={4}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder='기본 셀렉터로 동작하지 않을 때만 입력&#10;예: {"login_id_sel": "input#userId", "login_pw_sel": "input#password", "submit_sel": "button.login-btn"}'
-            />
-            <p className="text-xs text-slate-400 mt-1">기본 셀렉터로 로그인이 안 될 때만 커스터마이징하세요. 비워두면 자동 탐지합니다.</p>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">다운로드 방식</label>
-              <select
-                value={form.download_type}
-                onChange={(e) => updateField('download_type', e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">선택</option>
-                <option value="scraping">웹 스크래핑</option>
-                <option value="excel_download">엑셀 다운로드</option>
-                <option value="api">API</option>
-                <option value="csv_download">CSV 다운로드</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">자동 수집일</label>
-              <input
-                type="number"
-                min={1}
-                max={28}
-                value={form.auto_collect_day}
-                onChange={(e) => updateField('auto_collect_day', Number(e.target.value))}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-            >
-              {saving ? '저장 중...' : '저장'}
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1646,15 +1603,10 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
   });
 
   const fetchReports = useCallback(async () => {
-    try {
-      const data = await fetchApi('/api/settlement/reports');
-      setReports(Array.isArray(data) ? data : data.reports || []);
-    } catch (err: any) {
-      setToast({ type: 'error', message: `리포트 목록 로드 실패: ${err.message}` });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [setToast]);
+    const data = await fetchSafe('/api/settlement/reports', []);
+    setReports(Array.isArray(data) ? data : data?.reports || []);
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     fetchReports();
@@ -1880,19 +1832,14 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
   const autoRefreshRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchLogs = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (filterChannel) params.set('channel_name', filterChannel);
-      if (filterStatus) params.set('status', filterStatus);
-      params.set('limit', '100');
-      const data = await fetchApi(`/api/settlement/collection-logs?${params.toString()}`);
-      setLogs(Array.isArray(data) ? data : data.logs || []);
-    } catch (err: any) {
-      setToast({ type: 'error', message: `로그 로드 실패: ${err.message}` });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filterChannel, filterStatus, setToast]);
+    const params = new URLSearchParams();
+    if (filterChannel) params.set('channel_name', filterChannel);
+    if (filterStatus) params.set('status', filterStatus);
+    params.set('limit', '100');
+    const data = await fetchSafe(`/api/settlement/collection-logs?${params.toString()}`, []);
+    setLogs(Array.isArray(data) ? data : []);
+    setIsLoading(false);
+  }, [filterChannel, filterStatus]);
 
   useEffect(() => {
     setIsLoading(true);
