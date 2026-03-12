@@ -13,7 +13,7 @@ import {
 // Constants & Types
 // ─────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = ''; // Next.js rewrite proxy를 통해 /api/* → 백엔드로 전달
 
 const COLORS = [
   '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899',
@@ -1340,17 +1340,65 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
 
   return (
     <div className="space-y-6">
-      {/* Defaults info */}
-      {defaults.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-blue-800 mb-2">기본 URL 정보 ({defaults.length}개 채널)</h4>
-          <p className="text-xs text-blue-600">아래 채널들은 기본 설정이 제공됩니다. 편집 시 기본값이 자동으로 채워집니다.</p>
+      {/* 사용 가이드 */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+        <h4 className="text-sm font-bold text-amber-800 mb-2">RPA 설정 가이드</h4>
+        <div className="text-xs text-amber-700 space-y-1.5">
+          <p>RPA가 실제로 동작하려면, 각 채널마다 아래 정보를 직접 입력해야 합니다:</p>
+          <ol className="list-decimal ml-4 space-y-1">
+            <li><strong>로그인 URL</strong> — 각 채널 셀러 어드민(파트너센터) 로그인 페이지 주소</li>
+            <li><strong>로그인 ID / 비밀번호</strong> — 해당 채널에 등록된 판매자 계정 정보</li>
+            <li><strong>정산 페이지 URL</strong> — 로그인 후 정산/결산 내역을 확인하는 페이지 주소</li>
+            <li><strong>다운로드 방식</strong> — 해당 채널에서 정산 데이터를 가져오는 방법 (웹 스크래핑 / 엑셀 다운로드)</li>
+            <li><strong>CSS Selectors (선택)</strong> — 기본 셀렉터로 로그인/데이터 추출이 안 될 때만 커스터마이징</li>
+          </ol>
+          <p className="mt-2 text-amber-600">각 채널의 &quot;편집&quot; 버튼을 눌러 설정하세요. 설정 후 &quot;연결 테스트&quot;로 로그인이 되는지 확인할 수 있습니다.</p>
         </div>
-      )}
+      </div>
+
+      {/* 채널별 참고 URL 가이드 */}
+      <details className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <summary className="px-5 py-3 cursor-pointer text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+          채널별 셀러 어드민 URL 참고 (클릭해서 펼치기)
+        </summary>
+        <div className="px-5 py-3 border-t border-slate-100 text-xs text-slate-600 space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {[
+              { ch: '스마트스토어', url: 'https://sell.smartstore.naver.com/', note: '정산관리 → 정산내역' },
+              { ch: '쿠팡 WING', url: 'https://wing.coupang.com/', note: '정산관리 → 정산내역 조회' },
+              { ch: '쿠팡 로켓', url: 'https://supplier.coupang.com/', note: '정산관리 → 매출현황' },
+              { ch: '11번가', url: 'https://soffice.11st.co.kr/', note: '정산관리 → 정산내역' },
+              { ch: '지마켓/옥션', url: 'https://www.esmplus.com/', note: 'ESM+ → 정산관리' },
+              { ch: '카카오선물하기', url: 'https://gift-biz.kakao.com/', note: '파트너 어드민 → 정산' },
+              { ch: '카카오톡스토어', url: 'https://store-sell.kakao.com/', note: '판매자센터 → 정산관리' },
+              { ch: '카카오스타일', url: 'https://partner.kakaostyle.com/', note: '파트너센터 → 정산' },
+              { ch: '올리브영', url: 'https://global.oliveyoung.com/ (글로벌) / 별도 파트너센터', note: '정산관리' },
+              { ch: '마켓컬리', url: 'https://partners.kurly.com/', note: '파트너센터 → 정산' },
+              { ch: '롯데온', url: 'https://partner.lotteon.com/', note: '셀러오피스 → 정산' },
+              { ch: '롯데 홈쇼핑', url: 'https://partner.lotteimall.com/', note: '협력사 시스템 → 정산' },
+              { ch: 'GS 샵', url: 'https://partner.gsshop.com/', note: '파트너센터 → 정산' },
+              { ch: 'CJ온스타일', url: 'https://partner.cjonstyle.com/', note: '파트너센터 → 정산' },
+              { ch: '에이블리', url: 'https://partners.a-bly.com/', note: '셀러센터 → 정산관리' },
+              { ch: '토스', url: 'https://seller.toss.im/', note: '토스 셀러센터 → 정산' },
+            ].map(({ ch, url, note }) => (
+              <div key={ch} className="flex items-start gap-2 bg-slate-50 rounded-lg p-2">
+                <span className="font-medium text-slate-800 min-w-[90px]">{ch}</span>
+                <div>
+                  <span className="text-blue-600 break-all">{url}</span>
+                  <span className="text-slate-400 ml-1">→ {note}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-slate-400 mt-2">* 위 URL은 참고용이며, 실제 URL은 채널별로 다를 수 있습니다. 직접 확인 후 입력하세요.</p>
+          <p className="text-slate-400">* 복지몰, 대형마트, 편의점, B2B 채널은 별도 파트너 시스템이 있거나 수동 입력(엑셀 업로드)을 권장합니다.</p>
+        </div>
+      </details>
 
       {configs.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center text-slate-400">
-          RPA 설정이 없습니다. 백엔드에서 채널 RPA 설정을 추가하세요.
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
+          <p className="text-slate-500 mb-3">아직 등록된 RPA 설정이 없습니다.</p>
+          <p className="text-sm text-slate-400 mb-4">백엔드가 배포되면 채널 목록이 자동으로 표시됩니다.<br/>또는 &quot;RPA 수집&quot; 탭에서 개별 채널 수집을 시도하면 자동 생성됩니다.</p>
         </div>
       ) : (
         groupedConfigs.map(([category, items]) => (
@@ -1466,15 +1514,25 @@ function RpaConfigEditModal({
           <h3 className="text-lg font-semibold text-slate-800">{form.channel_name} RPA 설정</h3>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* 설정 안내 */}
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1">
+            <p className="font-semibold">설정 방법:</p>
+            <p>1. 해당 채널의 셀러 어드민에 웹브라우저로 직접 로그인해 보세요.</p>
+            <p>2. 로그인 페이지 URL을 &quot;로그인 URL&quot;에 붙여넣으세요.</p>
+            <p>3. 로그인 후 정산/결산 내역 페이지로 이동한 뒤 그 URL을 &quot;정산 페이지 URL&quot;에 붙여넣으세요.</p>
+            <p>4. 사용하시는 ID/비밀번호를 입력하세요.</p>
+            <p>5. 저장 후 &quot;연결 테스트&quot;로 정상 동작을 확인하세요.</p>
+          </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">로그인 URL</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">로그인 URL <span className="text-red-500">*</span></label>
             <input
               type="url"
               value={form.login_url}
               onChange={(e) => updateField('login_url', e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="https://..."
+              placeholder="예: https://sell.smartstore.naver.com/"
             />
+            <p className="text-xs text-slate-400 mt-1">셀러 어드민(파트너센터) 로그인 페이지 주소</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -1497,24 +1555,26 @@ function RpaConfigEditModal({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">정산 페이지 URL</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">정산 페이지 URL <span className="text-red-500">*</span></label>
             <input
               type="url"
               value={form.settlement_url}
               onChange={(e) => updateField('settlement_url', e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="https://..."
+              placeholder="예: https://sell.smartstore.naver.com/#/settlement/list"
             />
+            <p className="text-xs text-slate-400 mt-1">로그인 후 정산/결산 내역을 확인하는 페이지의 URL</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">CSS Selectors (JSON)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">CSS Selectors (JSON) — 선택사항</label>
             <textarea
               value={selectorsText}
               onChange={(e) => setSelectorsText(e.target.value)}
               rows={4}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder='{"sales_table": "#settlement-table", "download_btn": ".btn-download"}'
+              placeholder='기본 셀렉터로 동작하지 않을 때만 입력&#10;예: {"login_id_sel": "input#userId", "login_pw_sel": "input#password", "submit_sel": "button.login-btn"}'
             />
+            <p className="text-xs text-slate-400 mt-1">기본 셀렉터로 로그인이 안 될 때만 커스터마이징하세요. 비워두면 자동 탐지합니다.</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
