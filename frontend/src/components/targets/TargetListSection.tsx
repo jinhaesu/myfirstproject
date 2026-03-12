@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { TargetModal } from './TargetModal';
+import { ExcelUploadModal } from './ExcelUploadModal';
 import { DataItemActions } from './DataItemActions';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -58,6 +59,7 @@ export function TargetListSection({
   const [summary, setSummary] = useState<TargetSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<Target | null>(null);
 
   // 차트 관련 상태
@@ -223,18 +225,29 @@ export function TargetListSection({
         {/* 헤더 */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-800">목표 리스트</h2>
-          <button
-            onClick={() => {
-              setEditingTarget(null);
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            기입하기
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setEditingTarget(null);
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              기입하기
+            </button>
+            <button
+              onClick={() => setIsUploadModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              엑셀 업로드
+            </button>
+          </div>
         </div>
 
         {/* 년도/월 선택 & 합계 */}
@@ -434,6 +447,19 @@ export function TargetListSection({
           }}
           onSave={handleSave}
           initialData={editingTarget}
+        />
+      )}
+
+      {/* 엑셀 업로드 모달 */}
+      {isUploadModalOpen && (
+        <ExcelUploadModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onSuccess={() => {
+            fetchTargets();
+            fetchSummary();
+          }}
+          defaultYear={selectedYear}
         />
       )}
     </section>
