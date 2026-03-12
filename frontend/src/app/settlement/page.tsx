@@ -390,9 +390,9 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
         fetchSafe(`/api/settlement/yearly-summary?year=${year}`, null),
         fetchSafe(`/api/settlement/comparison?year=${year}&month=${month}`, []),
       ]);
-      setRecords(Array.isArray(monthlyData) ? monthlyData : monthlyData?.records || []);
+      setRecords(Array.isArray(monthlyData) ? monthlyData : []);
       setYearlySummary(yearlyData);
-      setComparisons(Array.isArray(compData) ? compData : compData?.comparisons || []);
+      setComparisons(Array.isArray(compData) ? compData : []);
     } catch (err: any) {
       // 에러가 나도 빈 데이터로 UI를 보여줌
       setRecords([]);
@@ -1051,7 +1051,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
 
   // Polling for real-time status
   useEffect(() => {
-    if (collectingChannelId || collectingAll) {
+    if (collectingChannel || collectingAll) {
       pollingRef.current = setInterval(fetchLogs, 3000);
     } else {
       if (pollingRef.current) clearInterval(pollingRef.current);
@@ -1059,7 +1059,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [collectingChannelId, collectingAll, fetchLogs]);
+  }, [collectingChannel, collectingAll, fetchLogs]);
 
   const handleCollect = async (channelName: string) => {
     const saved = savedConfigs[channelName];
@@ -1336,8 +1336,8 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
         method: 'POST',
         body: JSON.stringify({
           channel_id: editingChannel.name,
-          channel_name: editingChannel.name,
           ...editForm,
+          channel_name: editingChannel.name,
         }),
       });
       setToast({ type: 'success', message: `${editingChannel.name} 설정 저장 완료` });
@@ -1604,7 +1604,7 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
 
   const fetchReports = useCallback(async () => {
     const data = await fetchSafe('/api/settlement/reports', []);
-    setReports(Array.isArray(data) ? data : data?.reports || []);
+    setReports(Array.isArray(data) ? data : []);
     setIsLoading(false);
   }, []);
 
