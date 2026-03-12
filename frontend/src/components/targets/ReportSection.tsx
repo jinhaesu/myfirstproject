@@ -108,6 +108,26 @@ interface ReportSectionProps {
 // ---------------------------------------------------------------------------
 const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 
+// Map backend schedule to frontend EmailSchedule
+function toEmailSchedule(s: Record<string, unknown>): EmailSchedule {
+  let days: number[] = [];
+  if (typeof s.schedule_days === 'string' && s.schedule_days) {
+    days = (s.schedule_days as string).split(',').map((d: string) => {
+      const idx = DAY_LABELS.indexOf(d.trim());
+      return idx >= 0 ? idx : -1;
+    }).filter((i: number) => i >= 0);
+  } else if (Array.isArray(s.days)) {
+    days = s.days as number[];
+  }
+  return {
+    id: String(s.id ?? ''),
+    recipients: String(s.recipients ?? ''),
+    days,
+    time: String(s.schedule_time ?? s.time ?? '09:00'),
+    enabled: Boolean(s.auto_send ?? s.enabled ?? true),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Channel suggestion mapping
 // ---------------------------------------------------------------------------
@@ -325,7 +345,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
       });
       if (res.ok) {
         const data = await res.json();
-        setSchedules(Array.isArray(data) ? data : []);
+        setSchedules(Array.isArray(data) ? data.map(toEmailSchedule) : []);
       }
     } catch {
       // Schedules endpoint may not exist yet; silently ignore
@@ -894,9 +914,9 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
     try {
       const payload = {
         recipients: scheduleForm.recipients,
-        days: scheduleForm.days,
-        time: scheduleForm.time,
-        enabled: scheduleForm.enabled,
+        schedule_days: scheduleForm.days.map((d) => DAY_LABELS[d]).join(','),
+        schedule_time: scheduleForm.time,
+        auto_send: scheduleForm.enabled,
         year: selectedYear,
         month: effectiveMonth,
       };
@@ -913,7 +933,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
       });
 
       if (res.ok) {
-        const saved = await res.json();
+        const saved = toEmailSchedule(await res.json());
         if (editingScheduleIdx !== null) {
           setSchedules((prev) => {
             const updated = [...prev];
