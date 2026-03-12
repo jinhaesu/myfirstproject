@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, JSON, Float, Boolean, Text
+from sqlalchemy import Column, Integer, String, DateTime, JSON, Float, Boolean, Text, Date, ForeignKey
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -238,3 +238,142 @@ class SettlementCollectionLog(Base):
     details = Column(JSON, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# ──────────────────────────────────────────────
+# SCM Models
+# ──────────────────────────────────────────────
+
+class ScmOrder(Base):
+    """SCM 주문 현황"""
+    __tablename__ = "scm_orders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_number = Column(String, unique=True, index=True)
+    order_date = Column(DateTime, default=func.now())
+    channel = Column(String)  # 스마트스토어, 쿠팡, etc.
+    customer_name = Column(String)
+    product_name = Column(String)
+    quantity = Column(Integer, default=1)
+    amount = Column(Float, default=0)
+    status = Column(String, default="신규접수")  # 신규접수/확인완료/배송준비/배송중/배송완료/취소/반품
+    memo = Column(Text, nullable=True)
+    user_id = Column(String)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ScmStaffMember(Base):
+    """SCM 인력 배치"""
+    __tablename__ = "scm_staff_members"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String)
+    department = Column(String)  # 물류/생산/CS/관리
+    position = Column(String)  # 팀장/대리/사원/파트
+    status = Column(String, default="근무중")  # 근무중/휴무/연차/출장
+    task_area = Column(String, nullable=True)
+    contact = Column(String, nullable=True)
+    user_id = Column(String)
+    created_at = Column(DateTime, default=func.now())
+
+
+class ScmSchedule(Base):
+    """SCM 근무 스케줄"""
+    __tablename__ = "scm_schedules"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    member_id = Column(Integer, ForeignKey("scm_staff_members.id"))
+    work_date = Column(Date)
+    shift_type = Column(String, default="주간")  # 주간/야간/휴무/연차
+    user_id = Column(String)
+
+
+class ScmTask(Base):
+    """SCM 업무 (공수 관리)"""
+    __tablename__ = "scm_tasks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_name = Column(String)
+    assignee_id = Column(Integer, ForeignKey("scm_staff_members.id"), nullable=True)
+    assignee_name = Column(String)
+    hours_spent = Column(Float, default=0)
+    hours_estimated = Column(Float, default=0)
+    progress = Column(Integer, default=0)  # 0-100
+    status = Column(String, default="대기")  # 진행중/완료/대기
+    user_id = Column(String)
+    created_at = Column(DateTime, default=func.now())
+
+
+class ScmProductionPlan(Base):
+    """SCM 생산 계획"""
+    __tablename__ = "scm_production_plans"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_name = Column(String)
+    category = Column(String)  # 스킨케어/메이크업/헤어케어/바디케어/기타
+    planned_qty = Column(Integer, default=0)
+    produced_qty = Column(Integer, default=0)
+    start_date = Column(Date)
+    end_date = Column(Date)
+    status = Column(String, default="계획")  # 계획/원자재준비/생산중/품질검사/완료/지연
+    manager = Column(String, nullable=True)
+    memo = Column(Text, nullable=True)
+    year = Column(Integer)
+    month = Column(Integer)
+    user_id = Column(String)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ScmInventoryItem(Base):
+    """SCM 재고 항목"""
+    __tablename__ = "scm_inventory_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sku = Column(String, unique=True, index=True)
+    product_name = Column(String)
+    category = Column(String)
+    current_stock = Column(Integer, default=0)
+    safety_stock = Column(Integer, default=0)
+    reorder_point = Column(Integer, default=0)
+    status = Column(String, default="정상")  # 정상/주의/부족/품절
+    last_inbound_date = Column(Date, nullable=True)
+    user_id = Column(String)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ScmShipment(Base):
+    """SCM 출고"""
+    __tablename__ = "scm_shipments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    shipment_number = Column(String, unique=True, index=True)
+    shipment_date = Column(DateTime, default=func.now())
+    product_name = Column(String)
+    sku = Column(String)
+    quantity = Column(Integer, default=0)
+    destination = Column(String)
+    courier = Column(String, nullable=True)  # 택배사
+    tracking_number = Column(String, nullable=True)
+    status = Column(String, default="준비중")  # 준비중/출고완료/배송중/배송완료
+    user_id = Column(String)
+    created_at = Column(DateTime, default=func.now())
+
+
+# 목표 영업 지표 리포트 스케줄
+class TargetReportSchedule(Base):
+    __tablename__ = "target_report_schedules"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, default="영업 지표 리포트")
+    recipients = Column(Text)  # comma-separated emails
+    schedule_days = Column(String)  # comma-separated: 월,화,수 etc.
+    schedule_time = Column(String, default="09:00")
+    year = Column(Integer)
+    month = Column(Integer, nullable=True)
+    auto_send = Column(Boolean, default=True)
+    user_id = Column(String)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

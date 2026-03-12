@@ -39,6 +39,9 @@ def init_db():
             Target, Sale,
             MonthlySettlement, SettlementRpaConfig,
             SettlementReport, SettlementCollectionLog,
+            ScmOrder, ScmStaffMember, ScmSchedule, ScmTask,
+            ScmProductionPlan, ScmInventoryItem, ScmShipment,
+            TargetReportSchedule,
         )
         from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401
         from app.models.scheduled_report import ScheduledReport  # noqa: F401
