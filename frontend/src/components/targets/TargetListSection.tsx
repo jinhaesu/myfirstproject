@@ -318,8 +318,7 @@ export function TargetListSection({
           )}
 
           {/* 차트 토글 체크박스 */}
-          {selectedMonth && (
-            <div className="flex items-center gap-6 mt-4 pt-4 border-t border-slate-200">
+          <div className="flex items-center gap-6 mt-4 pt-4 border-t border-slate-200">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -339,11 +338,10 @@ export function TargetListSection({
                 <span className="text-sm font-medium text-slate-700">기준별 목표 지표</span>
               </label>
             </div>
-          )}
         </div>
 
         {/* 차트 영역 */}
-        {selectedMonth && (showManagerChart || showCriteriaChart) && (
+        {(showManagerChart || showCriteriaChart) && (
           <div className="px-6 py-4 border-b border-slate-200">
             <div className={`grid gap-6 ${showManagerChart && showCriteriaChart ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
               {/* 책임자별 차트 */}
