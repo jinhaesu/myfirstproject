@@ -114,3 +114,127 @@ class ChannelUploadTemplate(Base):
     is_default = Column(Boolean, default=False)  # 기본 템플릿 여부
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class MonthlySettlement(Base):
+    """월별 결산 매출 데이터"""
+    __tablename__ = "monthly_settlements"
+
+    id = Column(String, primary_key=True, index=True)
+    channel_id = Column(String, nullable=False, index=True)
+    channel_name = Column(String, nullable=False)
+    category = Column(String, nullable=False)  # 오픈마켓, 홈쇼핑 등
+    year = Column(Integer, nullable=False, index=True)
+    month = Column(Integer, nullable=False, index=True)
+
+    # 결산 매출 데이터
+    gross_sales = Column(Float, default=0)          # 총 매출액
+    net_sales = Column(Float, default=0)             # 순매출액
+    settlement_amount = Column(Float, default=0)     # 정산금액 (실제 입금액)
+    commission = Column(Float, default=0)            # 수수료
+    shipping_cost = Column(Float, default=0)         # 배송비
+    refund_amount = Column(Float, default=0)         # 환불금액
+    order_count = Column(Integer, default=0)         # 주문건수
+    quantity = Column(Integer, default=0)            # 판매수량
+
+    # 상태 관리
+    status = Column(String, default="pending")       # pending, confirmed, finalized
+    source = Column(String, default="manual")        # rpa, api, manual, upload
+    confirmed_by = Column(String, nullable=True)     # 확인자
+    confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    notes = Column(Text, nullable=True)              # 메모
+    raw_data = Column(JSON, nullable=True)           # 원본 데이터
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class SettlementRpaConfig(Base):
+    """채널별 RPA 설정"""
+    __tablename__ = "settlement_rpa_configs"
+
+    id = Column(String, primary_key=True, index=True)
+    channel_id = Column(String, nullable=False, unique=True, index=True)
+    channel_name = Column(String, nullable=False)
+
+    # 로그인 정보
+    login_url = Column(String, nullable=True)
+    login_id = Column(String, nullable=True)
+    login_password = Column(String, nullable=True)  # 실제 운영시 암호화 필요
+
+    # RPA 셀렉터 설정
+    selectors = Column(JSON, nullable=True)  # {login_id_sel, login_pw_sel, submit_sel, settlement_menu_sel, ...}
+
+    # 정산 페이지 설정
+    settlement_url = Column(String, nullable=True)   # 정산 페이지 직접 URL
+    date_format = Column(String, default="%Y-%m-%d") # 날짜 입력 형식
+    download_type = Column(String, default="scrape")  # scrape, excel_download
+
+    # 엑셀 다운로드 설정
+    excel_column_mapping = Column(JSON, nullable=True)  # 엑셀 컬럼 -> DB 컬럼 매핑
+    excel_skip_rows = Column(Integer, default=0)
+    excel_sheet_name = Column(String, nullable=True)
+
+    # 스케줄 설정
+    auto_collect_day = Column(Integer, default=5)   # 매월 n일에 자동 수집
+    is_enabled = Column(Boolean, default=True)
+    last_collected_at = Column(DateTime(timezone=True), nullable=True)
+
+    # 추가 설정
+    extra_config = Column(JSON, nullable=True)  # 채널별 특수 설정
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class SettlementReport(Base):
+    """결산 리포트 발송 설정 및 이력"""
+    __tablename__ = "settlement_reports"
+
+    id = Column(String, primary_key=True, index=True)
+    report_name = Column(String, nullable=False)
+    year = Column(Integer, nullable=False)
+    month = Column(Integer, nullable=False)
+
+    # 발송 설정
+    recipients = Column(JSON, nullable=False)     # ["email1@...", "email2@..."]
+    schedule_day = Column(Integer, default=10)    # 매월 n일에 발송
+    schedule_time = Column(String, default="09:00")  # HH:MM
+    is_auto_send = Column(Boolean, default=False)
+
+    # 리포트 내용 설정
+    include_channels = Column(JSON, nullable=True)   # null이면 전체 채널
+    include_chart = Column(Boolean, default=True)
+    include_comparison = Column(Boolean, default=True)  # 전월 대비
+
+    # 발송 이력
+    status = Column(String, default="draft")         # draft, scheduled, sent, failed
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    error_message = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class SettlementCollectionLog(Base):
+    """결산 데이터 수집 로그"""
+    __tablename__ = "settlement_collection_logs"
+
+    id = Column(String, primary_key=True, index=True)
+    channel_id = Column(String, nullable=False, index=True)
+    channel_name = Column(String, nullable=False)
+    year = Column(Integer, nullable=False)
+    month = Column(Integer, nullable=False)
+
+    collection_type = Column(String, nullable=False)  # rpa, api, manual, upload
+    status = Column(String, nullable=False)            # pending, running, success, failed
+    started_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # 결과
+    settlement_amount = Column(Float, nullable=True)
+    error_message = Column(Text, nullable=True)
+    screenshot_path = Column(String, nullable=True)   # RPA 스크린샷 경로
+    details = Column(JSON, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
