@@ -98,12 +98,23 @@ class SQLGenerator:
         """SQL에서 불필요한 요소 제거"""
         sql = sql.strip()
 
-        # 코드 블록 제거 (여러 패턴 대응)
-        sql = re.sub(r'^```(?:sql)?\s*\n?', '', sql)
-        sql = re.sub(r'\n?\s*```$', '', sql)
+        # 코드 블록 내부 SQL 추출 (```sql ... ``` 패턴)
+        code_block = re.search(r'```(?:sql)?\s*\n?(.*?)\n?\s*```', sql, re.DOTALL)
+        if code_block:
+            sql = code_block.group(1).strip()
+        else:
+            # 코드 블록 없으면 SELECT/WITH 시작 부분 찾아서 추출
+            match = re.search(r'\b(SELECT\b|WITH\b)', sql, re.IGNORECASE)
+            if match:
+                sql = sql[match.start():]
 
         # 앞뒤 공백 정리
         sql = sql.strip()
+
+        # 세미콜론 이후 텍스트 제거
+        semi_idx = sql.rfind(';')
+        if semi_idx >= 0:
+            sql = sql[:semi_idx + 1]
 
         # 세미콜론이 없으면 추가
         if not sql.endswith(';'):
