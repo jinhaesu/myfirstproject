@@ -47,4 +47,8 @@ def init_db():
         from app.models.scheduled_report import ScheduledReport  # noqa: F401
         from app.models.keyword_monitor import MonitoredKeyword, KeywordMetrics, KeywordSentiment  # noqa: F401
         from app.models.campaign_plan import CampaignPlan  # noqa: F401
-        Base.metadata.create_all(bind=engine)
+        try:
+            Base.metadata.create_all(bind=engine)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"create_all failed: {e}")
