@@ -901,8 +901,13 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
         month: effectiveMonth,
       };
 
-      const res = await fetch(`${API_BASE}/api/targets/report/schedule`, {
-        method: 'POST',
+      const url = editingScheduleIdx !== null && schedules[editingScheduleIdx]?.id
+        ? `${API_BASE}/api/targets/report/schedules/${schedules[editingScheduleIdx].id}`
+        : `${API_BASE}/api/targets/report/schedules`;
+      const method = editingScheduleIdx !== null && schedules[editingScheduleIdx]?.id ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: getAuthHeaders(),
         body: JSON.stringify(payload),
       });
