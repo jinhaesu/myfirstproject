@@ -17,7 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgbm1 \
     libpango-1.0-0 \
     libcairo2 \
-    libasound2 \
+    libasound2 || true \
+    && apt-get install -y --no-install-recommends \
     libwayland-client0 \
     libdbus-1-3 \
     libglib2.0-0 \
@@ -30,8 +31,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright chromium browser
-RUN python -m playwright install chromium
+# Install Playwright with all dependencies (handles system libs automatically)
+RUN python -m playwright install --with-deps chromium
 
 # Copy application code
 COPY . .
@@ -39,5 +40,5 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Start command - install chromium at runtime as fallback, then start server
-CMD ["sh", "-c", "python -m playwright install chromium 2>/dev/null; uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start command
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

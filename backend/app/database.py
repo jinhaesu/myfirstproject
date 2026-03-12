@@ -35,7 +35,11 @@ def init_db():
     """데이터베이스 테이블 초기화"""
     if engine is not None:
         # 모델을 먼저 import해서 Base.metadata에 등록
-        from app.db_models import Target, Sale  # noqa: F401
+        from app.db_models import (  # noqa: F401
+            Target, Sale,
+            MonthlySettlement, SettlementRpaConfig,
+            SettlementReport, SettlementCollectionLog,
+        )
         from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401
         from app.models.scheduled_report import ScheduledReport  # noqa: F401
         from app.models.keyword_monitor import MonitoredKeyword, KeywordMetrics, KeywordSentiment  # noqa: F401
