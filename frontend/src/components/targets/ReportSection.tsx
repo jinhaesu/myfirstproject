@@ -222,6 +222,13 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
   const [emailSendResult, setEmailSendResult] = useState<string | null>(null);
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
+  // PDF download
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  // Email recipients for immediate send
+  const [emailRecipients, setEmailRecipients] = useState('');
+  const [showEmailInput, setShowEmailInput] = useState(false);
+
   // Ref for print area
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -573,33 +580,296 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
   }, [managerComparisons]);
 
   // -----------------------------------------------------------------------
+  // Build standalone HTML for PDF / email
+  // -----------------------------------------------------------------------
+  const buildReportHTML = useCallback(() => {
+    const rc = (rate: number) => (rate >= 100 ? '#10b981' : rate >= 80 ? '#f59e0b' : '#ef4444');
+    const rbg = (rate: number) => (rate >= 100 ? '#ecfdf5' : rate >= 80 ? '#fffbeb' : '#fef2f2');
+    const rbd = (rate: number) => (rate >= 100 ? '#a7f3d0' : rate >= 80 ? '#fde68a' : '#fecaca');
+
+    // --- Manager comparison rows ---
+    let mgrRows = '';
+    for (const mc of managerComparisons) {
+      mgrRows += `<tr>
+        <td style="padding:10px 12px;border:1px solid #e2e8f0;font-weight:600;color:#1e293b">${mc.manager}</td>
+        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(mc.targetSales))}</td>
+        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(mc.actualSales))}</td>
+        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:${rc(mc.salesRate)}">${mc.salesRate.toFixed(1)}%</td>
+        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(mc.targetQuantity)}</td>
+        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(mc.actualQuantity)}</td>
+        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:${rc(mc.quantityRate)}">${mc.quantityRate.toFixed(1)}%</td>
+        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(mc.targetContribution))}</td>
+        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(mc.actualContribution))}</td>
+        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:${rc(mc.contributionRate)}">${mc.contributionRate.toFixed(1)}%</td>
+      </tr>`;
+    }
+    const sumRow = `<tr style="background:#f5f3ff;font-weight:700;border-top:2px solid #94a3b8">
+      <td style="padding:10px 12px;border:1px solid #e2e8f0;color:#1e293b">합계</td>
+      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(applyVat(summaryTotals.targetSales))}</td>
+      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(applyVat(summaryTotals.actualSales))}</td>
+      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:${rc(summaryTotals.salesRate)}">${summaryTotals.salesRate.toFixed(1)}%</td>
+      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(summaryTotals.targetQuantity)}</td>
+      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(summaryTotals.actualQuantity)}</td>
+      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:${rc(summaryTotals.quantityRate)}">${summaryTotals.quantityRate.toFixed(1)}%</td>
+      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(applyVat(summaryTotals.targetContribution))}</td>
+      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(applyVat(summaryTotals.actualContribution))}</td>
+      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:${rc(summaryTotals.contributionRate)}">${summaryTotals.contributionRate.toFixed(1)}%</td>
+    </tr>`;
+
+    // --- CSS bar chart ---
+    let bars = '';
+    for (const mc of managerComparisons) {
+      const w = Math.min(mc.salesRate, 150);
+      bars += `<div style="display:flex;align-items:center;margin-bottom:8px">
+        <div style="width:80px;font-size:13px;font-weight:600;color:#334155;flex-shrink:0">${mc.manager}</div>
+        <div style="flex:1;display:flex;align-items:center;gap:4px">
+          <div style="height:20px;width:${w}%;background:${rc(mc.salesRate)};border-radius:4px;min-width:2px"></div>
+          <span style="font-size:12px;font-weight:600;color:${rc(mc.salesRate)}">${mc.salesRate.toFixed(1)}%</span>
+        </div>
+      </div>`;
+    }
+
+    // --- Channel by manager ---
+    const groupedCh: Record<string, ChannelAchievement[]> = {};
+    for (const ca of channelAchievements) {
+      if (!groupedCh[ca.manager]) groupedCh[ca.manager] = [];
+      groupedCh[ca.manager].push(ca);
+    }
+    let chSections = '';
+    for (const [manager, channels] of Object.entries(groupedCh).sort(([a], [b]) => a.localeCompare(b))) {
+      let chRows = '';
+      for (const ch of (channels as ChannelAchievement[]).sort((a, b) => a.rate - b.rate)) {
+        const stBg = ch.rate >= 100 ? '#ecfdf5' : '#fef2f2';
+        const stC = ch.rate >= 100 ? '#059669' : '#dc2626';
+        const stT = ch.rate >= 100 ? '달성' : '미달성';
+        chRows += `<tr>
+          <td style="padding:8px 12px;border:1px solid #e2e8f0;color:#334155">${ch.channel}</td>
+          <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(ch.targetValue))}</td>
+          <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(ch.actualValue))}</td>
+          <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:${rc(ch.rate)}">${ch.rate > 900 ? '-' : ch.rate.toFixed(1) + '%'}</td>
+          <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center">
+            <span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:${stBg};color:${stC}">${stT}</span>
+          </td>
+        </tr>`;
+      }
+      chSections += `<div style="margin-bottom:16px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+        <div style="padding:10px 14px;background:#eff6ff;border-bottom:1px solid #e2e8f0">
+          <strong style="color:#334155;font-size:14px">${manager}</strong>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:#f8fafc">
+            <th style="text-align:left;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">채널</th>
+            <th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">목표</th>
+            <th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">실적</th>
+            <th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">달성률</th>
+            <th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">상태</th>
+          </tr></thead>
+          <tbody>${chRows}</tbody>
+        </table>
+      </div>`;
+    }
+
+    // --- Entry status ---
+    let entryRows = '';
+    for (const st of managerEntryStatuses) {
+      const stBg = st.isNormal ? '#ecfdf5' : '#fef2f2';
+      const stC = st.isNormal ? '#059669' : '#dc2626';
+      const stT = st.isNormal ? '정상' : '미입력';
+      entryRows += `<tr>
+        <td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:600;color:#1e293b">${st.manager}</td>
+        <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;color:#475569">${st.lastEntryDay > 0 ? st.lastEntryDay + '일' : '입력 없음'}</td>
+        <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;color:#475569">${st.requiredDay}일</td>
+        <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;font-weight:700;color:${st.missingDays > 0 ? '#ef4444' : '#94a3b8'}">${st.missingDays > 0 ? st.missingDays + '일' : '-'}</td>
+        <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center">
+          <span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:${stBg};color:${stC}">${stT}</span>
+        </td>
+      </tr>`;
+    }
+
+    // --- Missing entry warnings ---
+    let warnCards = '';
+    for (const st of missingEntryManagers) {
+      warnCards += `<div style="display:inline-block;width:calc(33% - 12px);min-width:200px;margin:4px;padding:14px;border:1px solid #fecaca;border-radius:8px;background:#fff;vertical-align:top">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <span style="font-weight:700;color:#dc2626;font-size:14px">${st.manager.charAt(0)}</span>
+          </div>
+          <div>
+            <div style="font-weight:600;color:#1e293b;font-size:14px">${st.manager}</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">마지막 입력일: ${st.lastEntryDay > 0 ? effectiveMonth + '월 ' + st.lastEntryDay + '일' : '입력 없음'}</div>
+            <div style="font-size:12px;color:#dc2626;font-weight:600;margin-top:2px">미입력 일수: ${st.missingDays}일</div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    // --- Channel suggestions ---
+    let sugCards = '';
+    for (const cs of channelSuggestions) {
+      const rateText = cs.rate > 900 ? '목표 미설정' : `달성률 ${cs.rate.toFixed(1)}%`;
+      sugCards += `<div style="padding:14px;border:1px solid ${rbd(cs.rate)};border-radius:8px;background:${rbg(cs.rate)};margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-weight:700;color:${rc(cs.rate)};font-size:14px">${cs.channel}</span>
+          <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:${rbd(cs.rate)};color:${rc(cs.rate)}">${rateText}</span>
+        </div>
+        <p style="font-size:13px;line-height:1.5;color:#334155;margin:0">${cs.suggestion}</p>
+      </div>`;
+    }
+
+    const now = new Date().toLocaleString('ko-KR');
+    const vatNote = excludeVat ? ' | 부가세 별도 기준' : '';
+    const thStyle = 'text-align:right;padding:10px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700';
+
+    return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1e293b;max-width:100%;padding:24px;font-size:13px;line-height:1.6">
+      <!-- PAGE 1 -->
+      <div style="page-break-after:always">
+        <div style="text-align:center;padding-bottom:20px;border-bottom:3px solid #6366f1;margin-bottom:24px">
+          <h1 style="font-size:22px;font-weight:800;color:#1e1b4b;margin:0 0 6px 0">${selectedYear}년 ${effectiveMonth}월 목표 달성 현황 리포트</h1>
+          <p style="font-size:13px;color:#64748b;margin:0">생성일시: ${now}${vatNote}</p>
+        </div>
+        <div style="margin-bottom:20px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <div style="width:4px;height:20px;border-radius:2px;background:#7c3aed"></div>
+            <h2 style="font-size:16px;font-weight:700;color:#1e293b;margin:0">1. 담당자별 목표 vs 실적 현황</h2>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:#f5f3ff">
+              <th style="text-align:left;padding:10px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">담당자</th>
+              <th style="${thStyle}">목표매출</th><th style="${thStyle}">실적매출</th><th style="${thStyle}">매출달성률</th>
+              <th style="${thStyle}">목표판매량</th><th style="${thStyle}">실적판매량</th><th style="${thStyle}">판매량달성률</th>
+              <th style="${thStyle}">목표공헌이익</th><th style="${thStyle}">실적공헌이익</th><th style="${thStyle}">공헌이익달성률</th>
+            </tr></thead>
+            <tbody>${mgrRows}${sumRow}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:20px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
+          <h3 style="font-size:14px;font-weight:700;color:#334155;margin:0 0 12px 0">매출 달성률 차트</h3>
+          ${bars}
+          <div style="display:flex;gap:16px;margin-top:10px;font-size:11px;color:#64748b">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#10b981;margin-right:4px"></span>100% 이상</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f59e0b;margin-right:4px"></span>80~99%</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ef4444;margin-right:4px"></span>80% 미만</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 2 -->
+      <div style="page-break-after:always">
+        <div style="margin-bottom:24px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <div style="width:4px;height:20px;border-radius:2px;background:#3b82f6"></div>
+            <h2 style="font-size:16px;font-weight:700;color:#1e293b;margin:0">2. 채널별 달성/미달성 현황</h2>
+          </div>
+          ${chSections || '<div style="padding:20px;text-align:center;color:#94a3b8;background:#f8fafc;border-radius:8px">데이터 없음</div>'}
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <div style="width:4px;height:20px;border-radius:2px;background:#f59e0b"></div>
+            <h2 style="font-size:16px;font-weight:700;color:#1e293b;margin:0">3. 담당자별 데이터 입력 현황</h2>
+          </div>
+          <p style="font-size:12px;color:#64748b;margin:0 0 10px 0">기준일: ${selectedYear}년 ${effectiveMonth}월 ${yesterday}일까지 입력 필요</p>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="background:#fffbeb">
+              <th style="text-align:left;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">담당자</th>
+              <th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">마지막 입력일</th>
+              <th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">요구 입력일</th>
+              <th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">미입력 일수</th>
+              <th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">상태</th>
+            </tr></thead>
+            <tbody>${entryRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PAGE 3 -->
+      <div>
+        ${missingEntryManagers.length > 0 ? `<div style="margin-bottom:24px">
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;overflow:hidden">
+            <div style="padding:14px 16px;border-bottom:1px solid #fecaca;display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px;color:#dc2626">&#9888;</span>
+              <h2 style="font-size:16px;font-weight:700;color:#991b1b;margin:0">4. 미입력자 경고</h2>
+              <span style="padding:2px 10px;background:#fee2e2;color:#dc2626;border-radius:999px;font-size:12px;font-weight:700">${missingEntryManagers.length}명</span>
+            </div>
+            <div style="padding:14px">${warnCards}</div>
+          </div>
+        </div>` : ''}
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <div style="width:4px;height:20px;border-radius:2px;background:#10b981"></div>
+            <h2 style="font-size:16px;font-weight:700;color:#1e293b;margin:0">${missingEntryManagers.length > 0 ? '5' : '4'}. 채널별 개선 아이디어</h2>
+          </div>
+          ${sugCards || '<div style="padding:20px;text-align:center;color:#94a3b8;background:#f8fafc;border-radius:8px">데이터 없음</div>'}
+        </div>
+        <div style="margin-top:30px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center">
+          <p style="font-size:11px;color:#94a3b8;margin:0">이 리포트는 Nuldam Analytics에서 자동 생성되었습니다.</p>
+        </div>
+      </div>
+    </div>`;
+  }, [managerComparisons, summaryTotals, channelAchievements, managerEntryStatuses, missingEntryManagers, channelSuggestions, selectedYear, effectiveMonth, yesterday, excludeVat, applyVat]);
+
+  // -----------------------------------------------------------------------
   // Handlers
   // -----------------------------------------------------------------------
   const handleGenerateReport = async () => {
     await fetchAllData();
   };
 
-  const handlePrintReport = () => {
-    window.print();
+  const handlePrintReport = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      const html = buildReportHTML();
+      const container = document.createElement('div');
+      container.innerHTML = html;
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      document.body.appendChild(container);
+
+      const html2pdf = (await import('html2pdf.js')).default;
+      await html2pdf().set({
+        margin: [10, 8, 10, 8],
+        filename: `영업리포트_${selectedYear}년_${effectiveMonth}월.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak: { mode: ['css', 'legacy'] },
+      }).from(container.firstElementChild).save();
+
+      document.body.removeChild(container);
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      setEmailSendResult('PDF 생성에 실패했습니다.');
+      setTimeout(() => setEmailSendResult(null), 3000);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const handleSendEmail = async () => {
+    if (!emailRecipients.trim()) {
+      setShowEmailInput(true);
+      return;
+    }
     setIsSendingEmail(true);
     setEmailSendResult(null);
     try {
-      const res = await fetch(`${API_BASE}/api/targets/report/generate`, {
+      const htmlContent = buildReportHTML();
+      const res = await fetch(`${API_BASE}/api/targets/report/send`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           year: selectedYear,
           month: effectiveMonth,
-          exclude_vat: excludeVat,
+          recipients: emailRecipients,
+          html_content: htmlContent,
         }),
       });
       if (res.ok) {
         setEmailSendResult('리포트가 이메일로 발송되었습니다.');
+        setShowEmailInput(false);
       } else {
-        setEmailSendResult('이메일 발송에 실패했습니다. 다시 시도해 주세요.');
+        const err = await res.json().catch(() => null);
+        setEmailSendResult(err?.detail || '이메일 발송에 실패했습니다.');
       }
     } catch {
       setEmailSendResult('이메일 발송 중 오류가 발생했습니다.');
@@ -842,12 +1112,22 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                     <>
                       <button
                         onClick={handlePrintReport}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                        disabled={isDownloadingPdf}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                        </svg>
-                        PDF 다운로드
+                        {isDownloadingPdf ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                            생성 중...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            PDF 다운로드
+                          </>
+                        )}
                       </button>
 
                       <button
@@ -872,6 +1152,35 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                     </>
                   )}
                 </div>
+
+                {showEmailInput && (
+                  <div className="mt-3 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <label className="block text-sm font-medium text-indigo-800 mb-2">수신자 이메일</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={emailRecipients}
+                        onChange={(e) => setEmailRecipients(e.target.value)}
+                        placeholder="이메일을 쉼표로 구분하여 입력 (예: user1@example.com, user2@example.com)"
+                        className="flex-1 px-4 py-2 border border-indigo-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        onKeyDown={(e) => { if (e.key === 'Enter' && emailRecipients.trim()) handleSendEmail(); }}
+                      />
+                      <button
+                        onClick={handleSendEmail}
+                        disabled={!emailRecipients.trim() || isSendingEmail}
+                        className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors disabled:opacity-50 text-sm font-medium whitespace-nowrap"
+                      >
+                        {isSendingEmail ? '발송 중...' : '발송'}
+                      </button>
+                      <button
+                        onClick={() => setShowEmailInput(false)}
+                        className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {emailSendResult && (
                   <div className={`mt-3 px-4 py-2 rounded-lg text-sm ${

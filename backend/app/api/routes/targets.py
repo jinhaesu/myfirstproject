@@ -701,11 +701,16 @@ async def delete_report_schedule(
     return {"message": "삭제되었습니다"}
 
 
+class ReportSendRequest(BaseModel):
+    year: int
+    month: int
+    recipients: str  # comma-separated
+    html_content: Optional[str] = None
+
+
 @router.post("/report/send")
 async def send_report_email(
-    year: int,
-    month: int,
-    recipients: str,  # comma-separated
+    body: ReportSendRequest,
     current_user: dict = Depends(get_current_user),
     service: TargetsService = Depends(get_targets_service),
 ):
@@ -720,23 +725,24 @@ async def send_report_email(
 
         resend.api_key = settings.RESEND_API_KEY
 
-        # 데이터 수집
-        targets = service.get_targets_by_year_month(year, month)
-        sales = service.get_sales_by_year_month(year, month)
-        by_manager_target = service.get_targets_by_manager(year, month)
-        by_manager_sales = service.get_sales_by_manager(year, month, until_today=False)
+        # 프론트엔드에서 HTML을 보냈으면 그대로 사용, 아니면 서버에서 생성
+        if body.html_content:
+            html = body.html_content
+        else:
+            targets = service.get_targets_by_year_month(body.year, body.month)
+            sales = service.get_sales_by_year_month(body.year, body.month)
+            by_manager_target = service.get_targets_by_manager(body.year, body.month)
+            by_manager_sales = service.get_sales_by_manager(body.year, body.month, until_today=False)
+            html = _build_report_html(body.year, body.month, targets, sales, by_manager_target, by_manager_sales)
 
-        # HTML 리포트 생성
-        html = _build_report_html(year, month, targets, sales, by_manager_target, by_manager_sales)
-
-        email_list = [e.strip() for e in recipients.split(",") if e.strip()]
+        email_list = [e.strip() for e in body.recipients.split(",") if e.strip()]
         if not email_list:
             raise HTTPException(status_code=400, detail="수신자 이메일이 필요합니다")
 
         resend.Emails.send({
             "from": settings.RESEND_FROM_EMAIL,
             "to": email_list,
-            "subject": f"[Nuldam] {year}년 {month}월 영업 지표 리포트",
+            "subject": f"[Nuldam] {body.year}년 {body.month}월 영업 지표 리포트",
             "html": html,
         })
         return {"message": f"{len(email_list)}명에게 리포트를 발송했습니다"}
