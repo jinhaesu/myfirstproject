@@ -32,16 +32,18 @@ def _install_playwright_browsers():
 
 
 async def _startup_report_scheduler():
-    """스케줄된 리포트 이메일을 주기적으로 체크하고 발송"""
+    """스케줄된 리포트 이메일을 주기적으로 체크하고 발송 (KST 기준)"""
     import asyncio
+    from datetime import timedelta, timezone as tz
     from app.database import SessionLocal
     from app.db_models import TargetReportSchedule
     from app.services.targets_service import TargetsService
 
+    KST = tz(timedelta(hours=9))
     DAY_MAP = {"월": 0, "화": 1, "수": 2, "목": 3, "금": 4, "토": 5, "일": 6}
 
     await asyncio.sleep(10)  # 서버 초기화 대기
-    logger.info("Report scheduler started")
+    logger.info("Report scheduler started (KST timezone)")
 
     while True:
         try:
@@ -51,13 +53,16 @@ async def _startup_report_scheduler():
 
             db = SessionLocal()
             try:
-                now = datetime.now()
+                now = datetime.now(KST)  # 한국 시간 기준
                 current_weekday = now.weekday()  # 0=월 ~ 6=일
                 current_time = now.strftime("%H:%M")
 
                 schedules = db.query(TargetReportSchedule).filter(
                     TargetReportSchedule.auto_send == True,
                 ).all()
+
+                if schedules and current_time.endswith(":00"):
+                    logger.info(f"[Scheduler] KST={now.strftime('%Y-%m-%d %H:%M')}, weekday={current_weekday}, active_schedules={len(schedules)}")
 
                 for sched in schedules:
                     # 요일 체크
@@ -71,10 +76,15 @@ async def _startup_report_scheduler():
                     if current_time != sched_time:
                         continue
 
-                    # 이미 오늘 발송했는지 체크 (updated_at 기준)
+                    # 이미 오늘 발송했는지 체크 (updated_at 기준, KST)
                     if sched.updated_at:
                         last_sent = sched.updated_at
-                        if hasattr(last_sent, 'date') and last_sent.date() == now.date():
+                        # naive datetime이면 UTC로 간주하여 KST로 변환
+                        if last_sent.tzinfo is None:
+                            last_sent_kst = last_sent.replace(tzinfo=tz(timedelta(0))).astimezone(KST)
+                        else:
+                            last_sent_kst = last_sent.astimezone(KST)
+                        if last_sent_kst.date() == now.date():
                             continue
 
                     # 발송 실행
