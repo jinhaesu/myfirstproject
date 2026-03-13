@@ -786,7 +786,6 @@ async def test_schedule_now(
 
 @router.get("/report/schedules/debug")
 async def debug_schedules(
-    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """스케줄 디버그 정보 조회"""
