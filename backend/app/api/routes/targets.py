@@ -757,7 +757,7 @@ async def test_schedule_now(
 
             targets = service.get_targets_by_year_month(year, month)
             sales = service.get_sales_by_year_month(year, month)
-            by_mgr_target = service.get_targets_by_manager(year, month)
+            by_mgr_target = service.get_targets_by_manager_until_day(year, month)
             by_mgr_sales = service.get_sales_by_manager(year, month, until_today=True)
             html = _build_report_html(year, month, targets, sales, by_mgr_target, by_mgr_sales)
 
@@ -862,7 +862,7 @@ async def send_report_email(
         else:
             targets = service.get_targets_by_year_month(body.year, body.month)
             sales = service.get_sales_by_year_month(body.year, body.month)
-            by_manager_target = service.get_targets_by_manager(body.year, body.month)
+            by_manager_target = service.get_targets_by_manager_until_day(body.year, body.month)
             by_manager_sales = service.get_sales_by_manager(body.year, body.month, until_today=True)
             html = _build_report_html(body.year, body.month, targets, sales, by_manager_target, by_manager_sales)
 
@@ -1352,7 +1352,7 @@ def _build_report_html(year, month, targets, sales, by_manager_target, by_manage
         f'<div style="page-break-after:always">'
         f'<div style="text-align:center;padding-bottom:20px;border-bottom:3px solid #6366f1;margin-bottom:24px">'
         f'<h1 style="font-size:22px;font-weight:800;color:#1e1b4b;margin:0 0 6px 0">{year}년 {effective_month}월 목표 달성 현황 리포트</h1>'
-        f'<p style="font-size:13px;color:#64748b;margin:0">생성일시: {now_str}</p>'
+        f'<p style="font-size:13px;color:#64748b;margin:0">기준일: {effective_month}월 {yesterday}일까지 | 생성일시: {now_str}</p>'
         f'</div>'
         f'<div style="margin-bottom:20px">'
         f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'
