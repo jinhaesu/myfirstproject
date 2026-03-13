@@ -701,6 +701,137 @@ async def delete_report_schedule(
     return {"message": "삭제되었습니다"}
 
 
+@router.post("/report/schedules/test-now")
+async def test_schedule_now(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    service: TargetsService = Depends(get_targets_service),
+):
+    """등록된 스케줄을 즉시 실행하여 이메일 발송 테스트"""
+    from app.db_models import TargetReportSchedule
+    from datetime import timedelta, timezone as tz
+
+    KST = tz(timedelta(hours=9))
+    now = datetime.now(KST)
+
+    schedules = db.query(TargetReportSchedule).filter(
+        TargetReportSchedule.auto_send == True,
+    ).all()
+
+    if not schedules:
+        return {"error": "활성화된 스케줄이 없습니다", "kst_now": now.strftime("%Y-%m-%d %H:%M:%S")}
+
+    results = []
+    for sched in schedules:
+        sched_info = {
+            "id": sched.id,
+            "name": sched.name,
+            "recipients": sched.recipients,
+            "schedule_days": sched.schedule_days,
+            "schedule_time": sched.schedule_time,
+            "year": sched.year,
+            "month": sched.month,
+            "user_id": sched.user_id,
+        }
+
+        recipients = [e.strip() for e in (sched.recipients or "").split(",") if e.strip()]
+        if not recipients:
+            sched_info["status"] = "SKIP: 수신자 없음"
+            results.append(sched_info)
+            continue
+
+        try:
+            from app.config import get_settings
+            import resend
+
+            settings = get_settings()
+            if not settings.RESEND_API_KEY:
+                sched_info["status"] = "SKIP: RESEND_API_KEY 없음"
+                results.append(sched_info)
+                continue
+
+            resend.api_key = settings.RESEND_API_KEY
+
+            year = sched.year or now.year
+            month = sched.month or now.month
+
+            targets = service.get_targets_by_year_month(year, month)
+            sales = service.get_sales_by_year_month(year, month)
+            by_mgr_target = service.get_targets_by_manager(year, month)
+            by_mgr_sales = service.get_sales_by_manager(year, month, until_today=False)
+            html = _build_report_html(year, month, targets, sales, by_mgr_target, by_mgr_sales)
+
+            resend.Emails.send({
+                "from": settings.RESEND_FROM_EMAIL,
+                "to": recipients,
+                "subject": f"[Nuldam] {year}년 {month}월 영업 지표 리포트 (테스트)",
+                "html": html,
+            })
+
+            sched.updated_at = now.replace(tzinfo=None)
+            db.commit()
+            sched_info["status"] = f"SUCCESS: {recipients} 에게 발송 완료"
+
+        except Exception as e:
+            sched_info["status"] = f"ERROR: {str(e)}"
+
+        results.append(sched_info)
+
+    return {
+        "kst_now": now.strftime("%Y-%m-%d %H:%M:%S %A"),
+        "total_schedules": len(schedules),
+        "results": results,
+    }
+
+
+@router.get("/report/schedules/debug")
+async def debug_schedules(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """스케줄 디버그 정보 조회"""
+    from app.db_models import TargetReportSchedule
+    from datetime import timedelta, timezone as tz
+
+    KST = tz(timedelta(hours=9))
+    now = datetime.now(KST)
+    DAY_MAP = {"월": 0, "화": 1, "수": 2, "목": 3, "금": 4, "토": 5, "일": 6}
+    WEEKDAY_KR = ["월", "화", "수", "목", "금", "토", "일"]
+
+    schedules = db.query(TargetReportSchedule).all()
+
+    items = []
+    for s in schedules:
+        days_str = s.schedule_days or ""
+        sched_days = [DAY_MAP.get(d.strip(), -1) for d in days_str.split(",") if d.strip()]
+        today_match = now.weekday() in sched_days
+        time_match = now.strftime("%H:%M") == (s.schedule_time or "09:00")
+
+        items.append({
+            "id": s.id,
+            "name": s.name,
+            "recipients": s.recipients,
+            "schedule_days": s.schedule_days,
+            "schedule_days_parsed": sched_days,
+            "schedule_time": s.schedule_time,
+            "auto_send": s.auto_send,
+            "user_id": s.user_id,
+            "year": s.year,
+            "month": s.month,
+            "updated_at": str(s.updated_at) if s.updated_at else None,
+            "today_day_match": today_match,
+            "current_time_match": time_match,
+            "would_fire_now": today_match and time_match and s.auto_send,
+        })
+
+    return {
+        "kst_now": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "kst_weekday": WEEKDAY_KR[now.weekday()],
+        "total_schedules": len(schedules),
+        "schedules": items,
+    }
+
+
 class ReportSendRequest(BaseModel):
     year: int
     month: int
