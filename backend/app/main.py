@@ -109,7 +109,7 @@ async def _startup_report_scheduler():
 
                         targets = service.get_targets_by_year_month(year, month)
                         sales = service.get_sales_by_year_month(year, month)
-                        by_manager_target = service.get_targets_by_manager(year, month)
+                        by_manager_target = service.get_targets_by_manager_until_day(year, month)
                         by_manager_sales = service.get_sales_by_manager(year, month, until_today=True)
 
                         from app.api.routes.targets import _build_report_html
