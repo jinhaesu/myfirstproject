@@ -292,9 +292,9 @@ export default function OrdersPage() {
       fetchSafe<ChannelRatio[]>('/api/scm/orders/channel-ratios', sampleRatios),
     ]);
 
-    setOrders(apiOrders);
-    setDailyTrends(apiTrends);
-    setChannelRatios(apiRatios);
+    setOrders(Array.isArray(apiOrders) ? apiOrders : sampleOrders);
+    setDailyTrends(Array.isArray(apiTrends) ? apiTrends : sampleTrends);
+    setChannelRatios(Array.isArray(apiRatios) ? apiRatios : sampleRatios);
     setIsDataLoading(false);
   }, []);
 
