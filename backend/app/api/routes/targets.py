@@ -758,7 +758,7 @@ async def test_schedule_now(
             targets = service.get_targets_by_year_month(year, month)
             sales = service.get_sales_by_year_month(year, month)
             by_mgr_target = service.get_targets_by_manager(year, month)
-            by_mgr_sales = service.get_sales_by_manager(year, month, until_today=False)
+            by_mgr_sales = service.get_sales_by_manager(year, month, until_today=True)
             html = _build_report_html(year, month, targets, sales, by_mgr_target, by_mgr_sales)
 
             resend.Emails.send({
@@ -863,7 +863,7 @@ async def send_report_email(
             targets = service.get_targets_by_year_month(body.year, body.month)
             sales = service.get_sales_by_year_month(body.year, body.month)
             by_manager_target = service.get_targets_by_manager(body.year, body.month)
-            by_manager_sales = service.get_sales_by_manager(body.year, body.month, until_today=False)
+            by_manager_sales = service.get_sales_by_manager(body.year, body.month, until_today=True)
             html = _build_report_html(body.year, body.month, targets, sales, by_manager_target, by_manager_sales)
 
         email_list = [e.strip() for e in body.recipients.split(",") if e.strip()]
@@ -885,45 +885,543 @@ async def send_report_email(
 
 
 def _build_report_html(year, month, targets, sales, by_manager_target, by_manager_sales):
-    """리포트 HTML 생성"""
+    """리포트 HTML 생성 — 프론트엔드 buildReportHTML()과 동일한 3-page 구조"""
+    import calendar
+    import re as _re
+
+    # ------------------------------------------------------------------
+    # Utility helpers (mirror frontend parseNum / formatKRW / rate colors)
+    # ------------------------------------------------------------------
+    def _parse_num(val):
+        if val is None:
+            return 0
+        s = _re.sub(r",", "", str(val)).strip()
+        try:
+            return float(s) if s else 0
+        except (ValueError, TypeError):
+            return 0
+
+    def _fmt(num):
+        """Korean number format with commas (round to int)."""
+        return f"{round(num):,}"
+
+    def _rc(rate):
+        """Rate color."""
+        if rate >= 100:
+            return "#10b981"
+        if rate >= 80:
+            return "#f59e0b"
+        return "#ef4444"
+
+    def _rbg(rate):
+        """Rate background."""
+        if rate >= 100:
+            return "#ecfdf5"
+        if rate >= 80:
+            return "#fffbeb"
+        return "#fef2f2"
+
+    def _rbd(rate):
+        """Rate border."""
+        if rate >= 100:
+            return "#a7f3d0"
+        if rate >= 80:
+            return "#fde68a"
+        return "#fecaca"
+
+    # ------------------------------------------------------------------
+    # Channel suggestion mapping (same as frontend CHANNEL_SUGGESTIONS)
+    # ------------------------------------------------------------------
+    CHANNEL_SUGGESTIONS = {
+        "스마트스토어": {
+            "base": "스마트스토어 키워드 광고 ROI 분석 및 상위노출 키워드 최적화 필요",
+            "underperform": "스마트스토어 키워드 광고 ROI가 저조합니다. 긴급히 상위노출 키워드 재설정 및 광고비 재배분이 필요합니다.",
+            "overperform": "스마트스토어 성과가 우수합니다. 광고 예산 확대 및 추가 키워드 확장을 통해 성장세를 가속화하세요.",
+        },
+        "쿠팡": {
+            "base": "쿠팡 로켓배송 입점율 확대 및 쿠팡 광고 효율 개선 검토",
+            "underperform": "쿠팡 실적이 목표 대비 크게 미달합니다. 로켓배송 입점 확대 및 쿠팡 광고 키워드 전면 재검토가 시급합니다.",
+            "overperform": "쿠팡 채널 성과가 매우 우수합니다. 로켓배송 SKU 확대 및 프로모션 강화로 매출 극대화를 추진하세요.",
+        },
+        "11번가": {
+            "base": "11번가 딜 프로모션 참여율 확대 및 가격경쟁력 점검",
+            "underperform": "11번가 성과가 부진합니다. 딜 프로모션 적극 참여 및 경쟁사 가격 대비 포지셔닝 재점검이 필요합니다.",
+            "overperform": "11번가 실적이 목표를 초과했습니다. 프리미엄 딜 및 브랜드관 입점으로 매출 채널을 확장하세요.",
+        },
+        "카페24": {
+            "base": "자사몰 유입 트래픽 분석 및 리타겟팅 광고 효율화",
+            "underperform": "자사몰(카페24) 유입이 저조합니다. 리타겟팅 광고 세팅 점검 및 SNS/검색 유입 채널 다각화가 필요합니다.",
+            "overperform": "자사몰 성과가 우수합니다. 자사몰 전용 프로모션 및 멤버십 혜택 강화로 충성 고객 확보에 집중하세요.",
+        },
+        "올리브영": {
+            "base": "올리브영 매대 위치 및 프로모션 기획 강화",
+            "underperform": "올리브영 실적이 저조합니다. 매대 위치 재협상 및 올리브영 전용 기획세트 출시를 검토하세요.",
+            "overperform": "올리브영 채널이 호조세입니다. 입점 매장 확대 및 시즌 한정 기획세트로 추가 성장을 도모하세요.",
+        },
+        "카카오": {
+            "base": "카카오 선물하기/톡스토어 시즌 프로모션 기획",
+            "underperform": "카카오 채널 실적이 미달입니다. 선물하기 상위 노출 전략 및 톡스토어 시즌 프로모션 기획이 시급합니다.",
+            "overperform": "카카오 채널이 우수한 성과를 보이고 있습니다. 시즌 프로모션 확대 및 카카오 광고 투자 증대를 권장합니다.",
+        },
+    }
+
+    def _get_channel_suggestion(channel_name, rate):
+        for keyword, suggestions in CHANNEL_SUGGESTIONS.items():
+            if keyword in channel_name:
+                if rate < 80:
+                    return suggestions["underperform"]
+                if rate > 120:
+                    return suggestions["overperform"]
+                return suggestions["base"]
+        # Fallback
+        if rate < 80:
+            return f"{channel_name} 채널의 실적이 목표 대비 저조합니다. 채널별 마케팅 전략 재수립 및 프로모션 강화가 필요합니다."
+        if rate > 120:
+            return f"{channel_name} 채널이 목표를 크게 초과하고 있습니다. 투자 확대 및 성공 요인 분석을 통해 타 채널에도 적용하세요."
+        return f"{channel_name} 채널의 현재 실적을 유지하면서 추가 성장 기회를 모색하세요."
+
+    # ------------------------------------------------------------------
+    # effective month & yesterday (mirrors frontend logic)
+    # ------------------------------------------------------------------
+    effective_month = month
+    now_dt = datetime.now()
+    days_in_month = calendar.monthrange(year, effective_month)[1]
+
+    if year != now_dt.year or effective_month != now_dt.month:
+        yesterday = days_in_month
+    else:
+        yesterday = max(now_dt.day - 1, 1)
+
+    # ------------------------------------------------------------------
+    # 1) Manager target vs actual (from by_manager aggregated data)
+    # ------------------------------------------------------------------
     managers_target = by_manager_target.get("by_manager", {})
     managers_sales = by_manager_sales.get("by_manager", {})
     all_managers = sorted(set(list(managers_target.keys()) + list(managers_sales.keys())))
 
-    rows_html = ""
+    manager_comparisons = []
     for mgr in all_managers:
-        t_sales = managers_target.get(mgr, {}).get("매출", 0)
-        a_sales = managers_sales.get(mgr, {}).get("매출", 0)
-        rate = round(a_sales / t_sales * 100, 1) if t_sales > 0 else 0
-        color = "#10b981" if rate >= 100 else "#f59e0b" if rate >= 80 else "#ef4444"
-        rows_html += f"""
-        <tr>
-            <td style="padding:8px;border:1px solid #e2e8f0">{mgr}</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right">{t_sales:,.0f}원</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right">{a_sales:,.0f}원</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:{color};font-weight:bold">{rate}%</td>
-        </tr>"""
+        t = managers_target.get(mgr, {})
+        s = managers_sales.get(mgr, {})
+        target_sales = t.get("매출", 0)
+        actual_sales = s.get("매출", 0)
+        target_qty = t.get("판매량", 0)
+        actual_qty = s.get("판매량", 0)
+        target_contrib = t.get("공헌이익", 0)
+        actual_contrib = s.get("공헌이익", 0)
+        target_adv = t.get("광고선전비", 0)
+        actual_adv = s.get("광고선전비", 0) or s.get("마케팅비", 0)
 
-    return f"""
-    <div style="font-family:sans-serif;max-width:700px;margin:0 auto;padding:20px">
-        <h1 style="color:#1e40af;border-bottom:2px solid #3b82f6;padding-bottom:10px">
-            {year}년 {month}월 영업 지표 리포트
-        </h1>
-        <p style="color:#64748b">생성일: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
-        <h2 style="color:#334155;margin-top:20px">담당자별 목표 vs 실적</h2>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
-            <thead>
-                <tr style="background:#f1f5f9">
-                    <th style="padding:8px;border:1px solid #e2e8f0;text-align:left">담당자</th>
-                    <th style="padding:8px;border:1px solid #e2e8f0;text-align:right">목표 매출</th>
-                    <th style="padding:8px;border:1px solid #e2e8f0;text-align:right">실적 매출</th>
-                    <th style="padding:8px;border:1px solid #e2e8f0;text-align:right">달성률</th>
-                </tr>
-            </thead>
-            <tbody>{rows_html}</tbody>
-        </table>
-        <p style="color:#94a3b8;font-size:12px;margin-top:30px">
-            이 리포트는 Nuldam Analytics에서 자동 생성되었습니다.
-        </p>
-    </div>
-    """
+        manager_comparisons.append({
+            "manager": mgr,
+            "target_sales": target_sales,
+            "actual_sales": actual_sales,
+            "sales_rate": round(actual_sales / target_sales * 100, 1) if target_sales > 0 else 0,
+            "target_qty": target_qty,
+            "actual_qty": actual_qty,
+            "qty_rate": round(actual_qty / target_qty * 100, 1) if target_qty > 0 else 0,
+            "target_contrib": target_contrib,
+            "actual_contrib": actual_contrib,
+            "contrib_rate": round(actual_contrib / target_contrib * 100, 1) if target_contrib > 0 else 0,
+            "target_adv": target_adv,
+            "actual_adv": actual_adv,
+        })
+
+    # Summary totals
+    sum_target_sales = sum(mc["target_sales"] for mc in manager_comparisons)
+    sum_actual_sales = sum(mc["actual_sales"] for mc in manager_comparisons)
+    sum_target_qty = sum(mc["target_qty"] for mc in manager_comparisons)
+    sum_actual_qty = sum(mc["actual_qty"] for mc in manager_comparisons)
+    sum_target_contrib = sum(mc["target_contrib"] for mc in manager_comparisons)
+    sum_actual_contrib = sum(mc["actual_contrib"] for mc in manager_comparisons)
+    sum_sales_rate = round(sum_actual_sales / sum_target_sales * 100, 1) if sum_target_sales > 0 else 0
+    sum_qty_rate = round(sum_actual_qty / sum_target_qty * 100, 1) if sum_target_qty > 0 else 0
+    sum_contrib_rate = round(sum_actual_contrib / sum_target_contrib * 100, 1) if sum_target_contrib > 0 else 0
+
+    # ------------------------------------------------------------------
+    # 2) Channel achievements by manager (from raw targets/sales grid_data)
+    # ------------------------------------------------------------------
+    channel_achievements = []
+    manager_set = sorted(set(
+        [t.get("manager", "") for t in targets] +
+        [s.get("manager", "") for s in sales]
+    ))
+
+    for mgr in manager_set:
+        if not mgr:
+            continue
+        # Target grid_data for 매출 kpi
+        mgr_targets = [t for t in targets if t.get("manager") == mgr and t.get("kpi_type") == "매출"]
+        mgr_sales = [s for s in sales if s.get("manager") == mgr and s.get("kpi_type") == "매출"]
+
+        channel_target_map = {}
+        for tgt in mgr_targets:
+            grid = tgt.get("grid_data", [])
+            for row in grid:
+                if not row or len(row) == 0:
+                    continue
+                ch_label = row[0]
+                if not ch_label:
+                    continue
+                # Target grid: [channel, m1, m2, ..., m12]; index = effective_month (1-based)
+                month_idx = effective_month
+                val = _parse_num(row[month_idx]) if len(row) > month_idx else 0
+                channel_target_map[ch_label] = channel_target_map.get(ch_label, 0) + val
+
+        channel_actual_map = {}
+        for sl in mgr_sales:
+            grid = sl.get("grid_data", [])
+            for row in grid:
+                if not row or len(row) == 0:
+                    continue
+                ch_label = row[0]
+                if not ch_label:
+                    continue
+                # Sales grid: [channel, day1, day2, ..., day31]; sum all days
+                total = sum(_parse_num(row[i]) for i in range(1, len(row)))
+                channel_actual_map[ch_label] = channel_actual_map.get(ch_label, 0) + total
+
+        all_channels = sorted(set(list(channel_target_map.keys()) + list(channel_actual_map.keys())))
+        for ch in all_channels:
+            t_val = channel_target_map.get(ch, 0)
+            a_val = channel_actual_map.get(ch, 0)
+            rate = round(a_val / t_val * 100, 1) if t_val > 0 else (999 if a_val > 0 else 0)
+            channel_achievements.append({
+                "manager": mgr,
+                "channel": ch,
+                "target": t_val,
+                "actual": a_val,
+                "rate": rate,
+                "achieved": rate >= 100,
+            })
+
+    # ------------------------------------------------------------------
+    # 3) Manager entry status (from raw sales grid_data)
+    # ------------------------------------------------------------------
+    manager_sales_map = {}
+    for sl in sales:
+        mgr = sl.get("manager", "")
+        if mgr not in manager_sales_map:
+            manager_sales_map[mgr] = []
+        manager_sales_map[mgr].append(sl)
+    # Also include managers from targets who might not have sales yet
+    for tgt in targets:
+        mgr = tgt.get("manager", "")
+        if mgr and mgr not in manager_sales_map:
+            manager_sales_map[mgr] = []
+
+    entry_statuses = []
+    for mgr in sorted(manager_sales_map.keys()):
+        if not mgr:
+            continue
+        max_day = 0
+        for sl in manager_sales_map[mgr]:
+            grid = sl.get("grid_data", [])
+            for row in grid:
+                if not row or len(row) <= 1:
+                    continue
+                for i in range(len(row) - 1, 0, -1):
+                    if _parse_num(row[i]) != 0:
+                        if i > max_day:
+                            max_day = i
+                        break
+
+        is_normal = max_day >= yesterday
+        missing_days = 0 if max_day >= yesterday else yesterday - max_day
+        entry_statuses.append({
+            "manager": mgr,
+            "last_entry_day": max_day,
+            "required_day": yesterday,
+            "is_normal": is_normal,
+            "missing_days": missing_days,
+        })
+
+    # Flagged managers
+    missing_entry_managers = [s for s in entry_statuses if not s["is_normal"]]
+
+    # ------------------------------------------------------------------
+    # 4) Channel suggestions (aggregate across managers)
+    # ------------------------------------------------------------------
+    ch_agg = {}
+    for ca in channel_achievements:
+        ch = ca["channel"]
+        if ch not in ch_agg:
+            ch_agg[ch] = {"total_target": 0, "total_actual": 0}
+        ch_agg[ch]["total_target"] += ca["target"]
+        ch_agg[ch]["total_actual"] += ca["actual"]
+
+    channel_suggestions = []
+    for ch, vals in ch_agg.items():
+        t_total = vals["total_target"]
+        a_total = vals["total_actual"]
+        rate = round(a_total / t_total * 100, 1) if t_total > 0 else (999 if a_total > 0 else 0)
+        channel_suggestions.append({
+            "channel": ch,
+            "rate": rate,
+            "suggestion": _get_channel_suggestion(ch, rate),
+        })
+    channel_suggestions.sort(key=lambda x: x["rate"])
+
+    # ==================================================================
+    # BUILD HTML (mirrors frontend buildReportHTML exactly)
+    # ==================================================================
+
+    # --- Manager comparison rows ---
+    mgr_rows = ""
+    for mc in manager_comparisons:
+        mgr_rows += (
+            f'<tr>'
+            f'<td style="padding:10px 12px;border:1px solid #e2e8f0;font-weight:600;color:#1e293b">{mc["manager"]}</td>'
+            f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">{_fmt(mc["target_sales"])}</td>'
+            f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">{_fmt(mc["actual_sales"])}</td>'
+            f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:{_rc(mc["sales_rate"])}">{mc["sales_rate"]:.1f}%</td>'
+            f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">{_fmt(mc["target_qty"])}</td>'
+            f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">{_fmt(mc["actual_qty"])}</td>'
+            f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:{_rc(mc["qty_rate"])}">{mc["qty_rate"]:.1f}%</td>'
+            f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">{_fmt(mc["target_contrib"])}</td>'
+            f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">{_fmt(mc["actual_contrib"])}</td>'
+            f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:{_rc(mc["contrib_rate"])}">{mc["contrib_rate"]:.1f}%</td>'
+            f'</tr>'
+        )
+
+    sum_row = (
+        f'<tr style="background:#f5f3ff;font-weight:700;border-top:2px solid #94a3b8">'
+        f'<td style="padding:10px 12px;border:1px solid #e2e8f0;color:#1e293b">합계</td>'
+        f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">{_fmt(sum_target_sales)}</td>'
+        f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">{_fmt(sum_actual_sales)}</td>'
+        f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:{_rc(sum_sales_rate)}">{sum_sales_rate:.1f}%</td>'
+        f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">{_fmt(sum_target_qty)}</td>'
+        f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">{_fmt(sum_actual_qty)}</td>'
+        f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:{_rc(sum_qty_rate)}">{sum_qty_rate:.1f}%</td>'
+        f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">{_fmt(sum_target_contrib)}</td>'
+        f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">{_fmt(sum_actual_contrib)}</td>'
+        f'<td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:{_rc(sum_contrib_rate)}">{sum_contrib_rate:.1f}%</td>'
+        f'</tr>'
+    )
+
+    # --- CSS bar chart ---
+    bars = ""
+    for mc in manager_comparisons:
+        w = min(mc["sales_rate"], 150)
+        bars += (
+            f'<div style="display:flex;align-items:center;margin-bottom:8px">'
+            f'<div style="width:80px;font-size:13px;font-weight:600;color:#334155;flex-shrink:0">{mc["manager"]}</div>'
+            f'<div style="flex:1;display:flex;align-items:center;gap:4px">'
+            f'<div style="height:20px;width:{w}%;background:{_rc(mc["sales_rate"])};border-radius:4px;min-width:2px"></div>'
+            f'<span style="font-size:12px;font-weight:600;color:{_rc(mc["sales_rate"])}">{mc["sales_rate"]:.1f}%</span>'
+            f'</div>'
+            f'</div>'
+        )
+
+    # --- Channel by manager ---
+    grouped_ch = {}
+    for ca in channel_achievements:
+        mgr = ca["manager"]
+        if mgr not in grouped_ch:
+            grouped_ch[mgr] = []
+        grouped_ch[mgr].append(ca)
+
+    ch_sections = ""
+    for mgr in sorted(grouped_ch.keys()):
+        channels = grouped_ch[mgr]
+        ch_rows = ""
+        for ch in sorted(channels, key=lambda x: x["rate"]):
+            st_bg = "#ecfdf5" if ch["rate"] >= 100 else "#fef2f2"
+            st_c = "#059669" if ch["rate"] >= 100 else "#dc2626"
+            st_t = "달성" if ch["rate"] >= 100 else "미달성"
+            rate_display = "-" if ch["rate"] > 900 else f'{ch["rate"]:.1f}%'
+            ch_rows += (
+                f'<tr>'
+                f'<td style="padding:8px 12px;border:1px solid #e2e8f0;color:#334155">{ch["channel"]}</td>'
+                f'<td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">{_fmt(ch["target"])}</td>'
+                f'<td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">{_fmt(ch["actual"])}</td>'
+                f'<td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:{_rc(ch["rate"])}">{rate_display}</td>'
+                f'<td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center">'
+                f'<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:{st_bg};color:{st_c}">{st_t}</span>'
+                f'</td>'
+                f'</tr>'
+            )
+        ch_sections += (
+            f'<div style="margin-bottom:16px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">'
+            f'<div style="padding:10px 14px;background:#eff6ff;border-bottom:1px solid #e2e8f0">'
+            f'<strong style="color:#334155;font-size:14px">{mgr}</strong>'
+            f'</div>'
+            f'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+            f'<thead><tr style="background:#f8fafc">'
+            f'<th style="text-align:left;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">채널</th>'
+            f'<th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">목표</th>'
+            f'<th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">실적</th>'
+            f'<th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">달성률</th>'
+            f'<th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">상태</th>'
+            f'</tr></thead>'
+            f'<tbody>{ch_rows}</tbody>'
+            f'</table>'
+            f'</div>'
+        )
+
+    if not ch_sections:
+        ch_sections = '<div style="padding:20px;text-align:center;color:#94a3b8;background:#f8fafc;border-radius:8px">데이터 없음</div>'
+
+    # --- Entry status table ---
+    entry_rows = ""
+    for st in entry_statuses:
+        st_bg = "#ecfdf5" if st["is_normal"] else "#fef2f2"
+        st_c = "#059669" if st["is_normal"] else "#dc2626"
+        st_t = "정상" if st["is_normal"] else "미입력"
+        last_day_text = f'{st["last_entry_day"]}일' if st["last_entry_day"] > 0 else "입력 없음"
+        missing_text = f'{st["missing_days"]}일' if st["missing_days"] > 0 else "-"
+        missing_color = "#ef4444" if st["missing_days"] > 0 else "#94a3b8"
+        entry_rows += (
+            f'<tr>'
+            f'<td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:600;color:#1e293b">{st["manager"]}</td>'
+            f'<td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;color:#475569">{last_day_text}</td>'
+            f'<td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;color:#475569">{st["required_day"]}일</td>'
+            f'<td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;font-weight:700;color:{missing_color}">{missing_text}</td>'
+            f'<td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center">'
+            f'<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:{st_bg};color:{st_c}">{st_t}</span>'
+            f'</td>'
+            f'</tr>'
+        )
+
+    # --- Missing entry warning cards ---
+    warn_cards = ""
+    for st in missing_entry_managers:
+        last_info = f'{effective_month}월 {st["last_entry_day"]}일' if st["last_entry_day"] > 0 else "입력 없음"
+        warn_cards += (
+            f'<div style="display:inline-block;width:calc(33% - 12px);min-width:200px;margin:4px;padding:14px;border:1px solid #fecaca;border-radius:8px;background:#fff;vertical-align:top">'
+            f'<div style="display:flex;align-items:center;gap:10px">'
+            f'<div style="width:36px;height:36px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+            f'<span style="font-weight:700;color:#dc2626;font-size:14px">{st["manager"][:1]}</span>'
+            f'</div>'
+            f'<div>'
+            f'<div style="font-weight:600;color:#1e293b;font-size:14px">{st["manager"]}</div>'
+            f'<div style="font-size:12px;color:#64748b;margin-top:2px">마지막 입력일: {last_info}</div>'
+            f'<div style="font-size:12px;color:#dc2626;font-weight:600;margin-top:2px">미입력 일수: {st["missing_days"]}일</div>'
+            f'</div>'
+            f'</div>'
+            f'</div>'
+        )
+
+    # --- Channel suggestions ---
+    sug_cards = ""
+    for cs in channel_suggestions:
+        rate_text = "목표 미설정" if cs["rate"] > 900 else f'달성률 {cs["rate"]:.1f}%'
+        sug_cards += (
+            f'<div style="padding:14px;border:1px solid {_rbd(cs["rate"])};border-radius:8px;background:{_rbg(cs["rate"])};margin-bottom:10px">'
+            f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+            f'<span style="font-weight:700;color:{_rc(cs["rate"])};font-size:14px">{cs["channel"]}</span>'
+            f'<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:{_rbd(cs["rate"])};color:{_rc(cs["rate"])}">{rate_text}</span>'
+            f'</div>'
+            f'<p style="font-size:13px;line-height:1.5;color:#334155;margin:0">{cs["suggestion"]}</p>'
+            f'</div>'
+        )
+
+    if not sug_cards:
+        sug_cards = '<div style="padding:20px;text-align:center;color:#94a3b8;background:#f8fafc;border-radius:8px">데이터 없음</div>'
+
+    now_str = now_dt.strftime("%Y. %m. %d. %H:%M:%S")
+    th_style = 'text-align:right;padding:10px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700'
+
+    # Section number for channel suggestions (shifts if missing-entry section exists)
+    missing_section_num = "4" if missing_entry_managers else ""
+    sug_section_num = "5" if missing_entry_managers else "4"
+
+    # --- Missing entry section HTML ---
+    missing_section = ""
+    if missing_entry_managers:
+        missing_section = (
+            f'<div style="margin-bottom:24px">'
+            f'<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;overflow:hidden">'
+            f'<div style="padding:14px 16px;border-bottom:1px solid #fecaca;display:flex;align-items:center;gap:8px">'
+            f'<span style="font-size:18px;color:#dc2626">&#9888;</span>'
+            f'<h2 style="font-size:16px;font-weight:700;color:#991b1b;margin:0">4. 미입력자 경고</h2>'
+            f'<span style="padding:2px 10px;background:#fee2e2;color:#dc2626;border-radius:999px;font-size:12px;font-weight:700">{len(missing_entry_managers)}명</span>'
+            f'</div>'
+            f'<div style="padding:14px">{warn_cards}</div>'
+            f'</div>'
+            f'</div>'
+        )
+
+    # ==================================================================
+    # Assemble final HTML
+    # ==================================================================
+    return (
+        f'<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;color:#1e293b;max-width:100%;padding:24px;font-size:13px;line-height:1.6">'
+
+        # PAGE 1
+        f'<div style="page-break-after:always">'
+        f'<div style="text-align:center;padding-bottom:20px;border-bottom:3px solid #6366f1;margin-bottom:24px">'
+        f'<h1 style="font-size:22px;font-weight:800;color:#1e1b4b;margin:0 0 6px 0">{year}년 {effective_month}월 목표 달성 현황 리포트</h1>'
+        f'<p style="font-size:13px;color:#64748b;margin:0">생성일시: {now_str}</p>'
+        f'</div>'
+        f'<div style="margin-bottom:20px">'
+        f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'
+        f'<div style="width:4px;height:20px;border-radius:2px;background:#7c3aed"></div>'
+        f'<h2 style="font-size:16px;font-weight:700;color:#1e293b;margin:0">1. 담당자별 목표 vs 실적 현황</h2>'
+        f'</div>'
+        f'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+        f'<thead><tr style="background:#f5f3ff">'
+        f'<th style="text-align:left;padding:10px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">담당자</th>'
+        f'<th style="{th_style}">목표매출</th><th style="{th_style}">실적매출</th><th style="{th_style}">매출달성률</th>'
+        f'<th style="{th_style}">목표판매량</th><th style="{th_style}">실적판매량</th><th style="{th_style}">판매량달성률</th>'
+        f'<th style="{th_style}">목표공헌이익</th><th style="{th_style}">실적공헌이익</th><th style="{th_style}">공헌이익달성률</th>'
+        f'</tr></thead>'
+        f'<tbody>{mgr_rows}{sum_row}</tbody>'
+        f'</table>'
+        f'</div>'
+        f'<div style="margin-top:20px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">'
+        f'<h3 style="font-size:14px;font-weight:700;color:#334155;margin:0 0 12px 0">매출 달성률 차트</h3>'
+        f'{bars}'
+        f'<div style="display:flex;gap:16px;margin-top:10px;font-size:11px;color:#64748b">'
+        f'<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#10b981;margin-right:4px"></span>100% 이상</span>'
+        f'<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f59e0b;margin-right:4px"></span>80~99%</span>'
+        f'<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ef4444;margin-right:4px"></span>80% 미만</span>'
+        f'</div>'
+        f'</div>'
+        f'</div>'
+
+        # PAGE 2
+        f'<div style="page-break-after:always">'
+        f'<div style="margin-bottom:24px">'
+        f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'
+        f'<div style="width:4px;height:20px;border-radius:2px;background:#3b82f6"></div>'
+        f'<h2 style="font-size:16px;font-weight:700;color:#1e293b;margin:0">2. 채널별 달성/미달성 현황</h2>'
+        f'</div>'
+        f'{ch_sections}'
+        f'</div>'
+        f'<div>'
+        f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'
+        f'<div style="width:4px;height:20px;border-radius:2px;background:#f59e0b"></div>'
+        f'<h2 style="font-size:16px;font-weight:700;color:#1e293b;margin:0">3. 담당자별 데이터 입력 현황</h2>'
+        f'</div>'
+        f'<p style="font-size:12px;color:#64748b;margin:0 0 10px 0">기준일: {year}년 {effective_month}월 {yesterday}일까지 입력 필요</p>'
+        f'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+        f'<thead><tr style="background:#fffbeb">'
+        f'<th style="text-align:left;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">담당자</th>'
+        f'<th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">마지막 입력일</th>'
+        f'<th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">요구 입력일</th>'
+        f'<th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">미입력 일수</th>'
+        f'<th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">상태</th>'
+        f'</tr></thead>'
+        f'<tbody>{entry_rows}</tbody>'
+        f'</table>'
+        f'</div>'
+        f'</div>'
+
+        # PAGE 3
+        f'<div>'
+        f'{missing_section}'
+        f'<div>'
+        f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'
+        f'<div style="width:4px;height:20px;border-radius:2px;background:#10b981"></div>'
+        f'<h2 style="font-size:16px;font-weight:700;color:#1e293b;margin:0">{sug_section_num}. 채널별 개선 아이디어</h2>'
+        f'</div>'
+        f'{sug_cards}'
+        f'</div>'
+        f'<div style="margin-top:30px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center">'
+        f'<p style="font-size:11px;color:#94a3b8;margin:0">이 리포트는 Nuldam Analytics에서 자동 생성되었습니다.</p>'
+        f'</div>'
+        f'</div>'
+
+        f'</div>'
+    )
