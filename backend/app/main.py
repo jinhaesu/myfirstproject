@@ -76,9 +76,9 @@ async def _startup_report_scheduler():
                     if current_time != sched_time:
                         continue
 
-                    # 이미 오늘 발송했는지 체크 (updated_at 기준, KST)
-                    if sched.updated_at:
-                        last_sent = sched.updated_at
+                    # 이미 오늘 발송했는지 체크 (last_sent_at 기준, KST)
+                    if sched.last_sent_at:
+                        last_sent = sched.last_sent_at
                         # naive datetime이면 UTC로 간주하여 KST로 변환
                         if last_sent.tzinfo is None:
                             last_sent_kst = last_sent.replace(tzinfo=tz(timedelta(0))).astimezone(KST)
@@ -122,8 +122,8 @@ async def _startup_report_scheduler():
                             "html": html,
                         })
 
-                        # 발송 성공 시 updated_at 갱신 (중복 방지)
-                        sched.updated_at = now
+                        # 발송 성공 시 last_sent_at 갱신 (중복 방지)
+                        sched.last_sent_at = now.replace(tzinfo=None)
                         db.commit()
                         logger.info(f"Scheduled report sent: {sched.name} -> {recipients}")
 

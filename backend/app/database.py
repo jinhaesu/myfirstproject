@@ -52,3 +52,14 @@ def init_db():
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f"create_all failed: {e}")
+
+        # 새 컬럼 마이그레이션 (create_all은 기존 테이블에 컬럼 추가 안 함)
+        try:
+            from sqlalchemy import text
+            with engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE target_report_schedules ADD COLUMN IF NOT EXISTS last_sent_at TIMESTAMP"
+                ))
+                conn.commit()
+        except Exception:
+            pass  # 이미 있거나 DB가 ALTER를 지원하지 않으면 무시

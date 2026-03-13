@@ -768,7 +768,7 @@ async def test_schedule_now(
                 "html": html,
             })
 
-            sched.updated_at = now.replace(tzinfo=None)
+            sched.last_sent_at = now.replace(tzinfo=None)
             db.commit()
             sched_info["status"] = f"SUCCESS: {recipients} 에게 발송 완료"
 
@@ -817,6 +817,7 @@ async def debug_schedules(
             "user_id": s.user_id,
             "year": s.year,
             "month": s.month,
+            "last_sent_at": str(s.last_sent_at) if s.last_sent_at else None,
             "updated_at": str(s.updated_at) if s.updated_at else None,
             "today_day_match": today_match,
             "current_time_match": time_match,

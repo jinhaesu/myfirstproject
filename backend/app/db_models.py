@@ -375,5 +375,6 @@ class TargetReportSchedule(Base):
     month = Column(Integer, nullable=True)
     auto_send = Column(Boolean, default=True)
     user_id = Column(String)
+    last_sent_at = Column(DateTime, nullable=True)  # 마지막 발송 시각
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
