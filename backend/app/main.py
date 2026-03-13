@@ -1,6 +1,7 @@
 import subprocess
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,6 +29,104 @@ def _install_playwright_browsers():
             logger.warning(f"Playwright install warning: {result.stderr}")
     except Exception as e:
         logger.warning(f"Playwright browser install skipped: {e}")
+
+
+async def _startup_report_scheduler():
+    """스케줄된 리포트 이메일을 주기적으로 체크하고 발송"""
+    import asyncio
+    from app.database import SessionLocal
+    from app.db_models import TargetReportSchedule
+    from app.services.targets_service import TargetsService
+
+    DAY_MAP = {"월": 0, "화": 1, "수": 2, "목": 3, "금": 4, "토": 5, "일": 6}
+
+    await asyncio.sleep(10)  # 서버 초기화 대기
+    logger.info("Report scheduler started")
+
+    while True:
+        try:
+            if not SessionLocal:
+                await asyncio.sleep(60)
+                continue
+
+            db = SessionLocal()
+            try:
+                now = datetime.now()
+                current_weekday = now.weekday()  # 0=월 ~ 6=일
+                current_time = now.strftime("%H:%M")
+
+                schedules = db.query(TargetReportSchedule).filter(
+                    TargetReportSchedule.auto_send == True,
+                ).all()
+
+                for sched in schedules:
+                    # 요일 체크
+                    days_str = sched.schedule_days or ""
+                    sched_days = [DAY_MAP.get(d.strip(), -1) for d in days_str.split(",") if d.strip()]
+                    if current_weekday not in sched_days:
+                        continue
+
+                    # 시각 체크 (분 단위 매칭)
+                    sched_time = sched.schedule_time or "09:00"
+                    if current_time != sched_time:
+                        continue
+
+                    # 이미 오늘 발송했는지 체크 (updated_at 기준)
+                    if sched.updated_at:
+                        last_sent = sched.updated_at
+                        if hasattr(last_sent, 'date') and last_sent.date() == now.date():
+                            continue
+
+                    # 발송 실행
+                    recipients = [e.strip() for e in (sched.recipients or "").split(",") if e.strip()]
+                    if not recipients:
+                        continue
+
+                    try:
+                        from app.config import get_settings
+                        import resend
+
+                        settings = get_settings()
+                        if not settings.RESEND_API_KEY:
+                            logger.warning("RESEND_API_KEY not configured, skipping scheduled report")
+                            continue
+
+                        resend.api_key = settings.RESEND_API_KEY
+
+                        service = TargetsService()
+                        year = sched.year or now.year
+                        month = sched.month or now.month
+
+                        targets = service.get_targets_by_year_month(year, month)
+                        sales = service.get_sales_by_year_month(year, month)
+                        by_manager_target = service.get_targets_by_manager(year, month)
+                        by_manager_sales = service.get_sales_by_manager(year, month, until_today=False)
+
+                        from app.api.routes.targets import _build_report_html
+                        html = _build_report_html(year, month, targets, sales, by_manager_target, by_manager_sales)
+
+                        resend.Emails.send({
+                            "from": settings.RESEND_FROM_EMAIL,
+                            "to": recipients,
+                            "subject": f"[Nuldam] {year}년 {month}월 영업 지표 리포트",
+                            "html": html,
+                        })
+
+                        # 발송 성공 시 updated_at 갱신 (중복 방지)
+                        sched.updated_at = now
+                        db.commit()
+                        logger.info(f"Scheduled report sent: {sched.name} -> {recipients}")
+
+                    except Exception as e:
+                        logger.error(f"Scheduled report send failed ({sched.name}): {e}")
+
+            finally:
+                db.close()
+
+        except Exception as e:
+            logger.error(f"Report scheduler error: {e}")
+
+        await asyncio.sleep(60)  # 1분마다 체크
 
 
 async def _startup_catchup_rules():
@@ -75,6 +174,8 @@ async def lifespan(app: FastAPI):
     # 룰 catch-up (백그라운드)
     import asyncio
     asyncio.create_task(_startup_catchup_rules())
+    # 리포트 스케줄러 (백그라운드, 1분마다 체크)
+    asyncio.create_task(_startup_report_scheduler())
     yield
 
 
