@@ -758,7 +758,7 @@ async def test_schedule_now(
             targets = service.get_targets_by_year_month(year, month)
             sales = service.get_sales_by_year_month(year, month)
             by_mgr_target = service.get_targets_by_manager(year, month)
-            by_mgr_sales = service.get_sales_by_manager(year, month, until_today=False)
+            by_mgr_sales = service.get_sales_by_manager(year, month, until_today=True)
             html = _build_report_html(year, month, targets, sales, by_mgr_target, by_mgr_sales)
 
             resend.Emails.send({
@@ -863,7 +863,7 @@ async def send_report_email(
             targets = service.get_targets_by_year_month(body.year, body.month)
             sales = service.get_sales_by_year_month(body.year, body.month)
             by_manager_target = service.get_targets_by_manager(body.year, body.month)
-            by_manager_sales = service.get_sales_by_manager(body.year, body.month, until_today=False)
+            by_manager_sales = service.get_sales_by_manager(body.year, body.month, until_today=True)
             html = _build_report_html(body.year, body.month, targets, sales, by_manager_target, by_manager_sales)
 
         email_list = [e.strip() for e in body.recipients.split(",") if e.strip()]
