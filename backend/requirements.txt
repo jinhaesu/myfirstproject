@@ -16,3 +16,5 @@ pandas
 openpyxl
 httpx
 playwright
+PyPDF2
+python-docx

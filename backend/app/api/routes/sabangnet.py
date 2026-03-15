@@ -5,12 +5,14 @@ Claude API로 AI 답변 초안을 생성한 뒤,
 확인/수정 후 사방넷 API로 답변을 발송하는 시스템.
 """
 import os
+import io
 import json
 import logging
 from datetime import datetime
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, distinct
@@ -21,6 +23,64 @@ from app.db_models import CsInquiry, CsReferenceData, CsConfig
 
 router = APIRouter(prefix="/sabangnet", tags=["sabangnet"])
 logger = logging.getLogger(__name__)
+
+# Upload directory
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "uploads", "cs_reference")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+ALLOWED_EXTENSIONS = {".pdf", ".xlsx", ".xls", ".docx", ".doc", ".txt", ".csv"}
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
+
+
+def extract_text_from_file(file_bytes: bytes, file_name: str) -> str:
+    """파일에서 텍스트를 추출"""
+    ext = os.path.splitext(file_name)[1].lower()
+
+    try:
+        if ext == ".pdf":
+            from PyPDF2 import PdfReader
+            reader = PdfReader(io.BytesIO(file_bytes))
+            texts = []
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    texts.append(text.strip())
+            return "\n\n".join(texts)
+
+        elif ext in (".xlsx", ".xls"):
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+            texts = []
+            for ws in wb.worksheets:
+                for row in ws.iter_rows(values_only=True):
+                    row_text = " | ".join(str(cell) if cell is not None else "" for cell in row)
+                    if row_text.strip(" |"):
+                        texts.append(row_text)
+            return "\n".join(texts)
+
+        elif ext in (".docx", ".doc"):
+            from docx import Document
+            doc = Document(io.BytesIO(file_bytes))
+            texts = []
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    texts.append(para.text.strip())
+            # 테이블 내용도 추출
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = " | ".join(cell.text.strip() for cell in row.cells)
+                    if row_text.strip(" |"):
+                        texts.append(row_text)
+            return "\n".join(texts)
+
+        elif ext in (".txt", ".csv"):
+            return file_bytes.decode("utf-8", errors="replace")
+
+        else:
+            return ""
+    except Exception as e:
+        logger.error(f"파일 텍스트 추출 실패 ({file_name}): {e}")
+        return f"[텍스트 추출 실패: {str(e)}]"
 
 
 # ──────────────────────────────────────────────
@@ -136,11 +196,14 @@ async def generate_ai_response(inquiry: CsInquiry, reference_data_list: list) ->
         # Fallback: 템플릿 기반 답변
         return generate_template_response(inquiry)
 
-    # 참고 자료 컨텍스트 구성
-    ref_context = "\n\n".join([
-        f"[{ref.category}] {ref.title}:\n{ref.content}"
-        for ref in reference_data_list
-    ])
+    # 참고 자료 컨텍스트 구성 (텍스트 + 파일 추출 내용 포함)
+    ref_parts = []
+    for ref in reference_data_list:
+        part = f"[{ref.category}] {ref.title}:\n{ref.content}"
+        if ref.extracted_text:
+            part += f"\n\n[첨부파일 ({ref.file_name}) 내용]:\n{ref.extracted_text[:3000]}"
+        ref_parts.append(part)
+    ref_context = "\n\n".join(ref_parts)
 
     prompt = f"""당신은 쇼핑몰 고객 문의에 답변하는 CS 담당자입니다.
 아래 고객 문의에 대해 정중하고 친절한 답변을 작성해주세요.
@@ -757,6 +820,11 @@ def delete_reference_data(ref_id: int, db: Session = Depends(get_db)):
     if not ref:
         raise HTTPException(status_code=404, detail="참고 데이터를 찾을 수 없습니다")
     try:
+        # 첨부 파일도 삭제
+        if ref.file_name:
+            file_path = os.path.join(UPLOAD_DIR, f"{ref.id}_{ref.file_name}")
+            if os.path.exists(file_path):
+                os.remove(file_path)
         db.delete(ref)
         db.commit()
         return {"message": "삭제 완료", "id": ref_id}
@@ -764,6 +832,201 @@ def delete_reference_data(ref_id: int, db: Session = Depends(get_db)):
         db.rollback()
         logger.error(f"참고 데이터 삭제 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reference-data/upload")
+async def create_reference_with_file(
+    title: str = Form(...),
+    category: str = Form(None),
+    content: str = Form(""),
+    is_active: bool = Form(True),
+    file: UploadFile = File(None),
+    db: Session = Depends(get_db),
+):
+    """참고 데이터 생성 (파일 첨부 포함)"""
+    try:
+        file_name = None
+        file_type = None
+        file_size = None
+        extracted_text = None
+
+        if file and file.filename:
+            ext = os.path.splitext(file.filename)[1].lower()
+            if ext not in ALLOWED_EXTENSIONS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"지원하지 않는 파일 형식입니다. 허용: {', '.join(ALLOWED_EXTENSIONS)}"
+                )
+
+            file_bytes = await file.read()
+            file_size = len(file_bytes)
+
+            if file_size > MAX_FILE_SIZE:
+                raise HTTPException(status_code=400, detail="파일 크기가 20MB를 초과합니다.")
+
+            file_name = file.filename
+            file_type = ext.lstrip(".")
+
+            # 텍스트 추출
+            extracted_text = extract_text_from_file(file_bytes, file.filename)
+            if not extracted_text:
+                extracted_text = None
+
+            # 파일 저장은 DB에 저장 후 id를 사용
+            ref = CsReferenceData(
+                title=title,
+                category=category,
+                content=content or "(첨부파일 참조)",
+                file_name=file_name,
+                file_type=file_type,
+                file_size=file_size,
+                extracted_text=extracted_text,
+                is_active=is_active,
+            )
+            db.add(ref)
+            db.commit()
+            db.refresh(ref)
+
+            # 파일 저장 (id 포함 이름)
+            save_path = os.path.join(UPLOAD_DIR, f"{ref.id}_{file_name}")
+            with open(save_path, "wb") as f:
+                f.write(file_bytes)
+
+            logger.info(f"참고 데이터+파일 생성: id={ref.id}, file={file_name}, extracted={len(extracted_text or '')} chars")
+            return _ref_to_dict(ref)
+        else:
+            # 파일 없이 텍스트만
+            ref = CsReferenceData(
+                title=title,
+                category=category,
+                content=content,
+                is_active=is_active,
+            )
+            db.add(ref)
+            db.commit()
+            db.refresh(ref)
+            logger.info(f"참고 데이터 생성: id={ref.id}, title={title}")
+            return _ref_to_dict(ref)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"참고 데이터+파일 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/reference-data/{ref_id}/upload")
+async def update_reference_with_file(
+    ref_id: int,
+    title: str = Form(None),
+    category: str = Form(None),
+    content: str = Form(None),
+    is_active: bool = Form(True),
+    file: UploadFile = File(None),
+    remove_file: bool = Form(False),
+    db: Session = Depends(get_db),
+):
+    """참고 데이터 수정 (파일 교체 포함)"""
+    ref = db.query(CsReferenceData).filter(CsReferenceData.id == ref_id).first()
+    if not ref:
+        raise HTTPException(status_code=404, detail="참고 데이터를 찾을 수 없습니다")
+
+    try:
+        if title is not None:
+            ref.title = title
+        if category is not None:
+            ref.category = category
+        if content is not None:
+            ref.content = content
+        ref.is_active = is_active
+
+        # 파일 삭제 요청
+        if remove_file and ref.file_name:
+            old_path = os.path.join(UPLOAD_DIR, f"{ref.id}_{ref.file_name}")
+            if os.path.exists(old_path):
+                os.remove(old_path)
+            ref.file_name = None
+            ref.file_type = None
+            ref.file_size = None
+            ref.extracted_text = None
+
+        # 새 파일 업로드
+        if file and file.filename:
+            ext = os.path.splitext(file.filename)[1].lower()
+            if ext not in ALLOWED_EXTENSIONS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"지원하지 않는 파일 형식입니다. 허용: {', '.join(ALLOWED_EXTENSIONS)}"
+                )
+
+            file_bytes = await file.read()
+            if len(file_bytes) > MAX_FILE_SIZE:
+                raise HTTPException(status_code=400, detail="파일 크기가 20MB를 초과합니다.")
+
+            # 기존 파일 삭제
+            if ref.file_name:
+                old_path = os.path.join(UPLOAD_DIR, f"{ref.id}_{ref.file_name}")
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+
+            ref.file_name = file.filename
+            ref.file_type = ext.lstrip(".")
+            ref.file_size = len(file_bytes)
+            ref.extracted_text = extract_text_from_file(file_bytes, file.filename) or None
+
+            # 파일 저장
+            save_path = os.path.join(UPLOAD_DIR, f"{ref.id}_{file.filename}")
+            with open(save_path, "wb") as f:
+                f.write(file_bytes)
+
+        db.commit()
+        db.refresh(ref)
+        return _ref_to_dict(ref)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"참고 데이터+파일 수정 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/reference-data/{ref_id}/download")
+def download_reference_file(ref_id: int, db: Session = Depends(get_db)):
+    """참고 데이터 첨부파일 다운로드"""
+    ref = db.query(CsReferenceData).filter(CsReferenceData.id == ref_id).first()
+    if not ref:
+        raise HTTPException(status_code=404, detail="참고 데이터를 찾을 수 없습니다")
+    if not ref.file_name:
+        raise HTTPException(status_code=404, detail="첨부파일이 없습니다")
+
+    file_path = os.path.join(UPLOAD_DIR, f"{ref.id}_{ref.file_name}")
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")
+
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
+
+    # Content-Type 매핑
+    content_types = {
+        "pdf": "application/pdf",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "xls": "application/vnd.ms-excel",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "doc": "application/msword",
+        "txt": "text/plain",
+        "csv": "text/csv",
+    }
+    content_type = content_types.get(ref.file_type or "", "application/octet-stream")
+
+    return Response(
+        content=file_bytes,
+        media_type=content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{ref.file_name}"',
+        },
+    )
 
 
 # ──────────────────────────────────────────────
@@ -860,6 +1123,11 @@ def _ref_to_dict(ref: CsReferenceData) -> dict:
         "title": ref.title,
         "category": ref.category,
         "content": ref.content,
+        "file_name": ref.file_name,
+        "file_type": ref.file_type,
+        "file_size": ref.file_size,
+        "has_file": ref.file_name is not None,
+        "has_extracted_text": ref.extracted_text is not None and len(ref.extracted_text or "") > 0,
         "is_active": ref.is_active,
         "created_at": ref.created_at.isoformat() if ref.created_at else None,
         "updated_at": ref.updated_at.isoformat() if ref.updated_at else None,

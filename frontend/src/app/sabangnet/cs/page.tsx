@@ -85,6 +85,11 @@ interface ReferenceData {
   title: string;
   category: string;
   content: string;
+  file_name: string | null;
+  file_type: string | null;
+  file_size: number | null;
+  has_file: boolean;
+  has_extracted_text: boolean;
   is_active: boolean;
 }
 
@@ -183,11 +188,11 @@ const sampleInquiries: Inquiry[] = [
 ];
 
 const sampleReferenceData: ReferenceData[] = [
-  { id: 1, title: '기본 배송 안내', category: '배송정책', content: '주문 후 1-3 영업일 내 출고되며, 출고 후 1-2일 내 수령 가능합니다. 제주/도서산간 지역은 1-2일 추가 소요됩니다. 무료배송 기준: 30,000원 이상 주문 시.', is_active: true },
-  { id: 2, title: '교환/반품 정책', category: '교환/반품 정책', content: '수령 후 7일 이내 교환/반품 가능합니다. 단, 고객 변심의 경우 왕복 택배비 5,000원이 부과됩니다. 상품 하자의 경우 무료 교환/반품 처리됩니다.', is_active: true },
-  { id: 3, title: '알레르기 정보', category: 'FAQ', content: '모든 널담 제품은 알레르기 유발 성분을 상세 페이지에 기재하고 있습니다. 특정 성분에 대한 문의는 고객센터로 연락 주세요.', is_active: true },
-  { id: 4, title: '마카롱 보관 방법', category: '상품정보', content: '널담 마카롱은 냉동 보관하시면 최대 30일 드실 수 있습니다. 섭취 전 상온에서 10-15분 해동 후 드시면 가장 맛있습니다.', is_active: true },
-  { id: 5, title: '기본 인사말', category: '인사말/맺음말', content: '안녕하세요, 널담 고객센터입니다. / 추가 문의사항이 있으시면 언제든 연락 주세요. 감사합니다.', is_active: true },
+  { id: 1, title: '기본 배송 안내', category: '배송정책', content: '주문 후 1-3 영업일 내 출고되며, 출고 후 1-2일 내 수령 가능합니다. 제주/도서산간 지역은 1-2일 추가 소요됩니다. 무료배송 기준: 30,000원 이상 주문 시.', file_name: null, file_type: null, file_size: null, has_file: false, has_extracted_text: false, is_active: true },
+  { id: 2, title: '교환/반품 정책', category: '교환/반품 정책', content: '수령 후 7일 이내 교환/반품 가능합니다. 단, 고객 변심의 경우 왕복 택배비 5,000원이 부과됩니다. 상품 하자의 경우 무료 교환/반품 처리됩니다.', file_name: null, file_type: null, file_size: null, has_file: false, has_extracted_text: false, is_active: true },
+  { id: 3, title: '알레르기 정보', category: 'FAQ', content: '모든 널담 제품은 알레르기 유발 성분을 상세 페이지에 기재하고 있습니다. 특정 성분에 대한 문의는 고객센터로 연락 주세요.', file_name: null, file_type: null, file_size: null, has_file: false, has_extracted_text: false, is_active: true },
+  { id: 4, title: '마카롱 보관 방법', category: '상품정보', content: '널담 마카롱은 냉동 보관하시면 최대 30일 드실 수 있습니다. 섭취 전 상온에서 10-15분 해동 후 드시면 가장 맛있습니다.', file_name: null, file_type: null, file_size: null, has_file: false, has_extracted_text: false, is_active: true },
+  { id: 5, title: '기본 인사말', category: '인사말/맺음말', content: '안녕하세요, 널담 고객센터입니다. / 추가 문의사항이 있으시면 언제든 연락 주세요. 감사합니다.', file_name: null, file_type: null, file_size: null, has_file: false, has_extracted_text: false, is_active: true },
 ];
 
 const defaultConfig: CSConfig = {
@@ -255,7 +260,10 @@ export default function CSPage() {
   const [refCategoryFilter, setRefCategoryFilter] = useState('전체');
   const [showRefModal, setShowRefModal] = useState(false);
   const [editingRef, setEditingRef] = useState<ReferenceData | null>(null);
-  const [refForm, setRefForm] = useState<Omit<ReferenceData, 'id'>>({ title: '', category: '배송정책', content: '', is_active: true });
+  const [refForm, setRefForm] = useState<{ title: string; category: string; content: string; is_active: boolean }>({ title: '', category: '배송정책', content: '', is_active: true });
+  const [refFile, setRefFile] = useState<File | null>(null);
+  const [removeFile, setRemoveFile] = useState(false);
+  const [uploadingRef, setUploadingRef] = useState(false);
 
   // ── Settings State ──
   const [config, setConfig] = useState<CSConfig>(defaultConfig);
@@ -272,18 +280,26 @@ export default function CSPage() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const data = await fetchSafe<Inquiry[]>('/api/sabangnet/inquiries', []);
+      const raw = await fetchSafe<{ items: Inquiry[] } | Inquiry[]>('/api/sabangnet/inquiries', []);
+      const data = Array.isArray(raw) ? raw : (raw?.items || []);
       if (data.length > 0) setInquiries(data);
     })();
     (async () => {
-      const data = await fetchSafe<ReferenceData[]>('/api/sabangnet/reference-data', []);
+      const raw = await fetchSafe<{ items: ReferenceData[] } | ReferenceData[]>('/api/sabangnet/reference-data', []);
+      const data = Array.isArray(raw) ? raw : (raw?.items || []);
       if (data.length > 0) setReferenceData(data);
     })();
     (async () => {
-      const data = await fetchSafe<CSConfig | null>('/api/sabangnet/config', null);
-      if (data) {
-        setConfig(data);
-        setOperationMode(data.operation_mode);
+      const raw = await fetchSafe<Record<string, unknown> | null>('/api/sabangnet/config', null);
+      if (raw && typeof raw === 'object') {
+        const parsed: CSConfig = {
+          operation_mode: raw.auto_mode === true ? 'auto' : (raw.operation_mode === 'auto' ? 'auto' : 'semi_auto'),
+          auto_categories: Array.isArray(raw.auto_categories) ? raw.auto_categories : defaultConfig.auto_categories,
+          response_tone: typeof raw.response_tone === 'string' ? raw.response_tone : defaultConfig.response_tone,
+          sabangnet_api_key: typeof raw.sabangnet_api_key === 'string' ? raw.sabangnet_api_key : '',
+        };
+        setConfig(parsed);
+        setOperationMode(parsed.operation_mode);
       }
     })();
   }, [user]);
@@ -516,34 +532,78 @@ export default function CSPage() {
 
   // ── Reference Data Actions ──
   const handleSaveRef = useCallback(async () => {
-    if (!refForm.title || !refForm.content) {
-      showToast('제목과 내용을 입력해주세요.');
+    if (!refForm.title || (!refForm.content && !refFile)) {
+      showToast('제목과 내용(또는 파일)을 입력해주세요.');
       return;
     }
 
-    if (editingRef) {
-      const result = await fetchMutate(`/api/sabangnet/reference-data/${editingRef.id}`, 'PUT', refForm);
-      if (result.ok && result.data) {
-        setReferenceData(prev => prev.map(r => r.id === editingRef.id ? result.data : r));
+    setUploadingRef(true);
+
+    try {
+      if (refFile || removeFile) {
+        // Use multipart form data for file upload
+        const formData = new FormData();
+        formData.append('title', refForm.title);
+        formData.append('category', refForm.category);
+        formData.append('content', refForm.content);
+        formData.append('is_active', String(refForm.is_active));
+        if (refFile) formData.append('file', refFile);
+        if (removeFile) formData.append('remove_file', 'true');
+
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const url = editingRef
+          ? `${API_BASE}/api/sabangnet/reference-data/${editingRef.id}/upload`
+          : `${API_BASE}/api/sabangnet/reference-data/upload`;
+
+        const res = await fetch(url, {
+          method: editingRef ? 'PUT' : 'POST',
+          headers,
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (editingRef) {
+            setReferenceData(prev => prev.map(r => r.id === editingRef.id ? data : r));
+          } else {
+            setReferenceData(prev => [...prev, data]);
+          }
+          showToast(editingRef ? '참고 데이터가 수정되었습니다.' : '참고 데이터가 추가되었습니다.');
+        } else {
+          showToast('저장에 실패했습니다.');
+        }
+      } else if (editingRef) {
+        const result = await fetchMutate(`/api/sabangnet/reference-data/${editingRef.id}`, 'PUT', refForm);
+        if (result.ok && result.data) {
+          setReferenceData(prev => prev.map(r => r.id === editingRef.id ? result.data : r));
+        } else {
+          setReferenceData(prev => prev.map(r => r.id === editingRef.id ? { ...r, ...refForm, file_name: r.file_name, file_type: r.file_type, file_size: r.file_size, has_file: r.has_file, has_extracted_text: r.has_extracted_text } : r));
+        }
+        showToast('참고 데이터가 수정되었습니다.');
       } else {
-        setReferenceData(prev => prev.map(r => r.id === editingRef.id ? { ...r, ...refForm } : r));
+        const result = await fetchMutate('/api/sabangnet/reference-data', 'POST', refForm);
+        if (result.ok && result.data) {
+          setReferenceData(prev => [...prev, result.data]);
+        } else {
+          const newRef: ReferenceData = { id: getNextRefId(), ...refForm, file_name: null, file_type: null, file_size: null, has_file: false, has_extracted_text: false };
+          setReferenceData(prev => [...prev, newRef]);
+        }
+        showToast('참고 데이터가 추가되었습니다.');
       }
-      showToast('참고 데이터가 수정되었습니다.');
-    } else {
-      const result = await fetchMutate('/api/sabangnet/reference-data', 'POST', refForm);
-      if (result.ok && result.data) {
-        setReferenceData(prev => [...prev, result.data]);
-      } else {
-        const newRef: ReferenceData = { id: getNextRefId(), ...refForm };
-        setReferenceData(prev => [...prev, newRef]);
-      }
-      showToast('참고 데이터가 추가되었습니다.');
+    } catch {
+      showToast('저장 중 오류가 발생했습니다.');
     }
 
+    setUploadingRef(false);
     setShowRefModal(false);
     setEditingRef(null);
     setRefForm({ title: '', category: '배송정책', content: '', is_active: true });
-  }, [editingRef, refForm, showToast]);
+    setRefFile(null);
+    setRemoveFile(false);
+  }, [editingRef, refForm, refFile, removeFile, showToast]);
 
   const handleDeleteRef = useCallback(async (id: number) => {
     await fetchMutate(`/api/sabangnet/reference-data/${id}`, 'DELETE');
@@ -563,12 +623,16 @@ export default function CSPage() {
   const openEditRef = useCallback((ref: ReferenceData) => {
     setEditingRef(ref);
     setRefForm({ title: ref.title, category: ref.category, content: ref.content, is_active: ref.is_active });
+    setRefFile(null);
+    setRemoveFile(false);
     setShowRefModal(true);
   }, []);
 
   const openAddRef = useCallback(() => {
     setEditingRef(null);
     setRefForm({ title: '', category: '배송정책', content: '', is_active: true });
+    setRefFile(null);
+    setRemoveFile(false);
     setShowRefModal(true);
   }, []);
 
@@ -1195,6 +1259,41 @@ export default function CSPage() {
                             )}
                           </div>
                           <p className="text-sm text-gray-600 line-clamp-2 whitespace-pre-wrap">{ref.content}</p>
+
+                          {/* File attachment info */}
+                          {ref.has_file && ref.file_name && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-slate-100 text-slate-700 rounded-md border border-slate-200">
+                                {ref.file_type === 'pdf' && (
+                                  <svg className="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
+                                )}
+                                {(ref.file_type === 'xlsx' || ref.file_type === 'xls' || ref.file_type === 'csv') && (
+                                  <svg className="w-3.5 h-3.5 text-green-600" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
+                                )}
+                                {(ref.file_type === 'docx' || ref.file_type === 'doc') && (
+                                  <svg className="w-3.5 h-3.5 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
+                                )}
+                                {ref.file_name}
+                                {ref.file_size && (
+                                  <span className="text-gray-400">
+                                    ({ref.file_size < 1024 ? `${ref.file_size}B` : ref.file_size < 1024 * 1024 ? `${Math.round(ref.file_size / 1024)}KB` : `${(ref.file_size / (1024 * 1024)).toFixed(1)}MB`})
+                                  </span>
+                                )}
+                              </span>
+                              {ref.has_extracted_text && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                  AI 학습됨
+                                </span>
+                              )}
+                              <button
+                                onClick={() => window.open(`${API_BASE}/api/sabangnet/reference-data/${ref.id}/download`, '_blank')}
+                                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                              >
+                                다운로드
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -1287,9 +1386,84 @@ export default function CSPage() {
                           value={refForm.content}
                           onChange={e => setRefForm(prev => ({ ...prev, content: e.target.value }))}
                           placeholder="AI가 참고할 내용을 입력하세요..."
-                          rows={6}
+                          rows={4}
                           className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
                         />
+                      </div>
+
+                      {/* File upload */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          파일 첨부 <span className="text-xs text-gray-400 font-normal">(PDF, Excel, Word, TXT)</span>
+                        </label>
+
+                        {/* Existing file info */}
+                        {editingRef?.has_file && editingRef.file_name && !removeFile && (
+                          <div className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                            <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                            <span className="text-xs text-gray-600 flex-1 truncate">{editingRef.file_name}</span>
+                            {editingRef.has_extracted_text && (
+                              <span className="text-xs text-emerald-600 font-medium">AI 학습됨</span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => { setRemoveFile(true); setRefFile(null); }}
+                              className="text-xs text-red-500 hover:text-red-700 font-medium"
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        )}
+
+                        {/* New file selected */}
+                        {refFile && (
+                          <div className="flex items-center gap-2 mb-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                            <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                            <span className="text-xs text-blue-700 flex-1 truncate">{refFile.name}</span>
+                            <span className="text-xs text-blue-500">
+                              {refFile.size < 1024 ? `${refFile.size}B` : refFile.size < 1024 * 1024 ? `${Math.round(refFile.size / 1024)}KB` : `${(refFile.size / (1024 * 1024)).toFixed(1)}MB`}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setRefFile(null)}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Drop zone / file input */}
+                        {!refFile && (
+                          <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors">
+                            <div className="flex flex-col items-center">
+                              <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                              <span className="text-xs text-gray-500">클릭하여 파일 선택</span>
+                              <span className="text-xs text-gray-400 mt-0.5">PDF, XLSX, DOCX, TXT (최대 20MB)</span>
+                            </div>
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept=".pdf,.xlsx,.xls,.docx,.doc,.txt,.csv"
+                              onChange={e => {
+                                const f = e.target.files?.[0];
+                                if (f) {
+                                  if (f.size > 20 * 1024 * 1024) {
+                                    showToast('파일 크기가 20MB를 초과합니다.');
+                                    return;
+                                  }
+                                  setRefFile(f);
+                                  setRemoveFile(false);
+                                }
+                                e.target.value = '';
+                              }}
+                            />
+                          </label>
+                        )}
+
+                        <p className="text-xs text-gray-400 mt-1.5">
+                          첨부된 파일의 내용은 AI가 자동으로 학습하여 CS 답변 생성 시 참고합니다.
+                        </p>
                       </div>
 
                       {/* Active toggle */}
@@ -1319,9 +1493,15 @@ export default function CSPage() {
                       </button>
                       <button
                         onClick={handleSaveRef}
-                        className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        disabled={uploadingRef}
+                        className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors inline-flex items-center gap-2"
                       >
-                        {editingRef ? '수정' : '추가'}
+                        {uploadingRef ? (
+                          <>
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                            {refFile ? '업로드 중...' : '저장 중...'}
+                          </>
+                        ) : (editingRef ? '수정' : '추가')}
                       </button>
                     </div>
                   </div>

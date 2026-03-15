@@ -509,6 +509,10 @@ class CsReferenceData(Base):
     title = Column(String(300), nullable=False)  # 참고자료 제목
     category = Column(String(100), nullable=True)  # 카테고리 (배송정책, 교환/반품, FAQ, 상품정보 등)
     content = Column(Text, nullable=False)  # 참고 내용
+    file_name = Column(String(500), nullable=True)  # 첨부파일 원본 이름
+    file_type = Column(String(50), nullable=True)  # pdf, xlsx, docx 등
+    file_size = Column(Integer, nullable=True)  # 파일 크기 (bytes)
+    extracted_text = Column(Text, nullable=True)  # 파일에서 추출된 텍스트
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
