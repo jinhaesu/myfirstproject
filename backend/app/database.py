@@ -42,6 +42,7 @@ def init_db():
             ScmOrder, ScmStaffMember, ScmSchedule, ScmTask,
             ScmProductionPlan, ScmInventoryItem, ScmShipment,
             TargetReportSchedule,
+            ScmOrderPlan, ScmProductionResult, ScmProductionPlanV2,
         )
         from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401
         from app.models.scheduled_report import ScheduledReport  # noqa: F401

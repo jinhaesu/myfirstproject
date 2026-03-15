@@ -378,3 +378,69 @@ class TargetReportSchedule(Base):
     last_sent_at = Column(DateTime, nullable=True)  # 마지막 발송 시각
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+# ──────────────────────────────────────────────
+# SCM v2 Models (주문계획, 생산결과, 생산계획v2)
+# ──────────────────────────────────────────────
+
+class ScmOrderPlan(Base):
+    """주문 계획 (Order Planning)"""
+    __tablename__ = "scm_order_plans"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_name = Column(String(200), nullable=False)  # 품명
+    product_code = Column(String(100), nullable=True)  # 품주명/코드
+    channel_type = Column(String(50), nullable=False)  # 'online' or 'offline'
+    channel_name = Column(String(200), nullable=True)  # specific channel name
+    assignee = Column(String(100), nullable=False)  # 담당자
+    plan_date = Column(Date, nullable=False)  # 계획일자
+    planned_qty = Column(Integer, default=0)  # 계획 수량
+    actual_qty = Column(Integer, default=0, nullable=True)  # 실제 수량
+    unit_price = Column(Float, default=0, nullable=True)  # 단가
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ScmProductionResult(Base):
+    """생산 결과 (생산일보 RAW-DATA format)"""
+    __tablename__ = "scm_production_results"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    production_date = Column(Date, nullable=False)  # 생산일자
+    team_name = Column(String(100), nullable=False)  # 생산팀명
+    work_shift = Column(String(50), nullable=False)  # 근무 (주간/야간 etc)
+    product_code = Column(String(100), nullable=True)  # 품주명
+    product_name = Column(String(200), nullable=False)  # 품명
+    sale_price = Column(Float, default=0)  # 판매가격
+    cost_rate = Column(Float, default=0)  # 원가율 (%)
+    production_hours = Column(Float, default=0)  # 생산기준시
+    expected_sales = Column(Float, default=0)  # 예상 판매액
+    profit = Column(Float, default=0)  # 판매이익
+    hourly_rate = Column(Float, default=0)  # 시간당 (생산량)
+    profitability = Column(String(50), nullable=True)  # 판매별 수익성
+    quality_status = Column(Text, nullable=True)  # 생산/품질 현황
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ScmProductionPlanV2(Base):
+    """생산 계획 v2 (revamped)"""
+    __tablename__ = "scm_production_plans_v2"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    plan_date = Column(Date, nullable=False)  # 계획일
+    product_name = Column(String(200), nullable=False)  # 품명
+    product_code = Column(String(100), nullable=True)  # 품주명
+    planned_qty = Column(Integer, default=0)  # 계획 생산량
+    required_hours = Column(Float, default=0, nullable=True)  # 필요 시간
+    required_manpower = Column(Integer, default=0, nullable=True)  # 필요 인력
+    avg_hourly_rate = Column(Float, default=0, nullable=True)  # 평균 시간당 생산량 (from historical data)
+    order_plan_qty = Column(Integer, default=0, nullable=True)  # 주문 계획 수량 (from order plan)
+    safety_stock_deficit = Column(Integer, default=0, nullable=True)  # 안전재고 부족분
+    ai_recommended_qty = Column(Integer, default=0, nullable=True)  # AI 추천 생산량
+    status = Column(String(50), default="draft")  # draft/confirmed/in_progress/completed
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
