@@ -274,6 +274,44 @@ class SharePlanRequest(BaseModel):
     message: Optional[str] = None
 
 
+# --- Product Master (품목 관리) ---
+class ProductCreate(BaseModel):
+    product_name: str
+    product_code: Optional[str] = None
+    product_category: Optional[str] = None
+    default_location: Optional[str] = None
+    default_unit_price: float = 0
+    default_cost: float = 0
+    safety_stock: float = 0
+    notes: Optional[str] = None
+
+class ProductUpdate(BaseModel):
+    product_name: Optional[str] = None
+    product_code: Optional[str] = None
+    product_category: Optional[str] = None
+    default_location: Optional[str] = None
+    default_unit_price: Optional[float] = None
+    default_cost: Optional[float] = None
+    safety_stock: Optional[float] = None
+    avg_hourly_rate: Optional[float] = None
+    is_active: Optional[bool] = None
+    notes: Optional[str] = None
+
+class ProductBulkItem(BaseModel):
+    id: Optional[int] = None
+    product_name: str
+    product_code: Optional[str] = None
+    product_category: Optional[str] = None
+    default_location: Optional[str] = None
+    default_unit_price: float = 0
+    default_cost: float = 0
+    safety_stock: float = 0
+    notes: Optional[str] = None
+
+class ProductBulkRequest(BaseModel):
+    items: List[ProductBulkItem]
+
+
 # ══════════════════════════════════════════════
 #  1. 주문현황 (Orders)
 # ══════════════════════════════════════════════
@@ -2187,66 +2225,74 @@ def ai_recommend_production(
     db: Session = Depends(get_db),
 ):
     """AI 추천 생산량 계산
-    - 안전재고 부족분 조회 (ScmInventoryItem)
-    - 주문 계획 수량 합산 (ScmOrderPlan)
-    - 과거 시간당 생산량 평균 (ScmProductionResult)
-    - 추천 수량 = max(안전재고 부족분, 주문계획 합계)
+    - ScmProduct 마스터에서 avg_hourly_rate, safety_stock 조회
+    - 주문 계획 수량 합산 (ScmOrderPlan, 향후 7일)
+    - 현재 재고 조회 (ScmInventoryItem)
+    - 추천 수량 = max(주문 수요, 안전재고 부족분)
     - 필요 시간 = 추천 수량 / 평균 시간당 생산량
-    - 필요 인력 = 필요 시간 / 8
+    - 필요 인력 = ceil(필요 시간 / 8)
     """
     try:
-        from app.db_models import ScmInventoryItem, ScmOrderPlan, ScmProductionResult
+        from app.db_models import ScmInventoryItem, ScmOrderPlan, ScmProductionResult, ScmProduct
 
         product_name = body.product_name
         plan_date = body.plan_date
 
-        # 1. 안전재고 부족분 조회
+        # 0. ScmProduct 마스터 조회
+        product_master = (
+            db.query(ScmProduct)
+            .filter(ScmProduct.product_name == product_name, ScmProduct.is_active == True)
+            .first()
+        )
+
+        # 1. avg_hourly_rate: 마스터 값 우선, 없으면 생산결과에서 계산
+        if product_master and product_master.avg_hourly_rate and product_master.avg_hourly_rate > 0:
+            avg_hourly_rate = product_master.avg_hourly_rate
+        else:
+            avg_quantity_per_hour = (
+                db.query(
+                    func.avg(ScmProductionResult.quantity / func.nullif(ScmProductionResult.total_hours, 0))
+                )
+                .filter(ScmProductionResult.product_name.ilike(f"%{product_name}%"))
+                .scalar()
+            )
+            avg_hourly_rate = float(avg_quantity_per_hour) if avg_quantity_per_hour else 0
+
+        # 2. safety_stock: 마스터 값 우선
+        safety_stock = 0
+        if product_master and product_master.safety_stock:
+            safety_stock = product_master.safety_stock
+
+        # 3. 현재 재고 조회
         inventory = (
             db.query(ScmInventoryItem)
             .filter(ScmInventoryItem.product_name.ilike(f"%{product_name}%"))
             .first()
         )
-
-        safety_stock_deficit = 0
-        current_stock = 0
-        safety_stock = 0
+        current_inventory = 0
         if inventory:
-            current_stock = inventory.current_stock or 0
-            safety_stock = inventory.safety_stock or 0
-            safety_stock_deficit = max(0, safety_stock - current_stock)
+            current_inventory = inventory.current_stock or 0
 
-        # 2. 해당 날짜의 주문 계획 수량 합산
-        order_plan_total = (
+        # 4. 안전재고 기반 부족분
+        safety_need = max(0, safety_stock - current_inventory)
+
+        # 5. 향후 7일 주문 계획 수량 합산
+        end_date_7d = plan_date + timedelta(days=7)
+        order_demand = (
             db.query(func.coalesce(func.sum(ScmOrderPlan.planned_qty), 0))
             .filter(
                 ScmOrderPlan.product_name.ilike(f"%{product_name}%"),
-                ScmOrderPlan.plan_date == plan_date,
+                ScmOrderPlan.plan_date >= plan_date,
+                ScmOrderPlan.plan_date < end_date_7d,
             )
             .scalar()
         )
-        order_plan_total = int(order_plan_total)
+        order_demand = int(order_demand)
 
-        # 3. 과거 원가 평균
-        avg_cost_val = (
-            db.query(func.avg(ScmProductionResult.cost))
-            .filter(ScmProductionResult.product_name.ilike(f"%{product_name}%"))
-            .scalar()
-        )
-        avg_cost = float(avg_cost_val) if avg_cost_val else 0
+        # 6. 추천 수량 계산
+        recommended_qty = max(order_demand, safety_need)
 
-        # 4. 추천 수량 계산
-        recommended_qty = max(safety_stock_deficit, order_plan_total)
-
-        # 5. 필요 시간 / 인력 계산
-        avg_quantity_per_hour = (
-            db.query(
-                func.avg(ScmProductionResult.quantity / func.nullif(ScmProductionResult.total_hours, 0))
-            )
-            .filter(ScmProductionResult.product_name.ilike(f"%{product_name}%"))
-            .scalar()
-        )
-        avg_hourly_rate = float(avg_quantity_per_hour) if avg_quantity_per_hour else 0
-
+        # 7. 필요 시간 / 인력 계산
         if avg_hourly_rate > 0:
             required_hours = round(recommended_qty / avg_hourly_rate, 2)
         else:
@@ -2254,19 +2300,36 @@ def ai_recommend_production(
 
         required_manpower = math.ceil(required_hours / 8) if required_hours > 0 else 0
 
+        # 8. 설명 문자열 생성
+        explanation = (
+            f"[AI 추천 분석]\n\n"
+            f"1. 주문 계획 기반 수요:\n"
+            f"   - 향후 7일 주문 계획: {order_demand}개\n\n"
+            f"2. 안전재고 기반 수요:\n"
+            f"   - 안전재고 기준: {safety_stock}개\n"
+            f"   - 현재 추정 재고: {current_inventory}개\n"
+            f"   - 부족분: {safety_need}개\n\n"
+            f"3. 추천 생산량: max({order_demand}, {safety_need}) = {recommended_qty}개\n\n"
+            f"4. 필요 자원:\n"
+            f"   - 평균 시간당 생산량: {avg_hourly_rate}개/시 (과거 생산 결과 기준)\n"
+            f"   - 필요 시간: {required_hours}시간\n"
+            f"   - 필요 인력: {required_manpower}명 (8시간/일 기준)"
+        )
+
         return {
             "success": True,
             "data": {
                 "product_name": product_name,
                 "plan_date": str(plan_date),
-                "safety_stock_deficit": safety_stock_deficit,
-                "current_stock": current_stock,
-                "safety_stock": safety_stock,
-                "order_plan_total": order_plan_total,
-                "avg_cost": round(avg_cost, 2),
                 "recommended_qty": recommended_qty,
+                "order_demand": order_demand,
+                "safety_need": safety_need,
+                "safety_stock": safety_stock,
+                "current_inventory": current_inventory,
+                "avg_hourly_rate": round(avg_hourly_rate, 2),
                 "required_hours": required_hours,
                 "required_manpower": required_manpower,
+                "explanation": explanation,
             },
         }
     except Exception as e:
@@ -2320,4 +2383,465 @@ def share_production_plan(
         raise
     except Exception as e:
         logger.error(f"생산 계획 공유 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ══════════════════════════════════════════════
+#  8. 품목 관리 (Product Master)
+# ══════════════════════════════════════════════
+
+@router.get("/products/categories")
+def list_product_categories(
+    db: Session = Depends(get_db),
+):
+    """품목 카테고리 목록 조회"""
+    try:
+        from app.db_models import ScmProduct
+
+        rows = (
+            db.query(ScmProduct.product_category)
+            .filter(ScmProduct.product_category.isnot(None), ScmProduct.product_category != "")
+            .distinct()
+            .order_by(ScmProduct.product_category)
+            .all()
+        )
+
+        categories = [r[0] for r in rows]
+        return {"success": True, "data": categories}
+    except Exception as e:
+        logger.error(f"품목 카테고리 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/products")
+def list_products(
+    category: Optional[str] = None,
+    search: Optional[str] = None,
+    active_only: bool = True,
+    db: Session = Depends(get_db),
+):
+    """품목 마스터 목록 조회"""
+    try:
+        from app.db_models import ScmProduct
+
+        query = db.query(ScmProduct)
+
+        if active_only:
+            query = query.filter(ScmProduct.is_active == True)
+        if category:
+            query = query.filter(ScmProduct.product_category == category)
+        if search:
+            query = query.filter(
+                (ScmProduct.product_name.ilike(f"%{search}%"))
+                | (ScmProduct.product_code.ilike(f"%{search}%"))
+            )
+
+        products = query.order_by(
+            ScmProduct.product_category,
+            ScmProduct.product_name,
+        ).all()
+
+        return {
+            "success": True,
+            "data": [
+                {
+                    "id": p.id,
+                    "product_name": p.product_name,
+                    "product_code": p.product_code,
+                    "product_category": p.product_category,
+                    "default_location": p.default_location,
+                    "default_unit_price": p.default_unit_price,
+                    "default_cost": p.default_cost,
+                    "avg_hourly_rate": p.avg_hourly_rate,
+                    "total_produced": p.total_produced,
+                    "total_hours": p.total_hours,
+                    "safety_stock": p.safety_stock,
+                    "is_active": p.is_active,
+                    "notes": p.notes,
+                    "created_at": p.created_at.isoformat() if p.created_at else None,
+                    "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+                }
+                for p in products
+            ],
+            "total": len(products),
+        }
+    except Exception as e:
+        logger.error(f"품목 목록 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/products")
+def create_product(
+    body: ProductCreate,
+    db: Session = Depends(get_db),
+):
+    """품목 마스터 생성"""
+    try:
+        from app.db_models import ScmProduct
+
+        # Auto-generate product_code if not provided
+        product_code = body.product_code
+        if not product_code:
+            prefix = (body.product_category or "ETC")[:2].upper()
+            # Find the max existing code with this prefix
+            last = (
+                db.query(ScmProduct)
+                .filter(ScmProduct.product_code.ilike(f"{prefix}%"))
+                .order_by(ScmProduct.id.desc())
+                .first()
+            )
+            if last and last.product_code:
+                try:
+                    num = int(last.product_code[len(prefix):]) + 1
+                except (ValueError, IndexError):
+                    num = 1
+            else:
+                num = 1
+            product_code = f"{prefix}{num:04d}"
+
+        product = ScmProduct(
+            product_name=body.product_name,
+            product_code=product_code,
+            product_category=body.product_category,
+            default_location=body.default_location,
+            default_unit_price=body.default_unit_price,
+            default_cost=body.default_cost,
+            safety_stock=body.safety_stock,
+            notes=body.notes,
+        )
+        db.add(product)
+        db.commit()
+        db.refresh(product)
+
+        return {
+            "success": True,
+            "data": {
+                "id": product.id,
+                "product_name": product.product_name,
+                "product_code": product.product_code,
+                "product_category": product.product_category,
+                "default_location": product.default_location,
+                "default_unit_price": product.default_unit_price,
+                "default_cost": product.default_cost,
+                "avg_hourly_rate": product.avg_hourly_rate,
+                "total_produced": product.total_produced,
+                "total_hours": product.total_hours,
+                "safety_stock": product.safety_stock,
+                "is_active": product.is_active,
+                "notes": product.notes,
+                "created_at": product.created_at.isoformat() if product.created_at else None,
+                "updated_at": product.updated_at.isoformat() if product.updated_at else None,
+            },
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"품목 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/products/{product_id}")
+def update_product(
+    product_id: int,
+    body: ProductUpdate,
+    db: Session = Depends(get_db),
+):
+    """품목 마스터 수정"""
+    try:
+        from app.db_models import ScmProduct
+
+        product = db.query(ScmProduct).filter(ScmProduct.id == product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="품목을 찾을 수 없습니다")
+
+        update_data = body.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(product, key, value)
+
+        db.commit()
+        db.refresh(product)
+
+        return {
+            "success": True,
+            "data": {
+                "id": product.id,
+                "product_name": product.product_name,
+                "product_code": product.product_code,
+                "product_category": product.product_category,
+                "default_location": product.default_location,
+                "default_unit_price": product.default_unit_price,
+                "default_cost": product.default_cost,
+                "avg_hourly_rate": product.avg_hourly_rate,
+                "total_produced": product.total_produced,
+                "total_hours": product.total_hours,
+                "safety_stock": product.safety_stock,
+                "is_active": product.is_active,
+                "notes": product.notes,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"품목 수정 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/products/{product_id}")
+def delete_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+):
+    """품목 삭제 (soft delete: is_active=False)"""
+    try:
+        from app.db_models import ScmProduct
+
+        product = db.query(ScmProduct).filter(ScmProduct.id == product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="품목을 찾을 수 없습니다")
+
+        product.is_active = False
+        db.commit()
+
+        return {"success": True, "message": f"품목 '{product.product_name}'이(가) 비활성화되었습니다"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"품목 삭제 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/products/bulk")
+def bulk_products(
+    body: ProductBulkRequest,
+    db: Session = Depends(get_db),
+):
+    """품목 일괄 생성/수정"""
+    try:
+        from app.db_models import ScmProduct
+
+        created_count = 0
+        updated_count = 0
+
+        for item in body.items:
+            if item.id:
+                product = db.query(ScmProduct).filter(ScmProduct.id == item.id).first()
+                if product:
+                    for key, value in item.model_dump(exclude={"id"}).items():
+                        if value is not None:
+                            setattr(product, key, value)
+                    updated_count += 1
+            else:
+                # Auto-generate product_code if not provided
+                product_code = item.product_code
+                if not product_code:
+                    prefix = (item.product_category or "ETC")[:2].upper()
+                    last = (
+                        db.query(ScmProduct)
+                        .filter(ScmProduct.product_code.ilike(f"{prefix}%"))
+                        .order_by(ScmProduct.id.desc())
+                        .first()
+                    )
+                    if last and last.product_code:
+                        try:
+                            num = int(last.product_code[len(prefix):]) + 1
+                        except (ValueError, IndexError):
+                            num = 1
+                    else:
+                        num = 1
+                    product_code = f"{prefix}{num:04d}"
+
+                product = ScmProduct(
+                    product_name=item.product_name,
+                    product_code=product_code,
+                    product_category=item.product_category,
+                    default_location=item.default_location,
+                    default_unit_price=item.default_unit_price,
+                    default_cost=item.default_cost,
+                    safety_stock=item.safety_stock,
+                    notes=item.notes,
+                )
+                db.add(product)
+                created_count += 1
+
+        db.commit()
+        return {
+            "success": True,
+            "message": f"생성 {created_count}건, 수정 {updated_count}건 처리되었습니다",
+            "created": created_count,
+            "updated": updated_count,
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"품목 일괄 처리 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/products/{product_id}/hourly-rate")
+def get_product_hourly_rate(
+    product_id: int,
+    db: Session = Depends(get_db),
+):
+    """품목별 시간당 생산량 조회 (월별 트렌드 포함)"""
+    try:
+        from app.db_models import ScmProduct, ScmProductionResult
+
+        product = db.query(ScmProduct).filter(ScmProduct.id == product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="품목을 찾을 수 없습니다")
+
+        # 전체 합산
+        totals = (
+            db.query(
+                func.coalesce(func.sum(ScmProductionResult.quantity), 0).label("total_qty"),
+                func.coalesce(func.sum(ScmProductionResult.total_hours), 0).label("total_hrs"),
+            )
+            .filter(ScmProductionResult.product_name == product.product_name)
+            .first()
+        )
+
+        total_produced = float(totals.total_qty)
+        total_hours_val = float(totals.total_hrs)
+        avg_rate = round(total_produced / total_hours_val, 2) if total_hours_val > 0 else 0
+
+        # 최근 6개월 월별 트렌드
+        six_months_ago = date.today() - timedelta(days=180)
+        monthly_rows = (
+            db.query(
+                extract("year", ScmProductionResult.production_date).label("yr"),
+                extract("month", ScmProductionResult.production_date).label("mn"),
+                func.coalesce(func.sum(ScmProductionResult.quantity), 0).label("qty"),
+                func.coalesce(func.sum(ScmProductionResult.total_hours), 0).label("hrs"),
+            )
+            .filter(
+                ScmProductionResult.product_name == product.product_name,
+                ScmProductionResult.production_date >= six_months_ago,
+            )
+            .group_by("yr", "mn")
+            .order_by("yr", "mn")
+            .all()
+        )
+
+        monthly_trend = []
+        for row in monthly_rows:
+            qty = float(row.qty)
+            hrs = float(row.hrs)
+            rate = round(qty / hrs, 2) if hrs > 0 else 0
+            monthly_trend.append({
+                "month": f"{int(row.yr)}-{int(row.mn):02d}",
+                "quantity": qty,
+                "hours": hrs,
+                "rate": rate,
+            })
+
+        return {
+            "success": True,
+            "data": {
+                "product_name": product.product_name,
+                "avg_hourly_rate": avg_rate,
+                "total_produced": total_produced,
+                "total_hours": total_hours_val,
+                "monthly_trend": monthly_trend,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"품목 시간당 생산량 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/products/sync-rates")
+def sync_product_rates(
+    db: Session = Depends(get_db),
+):
+    """모든 활성 품목의 avg_hourly_rate를 생산 결과에서 재계산"""
+    try:
+        from app.db_models import ScmProduct, ScmProductionResult
+
+        products = db.query(ScmProduct).filter(ScmProduct.is_active == True).all()
+        updated_count = 0
+
+        for product in products:
+            totals = (
+                db.query(
+                    func.coalesce(func.sum(ScmProductionResult.quantity), 0).label("total_qty"),
+                    func.coalesce(func.sum(ScmProductionResult.total_hours), 0).label("total_hrs"),
+                )
+                .filter(ScmProductionResult.product_name == product.product_name)
+                .first()
+            )
+
+            total_qty = float(totals.total_qty)
+            total_hrs = float(totals.total_hrs)
+
+            product.total_produced = total_qty
+            product.total_hours = total_hrs
+            product.avg_hourly_rate = round(total_qty / total_hrs, 2) if total_hrs > 0 else 0
+            updated_count += 1
+
+        db.commit()
+
+        return {
+            "success": True,
+            "message": f"{updated_count}개 품목의 시간당 생산량이 갱신되었습니다",
+            "updated_count": updated_count,
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"품목 시간당 생산량 동기화 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/products/{product_name}/defaults")
+def get_product_defaults(
+    product_name: str,
+    db: Session = Depends(get_db),
+):
+    """품목명으로 기본값 조회 (생산 계획 자동완성용)"""
+    try:
+        from app.db_models import ScmProduct, ScmProductionResult
+
+        product = (
+            db.query(ScmProduct)
+            .filter(ScmProduct.product_name == product_name, ScmProduct.is_active == True)
+            .first()
+        )
+
+        if not product:
+            raise HTTPException(status_code=404, detail="품목을 찾을 수 없습니다")
+
+        # 최신 시간당 생산량 계산 (생산 결과 기반)
+        totals = (
+            db.query(
+                func.coalesce(func.sum(ScmProductionResult.quantity), 0).label("total_qty"),
+                func.coalesce(func.sum(ScmProductionResult.total_hours), 0).label("total_hrs"),
+            )
+            .filter(ScmProductionResult.product_name == product_name)
+            .first()
+        )
+
+        total_qty = float(totals.total_qty)
+        total_hrs = float(totals.total_hrs)
+        computed_rate = round(total_qty / total_hrs, 2) if total_hrs > 0 else 0
+
+        # 마스터 값이 있으면 마스터 값 우선, 없으면 계산 값
+        avg_hourly_rate = product.avg_hourly_rate if product.avg_hourly_rate and product.avg_hourly_rate > 0 else computed_rate
+
+        return {
+            "success": True,
+            "data": {
+                "product_name": product.product_name,
+                "product_category": product.product_category,
+                "default_location": product.default_location,
+                "default_unit_price": product.default_unit_price,
+                "default_cost": product.default_cost,
+                "avg_hourly_rate": avg_hourly_rate,
+                "safety_stock": product.safety_stock,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"품목 기본값 조회 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))

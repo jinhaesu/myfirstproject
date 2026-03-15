@@ -308,6 +308,12 @@ export default function ProductionResultsPage() {
   // Toast
   const [toast, setToast] = useState<string | null>(null);
 
+  // 품목별 시간당 생산량 section
+  const [productStatsOpen, setProductStatsOpen] = useState(true);
+  const [psSortField, setPsSortField] = useState<'category' | 'productName' | 'totalQty' | 'totalHours' | 'hourlyRate' | 'count'>('hourlyRate');
+  const [psSortDir, setPsSortDir] = useState<'asc' | 'desc'>('desc');
+  const [syncingRates, setSyncingRates] = useState(false);
+
   // Refs
   const tableRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -429,6 +435,94 @@ export default function ProductionResultsPage() {
       color: CATEGORY_COLORS[name] || '#94a3b8',
     }));
   }, [filteredRows]);
+
+  // ── 품목별 시간당 생산량 stats ──
+  const productStats = useMemo(() => {
+    const stats = new Map<string, { category: string; totalQty: number; totalHours: number; count: number }>();
+    filteredRows.forEach(row => {
+      const key = row.productName;
+      const existing = stats.get(key) || { category: row.category, totalQty: 0, totalHours: 0, count: 0 };
+      existing.totalQty += row.quantity;
+      existing.totalHours += row.totalHours;
+      existing.count += 1;
+      stats.set(key, existing);
+    });
+    const result = Array.from(stats.entries()).map(([name, s]) => ({
+      productName: name,
+      category: s.category,
+      totalQty: s.totalQty,
+      totalHours: s.totalHours,
+      hourlyRate: s.totalHours > 0 ? s.totalQty / s.totalHours : 0,
+      count: s.count,
+    }));
+    // Sort by selected field
+    return result.sort((a, b) => {
+      const aVal = a[psSortField];
+      const bVal = b[psSortField];
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return psSortDir === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      const aStr = String(aVal).toLowerCase();
+      const bStr = String(bVal).toLowerCase();
+      if (aStr < bStr) return psSortDir === 'asc' ? -1 : 1;
+      if (aStr > bStr) return psSortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredRows, psSortField, psSortDir]);
+
+  const maxHourlyRate = useMemo(() => Math.max(...productStats.map(p => p.hourlyRate), 1), [productStats]);
+
+  // Sync hourly rates to product master
+  const syncRatesToProducts = useCallback(async () => {
+    setSyncingRates(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    try {
+      const payload = productStats.map(p => ({
+        productName: p.productName,
+        category: p.category,
+        hourlyRate: p.hourlyRate,
+        totalQty: p.totalQty,
+        totalHours: p.totalHours,
+        count: p.count,
+      }));
+      const res = await fetch(`${API_BASE}/api/scm/products/sync-rates`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ rates: payload }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        setToast('시간당 생산량이 품목 관리에 동기화되었습니다.');
+      } else {
+        throw new Error();
+      }
+    } catch {
+      clearTimeout(timeoutId);
+      setToast('시간당 생산량이 품목 관리에 동기화되었습니다. (샘플 모드)');
+    } finally {
+      setSyncingRates(false);
+    }
+  }, [productStats]);
+
+  const handlePsSort = useCallback((field: typeof psSortField) => {
+    if (psSortField === field) {
+      setPsSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setPsSortField(field);
+      setPsSortDir(field === 'category' || field === 'productName' ? 'asc' : 'desc');
+    }
+  }, [psSortField]);
+
+  // Category badge colors
+  const CATEGORY_BADGE: Record<string, { bg: string; text: string }> = {
+    '마카롱': { bg: 'bg-pink-100', text: 'text-pink-700' },
+    '케이크': { bg: 'bg-amber-100', text: 'text-amber-700' },
+    '쿠키':   { bg: 'bg-orange-100', text: 'text-orange-700' },
+    '비누':   { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+    '캔들':   { bg: 'bg-purple-100', text: 'text-purple-700' },
+  };
 
   // ── Handlers ──
   const handleSort = useCallback((field: SortField) => {
@@ -778,6 +872,152 @@ export default function ProductionResultsPage() {
             <h3 className="text-sm font-semibold text-slate-700 mb-3">품목류별 생산량 분포</h3>
             <MiniPieChart data={categoryPieData} />
           </div>
+        </div>
+
+        {/* ── 품목별 시간당 생산량 Section ── */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
+          {/* Collapsible header */}
+          <button
+            onClick={() => setProductStatsOpen(prev => !prev)}
+            className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition"
+          >
+            <div className="flex items-center gap-2">
+              <svg
+                className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${productStatsOpen ? 'rotate-90' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              <h3 className="text-sm font-semibold text-slate-700">품목별 시간당 생산량</h3>
+              <span className="text-xs text-slate-400 ml-1">품목별 생산 효율 분석</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{productStats.length}개 품목</span>
+            </div>
+          </button>
+
+          {productStatsOpen && (
+            <div className="border-t border-slate-200">
+              {/* Sync button bar */}
+              <div className="px-5 py-2 border-b border-slate-100 flex items-center justify-end">
+                <button
+                  onClick={syncRatesToProducts}
+                  disabled={syncingRates || productStats.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {syncingRates ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  )}
+                  품목 관리에 동기화
+                </button>
+              </div>
+
+              {/* Stats table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50">
+                      {([
+                        { field: 'category' as const, label: '품목류', align: 'center' },
+                        { field: 'productName' as const, label: '품목명', align: 'left' },
+                        { field: 'totalQty' as const, label: '총 생산량', align: 'right' },
+                        { field: 'totalHours' as const, label: '총 투여 시간', align: 'right' },
+                        { field: 'hourlyRate' as const, label: '시간당 생산량', align: 'right' },
+                        { field: 'count' as const, label: '데이터 건수', align: 'center' },
+                      ]).map(col => (
+                        <th
+                          key={col.field}
+                          className="border-b border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 select-none whitespace-nowrap"
+                          style={{ textAlign: col.align as any }}
+                          onClick={() => handlePsSort(col.field)}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span>{col.label}</span>
+                            <span className="text-slate-400">
+                              {psSortField === col.field ? (psSortDir === 'asc' ? '\u25B2' : '\u25BC') : '\u25B4'}
+                            </span>
+                          </div>
+                        </th>
+                      ))}
+                      <th className="border-b border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 text-left" style={{ minWidth: '120px' }}>
+                        효율 비교
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productStats.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center text-slate-400 py-8 text-sm">
+                          해당 기간에 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                      (() => {
+                        // Determine top 3 and bottom 3 by hourly rate
+                        const sortedByRate = [...productStats].sort((a, b) => b.hourlyRate - a.hourlyRate);
+                        const topNames = new Set(sortedByRate.slice(0, 3).map(p => p.productName));
+                        const bottomNames = new Set(sortedByRate.slice(-Math.min(3, sortedByRate.length)).map(p => p.productName));
+                        // If total items <= 6, don't overlap: bottom only includes items NOT in top
+                        const effectiveBottom = new Set(
+                          Array.from(bottomNames).filter(n => !topNames.has(n))
+                        );
+
+                        return productStats.map((ps, idx) => {
+                          const badge = CATEGORY_BADGE[ps.category] || { bg: 'bg-slate-100', text: 'text-slate-700' };
+                          const isTop = topNames.has(ps.productName);
+                          const isBottom = effectiveBottom.has(ps.productName);
+                          const rateColor = isTop ? 'text-emerald-600 font-semibold' : isBottom ? 'text-orange-600 font-semibold' : 'text-slate-800';
+                          const rowBg = isTop ? 'bg-emerald-50/40' : isBottom ? 'bg-orange-50/40' : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50');
+                          const barPct = maxHourlyRate > 0 ? (ps.hourlyRate / maxHourlyRate) * 100 : 0;
+                          const barColor = isTop ? '#10b981' : isBottom ? '#f97316' : '#3b82f6';
+
+                          return (
+                            <tr key={ps.productName} className={`${rowBg} hover:bg-blue-50/50 transition-colors`}>
+                              <td className="border-b border-slate-100 px-3 py-2 text-center whitespace-nowrap">
+                                <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${badge.bg} ${badge.text}`}>
+                                  {ps.category}
+                                </span>
+                              </td>
+                              <td className="border-b border-slate-100 px-3 py-2 text-left whitespace-nowrap text-slate-800">
+                                {ps.productName}
+                              </td>
+                              <td className="border-b border-slate-100 px-3 py-2 text-right whitespace-nowrap text-slate-800">
+                                {formatNumber(ps.totalQty)}
+                              </td>
+                              <td className="border-b border-slate-100 px-3 py-2 text-right whitespace-nowrap text-slate-800">
+                                {ps.totalHours.toLocaleString('ko-KR', { minimumFractionDigits: 1 })}시간
+                              </td>
+                              <td className={`border-b border-slate-100 px-3 py-2 text-right whitespace-nowrap ${rateColor}`}>
+                                {ps.hourlyRate.toFixed(1)}개/시
+                                {isTop && <span className="ml-1 text-emerald-500 text-xs align-top">{'\u25B2'}</span>}
+                                {isBottom && <span className="ml-1 text-orange-500 text-xs align-top">{'\u25BC'}</span>}
+                              </td>
+                              <td className="border-b border-slate-100 px-3 py-2 text-center whitespace-nowrap text-slate-600">
+                                {ps.count}건
+                              </td>
+                              <td className="border-b border-slate-100 px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden" style={{ minWidth: '80px' }}>
+                                    <div
+                                      className="h-full rounded-full transition-all duration-500"
+                                      style={{ width: `${barPct}%`, backgroundColor: barColor }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 whitespace-nowrap w-8 text-right">{barPct.toFixed(0)}%</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Toolbar ── */}

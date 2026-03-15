@@ -425,6 +425,27 @@ class ScmProductionResult(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
+class ScmProduct(Base):
+    """품목 마스터 (Product Master)"""
+    __tablename__ = "scm_products"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_name = Column(String(200), nullable=False, unique=True)  # 품목명
+    product_code = Column(String(100), nullable=True)  # 품목코드
+    product_category = Column(String(100), nullable=True)  # 품목류 (마카롱, 케이크 등)
+    default_location = Column(String(100), nullable=True)  # 기본 생산 위치
+    default_unit_price = Column(Float, default=0)  # 기본 생산 단가
+    default_cost = Column(Float, default=0)  # 기본 원가
+    avg_hourly_rate = Column(Float, default=0)  # 평균 시간당 생산량 (누적)
+    total_produced = Column(Float, default=0)  # 총 누적 생산량
+    total_hours = Column(Float, default=0)  # 총 누적 투여 시간
+    safety_stock = Column(Float, default=0)  # 안전재고
+    is_active = Column(Boolean, default=True)  # 활성 여부
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
 class ScmProductionPlanV2(Base):
     """생산 계획 v2 - 생산일보 RAW-DATA 형식 + AI 추천"""
     __tablename__ = "scm_production_plans_v2"
