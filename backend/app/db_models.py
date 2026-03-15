@@ -469,3 +469,56 @@ class ScmProductionPlanV2(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+# ──────────────────────────────────────────────
+# CS 게시판 대응 Models (사방넷 연동)
+# ──────────────────────────────────────────────
+
+class CsInquiry(Base):
+    """CS 문의사항"""
+    __tablename__ = "cs_inquiries"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    external_id = Column(String(200), nullable=True)  # 사방넷 문의 ID
+    mall_name = Column(String(100), nullable=False)  # 쇼핑몰명 (스마트스토어, 쿠팡 등)
+    board_type = Column(String(100), nullable=True)  # 게시판 유형 (상품문의, 교환/반품, 배송문의 등)
+    customer_name = Column(String(100), nullable=True)  # 고객명
+    customer_id = Column(String(200), nullable=True)  # 고객 ID
+    product_name = Column(String(300), nullable=True)  # 관련 상품명
+    order_number = Column(String(200), nullable=True)  # 주문번호
+    title = Column(String(500), nullable=True)  # 문의 제목
+    content = Column(Text, nullable=False)  # 문의 내용
+    inquiry_date = Column(DateTime, nullable=True)  # 문의 등록일
+    status = Column(String(50), default="new")  # new, ai_drafted, approved, sent, failed
+    ai_response = Column(Text, nullable=True)  # AI 생성 답변 초안
+    final_response = Column(Text, nullable=True)  # 최종 확정 답변
+    sent_at = Column(DateTime, nullable=True)  # 답변 발송일
+    auto_mode = Column(Boolean, default=False)  # 자동 답변 여부
+    category = Column(String(100), nullable=True)  # AI 분류 카테고리
+    priority = Column(String(50), default="normal")  # low, normal, high, urgent
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class CsReferenceData(Base):
+    """CS 답변 참고 데이터"""
+    __tablename__ = "cs_reference_data"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(300), nullable=False)  # 참고자료 제목
+    category = Column(String(100), nullable=True)  # 카테고리 (배송정책, 교환/반품, FAQ, 상품정보 등)
+    content = Column(Text, nullable=False)  # 참고 내용
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class CsConfig(Base):
+    """CS 설정"""
+    __tablename__ = "cs_config"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    config_key = Column(String(100), nullable=False, unique=True)
+    config_value = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
