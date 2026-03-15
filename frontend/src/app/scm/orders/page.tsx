@@ -19,9 +19,13 @@ const getAuthHeaders = () => {
 
 const fetchSafe = async <T,>(path: string, defaultValue: T): Promise<T> => {
   try {
-    const res = await fetch(`${API_BASE}${path}`, { headers: getAuthHeaders() });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${API_BASE}${path}`, { headers: getAuthHeaders(), signal: controller.signal });
+    clearTimeout(timeout);
     if (!res.ok) throw new Error();
-    return await res.json();
+    const data = await res.json();
+    return Array.isArray(defaultValue) && !Array.isArray(data) ? defaultValue : data;
   } catch {
     return defaultValue;
   }
@@ -29,11 +33,15 @@ const fetchSafe = async <T,>(path: string, defaultValue: T): Promise<T> => {
 
 const postSafe = async <T,>(path: string, body: unknown, defaultValue: T): Promise<T> => {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     if (!res.ok) throw new Error();
     return await res.json();
   } catch {
