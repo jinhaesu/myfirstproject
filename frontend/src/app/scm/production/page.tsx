@@ -1,17 +1,13 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, Cell,
-} from 'recharts';
 
-// ─────────────────────────────────────────────
-// API helper
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// API helpers
+// ─────────────────────────────────────────────────────────────────────────────
 const API_BASE = '';
 const getAuthHeaders = () => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -26,806 +22,1136 @@ const fetchSafe = async <T,>(path: string, defaultValue: T): Promise<T> => {
     return await res.json();
   } catch { return defaultValue; }
 };
+const postApi = async <T,>(path: string, body: unknown, defaultValue: T): Promise<T> => {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error();
+    return await res.json();
+  } catch { return defaultValue; }
+};
+const putApi = async <T,>(path: string, body: unknown, defaultValue: T): Promise<T> => {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error();
+    return await res.json();
+  } catch { return defaultValue; }
+};
+const deleteApi = async (path: string): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    return res.ok;
+  } catch { return false; }
+};
 
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // Types
-// ─────────────────────────────────────────────
-type ProductionStatus = '계획' | '원자재준비' | '생산중' | '품질검사' | '완료' | '지연';
-type Category = '스킨케어' | '메이크업' | '헤어케어' | '바디케어' | '기타';
+// ─────────────────────────────────────────────────────────────────────────────
+type PlanStatus = '초안' | '확정' | '진행중' | '완료';
+type ViewMode = 'daily' | 'weekly';
+type AlertLevel = 'urgent' | 'warning' | 'ok';
 
 interface ProductionPlan {
   id: string;
-  productName: string;
-  category: Category;
-  plannedQty: number;
-  producedQty: number;
-  startDate: string;        // YYYY-MM-DD
-  endDate: string;           // YYYY-MM-DD
-  status: ProductionStatus;
-  manager: string;
-  memo: string;
+  plan_date: string;
+  product_name: string;
+  product_code: string;
+  planned_qty: number;
+  avg_hourly_rate: number;
+  required_hours: number;
+  required_manpower: number;
+  order_plan_qty: number;
+  safety_stock_deficit: number;
+  ai_recommended_qty: number | null;
+  status: PlanStatus;
+  notes: string;
 }
 
-type SortField = 'productName' | 'category' | 'plannedQty' | 'producedQty' | 'startDate' | 'endDate' | 'status' | 'manager';
-type SortDirection = 'asc' | 'desc';
+interface AIRecommendation {
+  recommended_qty: number;
+  safety_stock_deficit: number;
+  order_plan_qty: number;
+  avg_hourly_rate: number;
+  required_hours: number;
+  required_manpower: number;
+  explanation: string;
+}
 
-// ─────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────
-const STATUS_OPTIONS: ProductionStatus[] = ['계획', '원자재준비', '생산중', '품질검사', '완료', '지연'];
-const CATEGORY_OPTIONS: Category[] = ['스킨케어', '메이크업', '헤어케어', '바디케어', '기타'];
+interface AlertItem {
+  id: string;
+  level: AlertLevel;
+  title: string;
+  description: string;
+  product_name: string;
+  due_date?: string;
+}
 
-const STATUS_COLORS: Record<ProductionStatus, { bg: string; text: string; bar: string }> = {
-  '계획':     { bg: 'bg-slate-100',  text: 'text-slate-700',  bar: '#94a3b8' },
-  '원자재준비': { bg: 'bg-amber-100',  text: 'text-amber-700',  bar: '#f59e0b' },
-  '생산중':   { bg: 'bg-blue-100',   text: 'text-blue-700',   bar: '#3b82f6' },
-  '품질검사':  { bg: 'bg-purple-100', text: 'text-purple-700', bar: '#8b5cf6' },
-  '완료':     { bg: 'bg-emerald-100', text: 'text-emerald-700', bar: '#10b981' },
-  '지연':     { bg: 'bg-red-100',    text: 'text-red-700',    bar: '#ef4444' },
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants & Sample Data
+// ─────────────────────────────────────────────────────────────────────────────
+const STATUS_CONFIG: Record<PlanStatus, { bg: string; text: string; dot: string }> = {
+  '초안':  { bg: 'bg-gray-100',    text: 'text-gray-700',    dot: 'bg-gray-400' },
+  '확정':  { bg: 'bg-blue-100',    text: 'text-blue-700',    dot: 'bg-blue-500' },
+  '진행중': { bg: 'bg-amber-100',   text: 'text-amber-700',   dot: 'bg-amber-500' },
+  '완료':  { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
 };
 
-const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+const STATUS_OPTIONS: PlanStatus[] = ['초안', '확정', '진행중', '완료'];
 
-// ─────────────────────────────────────────────
-// Sample data generator
-// ─────────────────────────────────────────────
-const generateSampleData = (): ProductionPlan[] => [
+const PRODUCT_CATALOG = [
+  { name: '수제 비누', code: 'SB-001' },
+  { name: '천연 샴푸', code: 'NS-002' },
+  { name: '아로마 오일', code: 'AO-003' },
+  { name: '핸드크림', code: 'HC-004' },
+  { name: '바디로션', code: 'BL-005' },
+  { name: '페이스 미스트', code: 'FM-006' },
+  { name: '립밤', code: 'LB-007' },
+  { name: '선크림 SPF50+', code: 'SC-008' },
+  { name: '클렌징 폼', code: 'CF-009' },
+  { name: '수분 세럼', code: 'SS-010' },
+];
+
+const formatDate = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const getWeekDates = (baseDate: Date): { start: string; end: string } => {
+  const d = new Date(baseDate);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { start: formatDate(monday), end: formatDate(sunday) };
+};
+
+const getDatesInRange = (start: string, end: string): string[] => {
+  const dates: string[] = [];
+  const current = new Date(start);
+  const last = new Date(end);
+  while (current <= last) {
+    dates.push(formatDate(current));
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+};
+
+const generateSamplePlans = (): ProductionPlan[] => {
+  const today = new Date();
+  const week = getWeekDates(today);
+  const dates = getDatesInRange(week.start, week.end);
+
+  const plans: ProductionPlan[] = [
+    {
+      id: 'PP-001', plan_date: dates[0] || week.start, product_name: '수제 비누', product_code: 'SB-001',
+      planned_qty: 500, avg_hourly_rate: 60, required_hours: 8.33, required_manpower: 2,
+      order_plan_qty: 400, safety_stock_deficit: 150, ai_recommended_qty: 550,
+      status: '확정', notes: '생산1팀 배정',
+    },
+    {
+      id: 'PP-002', plan_date: dates[0] || week.start, product_name: '천연 샴푸', product_code: 'NS-002',
+      planned_qty: 300, avg_hourly_rate: 45, required_hours: 6.67, required_manpower: 1,
+      order_plan_qty: 250, safety_stock_deficit: 80, ai_recommended_qty: 330,
+      status: '초안', notes: '',
+    },
+    {
+      id: 'PP-003', plan_date: dates[1] || week.start, product_name: '아로마 오일', product_code: 'AO-003',
+      planned_qty: 200, avg_hourly_rate: 30, required_hours: 6.67, required_manpower: 1,
+      order_plan_qty: 180, safety_stock_deficit: 50, ai_recommended_qty: 230,
+      status: '진행중', notes: '생산2팀 배정',
+    },
+    {
+      id: 'PP-004', plan_date: dates[2] || week.start, product_name: '핸드크림', product_code: 'HC-004',
+      planned_qty: 800, avg_hourly_rate: 80, required_hours: 10, required_manpower: 2,
+      order_plan_qty: 700, safety_stock_deficit: 200, ai_recommended_qty: 900,
+      status: '초안', notes: '원자재 입고 확인 필요',
+    },
+    {
+      id: 'PP-005', plan_date: dates[2] || week.start, product_name: '바디로션', product_code: 'BL-005',
+      planned_qty: 400, avg_hourly_rate: 50, required_hours: 8, required_manpower: 1,
+      order_plan_qty: 350, safety_stock_deficit: 100, ai_recommended_qty: 450,
+      status: '확정', notes: '',
+    },
+    {
+      id: 'PP-006', plan_date: dates[3] || week.start, product_name: '페이스 미스트', product_code: 'FM-006',
+      planned_qty: 600, avg_hourly_rate: 70, required_hours: 8.57, required_manpower: 2,
+      order_plan_qty: 500, safety_stock_deficit: 120, ai_recommended_qty: null,
+      status: '초안', notes: '봄 시즌 프로모션',
+    },
+    {
+      id: 'PP-007', plan_date: dates[4] || week.start, product_name: '립밤', product_code: 'LB-007',
+      planned_qty: 1000, avg_hourly_rate: 120, required_hours: 8.33, required_manpower: 2,
+      order_plan_qty: 900, safety_stock_deficit: 0, ai_recommended_qty: 900,
+      status: '완료', notes: '생산1팀 완료',
+    },
+    {
+      id: 'PP-008', plan_date: dates[5] || week.start, product_name: '선크림 SPF50+', product_code: 'SC-008',
+      planned_qty: 350, avg_hourly_rate: 40, required_hours: 8.75, required_manpower: 2,
+      order_plan_qty: 300, safety_stock_deficit: 80, ai_recommended_qty: 380,
+      status: '초안', notes: '여름 대비 선 생산',
+    },
+  ];
+  return plans;
+};
+
+const generateSampleAlerts = (): AlertItem[] => [
   {
-    id: 'PP-001',
-    productName: '시카 리페어 크림 50ml',
-    category: '스킨케어',
-    plannedQty: 5000,
-    producedQty: 5000,
-    startDate: '2026-03-01',
-    endDate: '2026-03-15',
-    status: '완료',
-    manager: '김민수',
-    memo: '봄 시즌 리뉴얼 제품',
+    id: 'A-001', level: 'urgent',
+    title: '긴급 생산 필요', description: '핸드크림 안전재고 부족 (부족분: 200개). 3/18 주문 납기 임박.',
+    product_name: '핸드크림', due_date: '2026-03-18',
   },
   {
-    id: 'PP-002',
-    productName: '히알루론산 세럼 30ml',
-    category: '스킨케어',
-    plannedQty: 8000,
-    producedQty: 6200,
-    startDate: '2026-03-03',
-    endDate: '2026-03-20',
-    status: '생산중',
-    manager: '이지은',
-    memo: '스마트스토어 프로모션 대비',
+    id: 'A-002', level: 'urgent',
+    title: '납기 임박 주문', description: '수제 비누 400개 주문 (3/17 납기). 현 재고 부족.',
+    product_name: '수제 비누', due_date: '2026-03-17',
   },
   {
-    id: 'PP-003',
-    productName: '톤업 선크림 SPF50+ 60ml',
-    category: '스킨케어',
-    plannedQty: 12000,
-    producedQty: 3600,
-    startDate: '2026-03-05',
-    endDate: '2026-03-25',
-    status: '생산중',
-    manager: '박서연',
-    memo: '여름 선제 생산',
+    id: 'A-003', level: 'warning',
+    title: '안전재고 주의', description: '페이스 미스트 안전재고 하한선 근접 (현재고: 130개, 안전재고: 120개).',
+    product_name: '페이스 미스트',
   },
   {
-    id: 'PP-004',
-    productName: '벨벳 매트 립스틱 #로즈레드',
-    category: '메이크업',
-    plannedQty: 3000,
-    producedQty: 3000,
-    startDate: '2026-02-20',
-    endDate: '2026-03-10',
-    status: '완료',
-    manager: '최유나',
-    memo: '신규 색상 출시',
+    id: 'A-004', level: 'warning',
+    title: '주문 계획 확인', description: '아로마 오일 대량 주문 계획 접수 (180개, 3/22 납기).',
+    product_name: '아로마 오일', due_date: '2026-03-22',
   },
   {
-    id: 'PP-005',
-    productName: '글로우 쿠션 파운데이션 15g',
-    category: '메이크업',
-    plannedQty: 6000,
-    producedQty: 5400,
-    startDate: '2026-03-01',
-    endDate: '2026-03-18',
-    status: '품질검사',
-    manager: '최유나',
-    memo: '리필 포함 세트 구성',
-  },
-  {
-    id: 'PP-006',
-    productName: '케라틴 실크 샴푸 500ml',
-    category: '헤어케어',
-    plannedQty: 10000,
-    producedQty: 2000,
-    startDate: '2026-03-10',
-    endDate: '2026-03-28',
-    status: '원자재준비',
-    manager: '정하늘',
-    memo: '원자재 도착 대기 중',
-  },
-  {
-    id: 'PP-007',
-    productName: '두피 스케일링 토닉 150ml',
-    category: '헤어케어',
-    plannedQty: 4000,
-    producedQty: 0,
-    startDate: '2026-03-15',
-    endDate: '2026-03-30',
-    status: '계획',
-    manager: '정하늘',
-    memo: '신규 라인업 추가',
-  },
-  {
-    id: 'PP-008',
-    productName: '시어버터 바디로션 300ml',
-    category: '바디케어',
-    plannedQty: 7000,
-    producedQty: 7000,
-    startDate: '2026-02-15',
-    endDate: '2026-03-05',
-    status: '완료',
-    manager: '김민수',
-    memo: '대용량 리뉴얼',
-  },
-  {
-    id: 'PP-009',
-    productName: '그린티 클렌징 오일 200ml',
-    category: '스킨케어',
-    plannedQty: 5000,
-    producedQty: 1500,
-    startDate: '2026-02-25',
-    endDate: '2026-03-08',
-    status: '지연',
-    manager: '이지은',
-    memo: '용기 납품 지연으로 일정 변경',
-  },
-  {
-    id: 'PP-010',
-    productName: '아이브로우 펜슬 세트',
-    category: '메이크업',
-    plannedQty: 4000,
-    producedQty: 0,
-    startDate: '2026-03-18',
-    endDate: '2026-04-05',
-    status: '계획',
-    manager: '최유나',
-    memo: '3색 세트 패키지',
-  },
-  {
-    id: 'PP-011',
-    productName: '코코넛 바디스크럽 250g',
-    category: '바디케어',
-    plannedQty: 3500,
-    producedQty: 3500,
-    startDate: '2026-02-10',
-    endDate: '2026-03-01',
-    status: '완료',
-    manager: '박서연',
-    memo: '리미티드 에디션',
-  },
-  {
-    id: 'PP-012',
-    productName: '레티놀 나이트 크림 40ml',
-    category: '스킨케어',
-    plannedQty: 6000,
-    producedQty: 4800,
-    startDate: '2026-03-02',
-    endDate: '2026-03-16',
-    status: '품질검사',
-    manager: '김민수',
-    memo: '안정성 테스트 진행 중',
-  },
-  {
-    id: 'PP-013',
-    productName: '딥 클렌징 폼 150ml',
-    category: '스킨케어',
-    plannedQty: 9000,
-    producedQty: 2700,
-    startDate: '2026-03-07',
-    endDate: '2026-03-10',
-    status: '지연',
-    manager: '이지은',
-    memo: '포장재 불량으로 재발주',
-  },
-  {
-    id: 'PP-014',
-    productName: '볼륨 마스카라 블랙',
-    category: '메이크업',
-    plannedQty: 5000,
-    producedQty: 3000,
-    startDate: '2026-03-08',
-    endDate: '2026-03-22',
-    status: '생산중',
-    manager: '최유나',
-    memo: '쿠팡 행사 대비 물량',
+    id: 'A-005', level: 'ok',
+    title: '재고 정상', description: '립밤 재고 충분 (현재고: 1,200개). 추가 생산 불필요.',
+    product_name: '립밤',
   },
 ];
 
-// ─────────────────────────────────────────────
-// Monthly summary data for chart
-// ─────────────────────────────────────────────
-const MONTHLY_CHART_DATA = [
-  { month: '2025-10', 계획: 42000, 실적: 38500 },
-  { month: '2025-11', 계획: 50000, 실적: 47200 },
-  { month: '2025-12', 계획: 55000, 실적: 51000 },
-  { month: '2026-01', 계획: 48000, 실적: 46800 },
-  { month: '2026-02', 계획: 52000, 실적: 49500 },
-  { month: '2026-03', 계획: 87500, 실적: 45200 },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// SVG Icons (inline for zero-dependency)
+// ─────────────────────────────────────────────────────────────────────────────
+const SparkleIcon = () => (
+  <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M12 2L13.09 8.26L18 6L15.74 10.91L22 12L15.74 13.09L18 18L13.09 15.74L12 22L10.91 15.74L6 18L8.26 13.09L2 12L8.26 10.91L6 6L10.91 8.26L12 2Z" />
+  </svg>
+);
 
-// ─────────────────────────────────────────────
-// Utility functions
-// ─────────────────────────────────────────────
-const formatNumber = (n: number): string => n.toLocaleString('ko-KR');
+const CalendarIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+  </svg>
+);
 
-const formatDate = (d: string): string => {
-  const date = new Date(d);
-  return `${date.getMonth() + 1}/${date.getDate()}`;
-};
+const PlusIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
+  </svg>
+);
 
-const daysBetween = (a: string, b: string): number => {
-  const msPerDay = 86400000;
-  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / msPerDay);
-};
+const TrashIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+  </svg>
+);
 
-const progressPercent = (produced: number, planned: number): number => {
-  if (planned === 0) return 0;
-  return Math.min(100, Math.round((produced / planned) * 100));
-};
+const ShareIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+  </svg>
+);
 
-const uuid = (): string => `PP-${Date.now().toString(36).toUpperCase()}`;
+const CheckIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.5 12.75l6 6 9-13.5" />
+  </svg>
+);
 
-// ─────────────────────────────────────────────
-// Excel download helper
-// ─────────────────────────────────────────────
-const downloadExcel = (plans: ProductionPlan[]) => {
-  const BOM = '\uFEFF';
-  const headers = ['ID', '상품명', '카테고리', '계획수량', '생산수량', '진행률(%)', '시작일', '완료예정일', '상태', '담당자', '메모'];
-  const rows = plans.map(p => [
-    p.id,
-    p.productName,
-    p.category,
-    p.plannedQty,
-    p.producedQty,
-    progressPercent(p.producedQty, p.plannedQty),
-    p.startDate,
-    p.endDate,
-    p.status,
-    p.manager,
-    p.memo,
-  ]);
-  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `생산계획_${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-};
+const XIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
 
-// ─────────────────────────────────────────────
-// Custom Tooltip for Recharts
-// ─────────────────────────────────────────────
-const CustomBarTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload || !payload.length) return null;
-  return (
-    <div className="bg-white px-4 py-3 rounded-xl shadow-lg border border-slate-200 text-sm">
-      <p className="font-semibold text-slate-800 mb-1">{label}</p>
-      {payload.map((entry: any, i: number) => (
-        <p key={i} style={{ color: entry.color }}>
-          {entry.name}: {formatNumber(entry.value)}개
-        </p>
-      ))}
-    </div>
-  );
-};
+const ExclamationIcon = () => (
+  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+    <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+  </svg>
+);
 
-const CustomPieTooltip = ({ active, payload }: any) => {
-  if (!active || !payload || !payload.length) return null;
-  const d = payload[0];
-  return (
-    <div className="bg-white px-4 py-3 rounded-xl shadow-lg border border-slate-200 text-sm">
-      <p className="font-semibold text-slate-800">{d.name}</p>
-      <p style={{ color: d.payload.fill }}>{formatNumber(d.value)}개</p>
-    </div>
-  );
-};
+const CopyIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+  </svg>
+);
 
-// ═══════════════════════════════════════════════
+const LoadingSpinner = ({ size = 'w-4 h-4' }: { size?: string }) => (
+  <svg className={`${size} animate-spin`} fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+  </svg>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main Component
-// ═══════════════════════════════════════════════
-export default function ProductionPlanningPage() {
-  const { user, isLoading: authLoading } = useAuth();
+// ─────────────────────────────────────────────────────────────────────────────
+export default function ProductionPlanPage() {
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
 
-  // ── State ──
-  const [plans, setPlans] = useState<ProductionPlan[]>(generateSampleData);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [statusFilter, setStatusFilter] = useState<ProductionStatus | '전체'>('전체');
-  const [sortField, setSortField] = useState<SortField>('startDate');
-  const [sortDir, setSortDir] = useState<SortDirection>('asc');
-  const [viewMode, setViewMode] = useState<'table' | 'timeline'>('table');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingPlan, setEditingPlan] = useState<ProductionPlan | null>(null);
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [plans, setPlans] = useState<ProductionPlan[]>([]);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('weekly');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareMethod, setShareMethod] = useState<'sms' | 'kakao' | 'email'>('email');
+  const [shareSending, setShareSending] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
+  const [copiedShare, setCopiedShare] = useState(false);
+  const [aiLoadingIds, setAiLoadingIds] = useState<Set<string>>(new Set());
+  const [aiRecommendations, setAiRecommendations] = useState<Record<string, AIRecommendation>>({});
+  const [showAiPanel, setShowAiPanel] = useState<string | null>(null);
+  const [bulkAiLoading, setBulkAiLoading] = useState(false);
+  const [autocompleteOpen, setAutocompleteOpen] = useState<string | null>(null);
+  const [autocompleteFilter, setAutocompleteFilter] = useState('');
+  const [alertsExpanded, setAlertsExpanded] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  // Form state
-  const emptyForm = {
-    productName: '',
-    category: '스킨케어' as Category,
-    plannedQty: 0,
-    startDate: '',
-    endDate: '',
-    manager: '',
-    memo: '',
-  };
-  const [form, setForm] = useState(emptyForm);
+  const autocompleteRef = useRef<HTMLDivElement>(null);
 
-  // ── Auth guard ──
+  // ── Init dates ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, authLoading, router]);
-
-  // ── Derived data ──
-  const filteredPlans = useMemo(() => {
-    const yearMonth = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
-    let result = plans.filter(p => {
-      const startYM = p.startDate.slice(0, 7);
-      const endYM = p.endDate.slice(0, 7);
-      return startYM <= yearMonth && endYM >= yearMonth;
-    });
-    if (statusFilter !== '전체') {
-      result = result.filter(p => p.status === statusFilter);
-    }
-    return result;
-  }, [plans, selectedYear, selectedMonth, statusFilter]);
-
-  const sortedPlans = useMemo(() => {
-    const sorted = [...filteredPlans].sort((a, b) => {
-      let aVal: string | number = a[sortField];
-      let bVal: string | number = b[sortField];
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return sorted;
-  }, [filteredPlans, sortField, sortDir]);
-
-  // ── Summary cards ──
-  const summary = useMemo(() => {
-    const total = filteredPlans.length;
-    const inProgress = filteredPlans.filter(p => ['원자재준비', '생산중', '품질검사'].includes(p.status)).length;
-    const completed = filteredPlans.filter(p => p.status === '완료').length;
-    const delayed = filteredPlans.filter(p => p.status === '지연').length;
-    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { total, inProgress, completionRate, delayed };
-  }, [filteredPlans]);
-
-  // ── Category chart data ──
-  const categoryChartData = useMemo(() => {
-    const map: Record<string, number> = {};
-    filteredPlans.forEach(p => {
-      map[p.category] = (map[p.category] || 0) + p.plannedQty;
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [filteredPlans]);
-
-  // ── Timeline calculations ──
-  const timelineData = useMemo(() => {
-    if (sortedPlans.length === 0) return { plans: sortedPlans, minDate: '', maxDate: '', totalDays: 0 };
-    const allDates = sortedPlans.flatMap(p => [p.startDate, p.endDate]);
-    const minDate = allDates.reduce((a, b) => (a < b ? a : b));
-    const maxDate = allDates.reduce((a, b) => (a > b ? a : b));
-    const totalDays = daysBetween(minDate, maxDate) + 1;
-    return { plans: sortedPlans, minDate, maxDate, totalDays: Math.max(totalDays, 1) };
-  }, [sortedPlans]);
-
-  // ── Handlers ──
-  const handleSort = useCallback((field: SortField) => {
-    if (sortField === field) {
-      setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    const today = new Date();
+    if (viewMode === 'weekly') {
+      const w = getWeekDates(today);
+      setStartDate(w.start);
+      setEndDate(w.end);
     } else {
-      setSortField(field);
-      setSortDir('asc');
+      const d = formatDate(today);
+      setStartDate(d);
+      setEndDate(d);
     }
-  }, [sortField]);
+  }, [viewMode]);
 
-  const openAddModal = useCallback(() => {
-    setEditingPlan(null);
-    setForm(emptyForm);
-    setModalOpen(true);
-  }, []);
-
-  const openEditModal = useCallback((plan: ProductionPlan) => {
-    setEditingPlan(plan);
-    setForm({
-      productName: plan.productName,
-      category: plan.category,
-      plannedQty: plan.plannedQty,
-      startDate: plan.startDate,
-      endDate: plan.endDate,
-      manager: plan.manager,
-      memo: plan.memo,
-    });
-    setModalOpen(true);
-  }, []);
-
-  const closeModal = useCallback(() => {
-    setModalOpen(false);
-    setEditingPlan(null);
-    setForm(emptyForm);
-  }, []);
-
-  const handleSubmit = useCallback(() => {
-    if (!form.productName || !form.startDate || !form.endDate || !form.manager) return;
-
-    if (editingPlan) {
-      setPlans(prev =>
-        prev.map(p =>
-          p.id === editingPlan.id
-            ? {
-                ...p,
-                productName: form.productName,
-                category: form.category,
-                plannedQty: form.plannedQty,
-                startDate: form.startDate,
-                endDate: form.endDate,
-                manager: form.manager,
-                memo: form.memo,
-              }
-            : p
-        )
+  // ── Fetch data ─────────────────────────────────────────────────────────────
+  const fetchPlans = useCallback(async () => {
+    if (!startDate || !endDate) return;
+    setLoading(true);
+    try {
+      const data = await fetchSafe<ProductionPlan[]>(
+        `/api/scm/production-plans-v2?start_date=${startDate}&end_date=${endDate}`,
+        []
       );
-    } else {
-      const newPlan: ProductionPlan = {
-        id: uuid(),
-        productName: form.productName,
-        category: form.category,
-        plannedQty: form.plannedQty,
-        producedQty: 0,
-        startDate: form.startDate,
-        endDate: form.endDate,
-        status: '계획',
-        manager: form.manager,
-        memo: form.memo,
-      };
-      setPlans(prev => [...prev, newPlan]);
+      if (data.length > 0) {
+        setPlans(data);
+      } else {
+        setPlans(generateSamplePlans());
+      }
+    } catch {
+      setPlans(generateSamplePlans());
     }
-    closeModal();
-  }, [form, editingPlan, closeModal]);
+    setAlerts(generateSampleAlerts());
+    setLoading(false);
+  }, [startDate, endDate]);
 
-  const handleDelete = useCallback((id: string) => {
-    if (window.confirm('정말 삭제하시겠습니까?')) {
-      setPlans(prev => prev.filter(p => p.id !== id));
+  useEffect(() => {
+    fetchPlans();
+  }, [fetchPlans]);
+
+  // ── Auth redirect ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!authLoading && !user) router.push('/login');
+  }, [authLoading, user, router]);
+
+  // ── Click outside autocomplete ─────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (autocompleteRef.current && !autocompleteRef.current.contains(e.target as Node)) {
+        setAutocompleteOpen(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // ── Calculations ───────────────────────────────────────────────────────────
+  const recalculate = useCallback((plan: ProductionPlan): ProductionPlan => {
+    const rate = plan.avg_hourly_rate || 1;
+    const hours = plan.planned_qty / rate;
+    return {
+      ...plan,
+      required_hours: Math.round(hours * 100) / 100,
+      required_manpower: Math.ceil(hours / 8),
+    };
+  }, []);
+
+  const updatePlan = useCallback((id: string, updates: Partial<ProductionPlan>) => {
+    setPlans(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const updated = { ...p, ...updates };
+      if ('planned_qty' in updates || 'avg_hourly_rate' in updates) {
+        return recalculate(updated);
+      }
+      return updated;
+    }));
+  }, [recalculate]);
+
+  const savePlan = useCallback(async (plan: ProductionPlan) => {
+    if (plan.id.startsWith('NEW-')) {
+      const result = await postApi<ProductionPlan>('/api/scm/production-plans-v2', plan, plan);
+      if (result.id && result.id !== plan.id) {
+        setPlans(prev => prev.map(p => p.id === plan.id ? result : p));
+      }
+    } else {
+      await putApi(`/api/scm/production-plans-v2/${plan.id}`, plan, plan);
     }
   }, []);
 
-  // ── Sort indicator ──
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <span className="text-slate-300 ml-1">&#x25B4;&#x25BE;</span>;
-    return <span className="text-indigo-500 ml-1">{sortDir === 'asc' ? '▲' : '▼'}</span>;
-  };
+  const deletePlan = useCallback(async (id: string) => {
+    await deleteApi(`/api/scm/production-plans-v2/${id}`);
+    setPlans(prev => prev.filter(p => p.id !== id));
+    setDeleteConfirm(null);
+  }, []);
 
-  // ── Auth loading / guard ──
-  if (authLoading) {
+  const addNewPlan = useCallback(() => {
+    const newId = `NEW-${Date.now()}`;
+    const newPlan: ProductionPlan = {
+      id: newId,
+      plan_date: startDate,
+      product_name: '',
+      product_code: '',
+      planned_qty: 0,
+      avg_hourly_rate: 0,
+      required_hours: 0,
+      required_manpower: 0,
+      order_plan_qty: 0,
+      safety_stock_deficit: 0,
+      ai_recommended_qty: null,
+      status: '초안',
+      notes: '',
+    };
+    setPlans(prev => [...prev, newPlan]);
+    setEditingCell({ id: newId, field: 'product_name' });
+  }, [startDate]);
+
+  // ── AI Recommendation ─────────────────────────────────────────────────────
+  const fetchAiRecommendation = useCallback(async (plan: ProductionPlan) => {
+    setAiLoadingIds(prev => new Set(prev).add(plan.id));
+    try {
+      const rec = await postApi<AIRecommendation>(
+        '/api/scm/production-plans-v2/ai-recommend',
+        { product_name: plan.product_name, plan_date: plan.plan_date },
+        {
+          recommended_qty: Math.round((plan.order_plan_qty + plan.safety_stock_deficit) * 1.1),
+          safety_stock_deficit: plan.safety_stock_deficit,
+          order_plan_qty: plan.order_plan_qty,
+          avg_hourly_rate: plan.avg_hourly_rate || 50,
+          required_hours: 0,
+          required_manpower: 0,
+          explanation: '',
+        }
+      );
+      if (!rec.explanation) {
+        rec.required_hours = Math.round((rec.recommended_qty / (rec.avg_hourly_rate || 1)) * 100) / 100;
+        rec.required_manpower = Math.ceil(rec.required_hours / 8);
+        rec.explanation = `안전재고 부족분: ${rec.safety_stock_deficit.toLocaleString('ko-KR')}개, 주문계획 수량: ${rec.order_plan_qty.toLocaleString('ko-KR')}개 → 추천: ${rec.recommended_qty.toLocaleString('ko-KR')}개\n과거 평균 시간당 생산량: ${rec.avg_hourly_rate.toLocaleString('ko-KR')}개/시 → 필요시간: ${rec.required_hours}시간, 필요인력: ${rec.required_manpower}명`;
+      }
+      setAiRecommendations(prev => ({ ...prev, [plan.id]: rec }));
+      setShowAiPanel(plan.id);
+    } catch {
+      // silent fail
+    }
+    setAiLoadingIds(prev => {
+      const next = new Set(prev);
+      next.delete(plan.id);
+      return next;
+    });
+  }, []);
+
+  const acceptAiRecommendation = useCallback((planId: string) => {
+    const rec = aiRecommendations[planId];
+    if (!rec) return;
+    updatePlan(planId, {
+      planned_qty: rec.recommended_qty,
+      avg_hourly_rate: rec.avg_hourly_rate,
+      ai_recommended_qty: rec.recommended_qty,
+    });
+    setShowAiPanel(null);
+  }, [aiRecommendations, updatePlan]);
+
+  const bulkAiRecommend = useCallback(async () => {
+    const eligible = plans.filter(p => p.product_name && (p.status === '초안' || p.status === '확정'));
+    if (eligible.length === 0) return;
+    setBulkAiLoading(true);
+    for (const plan of eligible) {
+      await fetchAiRecommendation(plan);
+    }
+    setBulkAiLoading(false);
+  }, [plans, fetchAiRecommendation]);
+
+  // ── Share ──────────────────────────────────────────────────────────────────
+  const generateShareText = useMemo(() => {
+    const lines: string[] = [
+      `[생산 계획] ${startDate} ~ ${endDate}`,
+      '─'.repeat(40),
+    ];
+    plans.forEach(p => {
+      lines.push(`${p.plan_date} | ${p.product_name} (${p.product_code})`);
+      lines.push(`  계획: ${p.planned_qty.toLocaleString('ko-KR')}개 | 필요시간: ${p.required_hours}h | 인력: ${p.required_manpower}명 | 상태: ${p.status}`);
+      if (p.notes) lines.push(`  비고: ${p.notes}`);
+    });
+    lines.push('─'.repeat(40));
+    const totalQty = plans.reduce((s, p) => s + p.planned_qty, 0);
+    const totalHours = plans.reduce((s, p) => s + p.required_hours, 0);
+    const totalManpower = Math.max(...plans.map(p => p.required_manpower), 0);
+    lines.push(`합계: ${totalQty.toLocaleString('ko-KR')}개 / ${Math.round(totalHours * 100) / 100}시간 / 최대 ${totalManpower}명`);
+    return lines.join('\n');
+  }, [plans, startDate, endDate]);
+
+  const handleShare = useCallback(async () => {
+    setShareSending(true);
+    try {
+      await postApi('/api/scm/production-plans-v2/share', {
+        method: shareMethod,
+        email: shareMethod === 'email' ? shareEmail : undefined,
+        start_date: startDate,
+        end_date: endDate,
+        plans: plans.map(p => ({
+          plan_date: p.plan_date,
+          product_name: p.product_name,
+          planned_qty: p.planned_qty,
+          status: p.status,
+        })),
+        summary_text: generateShareText,
+      }, { success: true });
+      setShareSuccess(true);
+      setTimeout(() => setShareSuccess(false), 3000);
+    } catch {
+      // silent
+    }
+    setShareSending(false);
+  }, [shareMethod, shareEmail, startDate, endDate, plans, generateShareText]);
+
+  const copyShareText = useCallback(() => {
+    navigator.clipboard.writeText(generateShareText).then(() => {
+      setCopiedShare(true);
+      setTimeout(() => setCopiedShare(false), 2000);
+    });
+  }, [generateShareText]);
+
+  // ── Summary cards ──────────────────────────────────────────────────────────
+  const summary = useMemo(() => {
+    const totalQty = plans.reduce((s, p) => s + p.planned_qty, 0);
+    const totalHours = plans.reduce((s, p) => s + p.required_hours, 0);
+    const maxManpower = plans.reduce((s, p) => s + p.required_manpower, 0);
+    const pendingAi = plans.filter(p => p.ai_recommended_qty === null && p.product_name).length;
+    return { totalQty, totalHours: Math.round(totalHours * 100) / 100, maxManpower, pendingAi };
+  }, [plans]);
+
+  // ── Sorted plans ───────────────────────────────────────────────────────────
+  const sortedPlans = useMemo(() => {
+    return [...plans].sort((a, b) => {
+      if (a.plan_date !== b.plan_date) return a.plan_date.localeCompare(b.plan_date);
+      return a.product_name.localeCompare(b.product_name);
+    });
+  }, [plans]);
+
+  // ── Date navigation ────────────────────────────────────────────────────────
+  const navigateDate = useCallback((direction: -1 | 1) => {
+    const s = new Date(startDate);
+    const e = new Date(endDate);
+    if (viewMode === 'weekly') {
+      s.setDate(s.getDate() + direction * 7);
+      e.setDate(e.getDate() + direction * 7);
+    } else {
+      s.setDate(s.getDate() + direction);
+      e.setDate(e.getDate() + direction);
+    }
+    setStartDate(formatDate(s));
+    setEndDate(formatDate(e));
+  }, [startDate, endDate, viewMode]);
+
+  const goToToday = useCallback(() => {
+    const today = new Date();
+    if (viewMode === 'weekly') {
+      const w = getWeekDates(today);
+      setStartDate(w.start);
+      setEndDate(w.end);
+    } else {
+      const d = formatDate(today);
+      setStartDate(d);
+      setEndDate(d);
+    }
+  }, [viewMode]);
+
+  // ── Filtered autocomplete products ─────────────────────────────────────────
+  const filteredProducts = useMemo(() => {
+    if (!autocompleteFilter) return PRODUCT_CATALOG;
+    return PRODUCT_CATALOG.filter(p =>
+      p.name.includes(autocompleteFilter) || p.code.toLowerCase().includes(autocompleteFilter.toLowerCase())
+    );
+  }, [autocompleteFilter]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-600">로딩 중...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <LoadingSpinner size="w-8 h-8" />
       </div>
     );
   }
 
-  if (!user) return null;
+  const alertCounts = {
+    urgent: alerts.filter(a => a.level === 'urgent').length,
+    warning: alerts.filter(a => a.level === 'warning').length,
+    ok: alerts.filter(a => a.level === 'ok').length,
+  };
 
-  // ── Today string for timeline ──
-  const todayStr = new Date().toISOString().slice(0, 10);
-
-  // ═══════════════════════════════════════════════
-  // RENDER
-  // ═══════════════════════════════════════════════
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gray-50">
       <Navigation />
+      <main className="md:ml-56 min-h-screen">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-
-        {/* ── Page Header ── */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">생산계획</h1>
-            <p className="text-slate-500 mt-1">생산 일정을 계획하고 진행 현황을 관리하세요</p>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Year / Month selector */}
-            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
-              <select
-                value={selectedYear}
-                onChange={e => setSelectedYear(Number(e.target.value))}
-                className="text-sm font-medium text-slate-700 bg-transparent outline-none cursor-pointer"
-              >
-                {[2024, 2025, 2026, 2027].map(y => (
-                  <option key={y} value={y}>{y}년</option>
-                ))}
-              </select>
-              <select
-                value={selectedMonth}
-                onChange={e => setSelectedMonth(Number(e.target.value))}
-                className="text-sm font-medium text-slate-700 bg-transparent outline-none cursor-pointer"
-              >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                  <option key={m} value={m}>{m}월</option>
-                ))}
-              </select>
+          {/* ── Page Header ──────────────────────────────────────────────── */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">생산 계획</h1>
+              <p className="text-sm text-gray-500 mt-1">일별/주별 생산 계획 수립 및 AI 추천 기반 최적화</p>
             </div>
-
-            {/* Action buttons */}
-            <button
-              onClick={openAddModal}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              생산계획 추가
-            </button>
-            <button
-              onClick={() => downloadExcel(sortedPlans)}
-              className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 transition-colors shadow-sm"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
-              </svg>
-              Excel 다운로드
-            </button>
-          </div>
-        </div>
-
-        {/* ── Summary Cards ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* 이번달 계획건수 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-500">이번달 계획건수</span>
-              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-slate-800">{summary.total}<span className="text-lg font-medium text-slate-400 ml-1">건</span></p>
-          </div>
-
-          {/* 진행중 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-500">진행중</span>
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-slate-800">{summary.inProgress}<span className="text-lg font-medium text-slate-400 ml-1">건</span></p>
-          </div>
-
-          {/* 완료율 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-500">완료율</span>
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-slate-800">{summary.completionRate}<span className="text-lg font-medium text-slate-400 ml-1">%</span></p>
-            <div className="mt-2 w-full bg-slate-100 rounded-full h-2">
-              <div
-                className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${summary.completionRate}%` }}
-              />
-            </div>
-          </div>
-
-          {/* 지연건수 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-500">지연건수</span>
-              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-slate-800">{summary.delayed}<span className="text-lg font-medium text-slate-400 ml-1">건</span></p>
-            {summary.delayed > 0 && (
-              <p className="text-xs text-red-500 mt-1 font-medium">즉시 확인이 필요합니다</p>
-            )}
-          </div>
-        </div>
-
-        {/* ── View Toggle & Status Filter ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 mb-6">
-          <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-800">생산계획 목록</h2>
-              <span className="text-sm text-slate-400">({sortedPlans.length}건)</span>
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <ShareIcon /> 공유
+              </button>
+              <button
+                onClick={bulkAiRecommend}
+                disabled={bulkAiLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors disabled:opacity-50"
+              >
+                {bulkAiLoading ? <LoadingSpinner /> : <SparkleIcon />}
+                AI 일괄 추천
+              </button>
+              <button
+                onClick={addNewPlan}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                <PlusIcon /> 계획 추가
+              </button>
             </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              {/* Status filter */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setStatusFilter('전체')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    statusFilter === '전체'
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                  }`}
+          </div>
+
+          {/* ── Alert Section ────────────────────────────────────────────── */}
+          {alerts.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <button
+                onClick={() => setAlertsExpanded(!alertsExpanded)}
+                className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <ExclamationIcon />
+                  <span className="font-semibold text-gray-800 text-sm">알림</span>
+                  <div className="flex items-center gap-2">
+                    {alertCounts.urgent > 0 && (
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">
+                        긴급 {alertCounts.urgent}
+                      </span>
+                    )}
+                    {alertCounts.warning > 0 && (
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
+                        주의 {alertCounts.warning}
+                      </span>
+                    )}
+                    {alertCounts.ok > 0 && (
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">
+                        정상 {alertCounts.ok}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <svg
+                  className={`w-5 h-5 text-gray-400 transition-transform ${alertsExpanded ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
                 >
-                  전체
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {alertsExpanded && (
+                <div className="px-5 pb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {alerts.map(alert => {
+                    const colorMap = {
+                      urgent: 'border-red-200 bg-red-50',
+                      warning: 'border-amber-200 bg-amber-50',
+                      ok: 'border-emerald-200 bg-emerald-50',
+                    };
+                    const textMap = {
+                      urgent: 'text-red-800',
+                      warning: 'text-amber-800',
+                      ok: 'text-emerald-800',
+                    };
+                    const dotMap = {
+                      urgent: 'bg-red-500',
+                      warning: 'bg-amber-500',
+                      ok: 'bg-emerald-500',
+                    };
+                    return (
+                      <div
+                        key={alert.id}
+                        className={`rounded-lg border p-3 ${colorMap[alert.level]}`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${dotMap[alert.level]}`} />
+                          <div className="min-w-0">
+                            <p className={`text-sm font-semibold ${textMap[alert.level]}`}>{alert.title}</p>
+                            <p className={`text-xs mt-0.5 ${textMap[alert.level]} opacity-80`}>{alert.description}</p>
+                            {alert.due_date && (
+                              <p className={`text-xs mt-1 font-medium ${textMap[alert.level]}`}>납기: {alert.due_date}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Summary Cards ────────────────────────────────────────────── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">총 계획 생산량</p>
+              <p className="text-2xl font-bold text-gray-900 mt-2">{summary.totalQty.toLocaleString('ko-KR')}<span className="text-sm font-normal text-gray-400 ml-1">개</span></p>
+              <p className="text-xs text-gray-400 mt-1">{plans.length}개 품목</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">총 필요 시간</p>
+              <p className="text-2xl font-bold text-gray-900 mt-2">{summary.totalHours.toLocaleString('ko-KR')}<span className="text-sm font-normal text-gray-400 ml-1">시간</span></p>
+              <p className="text-xs text-gray-400 mt-1">{Math.round(summary.totalHours / 8 * 10) / 10}일 (8h/일 기준)</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">총 필요 인력</p>
+              <p className="text-2xl font-bold text-gray-900 mt-2">{summary.maxManpower}<span className="text-sm font-normal text-gray-400 ml-1">명</span></p>
+              <p className="text-xs text-gray-400 mt-1">전 품목 합산</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">AI 추천 대기</p>
+              <p className="text-2xl font-bold text-violet-600 mt-2">{summary.pendingAi}<span className="text-sm font-normal text-gray-400 ml-1">건</span></p>
+              <p className="text-xs text-gray-400 mt-1">추천 미생성 품목</p>
+            </div>
+          </div>
+
+          {/* ── Date Selector & View Toggle ──────────────────────────────── */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <CalendarIcon />
+                <button
+                  onClick={() => navigateDate(-1)}
+                  className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                  title="이전"
+                >
+                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
                 </button>
-                {STATUS_OPTIONS.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setStatusFilter(s)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      statusFilter === s
-                        ? `${STATUS_COLORS[s].bg} ${STATUS_COLORS[s].text}`
-                        : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={e => setStartDate(e.target.value)}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  />
+                  {viewMode === 'weekly' && (
+                    <>
+                      <span className="text-gray-400 text-sm">~</span>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={e => setEndDate(e.target.value)}
+                        className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      />
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={() => navigateDate(1)}
+                  className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                  title="다음"
+                >
+                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={goToToday}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                >
+                  오늘
+                </button>
               </div>
-              {/* View toggle */}
-              <div className="flex bg-slate-100 rounded-lg p-0.5">
+              <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
                 <button
-                  onClick={() => setViewMode('table')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    viewMode === 'table' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
+                  onClick={() => setViewMode('daily')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    viewMode === 'daily' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  테이블
+                  일별
                 </button>
                 <button
-                  onClick={() => setViewMode('timeline')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    viewMode === 'timeline' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
+                  onClick={() => setViewMode('weekly')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    viewMode === 'weekly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  타임라인
+                  주별
                 </button>
               </div>
             </div>
           </div>
 
-          {/* ── Table View ── */}
-          {viewMode === 'table' && (
+          {/* ── Production Plan Table ────────────────────────────────────── */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100">
-                    {([
-                      { field: 'productName' as SortField, label: '상품명' },
-                      { field: 'category' as SortField, label: '카테고리' },
-                      { field: 'plannedQty' as SortField, label: '계획수량' },
-                      { field: 'producedQty' as SortField, label: '생산수량' },
-                    ]).map(col => (
-                      <th
-                        key={col.field}
-                        onClick={() => handleSort(col.field)}
-                        className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-slate-700 select-none"
-                      >
-                        {col.label}<SortIcon field={col.field} />
-                      </th>
-                    ))}
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      진행률
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-3 py-3 text-left font-semibold text-gray-600 text-xs whitespace-nowrap">계획일</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-600 text-xs whitespace-nowrap">품명</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-600 text-xs whitespace-nowrap">품목코드</th>
+                    <th className="px-3 py-3 text-right font-semibold text-gray-600 text-xs whitespace-nowrap">계획 생산량</th>
+                    <th className="px-3 py-3 text-right font-semibold text-gray-600 text-xs whitespace-nowrap bg-blue-50/50">시간당 생산량</th>
+                    <th className="px-3 py-3 text-right font-semibold text-gray-600 text-xs whitespace-nowrap bg-blue-50/50">필요 시간</th>
+                    <th className="px-3 py-3 text-right font-semibold text-gray-600 text-xs whitespace-nowrap bg-blue-50/50">필요 인력</th>
+                    <th className="px-3 py-3 text-right font-semibold text-gray-600 text-xs whitespace-nowrap bg-gray-100/80">주문계획 수량</th>
+                    <th className="px-3 py-3 text-right font-semibold text-gray-600 text-xs whitespace-nowrap bg-gray-100/80">안전재고 부족분</th>
+                    <th className="px-3 py-3 text-right font-semibold text-gray-600 text-xs whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1"><SparkleIcon /> AI 추천량</span>
                     </th>
-                    {([
-                      { field: 'startDate' as SortField, label: '시작일' },
-                      { field: 'endDate' as SortField, label: '완료예정일' },
-                      { field: 'status' as SortField, label: '상태' },
-                      { field: 'manager' as SortField, label: '담당자' },
-                    ]).map(col => (
-                      <th
-                        key={col.field}
-                        onClick={() => handleSort(col.field)}
-                        className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-slate-700 select-none"
-                      >
-                        {col.label}<SortIcon field={col.field} />
-                      </th>
-                    ))}
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      액션
-                    </th>
+                    <th className="px-3 py-3 text-center font-semibold text-gray-600 text-xs whitespace-nowrap">상태</th>
+                    <th className="px-3 py-3 text-left font-semibold text-gray-600 text-xs whitespace-nowrap">비고</th>
+                    <th className="px-3 py-3 text-center font-semibold text-gray-600 text-xs whitespace-nowrap">액션</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {sortedPlans.length === 0 ? (
+                <tbody className="divide-y divide-gray-100">
+                  {loading ? (
                     <tr>
-                      <td colSpan={10} className="text-center py-16 text-slate-400">
+                      <td colSpan={13} className="px-4 py-16 text-center">
                         <div className="flex flex-col items-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                          </svg>
-                          <p className="text-sm">해당 기간에 등록된 생산계획이 없습니다.</p>
+                          <LoadingSpinner size="w-6 h-6" />
+                          <span className="text-sm text-gray-400">데이터를 불러오는 중...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : sortedPlans.length === 0 ? (
+                    <tr>
+                      <td colSpan={13} className="px-4 py-16 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <CalendarIcon />
+                          <p className="text-sm text-gray-500">해당 기간에 생산 계획이 없습니다.</p>
+                          <button
+                            onClick={addNewPlan}
+                            className="mt-2 inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            <PlusIcon /> 새 계획 추가
+                          </button>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    sortedPlans.map(plan => {
-                      const progress = progressPercent(plan.producedQty, plan.plannedQty);
-                      const sc = STATUS_COLORS[plan.status];
+                    sortedPlans.map((plan) => {
+                      const isEditing = (field: string) =>
+                        editingCell?.id === plan.id && editingCell?.field === field;
+                      const statusCfg = STATUS_CONFIG[plan.status];
+
                       return (
-                        <tr key={plan.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="font-medium text-slate-800">{plan.productName}</p>
-                              <p className="text-xs text-slate-400 mt-0.5">{plan.id}</p>
-                            </div>
+                        <tr key={plan.id} className="hover:bg-gray-50/50 transition-colors group">
+                          {/* 계획일 */}
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            {isEditing('plan_date') ? (
+                              <input
+                                type="date"
+                                value={plan.plan_date}
+                                onChange={e => updatePlan(plan.id, { plan_date: e.target.value })}
+                                onBlur={() => { setEditingCell(null); savePlan(plan); }}
+                                autoFocus
+                                className="w-32 text-sm border border-blue-400 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none"
+                              />
+                            ) : (
+                              <button
+                                onClick={() => setEditingCell({ id: plan.id, field: 'plan_date' })}
+                                className="text-sm text-gray-700 hover:text-blue-600 font-medium"
+                              >
+                                {plan.plan_date}
+                              </button>
+                            )}
                           </td>
-                          <td className="px-4 py-3">
-                            <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-50 text-xs font-medium text-slate-600">
-                              {plan.category}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 font-medium text-slate-700 text-right tabular-nums">
-                            {formatNumber(plan.plannedQty)}
-                          </td>
-                          <td className="px-4 py-3 font-medium text-slate-700 text-right tabular-nums">
-                            {formatNumber(plan.producedQty)}
-                          </td>
-                          <td className="px-4 py-3 min-w-[120px]">
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
-                                <div
-                                  className="h-full rounded-full transition-all duration-500"
-                                  style={{
-                                    width: `${progress}%`,
-                                    backgroundColor: sc.bar,
+
+                          {/* 품명 (with autocomplete) */}
+                          <td className="px-3 py-2.5 whitespace-nowrap relative" ref={autocompleteOpen === plan.id ? autocompleteRef as React.RefObject<HTMLTableCellElement> : undefined}>
+                            {isEditing('product_name') ? (
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={plan.product_name}
+                                  onChange={e => {
+                                    updatePlan(plan.id, { product_name: e.target.value });
+                                    setAutocompleteFilter(e.target.value);
+                                    setAutocompleteOpen(plan.id);
                                   }}
+                                  onFocus={() => {
+                                    setAutocompleteFilter(plan.product_name);
+                                    setAutocompleteOpen(plan.id);
+                                  }}
+                                  onBlur={() => {
+                                    setTimeout(() => {
+                                      setEditingCell(null);
+                                      setAutocompleteOpen(null);
+                                      savePlan(plan);
+                                    }, 200);
+                                  }}
+                                  placeholder="제품명 입력..."
+                                  autoFocus
+                                  className="w-36 text-sm border border-blue-400 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
+                                {autocompleteOpen === plan.id && filteredProducts.length > 0 && (
+                                  <div className="absolute z-50 top-full left-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 max-h-48 overflow-y-auto">
+                                    {filteredProducts.map(product => (
+                                      <button
+                                        key={product.code}
+                                        onMouseDown={e => {
+                                          e.preventDefault();
+                                          updatePlan(plan.id, {
+                                            product_name: product.name,
+                                            product_code: product.code,
+                                          });
+                                          setAutocompleteOpen(null);
+                                          setEditingCell(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between"
+                                      >
+                                        <span className="font-medium text-gray-800">{product.name}</span>
+                                        <span className="text-xs text-gray-400">{product.code}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                              <span className="text-xs font-medium text-slate-500 w-9 text-right tabular-nums">{progress}%</span>
-                            </div>
+                            ) : (
+                              <button
+                                onClick={() => setEditingCell({ id: plan.id, field: 'product_name' })}
+                                className="text-sm text-gray-800 hover:text-blue-600 font-medium"
+                              >
+                                {plan.product_name || <span className="text-gray-300 italic">미입력</span>}
+                              </button>
+                            )}
                           </td>
-                          <td className="px-4 py-3 text-slate-600 tabular-nums">{plan.startDate}</td>
-                          <td className="px-4 py-3 text-slate-600 tabular-nums">{plan.endDate}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-semibold ${sc.bg} ${sc.text}`}>
-                              {plan.status}
+
+                          {/* 품목코드 */}
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            <span className="text-xs text-gray-500 font-mono bg-gray-50 px-1.5 py-0.5 rounded">
+                              {plan.product_code || '-'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-slate-600">{plan.manager}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-1">
+
+                          {/* 계획 생산량 */}
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                            {isEditing('planned_qty') ? (
+                              <input
+                                type="number"
+                                value={plan.planned_qty || ''}
+                                onChange={e => updatePlan(plan.id, { planned_qty: Number(e.target.value) || 0 })}
+                                onBlur={() => { setEditingCell(null); savePlan(plan); }}
+                                onKeyDown={e => { if (e.key === 'Enter') { setEditingCell(null); savePlan(plan); } }}
+                                autoFocus
+                                className="w-24 text-sm text-right border border-blue-400 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none"
+                              />
+                            ) : (
                               <button
-                                onClick={() => openEditModal(plan)}
-                                className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors"
-                                title="수정"
+                                onClick={() => setEditingCell({ id: plan.id, field: 'planned_qty' })}
+                                className="text-sm font-semibold text-gray-900 hover:text-blue-600"
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
+                                {plan.planned_qty.toLocaleString('ko-KR')}
                               </button>
+                            )}
+                          </td>
+
+                          {/* 시간당 생산량 (auto-filled, light blue bg) */}
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap bg-blue-50/30">
+                            {isEditing('avg_hourly_rate') ? (
+                              <input
+                                type="number"
+                                value={plan.avg_hourly_rate || ''}
+                                onChange={e => updatePlan(plan.id, { avg_hourly_rate: Number(e.target.value) || 0 })}
+                                onBlur={() => { setEditingCell(null); savePlan(plan); }}
+                                onKeyDown={e => { if (e.key === 'Enter') { setEditingCell(null); savePlan(plan); } }}
+                                autoFocus
+                                className="w-20 text-sm text-right border border-blue-400 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none"
+                              />
+                            ) : (
                               <button
-                                onClick={() => handleDelete(plan.id)}
-                                className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
-                                title="삭제"
+                                onClick={() => setEditingCell({ id: plan.id, field: 'avg_hourly_rate' })}
+                                className="text-sm text-gray-600 hover:text-blue-600"
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
+                                {plan.avg_hourly_rate.toLocaleString('ko-KR')}<span className="text-xs text-gray-400">개/시</span>
                               </button>
+                            )}
+                          </td>
+
+                          {/* 필요 시간 (auto-calculated) */}
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap bg-blue-50/30">
+                            <span className="text-sm text-gray-600">
+                              {plan.required_hours.toLocaleString('ko-KR')}<span className="text-xs text-gray-400">h</span>
+                            </span>
+                          </td>
+
+                          {/* 필요 인력 (auto-calculated) */}
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap bg-blue-50/30">
+                            <span className="text-sm text-gray-600">
+                              {plan.required_manpower.toLocaleString('ko-KR')}<span className="text-xs text-gray-400">명</span>
+                            </span>
+                          </td>
+
+                          {/* 주문계획 수량 (read-only) */}
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap bg-gray-50/50">
+                            <span className="text-sm text-gray-500">{plan.order_plan_qty.toLocaleString('ko-KR')}</span>
+                          </td>
+
+                          {/* 안전재고 부족분 (read-only) */}
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap bg-gray-50/50">
+                            <span className={`text-sm ${plan.safety_stock_deficit > 0 ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                              {plan.safety_stock_deficit > 0 ? `-${plan.safety_stock_deficit.toLocaleString('ko-KR')}` : '0'}
+                            </span>
+                          </td>
+
+                          {/* AI 추천량 */}
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {plan.ai_recommended_qty !== null ? (
+                                <span className="inline-flex items-center gap-1 text-sm text-violet-700 font-semibold bg-violet-50 px-2 py-0.5 rounded-md">
+                                  <SparkleIcon />
+                                  {plan.ai_recommended_qty.toLocaleString('ko-KR')}
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => fetchAiRecommendation(plan)}
+                                  disabled={aiLoadingIds.has(plan.id) || !plan.product_name}
+                                  className="inline-flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 bg-violet-50 hover:bg-violet-100 px-2 py-1 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  {aiLoadingIds.has(plan.id) ? <LoadingSpinner /> : <SparkleIcon />}
+                                  AI 추천
+                                </button>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* 상태 */}
+                          <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                            {isEditing('status') ? (
+                              <select
+                                value={plan.status}
+                                onChange={e => {
+                                  updatePlan(plan.id, { status: e.target.value as PlanStatus });
+                                  setEditingCell(null);
+                                  savePlan({ ...plan, status: e.target.value as PlanStatus });
+                                }}
+                                onBlur={() => setEditingCell(null)}
+                                autoFocus
+                                className="text-xs border border-blue-400 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none"
+                              >
+                                {STATUS_OPTIONS.map(s => (
+                                  <option key={s} value={s}>{s}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <button
+                                onClick={() => setEditingCell({ id: plan.id, field: 'status' })}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusCfg.bg} ${statusCfg.text}`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+                                {plan.status}
+                              </button>
+                            )}
+                          </td>
+
+                          {/* 비고 */}
+                          <td className="px-3 py-2.5 whitespace-nowrap max-w-[200px]">
+                            {isEditing('notes') ? (
+                              <input
+                                type="text"
+                                value={plan.notes}
+                                onChange={e => updatePlan(plan.id, { notes: e.target.value })}
+                                onBlur={() => { setEditingCell(null); savePlan(plan); }}
+                                onKeyDown={e => { if (e.key === 'Enter') { setEditingCell(null); savePlan(plan); } }}
+                                autoFocus
+                                className="w-40 text-sm border border-blue-400 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none"
+                              />
+                            ) : (
+                              <button
+                                onClick={() => setEditingCell({ id: plan.id, field: 'notes' })}
+                                className="text-sm text-gray-500 hover:text-blue-600 truncate block max-w-[180px]"
+                                title={plan.notes}
+                              >
+                                {plan.notes || <span className="text-gray-300 italic">-</span>}
+                              </button>
+                            )}
+                          </td>
+
+                          {/* 액션 */}
+                          <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1">
+                              {/* AI recommendation detail button */}
+                              {aiRecommendations[plan.id] && (
+                                <button
+                                  onClick={() => setShowAiPanel(showAiPanel === plan.id ? null : plan.id)}
+                                  className="p-1.5 rounded-md hover:bg-violet-100 text-violet-500 transition-colors"
+                                  title="AI 추천 상세"
+                                >
+                                  <SparkleIcon />
+                                </button>
+                              )}
+                              {/* Delete */}
+                              {deleteConfirm === plan.id ? (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => deletePlan(plan.id)}
+                                    className="p-1 rounded bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                    title="삭제 확인"
+                                  >
+                                    <CheckIcon />
+                                  </button>
+                                  <button
+                                    onClick={() => setDeleteConfirm(null)}
+                                    className="p-1 rounded bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+                                    title="취소"
+                                  >
+                                    <XIcon />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setDeleteConfirm(plan.id)}
+                                  className="p-1.5 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                  title="삭제"
+                                >
+                                  <TrashIcon />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -835,417 +1161,202 @@ export default function ProductionPlanningPage() {
                 </tbody>
               </table>
             </div>
-          )}
 
-          {/* ── Timeline View (Gantt-style) ── */}
-          {viewMode === 'timeline' && (
-            <div className="p-4">
-              {sortedPlans.length === 0 ? (
-                <div className="text-center py-16 text-slate-400">
-                  <p className="text-sm">해당 기간에 등록된 생산계획이 없습니다.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  {/* Header: date labels */}
-                  <div className="min-w-[900px]">
-                    <div className="flex mb-2">
-                      {/* Product name column */}
-                      <div className="w-48 flex-shrink-0 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        상품명
-                      </div>
-                      {/* Timeline header */}
-                      <div className="flex-1 relative h-6">
-                        {(() => {
-                          const { minDate, totalDays } = timelineData;
-                          if (totalDays <= 0) return null;
-                          const markers: { date: string; offset: number }[] = [];
-                          for (let i = 0; i <= totalDays; i += Math.max(1, Math.floor(totalDays / 10))) {
-                            const d = new Date(minDate);
-                            d.setDate(d.getDate() + i);
-                            const ds = d.toISOString().slice(0, 10);
-                            markers.push({ date: ds, offset: (i / totalDays) * 100 });
-                          }
-                          return markers.map((m, i) => (
-                            <span
-                              key={i}
-                              className="absolute text-[10px] text-slate-400 -translate-x-1/2 whitespace-nowrap"
-                              style={{ left: `${m.offset}%` }}
-                            >
-                              {formatDate(m.date)}
-                            </span>
-                          ));
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* Timeline rows */}
-                    {sortedPlans.map(plan => {
-                      const { minDate, totalDays } = timelineData;
-                      const startOffset = daysBetween(minDate, plan.startDate);
-                      const duration = daysBetween(plan.startDate, plan.endDate) + 1;
-                      const leftPct = (startOffset / totalDays) * 100;
-                      const widthPct = (duration / totalDays) * 100;
-                      const sc = STATUS_COLORS[plan.status];
-                      const progress = progressPercent(plan.producedQty, plan.plannedQty);
-
-                      return (
-                        <div key={plan.id} className="flex items-center mb-1.5 group">
-                          {/* Product name */}
-                          <div className="w-48 flex-shrink-0 px-2">
-                            <p className="text-xs font-medium text-slate-700 truncate" title={plan.productName}>
-                              {plan.productName}
-                            </p>
-                            <p className="text-[10px] text-slate-400">{plan.manager}</p>
-                          </div>
-                          {/* Timeline bar */}
-                          <div className="flex-1 relative h-8">
-                            {/* Background track */}
-                            <div className="absolute inset-0 bg-slate-50 rounded" />
-                            {/* Bar background (full duration) */}
-                            <div
-                              className="absolute top-1 h-6 rounded-md opacity-30 transition-all"
-                              style={{
-                                left: `${leftPct}%`,
-                                width: `${Math.max(widthPct, 1)}%`,
-                                backgroundColor: sc.bar,
-                              }}
-                            />
-                            {/* Bar progress fill */}
-                            <div
-                              className="absolute top-1 h-6 rounded-md transition-all"
-                              style={{
-                                left: `${leftPct}%`,
-                                width: `${Math.max((widthPct * progress) / 100, 0.5)}%`,
-                                backgroundColor: sc.bar,
-                              }}
-                            />
-                            {/* Label on bar */}
-                            <div
-                              className="absolute top-1 h-6 flex items-center overflow-hidden pointer-events-none"
-                              style={{
-                                left: `${leftPct}%`,
-                                width: `${Math.max(widthPct, 1)}%`,
-                              }}
-                            >
-                              <span className="text-[10px] font-semibold text-white ml-1.5 drop-shadow-sm truncate">
-                                {progress > 10 ? `${progress}%` : ''}
-                              </span>
-                            </div>
-                            {/* Today line */}
-                            {todayStr >= minDate && todayStr <= timelineData.maxDate && (
-                              <div
-                                className="absolute top-0 bottom-0 w-px bg-red-400 z-10"
-                                style={{
-                                  left: `${(daysBetween(minDate, todayStr) / totalDays) * 100}%`,
-                                }}
-                              >
-                                <div className="absolute -top-1 -translate-x-1/2 w-2 h-2 bg-red-400 rounded-full" />
-                              </div>
-                            )}
-                            {/* Hover tooltip */}
-                            <div className="absolute -top-9 left-1/2 -translate-x-1/2 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-20">
-                              {plan.startDate} ~ {plan.endDate} | {plan.status} | {progress}%
-                            </div>
-                          </div>
-                          {/* Status badge */}
-                          <div className="w-16 flex-shrink-0 pl-2">
-                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${sc.bg} ${sc.text}`}>
-                              {plan.status}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {/* Today legend */}
-                    <div className="flex items-center gap-2 mt-4 ml-48 text-xs text-slate-400">
-                      <div className="w-3 h-3 bg-red-400 rounded-full" />
-                      <span>오늘 ({todayStr})</span>
-                      <span className="mx-2">|</span>
-                      <div className="w-6 h-3 bg-blue-400 rounded opacity-30" />
-                      <span>전체 기간</span>
-                      <div className="w-6 h-3 bg-blue-400 rounded ml-1" />
-                      <span>진행 완료분</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ── Charts Section ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* 월별 계획 vs 실적 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <h3 className="text-base font-bold text-slate-800 mb-4">월별 계획 vs 실적</h3>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={MONTHLY_CHART_DATA} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fill: '#64748b', fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                  />
-                  <YAxis
-                    tick={{ fill: '#64748b', fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
-                  />
-                  <Tooltip content={<CustomBarTooltip />} />
-                  <Legend
-                    iconType="circle"
-                    iconSize={8}
-                    wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
-                  />
-                  <Bar dataKey="계획" fill="#818cf8" radius={[4, 4, 0, 0]} barSize={28} />
-                  <Bar dataKey="실적" fill="#34d399" radius={[4, 4, 0, 0]} barSize={28} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* 카테고리별 생산현황 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-            <h3 className="text-base font-bold text-slate-800 mb-4">카테고리별 생산현황</h3>
-            <div className="h-72">
-              {categoryChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categoryChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={3}
-                      dataKey="value"
-                      nameKey="name"
-                      stroke="none"
-                    >
-                      {categoryChartData.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomPieTooltip />} />
-                    <Legend
-                      iconType="circle"
-                      iconSize={8}
-                      layout="vertical"
-                      align="right"
-                      verticalAlign="middle"
-                      wrapperStyle={{ fontSize: 12 }}
-                      formatter={(value: string) => (
-                        <span className="text-slate-600">{value}</span>
-                      )}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-slate-400 text-sm">
-                  데이터가 없습니다.
-                </div>
-              )}
-            </div>
-            {/* Category breakdown */}
-            {categoryChartData.length > 0 && (
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {categoryChartData.map((item, i) => (
-                  <div key={item.name} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
-                      />
-                      <span className="text-xs text-slate-600">{item.name}</span>
-                    </div>
-                    <span className="text-xs font-semibold text-slate-700">{formatNumber(item.value)}개</span>
-                  </div>
-                ))}
+            {/* Add row button at bottom */}
+            {!loading && (
+              <div className="border-t border-gray-100 px-4 py-3">
+                <button
+                  onClick={addNewPlan}
+                  className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-600 font-medium transition-colors"
+                >
+                  <PlusIcon /> 행 추가
+                </button>
               </div>
             )}
           </div>
-        </div>
 
-        {/* ── Status Distribution Mini Cards ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6">
-          <h3 className="text-base font-bold text-slate-800 mb-4">상태별 현황</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {STATUS_OPTIONS.map(status => {
-              const count = filteredPlans.filter(p => p.status === status).length;
-              const sc = STATUS_COLORS[status];
-              return (
-                <button
-                  key={status}
-                  onClick={() => setStatusFilter(statusFilter === status ? '전체' : status)}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
-                    statusFilter === status
-                      ? 'border-indigo-300 bg-indigo-50'
-                      : 'border-transparent bg-slate-50 hover:border-slate-200'
-                  }`}
-                >
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${sc.bg} ${sc.text}`}>
-                    {status}
-                  </span>
-                  <span className="text-xl font-bold text-slate-800">{count}</span>
-                  <span className="text-[10px] text-slate-400">건</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-      </div>
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/* Add / Edit Modal                               */}
-      {/* ═══════════════════════════════════════════════ */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeModal} />
-
-          {/* Modal panel */}
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 rounded-t-2xl flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-800">
-                {editingPlan ? '생산계획 수정' : '생산계획 추가'}
-              </h3>
-              <button
-                onClick={closeModal}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="px-6 py-5 space-y-4">
-              {/* 상품명 */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  상품명 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.productName}
-                  onChange={e => setForm(prev => ({ ...prev, productName: e.target.value }))}
-                  placeholder="상품명을 입력하세요"
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
-                />
-              </div>
-
-              {/* 카테고리 */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  카테고리 <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={form.category}
-                  onChange={e => setForm(prev => ({ ...prev, category: e.target.value as Category }))}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white transition-shadow"
-                >
-                  {CATEGORY_OPTIONS.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 계획수량 */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  계획수량 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={form.plannedQty || ''}
-                  onChange={e => setForm(prev => ({ ...prev, plannedQty: Number(e.target.value) }))}
-                  placeholder="0"
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow tabular-nums"
-                />
-              </div>
-
-              {/* 날짜 row */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    시작일 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={form.startDate}
-                    onChange={e => setForm(prev => ({ ...prev, startDate: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
-                  />
+          {/* ── AI Recommendation Panel (below table, slides open) ────────── */}
+          {showAiPanel && aiRecommendations[showAiPanel] && (() => {
+            const rec = aiRecommendations[showAiPanel];
+            const planForPanel = plans.find(p => p.id === showAiPanel);
+            return (
+              <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border border-violet-200 shadow-sm p-5 animate-in slide-in-from-top">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                      <SparkleIcon />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-sm">AI 추천 분석</h3>
+                      <p className="text-xs text-gray-500">{planForPanel?.product_name} ({planForPanel?.plan_date})</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowAiPanel(null)}
+                    className="p-1 rounded-md hover:bg-violet-100 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <XIcon />
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    완료예정일 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={form.endDate}
-                    onChange={e => setForm(prev => ({ ...prev, endDate: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
-                  />
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                  <div className="bg-white/80 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">추천 생산량</p>
+                    <p className="text-lg font-bold text-violet-700">{rec.recommended_qty.toLocaleString('ko-KR')}<span className="text-xs font-normal text-gray-400">개</span></p>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">안전재고 부족분</p>
+                    <p className="text-lg font-bold text-red-600">{rec.safety_stock_deficit.toLocaleString('ko-KR')}<span className="text-xs font-normal text-gray-400">개</span></p>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">주문계획 수량</p>
+                    <p className="text-lg font-bold text-blue-600">{rec.order_plan_qty.toLocaleString('ko-KR')}<span className="text-xs font-normal text-gray-400">개</span></p>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">평균 시간당 생산량</p>
+                    <p className="text-lg font-bold text-gray-800">{rec.avg_hourly_rate.toLocaleString('ko-KR')}<span className="text-xs font-normal text-gray-400">개/시</span></p>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">필요 시간</p>
+                    <p className="text-lg font-bold text-gray-800">{rec.required_hours}<span className="text-xs font-normal text-gray-400">h</span></p>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">필요 인력</p>
+                    <p className="text-lg font-bold text-gray-800">{rec.required_manpower}<span className="text-xs font-normal text-gray-400">명</span></p>
+                  </div>
+                </div>
+
+                <div className="bg-white/60 rounded-lg p-3 mb-4">
+                  <p className="text-xs font-medium text-gray-500 mb-1">AI 분석 설명</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-line">{rec.explanation}</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => acceptAiRecommendation(showAiPanel)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors shadow-sm"
+                  >
+                    <CheckIcon /> 추천 적용
+                  </button>
+                  <button
+                    onClick={() => setShowAiPanel(null)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    수동 입력 유지
+                  </button>
                 </div>
               </div>
+            );
+          })()}
 
-              {/* 담당자 */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  담당자 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.manager}
-                  onChange={e => setForm(prev => ({ ...prev, manager: e.target.value }))}
-                  placeholder="담당자 이름"
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
-                />
-              </div>
+          {/* ── Share Modal ──────────────────────────────────────────────── */}
+          {showShareModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              {/* Backdrop */}
+              <div
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                onClick={() => { setShowShareModal(false); setShareSuccess(false); }}
+              />
+              {/* Modal */}
+              <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-gray-900">생산 계획 공유</h2>
+                  <button
+                    onClick={() => { setShowShareModal(false); setShareSuccess(false); }}
+                    className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <XIcon />
+                  </button>
+                </div>
 
-              {/* 메모 */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  메모
-                </label>
-                <textarea
-                  value={form.memo}
-                  onChange={e => setForm(prev => ({ ...prev, memo: e.target.value }))}
-                  placeholder="생산 관련 메모를 입력하세요"
-                  rows={3}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-shadow"
-                />
+                <div className="px-6 py-5 space-y-5">
+                  {/* Share method */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">공유 방식</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { key: 'sms' as const, label: 'SMS', icon: '💬' },
+                        { key: 'kakao' as const, label: '카카오톡', icon: '💛' },
+                        { key: 'email' as const, label: '이메일', icon: '📧' },
+                      ]).map(m => (
+                        <button
+                          key={m.key}
+                          onClick={() => setShareMethod(m.key)}
+                          className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
+                            shareMethod === m.key
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          <span>{m.icon}</span> {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Email input */}
+                  {shareMethod === 'email' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">받는 사람 이메일</label>
+                      <input
+                        type="email"
+                        value={shareEmail}
+                        onChange={e => setShareEmail(e.target.value)}
+                        placeholder="example@company.com"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                  )}
+
+                  {/* Preview */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-sm font-medium text-gray-700">공유 내용 미리보기</label>
+                      <button
+                        onClick={copyShareText}
+                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        <CopyIcon />
+                        {copiedShare ? '복사됨!' : '복사'}
+                      </button>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3 max-h-48 overflow-y-auto">
+                      <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+                        {generateShareText}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {shareSuccess && (
+                    <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 rounded-lg p-3 text-sm">
+                      <CheckIcon />
+                      <span>공유가 완료되었습니다.</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
+                  <button
+                    onClick={() => { setShowShareModal(false); setShareSuccess(false); }}
+                    className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    닫기
+                  </button>
+                  <button
+                    onClick={handleShare}
+                    disabled={shareSending || (shareMethod === 'email' && !shareEmail)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {shareSending ? <LoadingSpinner /> : <ShareIcon />}
+                    {shareSending ? '전송 중...' : '전송하기'}
+                  </button>
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Footer */}
-            <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 rounded-b-2xl flex items-center justify-end gap-3">
-              <button
-                onClick={closeModal}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={!form.productName || !form.startDate || !form.endDate || !form.manager}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors shadow-sm"
-              >
-                {editingPlan ? '수정 완료' : '등록하기'}
-              </button>
-            </div>
-          </div>
         </div>
-      )}
-    </main>
+      </main>
+    </div>
   );
 }

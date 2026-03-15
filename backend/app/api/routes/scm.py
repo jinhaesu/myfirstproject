@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 import logging
 import uuid
+import math
 
 router = APIRouter(prefix="/scm", tags=["scm"])
 logger = logging.getLogger(__name__)
@@ -132,6 +133,137 @@ class ShipmentUpdate(BaseModel):
     courier: Optional[str] = None
     tracking_number: Optional[str] = None
     status: Optional[str] = None
+
+
+# --- Order Plan (주문 계획) ---
+class OrderPlanCreate(BaseModel):
+    product_name: str
+    product_code: Optional[str] = None
+    channel_type: str = "online"  # 'online' or 'offline'
+    channel_name: Optional[str] = None
+    assignee: str
+    plan_date: date
+    planned_qty: int = 0
+    actual_qty: Optional[int] = 0
+    unit_price: Optional[float] = 0
+    notes: Optional[str] = None
+
+class OrderPlanUpdate(BaseModel):
+    product_name: Optional[str] = None
+    product_code: Optional[str] = None
+    channel_type: Optional[str] = None
+    channel_name: Optional[str] = None
+    assignee: Optional[str] = None
+    plan_date: Optional[date] = None
+    planned_qty: Optional[int] = None
+    actual_qty: Optional[int] = None
+    unit_price: Optional[float] = None
+    notes: Optional[str] = None
+
+class OrderPlanBulkItem(BaseModel):
+    id: Optional[int] = None  # None이면 create, 있으면 update
+    product_name: str
+    product_code: Optional[str] = None
+    channel_type: str = "online"
+    channel_name: Optional[str] = None
+    assignee: str
+    plan_date: date
+    planned_qty: int = 0
+    actual_qty: Optional[int] = 0
+    unit_price: Optional[float] = 0
+    notes: Optional[str] = None
+
+class OrderPlanBulkRequest(BaseModel):
+    items: List[OrderPlanBulkItem]
+
+# --- Production Result (생산 결과) ---
+class ProductionResultCreate(BaseModel):
+    production_date: date
+    team_name: str
+    work_shift: str = "주간"
+    product_code: Optional[str] = None
+    product_name: str
+    sale_price: float = 0
+    cost_rate: float = 0
+    production_hours: float = 0
+    expected_sales: float = 0
+    profit: float = 0
+    hourly_rate: float = 0
+    profitability: Optional[str] = None
+    quality_status: Optional[str] = None
+
+class ProductionResultUpdate(BaseModel):
+    production_date: Optional[date] = None
+    team_name: Optional[str] = None
+    work_shift: Optional[str] = None
+    product_code: Optional[str] = None
+    product_name: Optional[str] = None
+    sale_price: Optional[float] = None
+    cost_rate: Optional[float] = None
+    production_hours: Optional[float] = None
+    expected_sales: Optional[float] = None
+    profit: Optional[float] = None
+    hourly_rate: Optional[float] = None
+    profitability: Optional[str] = None
+    quality_status: Optional[str] = None
+
+class ProductionResultBulkItem(BaseModel):
+    id: Optional[int] = None
+    production_date: date
+    team_name: str
+    work_shift: str = "주간"
+    product_code: Optional[str] = None
+    product_name: str
+    sale_price: float = 0
+    cost_rate: float = 0
+    production_hours: float = 0
+    expected_sales: float = 0
+    profit: float = 0
+    hourly_rate: float = 0
+    profitability: Optional[str] = None
+    quality_status: Optional[str] = None
+
+class ProductionResultBulkRequest(BaseModel):
+    items: List[ProductionResultBulkItem]
+
+# --- Production Plan V2 (생산 계획 v2) ---
+class ProductionPlanV2Create(BaseModel):
+    plan_date: date
+    product_name: str
+    product_code: Optional[str] = None
+    planned_qty: int = 0
+    required_hours: Optional[float] = 0
+    required_manpower: Optional[int] = 0
+    avg_hourly_rate: Optional[float] = 0
+    order_plan_qty: Optional[int] = 0
+    safety_stock_deficit: Optional[int] = 0
+    ai_recommended_qty: Optional[int] = 0
+    status: str = "draft"
+    notes: Optional[str] = None
+
+class ProductionPlanV2Update(BaseModel):
+    plan_date: Optional[date] = None
+    product_name: Optional[str] = None
+    product_code: Optional[str] = None
+    planned_qty: Optional[int] = None
+    required_hours: Optional[float] = None
+    required_manpower: Optional[int] = None
+    avg_hourly_rate: Optional[float] = None
+    order_plan_qty: Optional[int] = None
+    safety_stock_deficit: Optional[int] = None
+    ai_recommended_qty: Optional[int] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+class AiRecommendRequest(BaseModel):
+    product_name: str
+    plan_date: date
+
+class SharePlanRequest(BaseModel):
+    plan_ids: List[int]
+    format: str = "email"  # email, kakao, slack, etc.
+    recipients: Optional[List[str]] = None
+    message: Optional[str] = None
 
 
 # ══════════════════════════════════════════════
@@ -1294,4 +1426,869 @@ def inventory_alerts(
         }
     except Exception as e:
         logger.error(f"재고 알림 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ══════════════════════════════════════════════
+#  5. 주문 계획 (Order Plans)
+# ══════════════════════════════════════════════
+
+@router.get("/order-plans")
+def list_order_plans(
+    start_date: Optional[str] = None,  # YYYY-MM-DD
+    end_date: Optional[str] = None,
+    product_name: Optional[str] = None,
+    channel_type: Optional[str] = None,
+    assignee: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """주문 계획 목록 조회 (필터 지원)"""
+    try:
+        from app.db_models import ScmOrderPlan
+
+        query = db.query(ScmOrderPlan)
+
+        if start_date:
+            query = query.filter(ScmOrderPlan.plan_date >= date.fromisoformat(start_date))
+        if end_date:
+            query = query.filter(ScmOrderPlan.plan_date <= date.fromisoformat(end_date))
+        if product_name:
+            query = query.filter(ScmOrderPlan.product_name.ilike(f"%{product_name}%"))
+        if channel_type:
+            query = query.filter(ScmOrderPlan.channel_type == channel_type)
+        if assignee:
+            query = query.filter(ScmOrderPlan.assignee.ilike(f"%{assignee}%"))
+
+        plans = query.order_by(ScmOrderPlan.plan_date.desc(), ScmOrderPlan.id.desc()).all()
+
+        return {
+            "success": True,
+            "data": [
+                {
+                    "id": p.id,
+                    "product_name": p.product_name,
+                    "product_code": p.product_code,
+                    "channel_type": p.channel_type,
+                    "channel_name": p.channel_name,
+                    "assignee": p.assignee,
+                    "plan_date": str(p.plan_date) if p.plan_date else None,
+                    "planned_qty": p.planned_qty,
+                    "actual_qty": p.actual_qty,
+                    "unit_price": p.unit_price,
+                    "notes": p.notes,
+                    "created_at": p.created_at.isoformat() if p.created_at else None,
+                    "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+                }
+                for p in plans
+            ],
+            "total": len(plans),
+        }
+    except Exception as e:
+        logger.error(f"주문 계획 목록 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/order-plans")
+def create_order_plans(
+    body: List[OrderPlanCreate],
+    db: Session = Depends(get_db),
+):
+    """주문 계획 생성 (단건/복수건 지원)"""
+    try:
+        from app.db_models import ScmOrderPlan
+
+        created = []
+        for item in body:
+            plan = ScmOrderPlan(
+                product_name=item.product_name,
+                product_code=item.product_code,
+                channel_type=item.channel_type,
+                channel_name=item.channel_name,
+                assignee=item.assignee,
+                plan_date=item.plan_date,
+                planned_qty=item.planned_qty,
+                actual_qty=item.actual_qty,
+                unit_price=item.unit_price,
+                notes=item.notes,
+            )
+            db.add(plan)
+            db.flush()
+            created.append({"id": plan.id, "product_name": plan.product_name})
+
+        db.commit()
+        return {"success": True, "data": created, "count": len(created)}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"주문 계획 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/order-plans/{plan_id}")
+def update_order_plan(
+    plan_id: int,
+    body: OrderPlanUpdate,
+    db: Session = Depends(get_db),
+):
+    """주문 계획 단건 수정"""
+    try:
+        from app.db_models import ScmOrderPlan
+
+        plan = db.query(ScmOrderPlan).filter(ScmOrderPlan.id == plan_id).first()
+        if not plan:
+            raise HTTPException(status_code=404, detail="주문 계획을 찾을 수 없습니다")
+
+        update_data = body.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(plan, key, value)
+
+        db.commit()
+        return {"success": True, "message": "주문 계획이 수정되었습니다"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"주문 계획 수정 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/order-plans/{plan_id}")
+def delete_order_plan(
+    plan_id: int,
+    db: Session = Depends(get_db),
+):
+    """주문 계획 삭제"""
+    try:
+        from app.db_models import ScmOrderPlan
+
+        plan = db.query(ScmOrderPlan).filter(ScmOrderPlan.id == plan_id).first()
+        if not plan:
+            raise HTTPException(status_code=404, detail="주문 계획을 찾을 수 없습니다")
+
+        db.delete(plan)
+        db.commit()
+        return {"success": True, "message": "주문 계획이 삭제되었습니다"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"주문 계획 삭제 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/order-plans/bulk")
+def bulk_order_plans(
+    body: OrderPlanBulkRequest,
+    db: Session = Depends(get_db),
+):
+    """주문 계획 일괄 생성/수정 (Excel-like paste)"""
+    try:
+        from app.db_models import ScmOrderPlan
+
+        created_count = 0
+        updated_count = 0
+
+        for item in body.items:
+            if item.id:
+                # update existing
+                plan = db.query(ScmOrderPlan).filter(ScmOrderPlan.id == item.id).first()
+                if plan:
+                    for key, value in item.model_dump(exclude={"id"}).items():
+                        if value is not None:
+                            setattr(plan, key, value)
+                    updated_count += 1
+            else:
+                # create new
+                plan = ScmOrderPlan(
+                    product_name=item.product_name,
+                    product_code=item.product_code,
+                    channel_type=item.channel_type,
+                    channel_name=item.channel_name,
+                    assignee=item.assignee,
+                    plan_date=item.plan_date,
+                    planned_qty=item.planned_qty,
+                    actual_qty=item.actual_qty,
+                    unit_price=item.unit_price,
+                    notes=item.notes,
+                )
+                db.add(plan)
+                created_count += 1
+
+        db.commit()
+        return {
+            "success": True,
+            "message": f"생성 {created_count}건, 수정 {updated_count}건 처리되었습니다",
+            "created": created_count,
+            "updated": updated_count,
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"주문 계획 일괄 처리 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/order-plans/products")
+def get_order_plan_products(
+    db: Session = Depends(get_db),
+):
+    """주문 계획 품명 자동완성용 distinct 목록"""
+    try:
+        from app.db_models import ScmOrderPlan
+
+        rows = (
+            db.query(ScmOrderPlan.product_name)
+            .distinct()
+            .order_by(ScmOrderPlan.product_name)
+            .all()
+        )
+        return {
+            "success": True,
+            "data": [r.product_name for r in rows],
+        }
+    except Exception as e:
+        logger.error(f"주문 계획 품명 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/order-plans/assignees")
+def get_order_plan_assignees(
+    db: Session = Depends(get_db),
+):
+    """주문 계획 담당자 자동완성용 distinct 목록"""
+    try:
+        from app.db_models import ScmOrderPlan
+
+        rows = (
+            db.query(ScmOrderPlan.assignee)
+            .distinct()
+            .order_by(ScmOrderPlan.assignee)
+            .all()
+        )
+        return {
+            "success": True,
+            "data": [r.assignee for r in rows],
+        }
+    except Exception as e:
+        logger.error(f"주문 계획 담당자 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ══════════════════════════════════════════════
+#  6. 생산 결과 (Production Results)
+# ══════════════════════════════════════════════
+
+@router.get("/production-results")
+def list_production_results(
+    start_date: Optional[str] = None,  # YYYY-MM-DD
+    end_date: Optional[str] = None,
+    team_name: Optional[str] = None,
+    product_name: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """생산 결과 목록 조회 (필터 지원)"""
+    try:
+        from app.db_models import ScmProductionResult
+
+        query = db.query(ScmProductionResult)
+
+        if start_date:
+            query = query.filter(ScmProductionResult.production_date >= date.fromisoformat(start_date))
+        if end_date:
+            query = query.filter(ScmProductionResult.production_date <= date.fromisoformat(end_date))
+        if team_name:
+            query = query.filter(ScmProductionResult.team_name.ilike(f"%{team_name}%"))
+        if product_name:
+            query = query.filter(ScmProductionResult.product_name.ilike(f"%{product_name}%"))
+
+        results = query.order_by(
+            ScmProductionResult.production_date.desc(),
+            ScmProductionResult.id.desc(),
+        ).all()
+
+        return {
+            "success": True,
+            "data": [
+                {
+                    "id": r.id,
+                    "production_date": str(r.production_date) if r.production_date else None,
+                    "team_name": r.team_name,
+                    "work_shift": r.work_shift,
+                    "product_code": r.product_code,
+                    "product_name": r.product_name,
+                    "sale_price": r.sale_price,
+                    "cost_rate": r.cost_rate,
+                    "production_hours": r.production_hours,
+                    "expected_sales": r.expected_sales,
+                    "profit": r.profit,
+                    "hourly_rate": r.hourly_rate,
+                    "profitability": r.profitability,
+                    "quality_status": r.quality_status,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                }
+                for r in results
+            ],
+            "total": len(results),
+        }
+    except Exception as e:
+        logger.error(f"생산 결과 목록 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/production-results")
+def create_production_results(
+    body: List[ProductionResultCreate],
+    db: Session = Depends(get_db),
+):
+    """생산 결과 생성 (단건/복수건 지원)"""
+    try:
+        from app.db_models import ScmProductionResult
+
+        created = []
+        for item in body:
+            result = ScmProductionResult(
+                production_date=item.production_date,
+                team_name=item.team_name,
+                work_shift=item.work_shift,
+                product_code=item.product_code,
+                product_name=item.product_name,
+                sale_price=item.sale_price,
+                cost_rate=item.cost_rate,
+                production_hours=item.production_hours,
+                expected_sales=item.expected_sales,
+                profit=item.profit,
+                hourly_rate=item.hourly_rate,
+                profitability=item.profitability,
+                quality_status=item.quality_status,
+            )
+            db.add(result)
+            db.flush()
+            created.append({"id": result.id, "product_name": result.product_name})
+
+        db.commit()
+        return {"success": True, "data": created, "count": len(created)}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"생산 결과 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/production-results/{result_id}")
+def update_production_result(
+    result_id: int,
+    body: ProductionResultUpdate,
+    db: Session = Depends(get_db),
+):
+    """생산 결과 단건 수정"""
+    try:
+        from app.db_models import ScmProductionResult
+
+        result = db.query(ScmProductionResult).filter(ScmProductionResult.id == result_id).first()
+        if not result:
+            raise HTTPException(status_code=404, detail="생산 결과를 찾을 수 없습니다")
+
+        update_data = body.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(result, key, value)
+
+        db.commit()
+        return {"success": True, "message": "생산 결과가 수정되었습니다"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"생산 결과 수정 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/production-results/{result_id}")
+def delete_production_result(
+    result_id: int,
+    db: Session = Depends(get_db),
+):
+    """생산 결과 삭제"""
+    try:
+        from app.db_models import ScmProductionResult
+
+        result = db.query(ScmProductionResult).filter(ScmProductionResult.id == result_id).first()
+        if not result:
+            raise HTTPException(status_code=404, detail="생산 결과를 찾을 수 없습니다")
+
+        db.delete(result)
+        db.commit()
+        return {"success": True, "message": "생산 결과가 삭제되었습니다"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"생산 결과 삭제 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/production-results/bulk")
+def bulk_production_results(
+    body: ProductionResultBulkRequest,
+    db: Session = Depends(get_db),
+):
+    """생산 결과 일괄 생성/수정 (Excel-like paste / Ctrl+V)"""
+    try:
+        from app.db_models import ScmProductionResult
+
+        created_count = 0
+        updated_count = 0
+
+        for item in body.items:
+            if item.id:
+                result = db.query(ScmProductionResult).filter(ScmProductionResult.id == item.id).first()
+                if result:
+                    for key, value in item.model_dump(exclude={"id"}).items():
+                        if value is not None:
+                            setattr(result, key, value)
+                    updated_count += 1
+            else:
+                result = ScmProductionResult(
+                    production_date=item.production_date,
+                    team_name=item.team_name,
+                    work_shift=item.work_shift,
+                    product_code=item.product_code,
+                    product_name=item.product_name,
+                    sale_price=item.sale_price,
+                    cost_rate=item.cost_rate,
+                    production_hours=item.production_hours,
+                    expected_sales=item.expected_sales,
+                    profit=item.profit,
+                    hourly_rate=item.hourly_rate,
+                    profitability=item.profitability,
+                    quality_status=item.quality_status,
+                )
+                db.add(result)
+                created_count += 1
+
+        db.commit()
+        return {
+            "success": True,
+            "message": f"생성 {created_count}건, 수정 {updated_count}건 처리되었습니다",
+            "created": created_count,
+            "updated": updated_count,
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"생산 결과 일괄 처리 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/production-results/summary")
+def production_results_summary(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """생산 결과 요약 통계 (총 생산, 평균 시간당 생산량, 차트 데이터)"""
+    try:
+        from app.db_models import ScmProductionResult
+
+        query = db.query(ScmProductionResult)
+
+        if start_date:
+            query = query.filter(ScmProductionResult.production_date >= date.fromisoformat(start_date))
+        if end_date:
+            query = query.filter(ScmProductionResult.production_date <= date.fromisoformat(end_date))
+
+        total_count = query.count()
+        total_expected_sales = query.with_entities(
+            func.coalesce(func.sum(ScmProductionResult.expected_sales), 0)
+        ).scalar()
+        total_profit = query.with_entities(
+            func.coalesce(func.sum(ScmProductionResult.profit), 0)
+        ).scalar()
+        avg_hourly_rate = query.with_entities(
+            func.coalesce(func.avg(ScmProductionResult.hourly_rate), 0)
+        ).scalar()
+        total_production_hours = query.with_entities(
+            func.coalesce(func.sum(ScmProductionResult.production_hours), 0)
+        ).scalar()
+
+        # 일별 생산 추이 차트 데이터
+        daily_chart = (
+            query.with_entities(
+                ScmProductionResult.production_date.label("date"),
+                func.count(ScmProductionResult.id).label("count"),
+                func.coalesce(func.sum(ScmProductionResult.expected_sales), 0).label("expected_sales"),
+                func.coalesce(func.sum(ScmProductionResult.profit), 0).label("profit"),
+                func.coalesce(func.avg(ScmProductionResult.hourly_rate), 0).label("avg_hourly_rate"),
+            )
+            .group_by(ScmProductionResult.production_date)
+            .order_by(ScmProductionResult.production_date)
+            .all()
+        )
+
+        # 팀별 생산 요약
+        team_summary = (
+            query.with_entities(
+                ScmProductionResult.team_name,
+                func.count(ScmProductionResult.id).label("count"),
+                func.coalesce(func.sum(ScmProductionResult.expected_sales), 0).label("expected_sales"),
+                func.coalesce(func.avg(ScmProductionResult.hourly_rate), 0).label("avg_hourly_rate"),
+            )
+            .group_by(ScmProductionResult.team_name)
+            .all()
+        )
+
+        return {
+            "success": True,
+            "data": {
+                "total_count": total_count,
+                "total_expected_sales": float(total_expected_sales),
+                "total_profit": float(total_profit),
+                "avg_hourly_rate": round(float(avg_hourly_rate), 2),
+                "total_production_hours": float(total_production_hours),
+                "daily_chart": [
+                    {
+                        "date": str(r.date),
+                        "count": r.count,
+                        "expected_sales": float(r.expected_sales),
+                        "profit": float(r.profit),
+                        "avg_hourly_rate": round(float(r.avg_hourly_rate), 2),
+                    }
+                    for r in daily_chart
+                ],
+                "team_summary": [
+                    {
+                        "team_name": r.team_name,
+                        "count": r.count,
+                        "expected_sales": float(r.expected_sales),
+                        "avg_hourly_rate": round(float(r.avg_hourly_rate), 2),
+                    }
+                    for r in team_summary
+                ],
+            },
+        }
+    except Exception as e:
+        logger.error(f"생산 결과 요약 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/production-results/hourly-rates")
+def get_hourly_rates_by_product(
+    product_name: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """제품별 과거 시간당 생산량 조회 (생산 계획 수립 참고용)"""
+    try:
+        from app.db_models import ScmProductionResult
+
+        query = db.query(
+            ScmProductionResult.product_name,
+            func.avg(ScmProductionResult.hourly_rate).label("avg_hourly_rate"),
+            func.min(ScmProductionResult.hourly_rate).label("min_hourly_rate"),
+            func.max(ScmProductionResult.hourly_rate).label("max_hourly_rate"),
+            func.count(ScmProductionResult.id).label("data_count"),
+        )
+
+        if product_name:
+            query = query.filter(ScmProductionResult.product_name.ilike(f"%{product_name}%"))
+
+        rows = (
+            query.group_by(ScmProductionResult.product_name)
+            .order_by(ScmProductionResult.product_name)
+            .all()
+        )
+
+        return {
+            "success": True,
+            "data": [
+                {
+                    "product_name": r.product_name,
+                    "avg_hourly_rate": round(float(r.avg_hourly_rate), 2) if r.avg_hourly_rate else 0,
+                    "min_hourly_rate": round(float(r.min_hourly_rate), 2) if r.min_hourly_rate else 0,
+                    "max_hourly_rate": round(float(r.max_hourly_rate), 2) if r.max_hourly_rate else 0,
+                    "data_count": r.data_count,
+                }
+                for r in rows
+            ],
+        }
+    except Exception as e:
+        logger.error(f"시간당 생산량 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ══════════════════════════════════════════════
+#  7. 생산 계획 v2 (Production Plans V2)
+# ══════════════════════════════════════════════
+
+@router.get("/production-plans-v2")
+def list_production_plans_v2(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    product_name: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """생산 계획 v2 목록 조회"""
+    try:
+        from app.db_models import ScmProductionPlanV2
+
+        query = db.query(ScmProductionPlanV2)
+
+        if start_date:
+            query = query.filter(ScmProductionPlanV2.plan_date >= date.fromisoformat(start_date))
+        if end_date:
+            query = query.filter(ScmProductionPlanV2.plan_date <= date.fromisoformat(end_date))
+        if product_name:
+            query = query.filter(ScmProductionPlanV2.product_name.ilike(f"%{product_name}%"))
+        if status:
+            query = query.filter(ScmProductionPlanV2.status == status)
+
+        plans = query.order_by(
+            ScmProductionPlanV2.plan_date.desc(),
+            ScmProductionPlanV2.id.desc(),
+        ).all()
+
+        return {
+            "success": True,
+            "data": [
+                {
+                    "id": p.id,
+                    "plan_date": str(p.plan_date) if p.plan_date else None,
+                    "product_name": p.product_name,
+                    "product_code": p.product_code,
+                    "planned_qty": p.planned_qty,
+                    "required_hours": p.required_hours,
+                    "required_manpower": p.required_manpower,
+                    "avg_hourly_rate": p.avg_hourly_rate,
+                    "order_plan_qty": p.order_plan_qty,
+                    "safety_stock_deficit": p.safety_stock_deficit,
+                    "ai_recommended_qty": p.ai_recommended_qty,
+                    "status": p.status,
+                    "notes": p.notes,
+                    "created_at": p.created_at.isoformat() if p.created_at else None,
+                    "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+                }
+                for p in plans
+            ],
+            "total": len(plans),
+        }
+    except Exception as e:
+        logger.error(f"생산 계획 v2 목록 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/production-plans-v2")
+def create_production_plans_v2(
+    body: List[ProductionPlanV2Create],
+    db: Session = Depends(get_db),
+):
+    """생산 계획 v2 생성 (단건/복수건 지원)"""
+    try:
+        from app.db_models import ScmProductionPlanV2
+
+        created = []
+        for item in body:
+            plan = ScmProductionPlanV2(
+                plan_date=item.plan_date,
+                product_name=item.product_name,
+                product_code=item.product_code,
+                planned_qty=item.planned_qty,
+                required_hours=item.required_hours,
+                required_manpower=item.required_manpower,
+                avg_hourly_rate=item.avg_hourly_rate,
+                order_plan_qty=item.order_plan_qty,
+                safety_stock_deficit=item.safety_stock_deficit,
+                ai_recommended_qty=item.ai_recommended_qty,
+                status=item.status,
+                notes=item.notes,
+            )
+            db.add(plan)
+            db.flush()
+            created.append({"id": plan.id, "product_name": plan.product_name})
+
+        db.commit()
+        return {"success": True, "data": created, "count": len(created)}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"생산 계획 v2 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/production-plans-v2/{plan_id}")
+def update_production_plan_v2(
+    plan_id: int,
+    body: ProductionPlanV2Update,
+    db: Session = Depends(get_db),
+):
+    """생산 계획 v2 수정"""
+    try:
+        from app.db_models import ScmProductionPlanV2
+
+        plan = db.query(ScmProductionPlanV2).filter(ScmProductionPlanV2.id == plan_id).first()
+        if not plan:
+            raise HTTPException(status_code=404, detail="생산 계획을 찾을 수 없습니다")
+
+        update_data = body.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(plan, key, value)
+
+        db.commit()
+        return {"success": True, "message": "생산 계획이 수정되었습니다"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"생산 계획 v2 수정 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/production-plans-v2/{plan_id}")
+def delete_production_plan_v2(
+    plan_id: int,
+    db: Session = Depends(get_db),
+):
+    """생산 계획 v2 삭제"""
+    try:
+        from app.db_models import ScmProductionPlanV2
+
+        plan = db.query(ScmProductionPlanV2).filter(ScmProductionPlanV2.id == plan_id).first()
+        if not plan:
+            raise HTTPException(status_code=404, detail="생산 계획을 찾을 수 없습니다")
+
+        db.delete(plan)
+        db.commit()
+        return {"success": True, "message": "생산 계획이 삭제되었습니다"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"생산 계획 v2 삭제 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/production-plans-v2/ai-recommend")
+def ai_recommend_production(
+    body: AiRecommendRequest,
+    db: Session = Depends(get_db),
+):
+    """AI 추천 생산량 계산
+    - 안전재고 부족분 조회 (ScmInventoryItem)
+    - 주문 계획 수량 합산 (ScmOrderPlan)
+    - 과거 시간당 생산량 평균 (ScmProductionResult)
+    - 추천 수량 = max(안전재고 부족분, 주문계획 합계)
+    - 필요 시간 = 추천 수량 / 평균 시간당 생산량
+    - 필요 인력 = 필요 시간 / 8
+    """
+    try:
+        from app.db_models import ScmInventoryItem, ScmOrderPlan, ScmProductionResult
+
+        product_name = body.product_name
+        plan_date = body.plan_date
+
+        # 1. 안전재고 부족분 조회
+        inventory = (
+            db.query(ScmInventoryItem)
+            .filter(ScmInventoryItem.product_name.ilike(f"%{product_name}%"))
+            .first()
+        )
+
+        safety_stock_deficit = 0
+        current_stock = 0
+        safety_stock = 0
+        if inventory:
+            current_stock = inventory.current_stock or 0
+            safety_stock = inventory.safety_stock or 0
+            safety_stock_deficit = max(0, safety_stock - current_stock)
+
+        # 2. 해당 날짜의 주문 계획 수량 합산
+        order_plan_total = (
+            db.query(func.coalesce(func.sum(ScmOrderPlan.planned_qty), 0))
+            .filter(
+                ScmOrderPlan.product_name.ilike(f"%{product_name}%"),
+                ScmOrderPlan.plan_date == plan_date,
+            )
+            .scalar()
+        )
+        order_plan_total = int(order_plan_total)
+
+        # 3. 과거 시간당 생산량 평균
+        avg_hourly = (
+            db.query(func.avg(ScmProductionResult.hourly_rate))
+            .filter(ScmProductionResult.product_name.ilike(f"%{product_name}%"))
+            .scalar()
+        )
+        avg_hourly_rate = float(avg_hourly) if avg_hourly else 0
+
+        # 4. 추천 수량 계산
+        recommended_qty = max(safety_stock_deficit, order_plan_total)
+
+        # 5. 필요 시간 / 인력 계산
+        if avg_hourly_rate > 0:
+            required_hours = round(recommended_qty / avg_hourly_rate, 2)
+        else:
+            required_hours = 0
+
+        required_manpower = math.ceil(required_hours / 8) if required_hours > 0 else 0
+
+        return {
+            "success": True,
+            "data": {
+                "product_name": product_name,
+                "plan_date": str(plan_date),
+                "safety_stock_deficit": safety_stock_deficit,
+                "current_stock": current_stock,
+                "safety_stock": safety_stock,
+                "order_plan_total": order_plan_total,
+                "avg_hourly_rate": round(avg_hourly_rate, 2),
+                "recommended_qty": recommended_qty,
+                "required_hours": required_hours,
+                "required_manpower": required_manpower,
+            },
+        }
+    except Exception as e:
+        logger.error(f"AI 추천 생산량 계산 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/production-plans-v2/share")
+def share_production_plan(
+    body: SharePlanRequest,
+    db: Session = Depends(get_db),
+):
+    """생산 계획 공유 (intent 저장 - 실제 발송은 별도 처리)"""
+    try:
+        from app.db_models import ScmProductionPlanV2
+
+        # 해당 plan들이 존재하는지 확인
+        plans = (
+            db.query(ScmProductionPlanV2)
+            .filter(ScmProductionPlanV2.id.in_(body.plan_ids))
+            .all()
+        )
+
+        if not plans:
+            raise HTTPException(status_code=404, detail="공유할 생산 계획을 찾을 수 없습니다")
+
+        # 공유 데이터 구성
+        shared_plans = [
+            {
+                "id": p.id,
+                "plan_date": str(p.plan_date) if p.plan_date else None,
+                "product_name": p.product_name,
+                "planned_qty": p.planned_qty,
+                "status": p.status,
+            }
+            for p in plans
+        ]
+
+        return {
+            "success": True,
+            "message": f"{len(plans)}건의 생산 계획 공유가 요청되었습니다",
+            "data": {
+                "format": body.format,
+                "recipients": body.recipients,
+                "message": body.message,
+                "plans": shared_plans,
+                "plan_count": len(plans),
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"생산 계획 공유 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
