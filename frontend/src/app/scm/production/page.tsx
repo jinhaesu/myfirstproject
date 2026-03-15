@@ -123,6 +123,25 @@ interface AlertItem {
   due_date?: string;
 }
 
+interface ProductMaster {
+  id: number;
+  product_name: string;
+  product_code: string;
+  product_category: string;
+  default_location: string;
+  default_unit_price: number;
+  default_cost: number;
+  avg_hourly_rate: number;
+  safety_stock: number;
+}
+
+interface AiRecommendationResult {
+  plan_id: string;
+  product_name: string;
+  recommended_qty: number;
+  explanation: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants & Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -376,9 +395,15 @@ export default function ProductionPlanPage() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [savingBulk, setSavingBulk] = useState(false);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [productCatalog, setProductCatalog] = useState<ProductMaster[]>([]);
+  const [productAutocomplete, setProductAutocomplete] = useState<{ planId: string; query: string; visible: boolean }>({ planId: '', query: '', visible: false });
+  const [autoFilledPlans, setAutoFilledPlans] = useState<Set<string>>(new Set());
+  const [aiRecommendations, setAiRecommendations] = useState<AiRecommendationResult[]>([]);
+  const [aiExplanationsExpanded, setAiExplanationsExpanded] = useState(false);
 
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const toastIdRef = useRef(0);
+  const autocompleteRef = useRef<HTMLDivElement>(null);
 
   // ── Toast helper ──────────────────────────────────────────────────────────
   const addToast = useCallback((text: string, type: ToastMessage['type'] = 'info') => {
@@ -431,6 +456,14 @@ export default function ProductionPlanPage() {
   useEffect(() => {
     fetchPlans();
   }, [fetchPlans]);
+
+  // ── Fetch product catalog ─────────────────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      const catalog = await fetchSafe<ProductMaster[]>('/api/scm/products?active_only=true', []);
+      setProductCatalog(catalog);
+    })();
+  }, []);
 
   // ── Auth redirect ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -531,6 +564,30 @@ export default function ProductionPlanPage() {
     }));
   }, []);
 
+  // ── Product auto-fill from catalog ────────────────────────────────────────
+  const handleProductSelect = useCallback((planId: string, selectedProduct: ProductMaster) => {
+    updatePlan(planId, {
+      product_name: selectedProduct.product_name,
+      category: selectedProduct.product_category,
+      location: selectedProduct.default_location,
+      unit_price: selectedProduct.default_unit_price,
+      cost: selectedProduct.default_cost,
+    });
+    setAutoFilledPlans(prev => new Set(prev).add(planId));
+    setProductAutocomplete({ planId: '', query: '', visible: false });
+    setEditingCell(null);
+  }, [updatePlan]);
+
+  const filteredProducts = useMemo(() => {
+    if (!productAutocomplete.visible || !productAutocomplete.query) return [];
+    const q = productAutocomplete.query.toLowerCase();
+    return productCatalog.filter(p =>
+      p.product_name.toLowerCase().includes(q) ||
+      p.product_category.toLowerCase().includes(q) ||
+      p.product_code.toLowerCase().includes(q)
+    ).slice(0, 8);
+  }, [productAutocomplete, productCatalog]);
+
   const addNewPlan = useCallback(() => {
     const newId = `NEW-${Date.now()}`;
     const newPlan: ProductionPlan = {
@@ -596,21 +653,36 @@ export default function ProductionPlanPage() {
 
     setBulkAiLoading(true);
     setBulkAiProgress({ current: 0, total: eligible.length });
+    const recommendations: AiRecommendationResult[] = [];
 
     let completed = 0;
     for (const plan of eligible) {
       try {
-        const rec = await postApi<{ recommended_qty: number }>(
+        const rec = await postApi<{ recommended_qty: number; explanation?: string }>(
           '/api/scm/production-plans-v2/ai-recommend',
           { product_name: plan.product_name, date: plan.date },
           { recommended_qty: 0 }
         );
 
         let recommendedQty = rec.recommended_qty;
+        let explanation = rec.explanation || '';
+
         if (!recommendedQty || recommendedQty === 0) {
           // Fallback: recommended qty = max(safety_stock_deficit, order_plan_qty) * 1.1
-          // Since we don't have those fields directly, use a sensible heuristic
           recommendedQty = Math.round(plan.quantity * 1.1);
+
+          // Find product in catalog for local explanation
+          const catalogProduct = productCatalog.find(p => p.product_name === plan.product_name);
+          const avgHourlyRate = catalogProduct?.avg_hourly_rate || (plan.total_hours > 0 ? Math.round(plan.quantity / plan.total_hours) : 0);
+          const safetyStock = catalogProduct?.safety_stock || 0;
+          const requiredHours = avgHourlyRate > 0 ? (recommendedQty / avgHourlyRate).toFixed(1) : '?';
+
+          explanation = `[AI 추천 분석 - ${plan.product_name}]\n\n` +
+            `1. 주문 계획 기반 수요: ${fmtNum(plan.quantity)}개\n` +
+            `2. 안전재고 기반: 기준 ${fmtNum(safetyStock)}개\n` +
+            `3. 추천 생산량: ${fmtNum(recommendedQty)}개\n` +
+            `4. 시간당 생산량: ${avgHourlyRate}개/시 (생산 결과 누적)\n` +
+            `5. 필요 시간: ${requiredHours}시간`;
         }
 
         // Auto-apply the recommendation to quantity
@@ -620,6 +692,13 @@ export default function ProductionPlanPage() {
           updated.total_value = updated.quantity * updated.unit_price;
           return updated;
         }));
+
+        recommendations.push({
+          plan_id: plan.id,
+          product_name: plan.product_name,
+          recommended_qty: recommendedQty,
+          explanation,
+        });
       } catch {
         // silent continue
       }
@@ -628,9 +707,11 @@ export default function ProductionPlanPage() {
       setBulkAiProgress({ current: completed, total: eligible.length });
     }
 
+    setAiRecommendations(recommendations);
+    setAiExplanationsExpanded(true);
     setBulkAiLoading(false);
     addToast(`AI 추천 완료: ${eligible.length}개 품목에 추천이 적용되었습니다`, 'success');
-  }, [plans, addToast]);
+  }, [plans, addToast, productCatalog]);
 
   // ── Export CSV ─────────────────────────────────────────────────────────────
   const exportCsv = useCallback(() => {
@@ -782,6 +863,94 @@ export default function ProductionPlanPage() {
         );
       }
 
+      // Special case: product_name with autocomplete
+      if (field === 'product_name') {
+        return (
+          <td key={field} className="px-1 py-0.5 border border-blue-400 bg-blue-50 relative">
+            <input
+              type="text"
+              autoFocus
+              className="w-full bg-transparent text-sm outline-none"
+              value={String(value ?? '')}
+              onChange={e => {
+                const val = e.target.value;
+                updatePlan(plan.id, { product_name: val });
+                setProductAutocomplete({ planId: plan.id, query: val, visible: val.length > 0 });
+              }}
+              onBlur={() => {
+                // Delay to allow dropdown click
+                setTimeout(() => {
+                  setEditingCell(null);
+                  setProductAutocomplete({ planId: '', query: '', visible: false });
+                }, 200);
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Escape') {
+                  setEditingCell(null);
+                  setProductAutocomplete({ planId: '', query: '', visible: false });
+                }
+                if (e.key === 'Enter') {
+                  setEditingCell(null);
+                  setProductAutocomplete({ planId: '', query: '', visible: false });
+                }
+                if (e.key === 'Tab') {
+                  e.preventDefault();
+                  setProductAutocomplete({ planId: '', query: '', visible: false });
+                  const currentIdx = COLUMN_KEYS.indexOf(field);
+                  const nextIdx = e.shiftKey ? currentIdx - 1 : currentIdx + 1;
+                  if (nextIdx >= 0 && nextIdx < COLUMN_KEYS.length) {
+                    const nextField = COLUMN_KEYS[nextIdx];
+                    if (nextField !== 'total_value') {
+                      setEditingCell({ id: plan.id, field: nextField });
+                    } else {
+                      const skipIdx = e.shiftKey ? nextIdx - 1 : nextIdx + 1;
+                      if (skipIdx >= 0 && skipIdx < COLUMN_KEYS.length) {
+                        setEditingCell({ id: plan.id, field: COLUMN_KEYS[skipIdx] });
+                      } else {
+                        setEditingCell(null);
+                      }
+                    }
+                  } else {
+                    setEditingCell(null);
+                  }
+                }
+              }}
+            />
+            {/* Autocomplete dropdown */}
+            {productAutocomplete.visible && productAutocomplete.planId === plan.id && filteredProducts.length > 0 && (
+              <div
+                ref={autocompleteRef}
+                className="absolute top-full left-0 z-50 w-[360px] mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-[240px] overflow-y-auto"
+              >
+                {filteredProducts.map(product => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+                    onMouseDown={e => {
+                      e.preventDefault();
+                      handleProductSelect(plan.id, product);
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-900 truncate">{product.product_name}</span>
+                      <span className="text-xs text-gray-400 ml-2 shrink-0">{product.product_code}</span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-xs text-gray-500">{product.product_category}</span>
+                      <span className="text-xs text-gray-400">|</span>
+                      <span className="text-xs text-gray-500">{product.avg_hourly_rate}개/시</span>
+                      <span className="text-xs text-gray-400">|</span>
+                      <span className="text-xs text-gray-500">단가 {fmtNum(product.default_unit_price)}원</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </td>
+        );
+      }
+
       return (
         <td key={field} className="px-1 py-0.5 border border-blue-400 bg-blue-50">
           <input
@@ -838,7 +1007,14 @@ export default function ProductionPlanPage() {
         title={String(displayValue)}
         onClick={() => setEditingCell({ id: plan.id, field })}
       >
-        {displayValue || <span className="text-gray-300">-</span>}
+        <span className="flex items-center gap-1">
+          {displayValue || <span className="text-gray-300">-</span>}
+          {field === 'product_name' && autoFilledPlans.has(plan.id) && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700 shrink-0" title="품목 관리에서 자동 입력됨">
+              자동
+            </span>
+          )}
+        </span>
       </td>
     );
   };
@@ -1241,6 +1417,43 @@ export default function ProductionPlanPage() {
           <span>{plans.length}행 {dirtyCount > 0 && `(${dirtyCount}개 변경됨)`}</span>
           <span>{startDate} ~ {endDate}</span>
         </div>
+
+        {/* ── AI Recommendation Explanations ─────────────────────────────── */}
+        {aiRecommendations.length > 0 && (
+          <div className="mt-4 bg-white rounded-xl border border-violet-200 shadow-sm overflow-hidden">
+            <button
+              onClick={() => setAiExplanationsExpanded(!aiExplanationsExpanded)}
+              className="w-full flex items-center justify-between px-5 py-3 bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <SparkleIcon />
+                <span className="text-sm font-semibold text-violet-800">AI 추천 분석 결과</span>
+                <span className="text-xs text-violet-500 bg-violet-100 px-2 py-0.5 rounded-full">{aiRecommendations.length}건</span>
+              </div>
+              <svg className={`w-4 h-4 text-violet-500 transition-transform ${aiExplanationsExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {aiExplanationsExpanded && (
+              <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
+                {aiRecommendations.map((rec, idx) => (
+                  <div key={rec.plan_id} className="px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-gray-400">{idx + 1}.</span>
+                        <span className="text-sm font-semibold text-gray-800">{rec.product_name}</span>
+                      </div>
+                      <span className="text-sm font-bold text-violet-600">추천: {fmtNum(rec.recommended_qty)}개</span>
+                    </div>
+                    <pre className="text-xs text-gray-600 whitespace-pre-wrap bg-gray-50 rounded-lg p-3 font-mono leading-relaxed border border-gray-100">
+                      {rec.explanation}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* ── Share Modal ──────────────────────────────────────────────────── */}
