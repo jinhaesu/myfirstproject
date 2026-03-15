@@ -8,43 +8,52 @@ import { Navigation } from '@/components/layout/Navigation';
 // ─────────────────────────────────────────────
 // API helper
 // ─────────────────────────────────────────────
-const API_BASE = '';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+
 const getAuthHeaders = () => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   return headers;
 };
+
 const fetchSafe = async <T,>(path: string, defaultValue: T): Promise<T> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
-    const res = await fetch(`${API_BASE}${path}`, { headers: getAuthHeaders() });
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: getAuthHeaders(),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
     if (!res.ok) throw new Error();
     return await res.json();
-  } catch { return defaultValue; }
+  } catch {
+    clearTimeout(timeoutId);
+    return defaultValue;
+  }
 };
 
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
-type ProfitabilityCategory = 'A등급' | 'B등급' | 'C등급' | 'D등급';
-type QualityStatus = '양호' | '보통' | '불량' | '검사중';
-type Shift = '주간' | '야간' | '교대';
+type Shift = '주간' | '야간';
 
 interface ProductionResult {
   id: number;
-  productionDate: string;       // 생산일자
-  teamName: string;             // 생산팀명
-  shift: Shift;                 // 근무
-  productCode: string;          // 품주명
-  productName: string;          // 품명
-  salePrice: number;            // 판매가격
-  costRate: number;             // 원가율 (%)
-  productionHours: number;      // 생산기준시
-  expectedSales: number;        // 예상 판매액
-  profit: number;               // 판매이익
-  hourlyRate: number;           // 시간당 (생산수량/시간)
-  profitability: ProfitabilityCategory; // 판매별 수익성
-  qualityStatus: QualityStatus; // 생산/품질 현황
+  date: string;                 // 날짜
+  manager: string;              // 담당자
+  location: string;             // 생산 위치
+  category: string;             // 품목류
+  productName: string;          // 품목명
+  quantity: number;             // 생산량
+  totalHours: number;           // 생산 투여 총 시간
+  unitPrice: number;            // 생산 단가
+  totalValue: number;           // 총 생산액 (= 생산량 × 생산 단가)
+  deduction: number;            // 공제액
+  costPerUnit: number;          // 원가
+  totalCost: number;            // 원가 총액
+  shift: Shift;                 // 주간/야간 생산 구분
 }
 
 type SortField = keyof ProductionResult;
@@ -63,56 +72,56 @@ interface ColumnDef {
   label: string;
   width: string;
   align: 'left' | 'right' | 'center';
-  type: 'text' | 'number' | 'date' | 'select' | 'percent';
+  type: 'text' | 'number' | 'date' | 'select';
   options?: string[];
   format?: (v: any) => string;
 }
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'productionDate', label: '생산일자', width: '110px', align: 'center', type: 'date' },
-  { key: 'teamName', label: '생산팀명', width: '90px', align: 'center', type: 'text' },
-  { key: 'shift', label: '근무', width: '70px', align: 'center', type: 'select', options: ['주간', '야간', '교대'] },
-  { key: 'productCode', label: '품주명', width: '110px', align: 'left', type: 'text' },
-  { key: 'productName', label: '품명', width: '180px', align: 'left', type: 'text' },
-  { key: 'salePrice', label: '판매가격', width: '110px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR') },
-  { key: 'costRate', label: '원가율(%)', width: '90px', align: 'right', type: 'percent', format: (v: number) => `${v.toFixed(1)}%` },
-  { key: 'productionHours', label: '생산기준시', width: '100px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR', { minimumFractionDigits: 1 }) },
-  { key: 'expectedSales', label: '예상 판매액', width: '120px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR') },
-  { key: 'profit', label: '판매이익', width: '110px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR') },
-  { key: 'hourlyRate', label: '시간당', width: '80px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR') },
-  { key: 'profitability', label: '수익성', width: '80px', align: 'center', type: 'select', options: ['A등급', 'B등급', 'C등급', 'D등급'] },
-  { key: 'qualityStatus', label: '품질현황', width: '80px', align: 'center', type: 'select', options: ['양호', '보통', '불량', '검사중'] },
+  { key: 'date', label: '날짜', width: '110px', align: 'center', type: 'date' },
+  { key: 'manager', label: '담당자', width: '80px', align: 'center', type: 'text' },
+  { key: 'location', label: '생산 위치', width: '80px', align: 'center', type: 'text' },
+  { key: 'category', label: '품목류', width: '90px', align: 'center', type: 'text' },
+  { key: 'productName', label: '품목명', width: '240px', align: 'left', type: 'text' },
+  { key: 'quantity', label: '생산량', width: '100px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR') },
+  { key: 'totalHours', label: '생산 투여 총 시간', width: '130px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR', { minimumFractionDigits: 1 }) },
+  { key: 'unitPrice', label: '생산 단가', width: '100px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR') },
+  { key: 'totalValue', label: '총 생산액', width: '130px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR') },
+  { key: 'deduction', label: '공제액', width: '110px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR') },
+  { key: 'costPerUnit', label: '원가', width: '90px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR', { minimumFractionDigits: 1 }) },
+  { key: 'totalCost', label: '원가 총액', width: '120px', align: 'right', type: 'number', format: (v: number) => v.toLocaleString('ko-KR') },
+  { key: 'shift', label: '주간/야간', width: '80px', align: 'center', type: 'select', options: ['주간', '야간'] },
 ];
 
 // ─────────────────────────────────────────────
 // Sample data
 // ─────────────────────────────────────────────
 const generateSampleData = (): ProductionResult[] => [
-  { id: 1, productionDate: '2026-03-01', teamName: '1팀', shift: '주간', productCode: 'SC-001', productName: '수분 크림 50ml', salePrice: 32000, costRate: 35.2, productionHours: 8.0, expectedSales: 16000000, profit: 10368000, hourlyRate: 62, profitability: 'A등급', qualityStatus: '양호' },
-  { id: 2, productionDate: '2026-03-01', teamName: '1팀', shift: '야간', productCode: 'SC-002', productName: '비타민C 세럼 30ml', salePrice: 45000, costRate: 28.5, productionHours: 8.0, expectedSales: 22500000, profit: 16087500, hourlyRate: 55, profitability: 'A등급', qualityStatus: '양호' },
-  { id: 3, productionDate: '2026-03-01', teamName: '2팀', shift: '주간', productCode: 'MK-001', productName: '매트 립스틱 #로즈레드', salePrice: 18000, costRate: 42.0, productionHours: 8.0, expectedSales: 9000000, profit: 5220000, hourlyRate: 78, profitability: 'B등급', qualityStatus: '양호' },
-  { id: 4, productionDate: '2026-03-02', teamName: '1팀', shift: '주간', productCode: 'SC-003', productName: '히알루론산 토너 200ml', salePrice: 25000, costRate: 32.0, productionHours: 8.5, expectedSales: 12500000, profit: 8500000, hourlyRate: 58, profitability: 'A등급', qualityStatus: '양호' },
-  { id: 5, productionDate: '2026-03-02', teamName: '2팀', shift: '주간', productCode: 'HC-001', productName: '케라틴 실크 샴푸 500ml', salePrice: 22000, costRate: 38.5, productionHours: 7.5, expectedSales: 11000000, profit: 6765000, hourlyRate: 65, profitability: 'B등급', qualityStatus: '보통' },
-  { id: 6, productionDate: '2026-03-02', teamName: '2팀', shift: '야간', productCode: 'BD-001', productName: '시어버터 바디로션 300ml', salePrice: 19000, costRate: 40.0, productionHours: 8.0, expectedSales: 9500000, profit: 5700000, hourlyRate: 70, profitability: 'B등급', qualityStatus: '양호' },
-  { id: 7, productionDate: '2026-03-03', teamName: '1팀', shift: '주간', productCode: 'SC-004', productName: '레티놀 나이트크림 30ml', salePrice: 55000, costRate: 25.0, productionHours: 8.0, expectedSales: 27500000, profit: 20625000, hourlyRate: 45, profitability: 'A등급', qualityStatus: '양호' },
-  { id: 8, productionDate: '2026-03-03', teamName: '3팀', shift: '주간', productCode: 'MK-002', productName: '글로우 쿠션 파운데이션 15g', salePrice: 38000, costRate: 33.0, productionHours: 9.0, expectedSales: 19000000, profit: 12730000, hourlyRate: 50, profitability: 'A등급', qualityStatus: '검사중' },
-  { id: 9, productionDate: '2026-03-03', teamName: '3팀', shift: '야간', productCode: 'HC-002', productName: '두피 스케일링 토닉 150ml', salePrice: 28000, costRate: 36.0, productionHours: 7.0, expectedSales: 14000000, profit: 8960000, hourlyRate: 60, profitability: 'B등급', qualityStatus: '양호' },
-  { id: 10, productionDate: '2026-03-04', teamName: '1팀', shift: '주간', productCode: 'SC-005', productName: '그린티 클렌징 오일 200ml', salePrice: 21000, costRate: 38.0, productionHours: 8.0, expectedSales: 10500000, profit: 6510000, hourlyRate: 72, profitability: 'B등급', qualityStatus: '양호' },
-  { id: 11, productionDate: '2026-03-04', teamName: '2팀', shift: '주간', productCode: 'MK-003', productName: '아이섀도 팔레트 12색', salePrice: 35000, costRate: 30.0, productionHours: 10.0, expectedSales: 17500000, profit: 12250000, hourlyRate: 42, profitability: 'A등급', qualityStatus: '양호' },
-  { id: 12, productionDate: '2026-03-04', teamName: '3팀', shift: '교대', productCode: 'BD-002', productName: '코코넛 바디스크럽 250g', salePrice: 16000, costRate: 45.0, productionHours: 6.0, expectedSales: 8000000, profit: 4400000, hourlyRate: 85, profitability: 'C등급', qualityStatus: '보통' },
-  { id: 13, productionDate: '2026-03-05', teamName: '1팀', shift: '주간', productCode: 'SC-006', productName: '시카 리페어 크림 50ml', salePrice: 42000, costRate: 29.0, productionHours: 8.0, expectedSales: 21000000, profit: 14910000, hourlyRate: 52, profitability: 'A등급', qualityStatus: '양호' },
-  { id: 14, productionDate: '2026-03-05', teamName: '2팀', shift: '주간', productCode: 'MK-004', productName: '볼륨 마스카라 블랙', salePrice: 15000, costRate: 48.0, productionHours: 7.5, expectedSales: 7500000, profit: 3900000, hourlyRate: 90, profitability: 'C등급', qualityStatus: '불량' },
-  { id: 15, productionDate: '2026-03-05', teamName: '3팀', shift: '야간', productCode: 'HC-003', productName: '볼류밍 샴푸 500ml', salePrice: 18000, costRate: 42.0, productionHours: 8.0, expectedSales: 9000000, profit: 5220000, hourlyRate: 68, profitability: 'B등급', qualityStatus: '양호' },
-  { id: 16, productionDate: '2026-03-06', teamName: '1팀', shift: '주간', productCode: 'SC-007', productName: '톤업 선크림 SPF50+ 60ml', salePrice: 28000, costRate: 34.0, productionHours: 8.5, expectedSales: 14000000, profit: 9240000, hourlyRate: 56, profitability: 'A등급', qualityStatus: '양호' },
-  { id: 17, productionDate: '2026-03-06', teamName: '2팀', shift: '교대', productCode: 'BD-003', productName: '바디 로션 400ml', salePrice: 14000, costRate: 50.0, productionHours: 6.5, expectedSales: 7000000, profit: 3500000, hourlyRate: 95, profitability: 'D등급', qualityStatus: '보통' },
-  { id: 18, productionDate: '2026-03-06', teamName: '3팀', shift: '주간', productCode: 'MK-005', productName: '아이브로우 펜슬 세트', salePrice: 12000, costRate: 52.0, productionHours: 5.0, expectedSales: 6000000, profit: 2880000, hourlyRate: 110, profitability: 'D등급', qualityStatus: '양호' },
-  { id: 19, productionDate: '2026-03-07', teamName: '1팀', shift: '주간', productCode: 'SC-001', productName: '수분 크림 50ml', salePrice: 32000, costRate: 35.2, productionHours: 8.0, expectedSales: 16000000, profit: 10368000, hourlyRate: 62, profitability: 'A등급', qualityStatus: '양호' },
-  { id: 20, productionDate: '2026-03-07', teamName: '2팀', shift: '야간', productCode: 'SC-002', productName: '비타민C 세럼 30ml', salePrice: 45000, costRate: 28.5, productionHours: 8.0, expectedSales: 22500000, profit: 16087500, hourlyRate: 55, profitability: 'A등급', qualityStatus: '양호' },
-  { id: 21, productionDate: '2026-03-08', teamName: '3팀', shift: '주간', productCode: 'HC-001', productName: '케라틴 실크 샴푸 500ml', salePrice: 22000, costRate: 38.5, productionHours: 7.5, expectedSales: 11000000, profit: 6765000, hourlyRate: 65, profitability: 'B등급', qualityStatus: '양호' },
-  { id: 22, productionDate: '2026-03-08', teamName: '1팀', shift: '야간', productCode: 'SC-004', productName: '레티놀 나이트크림 30ml', salePrice: 55000, costRate: 25.0, productionHours: 8.0, expectedSales: 27500000, profit: 20625000, hourlyRate: 45, profitability: 'A등급', qualityStatus: '양호' },
-  { id: 23, productionDate: '2026-03-09', teamName: '2팀', shift: '주간', productCode: 'MK-002', productName: '글로우 쿠션 파운데이션 15g', salePrice: 38000, costRate: 33.0, productionHours: 9.0, expectedSales: 19000000, profit: 12730000, hourlyRate: 50, profitability: 'A등급', qualityStatus: '양호' },
-  { id: 24, productionDate: '2026-03-09', teamName: '3팀', shift: '교대', productCode: 'BD-001', productName: '시어버터 바디로션 300ml', salePrice: 19000, costRate: 40.0, productionHours: 8.0, expectedSales: 9500000, profit: 5700000, hourlyRate: 70, profitability: 'B등급', qualityStatus: '보통' },
-  { id: 25, productionDate: '2026-03-10', teamName: '1팀', shift: '주간', productCode: 'SC-006', productName: '시카 리페어 크림 50ml', salePrice: 42000, costRate: 29.0, productionHours: 8.0, expectedSales: 21000000, profit: 14910000, hourlyRate: 52, profitability: 'A등급', qualityStatus: '양호' },
+  { id: 1,  date: '2025-12-01', manager: '권선희', location: '2층', category: '마카롱', productName: '널담 마카롱 복숭아 요거트 [50g]',       quantity: 10220, totalHours: 57.5, unitPrice: 1200, totalValue: 12264000, deduction: 981120,  costPerUnit: 290.1, totalCost: 2964822,  shift: '주간' },
+  { id: 2,  date: '2025-12-01', manager: '김수현', location: '2층', category: '마카롱', productName: '널담 마카롱 녹차브라우니 [50g]',        quantity: 8500,  totalHours: 48.0, unitPrice: 1200, totalValue: 10200000, deduction: 816000,  costPerUnit: 305.2, totalCost: 2594200,  shift: '주간' },
+  { id: 3,  date: '2025-12-01', manager: '이동규', location: '3층', category: '케이크', productName: '널담 당근 케이크 [1호]',                 quantity: 320,   totalHours: 24.0, unitPrice: 15000, totalValue: 4800000,  deduction: 384000,  costPerUnit: 5200.0, totalCost: 1664000,  shift: '주간' },
+  { id: 4,  date: '2025-12-02', manager: '권선희', location: '2층', category: '마카롱', productName: '널담 마카롱 얼그레이캐러멜 [50g]',       quantity: 9800,  totalHours: 55.0, unitPrice: 1200, totalValue: 11760000, deduction: 940800,  costPerUnit: 288.5, totalCost: 2827300,  shift: '주간' },
+  { id: 5,  date: '2025-12-02', manager: '박지영', location: '1층', category: '쿠키',   productName: '널담 버터쿠키 어쏘트먼트 [200g]',        quantity: 3500,  totalHours: 30.0, unitPrice: 3500, totalValue: 12250000, deduction: 980000,  costPerUnit: 1120.0, totalCost: 3920000,  shift: '주간' },
+  { id: 6,  date: '2025-12-02', manager: '최민호', location: '1층', category: '비누',   productName: '널담 어성초 클렌징바 [100g]',             quantity: 5000,  totalHours: 20.0, unitPrice: 2800, totalValue: 14000000, deduction: 1120000, costPerUnit: 850.0,  totalCost: 4250000,  shift: '야간' },
+  { id: 7,  date: '2025-12-03', manager: '김수현', location: '2층', category: '마카롱', productName: '널담 마카롱 솔티드카라멜 [50g]',          quantity: 11000, totalHours: 62.0, unitPrice: 1200, totalValue: 13200000, deduction: 1056000, costPerUnit: 278.3, totalCost: 3061300,  shift: '주간' },
+  { id: 8,  date: '2025-12-03', manager: '이동규', location: '3층', category: '캔들',   productName: '널담 소이캔들 라벤더 [200g]',             quantity: 1200,  totalHours: 15.0, unitPrice: 8500, totalValue: 10200000, deduction: 816000,  costPerUnit: 3200.0, totalCost: 3840000,  shift: '주간' },
+  { id: 9,  date: '2025-12-03', manager: '박지영', location: '1층', category: '쿠키',   productName: '널담 초코칩 쿠키 [150g]',                 quantity: 4200,  totalHours: 28.0, unitPrice: 3000, totalValue: 12600000, deduction: 1008000, costPerUnit: 980.0,  totalCost: 4116000,  shift: '야간' },
+  { id: 10, date: '2025-12-04', manager: '권선희', location: '2층', category: '마카롱', productName: '널담 마카롱 딸기치즈케이크 [50g]',        quantity: 9500,  totalHours: 53.0, unitPrice: 1200, totalValue: 11400000, deduction: 912000,  costPerUnit: 295.0, totalCost: 2802500,  shift: '주간' },
+  { id: 11, date: '2025-12-04', manager: '최민호', location: '1층', category: '비누',   productName: '널담 카렌듈라 비누 [100g]',               quantity: 4800,  totalHours: 19.0, unitPrice: 2800, totalValue: 13440000, deduction: 1075200, costPerUnit: 870.0,  totalCost: 4176000,  shift: '주간' },
+  { id: 12, date: '2025-12-04', manager: '김수현', location: '3층', category: '캔들',   productName: '널담 소이캔들 유칼립투스 [200g]',          quantity: 1000,  totalHours: 12.5, unitPrice: 8500, totalValue: 8500000,  deduction: 680000,  costPerUnit: 3150.0, totalCost: 3150000,  shift: '야간' },
+  { id: 13, date: '2025-12-05', manager: '이동규', location: '3층', category: '케이크', productName: '널담 바스크 치즈케이크 [1호]',             quantity: 280,   totalHours: 22.0, unitPrice: 18000, totalValue: 5040000,  deduction: 403200,  costPerUnit: 6100.0, totalCost: 1708000,  shift: '주간' },
+  { id: 14, date: '2025-12-05', manager: '박지영', location: '2층', category: '마카롱', productName: '널담 마카롱 복숭아 요거트 [50g]',         quantity: 10500, totalHours: 59.0, unitPrice: 1200, totalValue: 12600000, deduction: 1008000, costPerUnit: 290.1, totalCost: 3046050,  shift: '주간' },
+  { id: 15, date: '2025-12-05', manager: '최민호', location: '1층', category: '비누',   productName: '널담 티트리 클렌징바 [100g]',             quantity: 5200,  totalHours: 21.0, unitPrice: 2800, totalValue: 14560000, deduction: 1164800, costPerUnit: 860.0,  totalCost: 4472000,  shift: '야간' },
+  { id: 16, date: '2025-12-06', manager: '권선희', location: '2층', category: '마카롱', productName: '널담 마카롱 녹차브라우니 [50g]',          quantity: 8800,  totalHours: 50.0, unitPrice: 1200, totalValue: 10560000, deduction: 844800,  costPerUnit: 302.0, totalCost: 2657600,  shift: '주간' },
+  { id: 17, date: '2025-12-06', manager: '김수현', location: '1층', category: '쿠키',   productName: '널담 마들렌 플레인 [120g]',               quantity: 3800,  totalHours: 25.0, unitPrice: 3200, totalValue: 12160000, deduction: 972800,  costPerUnit: 1050.0, totalCost: 3990000,  shift: '주간' },
+  { id: 18, date: '2025-12-06', manager: '이동규', location: '3층', category: '캔들',   productName: '널담 소이캔들 시트러스 [200g]',           quantity: 1100,  totalHours: 14.0, unitPrice: 8500, totalValue: 9350000,  deduction: 748000,  costPerUnit: 3180.0, totalCost: 3498000,  shift: '야간' },
+  { id: 19, date: '2025-12-07', manager: '박지영', location: '2층', category: '마카롱', productName: '널담 마카롱 솔티드카라멜 [50g]',          quantity: 10800, totalHours: 60.5, unitPrice: 1200, totalValue: 12960000, deduction: 1036800, costPerUnit: 280.0, totalCost: 3024000,  shift: '주간' },
+  { id: 20, date: '2025-12-07', manager: '최민호', location: '1층', category: '비누',   productName: '널담 어성초 클렌징바 [100g]',             quantity: 5100,  totalHours: 20.5, unitPrice: 2800, totalValue: 14280000, deduction: 1142400, costPerUnit: 855.0,  totalCost: 4360500,  shift: '주간' },
+  { id: 21, date: '2025-12-08', manager: '권선희', location: '2층', category: '마카롱', productName: '널담 마카롱 얼그레이캐러멜 [50g]',       quantity: 9600,  totalHours: 54.0, unitPrice: 1200, totalValue: 11520000, deduction: 921600,  costPerUnit: 292.0, totalCost: 2803200,  shift: '야간' },
+  { id: 22, date: '2025-12-08', manager: '이동규', location: '3층', category: '케이크', productName: '널담 당근 케이크 [1호]',                  quantity: 350,   totalHours: 26.0, unitPrice: 15000, totalValue: 5250000,  deduction: 420000,  costPerUnit: 5180.0, totalCost: 1813000,  shift: '주간' },
+  { id: 23, date: '2025-12-09', manager: '김수현', location: '2층', category: '마카롱', productName: '널담 마카롱 딸기치즈케이크 [50g]',       quantity: 10000, totalHours: 56.0, unitPrice: 1200, totalValue: 12000000, deduction: 960000,  costPerUnit: 293.5, totalCost: 2935000,  shift: '주간' },
+  { id: 24, date: '2025-12-09', manager: '최민호', location: '1층', category: '쿠키',   productName: '널담 버터쿠키 어쏘트먼트 [200g]',        quantity: 3600,  totalHours: 31.0, unitPrice: 3500, totalValue: 12600000, deduction: 1008000, costPerUnit: 1115.0, totalCost: 4014000,  shift: '야간' },
+  { id: 25, date: '2025-12-10', manager: '박지영', location: '3층', category: '캔들',   productName: '널담 소이캔들 바닐라 [200g]',             quantity: 1300,  totalHours: 16.0, unitPrice: 8500, totalValue: 11050000, deduction: 884000,  costPerUnit: 3100.0, totalCost: 4030000,  shift: '주간' },
 ];
 
 // ─────────────────────────────────────────────
@@ -130,19 +139,19 @@ const getNextTempId = () => nextTempId--;
 
 const createEmptyRow = (): ProductionResult => ({
   id: getNextTempId(),
-  productionDate: new Date().toISOString().slice(0, 10),
-  teamName: '1팀',
-  shift: '주간',
-  productCode: '',
+  date: new Date().toISOString().slice(0, 10),
+  manager: '',
+  location: '',
+  category: '',
   productName: '',
-  salePrice: 0,
-  costRate: 0,
-  productionHours: 0,
-  expectedSales: 0,
-  profit: 0,
-  hourlyRate: 0,
-  profitability: 'C등급',
-  qualityStatus: '양호',
+  quantity: 0,
+  totalHours: 0,
+  unitPrice: 0,
+  totalValue: 0,
+  deduction: 0,
+  costPerUnit: 0,
+  totalCost: 0,
+  shift: '주간',
 });
 
 // ─────────────────────────────────────────────
@@ -162,26 +171,17 @@ const downloadExcel = (rows: ProductionResult[]) => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `생산결과_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `생산일보_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 };
 
 // ─────────────────────────────────────────────
-// Profitability / Quality colors
+// Shift colors
 // ─────────────────────────────────────────────
-const PROFITABILITY_COLORS: Record<ProfitabilityCategory, { bg: string; text: string; chartColor: string }> = {
-  'A등급': { bg: 'bg-emerald-100', text: 'text-emerald-700', chartColor: '#10b981' },
-  'B등급': { bg: 'bg-blue-100', text: 'text-blue-700', chartColor: '#3b82f6' },
-  'C등급': { bg: 'bg-amber-100', text: 'text-amber-700', chartColor: '#f59e0b' },
-  'D등급': { bg: 'bg-red-100', text: 'text-red-700', chartColor: '#ef4444' },
-};
-
-const QUALITY_COLORS: Record<QualityStatus, { bg: string; text: string }> = {
-  '양호': { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  '보통': { bg: 'bg-amber-100', text: 'text-amber-700' },
-  '불량': { bg: 'bg-red-100', text: 'text-red-700' },
-  '검사중': { bg: 'bg-purple-100', text: 'text-purple-700' },
+const SHIFT_COLORS: Record<Shift, { bg: string; text: string }> = {
+  '주간': { bg: 'bg-amber-100', text: 'text-amber-700' },
+  '야간': { bg: 'bg-indigo-100', text: 'text-indigo-700' },
 };
 
 // ═══════════════════════════════════════════════
@@ -261,7 +261,7 @@ function MiniPieChart({ data }: { data: { name: string; value: number; color: st
                 strokeDasharray={`${pct} ${100 - pct}`}
                 strokeDashoffset={`${-offset}`}
               >
-                <title>{`${d.name}: ${d.value}건 (${((d.value / total) * 100).toFixed(1)}%)`}</title>
+                <title>{`${d.name}: ${formatNumber(d.value)} (${((d.value / total) * 100).toFixed(1)}%)`}</title>
               </circle>
             );
           })}
@@ -272,7 +272,7 @@ function MiniPieChart({ data }: { data: { name: string; value: number; color: st
           <div key={i} className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
             <span className="text-slate-600">{d.name}</span>
-            <span className="font-semibold text-slate-800">{d.value}건</span>
+            <span className="font-semibold text-slate-800">{formatNumber(d.value)}</span>
           </div>
         ))}
       </div>
@@ -295,14 +295,14 @@ export default function ProductionResultsPage() {
   const [editValue, setEditValue] = useState<string>('');
 
   // Filters
-  const [startDate, setStartDate] = useState('2026-03-01');
-  const [endDate, setEndDate] = useState('2026-03-10');
-  const [teamFilter, setTeamFilter] = useState<string>('전체');
+  const [startDate, setStartDate] = useState('2025-12-01');
+  const [endDate, setEndDate] = useState('2025-12-10');
+  const [managerFilter, setManagerFilter] = useState<string>('전체');
   const [productFilter, setProductFilter] = useState<string>('');
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
   // Sort
-  const [sortField, setSortField] = useState<SortField>('productionDate');
+  const [sortField, setSortField] = useState<SortField>('date');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
 
   // Toast
@@ -335,24 +335,19 @@ export default function ProductionResultsPage() {
     }
   }, [editingCell]);
 
-  // ── Derived: unique teams and products ──
-  const allTeams = useMemo(() => {
-    const teams = new Set(rows.map(r => r.teamName));
-    return ['전체', ...Array.from(teams).sort()];
-  }, [rows]);
-
-  const allProducts = useMemo(() => {
-    const prods = new Set(rows.map(r => r.productName));
-    return Array.from(prods).sort();
+  // ── Derived: unique managers ──
+  const allManagers = useMemo(() => {
+    const managers = new Set(rows.map(r => r.manager));
+    return ['전체', ...Array.from(managers).sort()];
   }, [rows]);
 
   // ── Filtered & sorted data ──
   const filteredRows = useMemo(() => {
     let result = rows.filter(r => {
-      if (startDate && r.productionDate < startDate) return false;
-      if (endDate && r.productionDate > endDate) return false;
-      if (teamFilter !== '전체' && r.teamName !== teamFilter) return false;
-      if (productFilter && !r.productName.includes(productFilter) && !r.productCode.includes(productFilter)) return false;
+      if (startDate && r.date < startDate) return false;
+      if (endDate && r.date > endDate) return false;
+      if (managerFilter !== '전체' && r.manager !== managerFilter) return false;
+      if (productFilter && !r.productName.includes(productFilter) && !r.category.includes(productFilter)) return false;
       return true;
     });
 
@@ -366,7 +361,7 @@ export default function ProductionResultsPage() {
     }
 
     return result;
-  }, [rows, startDate, endDate, teamFilter, productFilter, columnFilters]);
+  }, [rows, startDate, endDate, managerFilter, productFilter, columnFilters]);
 
   const sortedRows = useMemo(() => {
     return [...filteredRows].sort((a, b) => {
@@ -386,43 +381,52 @@ export default function ProductionResultsPage() {
   // ── Summary stats ──
   const summary = useMemo(() => {
     const totalRows = filteredRows.length;
-    const totalProductionHours = filteredRows.reduce((s, r) => s + r.productionHours, 0);
-    const avgHourlyRate = totalRows > 0 ? filteredRows.reduce((s, r) => s + r.hourlyRate, 0) / totalRows : 0;
-    const totalExpectedSales = filteredRows.reduce((s, r) => s + r.expectedSales, 0);
-    const avgCostRate = totalRows > 0 ? filteredRows.reduce((s, r) => s + r.costRate, 0) / totalRows : 0;
-    return { totalRows, totalProductionHours, avgHourlyRate, totalExpectedSales, avgCostRate };
+    const totalQuantity = filteredRows.reduce((s, r) => s + r.quantity, 0);
+    const totalValue = filteredRows.reduce((s, r) => s + r.totalValue, 0);
+    const totalHours = filteredRows.reduce((s, r) => s + r.totalHours, 0);
+    const totalCostAll = filteredRows.reduce((s, r) => s + r.totalCost, 0);
+    const avgCostRate = totalValue > 0 ? (totalCostAll / totalValue) * 100 : 0;
+    return { totalRows, totalQuantity, totalValue, totalHours, avgCostRate };
   }, [filteredRows]);
 
   // ── Chart data ──
   const dailyTrendData = useMemo(() => {
     const map: Record<string, number> = {};
     filteredRows.forEach(r => {
-      map[r.productionDate] = (map[r.productionDate] || 0) + r.productionHours;
+      map[r.date] = (map[r.date] || 0) + r.totalValue;
     });
     return Object.entries(map)
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, hours]) => ({ label: date.slice(5), value: hours }));
+      .map(([date, value]) => ({ label: date.slice(5), value }));
   }, [filteredRows]);
 
-  const teamChartData = useMemo(() => {
+  const categoryChartData = useMemo(() => {
     const map: Record<string, number> = {};
     filteredRows.forEach(r => {
-      map[r.teamName] = (map[r.teamName] || 0) + r.productionHours;
+      map[r.category] = (map[r.category] || 0) + r.totalValue;
     });
     return Object.entries(map)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([team, hours]) => ({ label: team, value: hours }));
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, value]) => ({ label: cat, value }));
   }, [filteredRows]);
 
-  const profitabilityPieData = useMemo(() => {
+  const CATEGORY_COLORS: Record<string, string> = {
+    '마카롱': '#f472b6',
+    '케이크': '#fb923c',
+    '쿠키': '#a78bfa',
+    '비누': '#34d399',
+    '캔들': '#60a5fa',
+  };
+
+  const categoryPieData = useMemo(() => {
     const map: Record<string, number> = {};
     filteredRows.forEach(r => {
-      map[r.profitability] = (map[r.profitability] || 0) + 1;
+      map[r.category] = (map[r.category] || 0) + r.quantity;
     });
     return Object.entries(map).map(([name, value]) => ({
       name,
       value,
-      color: PROFITABILITY_COLORS[name as ProfitabilityCategory]?.chartColor || '#94a3b8',
+      color: CATEGORY_COLORS[name] || '#94a3b8',
     }));
   }, [filteredRows]);
 
@@ -452,13 +456,20 @@ export default function ProductionResultsPage() {
 
     const col = COLUMNS.find(c => c.key === colKey);
     let newValue: string | number = editValue;
-    if (col?.type === 'number' || col?.type === 'percent') {
+    if (col?.type === 'number') {
       newValue = parseFormattedNumber(editValue);
     }
 
     setRows(prev => prev.map(r => {
       if (r.id === row.id) {
-        return { ...r, [colKey]: newValue };
+        const updated = { ...r, [colKey]: newValue };
+        // Auto-calculate 총 생산액 when 생산량 or 생산 단가 changes
+        if (colKey === 'quantity' || colKey === 'unitPrice') {
+          const qty = colKey === 'quantity' ? (newValue as number) : r.quantity;
+          const price = colKey === 'unitPrice' ? (newValue as number) : r.unitPrice;
+          updated.totalValue = qty * price;
+        }
+        return updated;
       }
       return r;
     }));
@@ -556,6 +567,14 @@ export default function ProductionResultsPage() {
   }, [editingCell, selectedRows, sortedRows]);
 
   // ── Paste handler (Ctrl+V) ──
+  // Column order from the Excel file:
+  // 날짜, 담당자, 생산 위치, 품목류, 품목명, 생산량, 생산 투여 총 시간, 생산 단가, 총 생산액, 공제액, 원가, 원가 총액, 주간/야간
+  const PASTE_COLUMN_KEYS: (keyof ProductionResult)[] = [
+    'date', 'manager', 'location', 'category', 'productName',
+    'quantity', 'totalHours', 'unitPrice', 'totalValue',
+    'deduction', 'costPerUnit', 'totalCost', 'shift',
+  ];
+
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     if (editingCell) return; // let native paste work in editing mode
     e.preventDefault();
@@ -573,21 +592,30 @@ export default function ProductionResultsPage() {
       startLineIdx = 1;
     }
 
+    const numericKeys = new Set<keyof ProductionResult>([
+      'quantity', 'totalHours', 'unitPrice', 'totalValue',
+      'deduction', 'costPerUnit', 'totalCost',
+    ]);
+
     const newRows: ProductionResult[] = [];
     for (let i = startLineIdx; i < lines.length; i++) {
       const cells = lines[i];
       if (cells.length < 2) continue; // skip blank or incomplete lines
       const row = createEmptyRow();
-      COLUMNS.forEach((col, colIdx) => {
+      PASTE_COLUMN_KEYS.forEach((key, colIdx) => {
         if (colIdx < cells.length) {
           const raw = cells[colIdx]?.trim() ?? '';
-          if (col.type === 'number' || col.type === 'percent') {
-            (row as any)[col.key] = parseFormattedNumber(raw);
+          if (numericKeys.has(key)) {
+            (row as any)[key] = parseFormattedNumber(raw);
           } else {
-            (row as any)[col.key] = raw;
+            (row as any)[key] = raw;
           }
         }
       });
+      // Auto-calculate 총 생산액 if it was not provided or is 0
+      if (row.totalValue === 0 && row.quantity > 0 && row.unitPrice > 0) {
+        row.totalValue = row.quantity * row.unitPrice;
+      }
       newRows.push(row);
     }
 
@@ -611,13 +639,17 @@ export default function ProductionResultsPage() {
     }
 
     const modifiedRows = rows.filter(r => modifiedIds.has(r.id));
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     try {
       const res = await fetch(`${API_BASE}/api/scm/production-results/bulk`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ results: modifiedRows }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       if (res.ok) {
         setModifiedIds(new Set());
         setToast(`${modifiedRows.length}건이 저장되었습니다.`);
@@ -625,6 +657,7 @@ export default function ProductionResultsPage() {
         throw new Error();
       }
     } catch {
+      clearTimeout(timeoutId);
       // In sample mode, just clear modified state
       setModifiedIds(new Set());
       setToast(`${modifiedRows.length}건이 저장되었습니다. (샘플 모드)`);
@@ -677,22 +710,22 @@ export default function ProductionResultsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">생산팀</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">담당자</label>
               <select
-                value={teamFilter}
-                onChange={e => setTeamFilter(e.target.value)}
+                value={managerFilter}
+                onChange={e => setManagerFilter(e.target.value)}
                 className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[100px]"
               >
-                {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
+                {allManagers.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs font-medium text-slate-600 mb-1">품명 / 품주명 검색</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">품목명 / 품목류 검색</label>
               <input
                 type="text"
                 value={productFilter}
                 onChange={e => setProductFilter(e.target.value)}
-                placeholder="품명 또는 품주명으로 검색..."
+                placeholder="품목명 또는 품목류로 검색..."
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -707,43 +740,43 @@ export default function ProductionResultsPage() {
         {/* ── Summary Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="text-xs text-slate-500 mb-1">총 생산기준시</div>
-            <div className="text-2xl font-bold text-slate-800">{summary.totalProductionHours.toLocaleString('ko-KR', { minimumFractionDigits: 1 })}h</div>
+            <div className="text-xs text-slate-500 mb-1">총 생산량</div>
+            <div className="text-2xl font-bold text-slate-800">{formatNumber(summary.totalQuantity)}</div>
             <div className="text-xs text-emerald-600 mt-1">{summary.totalRows}건 기록</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="text-xs text-slate-500 mb-1">평균 시간당 생산량</div>
-            <div className="text-2xl font-bold text-blue-600">{Math.round(summary.avgHourlyRate).toLocaleString('ko-KR')}개</div>
-            <div className="text-xs text-slate-400 mt-1">per hour</div>
+            <div className="text-xs text-slate-500 mb-1">총 생산액</div>
+            <div className="text-2xl font-bold text-blue-600">{formatNumber(summary.totalValue)}</div>
+            <div className="text-xs text-slate-400 mt-1">원</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="text-xs text-slate-500 mb-1">총 예상 판매액</div>
-            <div className="text-2xl font-bold text-emerald-600">{formatNumber(summary.totalExpectedSales)}</div>
-            <div className="text-xs text-slate-400 mt-1">원</div>
+            <div className="text-xs text-slate-500 mb-1">총 투여 시간</div>
+            <div className="text-2xl font-bold text-emerald-600">{summary.totalHours.toLocaleString('ko-KR', { minimumFractionDigits: 1 })}h</div>
+            <div className="text-xs text-slate-400 mt-1">생산 투여 총 시간 합계</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
             <div className="text-xs text-slate-500 mb-1">평균 원가율</div>
             <div className="text-2xl font-bold text-amber-600">{summary.avgCostRate.toFixed(1)}%</div>
-            <div className="text-xs text-slate-400 mt-1">낮을수록 수익성 높음</div>
+            <div className="text-xs text-slate-400 mt-1">원가 총액 / 총 생산액</div>
           </div>
         </div>
 
         {/* ── Charts Section ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-          {/* Daily production trend */}
+          {/* Daily production value trend */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">일별 생산기준시 추이</h3>
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">일별 총 생산액 추이</h3>
             <MiniLineChart data={dailyTrendData} labelKey="label" valueKey="value" color="#3b82f6" />
           </div>
-          {/* Production by team */}
+          {/* Production value by category */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">팀별 생산기준시</h3>
-            <MiniBarChart data={teamChartData} labelKey="label" valueKey="value" color="#10b981" />
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">품목류별 총 생산액</h3>
+            <MiniBarChart data={categoryChartData} labelKey="label" valueKey="value" color="#10b981" />
           </div>
-          {/* Profitability distribution */}
+          {/* Category quantity distribution */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">수익성 등급 분포</h3>
-            <MiniPieChart data={profitabilityPieData} />
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">품목류별 생산량 분포</h3>
+            <MiniPieChart data={categoryPieData} />
           </div>
         </div>
 
@@ -795,7 +828,7 @@ export default function ProductionResultsPage() {
           tabIndex={0}
           style={{ outline: 'none' }}
         >
-          <table className="w-full border-collapse text-sm" style={{ minWidth: '1500px' }}>
+          <table className="w-full border-collapse text-sm" style={{ minWidth: '1600px' }}>
             {/* Header */}
             <thead className="sticky top-0 z-20">
               <tr className="bg-slate-50">
@@ -921,17 +954,10 @@ export default function ProductionResultsPage() {
 
                         // Display cell
                         let display: React.ReactNode;
-                        if (col.key === 'profitability') {
-                          const p = PROFITABILITY_COLORS[rawVal as ProfitabilityCategory];
-                          display = p ? (
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${p.bg} ${p.text}`}>
-                              {String(rawVal)}
-                            </span>
-                          ) : String(rawVal);
-                        } else if (col.key === 'qualityStatus') {
-                          const q = QUALITY_COLORS[rawVal as QualityStatus];
-                          display = q ? (
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${q.bg} ${q.text}`}>
+                        if (col.key === 'shift') {
+                          const s = SHIFT_COLORS[rawVal as Shift];
+                          display = s ? (
+                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}`}>
                               {String(rawVal)}
                             </span>
                           ) : String(rawVal);

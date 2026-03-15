@@ -178,80 +178,88 @@ class OrderPlanBulkRequest(BaseModel):
 
 # --- Production Result (생산 결과) ---
 class ProductionResultCreate(BaseModel):
-    production_date: date
-    team_name: str
-    work_shift: str = "주간"
-    product_code: Optional[str] = None
-    product_name: str
-    sale_price: float = 0
-    cost_rate: float = 0
-    production_hours: float = 0
-    expected_sales: float = 0
-    profit: float = 0
-    hourly_rate: float = 0
-    profitability: Optional[str] = None
-    quality_status: Optional[str] = None
+    production_date: date  # 날짜
+    manager: str  # 담당자
+    location: Optional[str] = None  # 생산 위치
+    product_category: Optional[str] = None  # 품목류
+    product_name: str  # 품목명
+    quantity: float = 0  # 생산량
+    total_hours: float = 0  # 생산 투여 총 시간
+    unit_price: float = 0  # 생산 단가
+    total_value: float = 0  # 총 생산액
+    deduction: float = 0  # 공제액
+    cost: float = 0  # 원가
+    total_cost: float = 0  # 원가 총액
+    shift_type: Optional[str] = "주간"  # 주간/야간
 
 class ProductionResultUpdate(BaseModel):
     production_date: Optional[date] = None
-    team_name: Optional[str] = None
-    work_shift: Optional[str] = None
-    product_code: Optional[str] = None
+    manager: Optional[str] = None
+    location: Optional[str] = None
+    product_category: Optional[str] = None
     product_name: Optional[str] = None
-    sale_price: Optional[float] = None
-    cost_rate: Optional[float] = None
-    production_hours: Optional[float] = None
-    expected_sales: Optional[float] = None
-    profit: Optional[float] = None
-    hourly_rate: Optional[float] = None
-    profitability: Optional[str] = None
-    quality_status: Optional[str] = None
+    quantity: Optional[float] = None
+    total_hours: Optional[float] = None
+    unit_price: Optional[float] = None
+    total_value: Optional[float] = None
+    deduction: Optional[float] = None
+    cost: Optional[float] = None
+    total_cost: Optional[float] = None
+    shift_type: Optional[str] = None
 
 class ProductionResultBulkItem(BaseModel):
     id: Optional[int] = None
     production_date: date
-    team_name: str
-    work_shift: str = "주간"
-    product_code: Optional[str] = None
+    manager: str
+    location: Optional[str] = None
+    product_category: Optional[str] = None
     product_name: str
-    sale_price: float = 0
-    cost_rate: float = 0
-    production_hours: float = 0
-    expected_sales: float = 0
-    profit: float = 0
-    hourly_rate: float = 0
-    profitability: Optional[str] = None
-    quality_status: Optional[str] = None
+    quantity: float = 0
+    total_hours: float = 0
+    unit_price: float = 0
+    total_value: float = 0
+    deduction: float = 0
+    cost: float = 0
+    total_cost: float = 0
+    shift_type: Optional[str] = "주간"
 
 class ProductionResultBulkRequest(BaseModel):
     items: List[ProductionResultBulkItem]
 
 # --- Production Plan V2 (생산 계획 v2) ---
 class ProductionPlanV2Create(BaseModel):
-    plan_date: date
-    product_name: str
-    product_code: Optional[str] = None
-    planned_qty: int = 0
-    required_hours: Optional[float] = 0
-    required_manpower: Optional[int] = 0
-    avg_hourly_rate: Optional[float] = 0
-    order_plan_qty: Optional[int] = 0
-    safety_stock_deficit: Optional[int] = 0
-    ai_recommended_qty: Optional[int] = 0
+    plan_date: date  # 날짜
+    manager: Optional[str] = None  # 담당자
+    location: Optional[str] = None  # 생산 위치
+    product_category: Optional[str] = None  # 품목류
+    product_name: str  # 품목명
+    quantity: float = 0  # 생산량
+    total_hours: float = 0  # 생산 투여 총 시간
+    unit_price: float = 0  # 생산 단가
+    total_value: float = 0  # 총 생산액
+    deduction: float = 0  # 공제액
+    cost: float = 0  # 원가
+    total_cost: float = 0  # 원가 총액
+    shift_type: Optional[str] = "주간"  # 주간/야간
+    ai_recommended_qty: Optional[float] = 0  # AI 추천 생산량
     status: str = "draft"
     notes: Optional[str] = None
 
 class ProductionPlanV2Update(BaseModel):
     plan_date: Optional[date] = None
+    manager: Optional[str] = None
+    location: Optional[str] = None
+    product_category: Optional[str] = None
     product_name: Optional[str] = None
-    product_code: Optional[str] = None
-    planned_qty: Optional[int] = None
-    required_hours: Optional[float] = None
-    required_manpower: Optional[int] = None
-    avg_hourly_rate: Optional[float] = None
-    order_plan_qty: Optional[int] = None
-    safety_stock_deficit: Optional[int] = None
-    ai_recommended_qty: Optional[int] = None
+    quantity: Optional[float] = None
+    total_hours: Optional[float] = None
+    unit_price: Optional[float] = None
+    total_value: Optional[float] = None
+    deduction: Optional[float] = None
+    cost: Optional[float] = None
+    total_cost: Optional[float] = None
+    shift_type: Optional[str] = None
+    ai_recommended_qty: Optional[float] = None
     status: Optional[str] = None
     notes: Optional[str] = None
 
@@ -1680,7 +1688,7 @@ def get_order_plan_assignees(
 def list_production_results(
     start_date: Optional[str] = None,  # YYYY-MM-DD
     end_date: Optional[str] = None,
-    team_name: Optional[str] = None,
+    manager: Optional[str] = None,
     product_name: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
@@ -1694,8 +1702,8 @@ def list_production_results(
             query = query.filter(ScmProductionResult.production_date >= date.fromisoformat(start_date))
         if end_date:
             query = query.filter(ScmProductionResult.production_date <= date.fromisoformat(end_date))
-        if team_name:
-            query = query.filter(ScmProductionResult.team_name.ilike(f"%{team_name}%"))
+        if manager:
+            query = query.filter(ScmProductionResult.manager.ilike(f"%{manager}%"))
         if product_name:
             query = query.filter(ScmProductionResult.product_name.ilike(f"%{product_name}%"))
 
@@ -1710,18 +1718,18 @@ def list_production_results(
                 {
                     "id": r.id,
                     "production_date": str(r.production_date) if r.production_date else None,
-                    "team_name": r.team_name,
-                    "work_shift": r.work_shift,
-                    "product_code": r.product_code,
+                    "manager": r.manager,
+                    "location": r.location,
+                    "product_category": r.product_category,
                     "product_name": r.product_name,
-                    "sale_price": r.sale_price,
-                    "cost_rate": r.cost_rate,
-                    "production_hours": r.production_hours,
-                    "expected_sales": r.expected_sales,
-                    "profit": r.profit,
-                    "hourly_rate": r.hourly_rate,
-                    "profitability": r.profitability,
-                    "quality_status": r.quality_status,
+                    "quantity": r.quantity,
+                    "total_hours": r.total_hours,
+                    "unit_price": r.unit_price,
+                    "total_value": r.total_value,
+                    "deduction": r.deduction,
+                    "cost": r.cost,
+                    "total_cost": r.total_cost,
+                    "shift_type": r.shift_type,
                     "created_at": r.created_at.isoformat() if r.created_at else None,
                     "updated_at": r.updated_at.isoformat() if r.updated_at else None,
                 }
@@ -1747,18 +1755,18 @@ def create_production_results(
         for item in body:
             result = ScmProductionResult(
                 production_date=item.production_date,
-                team_name=item.team_name,
-                work_shift=item.work_shift,
-                product_code=item.product_code,
+                manager=item.manager,
+                location=item.location,
+                product_category=item.product_category,
                 product_name=item.product_name,
-                sale_price=item.sale_price,
-                cost_rate=item.cost_rate,
-                production_hours=item.production_hours,
-                expected_sales=item.expected_sales,
-                profit=item.profit,
-                hourly_rate=item.hourly_rate,
-                profitability=item.profitability,
-                quality_status=item.quality_status,
+                quantity=item.quantity,
+                total_hours=item.total_hours,
+                unit_price=item.unit_price,
+                total_value=item.total_value,
+                deduction=item.deduction,
+                cost=item.cost,
+                total_cost=item.total_cost,
+                shift_type=item.shift_type,
             )
             db.add(result)
             db.flush()
@@ -1847,18 +1855,18 @@ def bulk_production_results(
             else:
                 result = ScmProductionResult(
                     production_date=item.production_date,
-                    team_name=item.team_name,
-                    work_shift=item.work_shift,
-                    product_code=item.product_code,
+                    manager=item.manager,
+                    location=item.location,
+                    product_category=item.product_category,
                     product_name=item.product_name,
-                    sale_price=item.sale_price,
-                    cost_rate=item.cost_rate,
-                    production_hours=item.production_hours,
-                    expected_sales=item.expected_sales,
-                    profit=item.profit,
-                    hourly_rate=item.hourly_rate,
-                    profitability=item.profitability,
-                    quality_status=item.quality_status,
+                    quantity=item.quantity,
+                    total_hours=item.total_hours,
+                    unit_price=item.unit_price,
+                    total_value=item.total_value,
+                    deduction=item.deduction,
+                    cost=item.cost,
+                    total_cost=item.total_cost,
+                    shift_type=item.shift_type,
                 )
                 db.add(result)
                 created_count += 1
@@ -1894,17 +1902,20 @@ def production_results_summary(
             query = query.filter(ScmProductionResult.production_date <= date.fromisoformat(end_date))
 
         total_count = query.count()
-        total_expected_sales = query.with_entities(
-            func.coalesce(func.sum(ScmProductionResult.expected_sales), 0)
+        total_total_value = query.with_entities(
+            func.coalesce(func.sum(ScmProductionResult.total_value), 0)
         ).scalar()
-        total_profit = query.with_entities(
-            func.coalesce(func.sum(ScmProductionResult.profit), 0)
+        total_deduction = query.with_entities(
+            func.coalesce(func.sum(ScmProductionResult.deduction), 0)
         ).scalar()
-        avg_hourly_rate = query.with_entities(
-            func.coalesce(func.avg(ScmProductionResult.hourly_rate), 0)
+        avg_cost = query.with_entities(
+            func.coalesce(func.avg(ScmProductionResult.cost), 0)
         ).scalar()
-        total_production_hours = query.with_entities(
-            func.coalesce(func.sum(ScmProductionResult.production_hours), 0)
+        total_total_hours = query.with_entities(
+            func.coalesce(func.sum(ScmProductionResult.total_hours), 0)
+        ).scalar()
+        total_total_cost = query.with_entities(
+            func.coalesce(func.sum(ScmProductionResult.total_cost), 0)
         ).scalar()
 
         # 일별 생산 추이 차트 데이터
@@ -1912,24 +1923,24 @@ def production_results_summary(
             query.with_entities(
                 ScmProductionResult.production_date.label("date"),
                 func.count(ScmProductionResult.id).label("count"),
-                func.coalesce(func.sum(ScmProductionResult.expected_sales), 0).label("expected_sales"),
-                func.coalesce(func.sum(ScmProductionResult.profit), 0).label("profit"),
-                func.coalesce(func.avg(ScmProductionResult.hourly_rate), 0).label("avg_hourly_rate"),
+                func.coalesce(func.sum(ScmProductionResult.total_value), 0).label("total_value"),
+                func.coalesce(func.sum(ScmProductionResult.deduction), 0).label("deduction"),
+                func.coalesce(func.avg(ScmProductionResult.cost), 0).label("avg_cost"),
             )
             .group_by(ScmProductionResult.production_date)
             .order_by(ScmProductionResult.production_date)
             .all()
         )
 
-        # 팀별 생산 요약
-        team_summary = (
+        # 담당자별 생산 요약
+        manager_summary = (
             query.with_entities(
-                ScmProductionResult.team_name,
+                ScmProductionResult.manager,
                 func.count(ScmProductionResult.id).label("count"),
-                func.coalesce(func.sum(ScmProductionResult.expected_sales), 0).label("expected_sales"),
-                func.coalesce(func.avg(ScmProductionResult.hourly_rate), 0).label("avg_hourly_rate"),
+                func.coalesce(func.sum(ScmProductionResult.total_value), 0).label("total_value"),
+                func.coalesce(func.avg(ScmProductionResult.cost), 0).label("avg_cost"),
             )
-            .group_by(ScmProductionResult.team_name)
+            .group_by(ScmProductionResult.manager)
             .all()
         )
 
@@ -1937,28 +1948,29 @@ def production_results_summary(
             "success": True,
             "data": {
                 "total_count": total_count,
-                "total_expected_sales": float(total_expected_sales),
-                "total_profit": float(total_profit),
-                "avg_hourly_rate": round(float(avg_hourly_rate), 2),
-                "total_production_hours": float(total_production_hours),
+                "total_total_value": float(total_total_value),
+                "total_deduction": float(total_deduction),
+                "avg_cost": round(float(avg_cost), 2),
+                "total_total_hours": float(total_total_hours),
+                "total_total_cost": float(total_total_cost),
                 "daily_chart": [
                     {
                         "date": str(r.date),
                         "count": r.count,
-                        "expected_sales": float(r.expected_sales),
-                        "profit": float(r.profit),
-                        "avg_hourly_rate": round(float(r.avg_hourly_rate), 2),
+                        "total_value": float(r.total_value),
+                        "deduction": float(r.deduction),
+                        "avg_cost": round(float(r.avg_cost), 2),
                     }
                     for r in daily_chart
                 ],
-                "team_summary": [
+                "manager_summary": [
                     {
-                        "team_name": r.team_name,
+                        "manager": r.manager,
                         "count": r.count,
-                        "expected_sales": float(r.expected_sales),
-                        "avg_hourly_rate": round(float(r.avg_hourly_rate), 2),
+                        "total_value": float(r.total_value),
+                        "avg_cost": round(float(r.avg_cost), 2),
                     }
-                    for r in team_summary
+                    for r in manager_summary
                 ],
             },
         }
@@ -1972,15 +1984,15 @@ def get_hourly_rates_by_product(
     product_name: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    """제품별 과거 시간당 생산량 조회 (생산 계획 수립 참고용)"""
+    """제품별 과거 원가 조회 (생산 계획 수립 참고용)"""
     try:
         from app.db_models import ScmProductionResult
 
         query = db.query(
             ScmProductionResult.product_name,
-            func.avg(ScmProductionResult.hourly_rate).label("avg_hourly_rate"),
-            func.min(ScmProductionResult.hourly_rate).label("min_hourly_rate"),
-            func.max(ScmProductionResult.hourly_rate).label("max_hourly_rate"),
+            func.avg(ScmProductionResult.cost).label("avg_cost"),
+            func.min(ScmProductionResult.cost).label("min_cost"),
+            func.max(ScmProductionResult.cost).label("max_cost"),
             func.count(ScmProductionResult.id).label("data_count"),
         )
 
@@ -1998,9 +2010,9 @@ def get_hourly_rates_by_product(
             "data": [
                 {
                     "product_name": r.product_name,
-                    "avg_hourly_rate": round(float(r.avg_hourly_rate), 2) if r.avg_hourly_rate else 0,
-                    "min_hourly_rate": round(float(r.min_hourly_rate), 2) if r.min_hourly_rate else 0,
-                    "max_hourly_rate": round(float(r.max_hourly_rate), 2) if r.max_hourly_rate else 0,
+                    "avg_cost": round(float(r.avg_cost), 2) if r.avg_cost else 0,
+                    "min_cost": round(float(r.min_cost), 2) if r.min_cost else 0,
+                    "max_cost": round(float(r.max_cost), 2) if r.max_cost else 0,
                     "data_count": r.data_count,
                 }
                 for r in rows
@@ -2049,14 +2061,18 @@ def list_production_plans_v2(
                 {
                     "id": p.id,
                     "plan_date": str(p.plan_date) if p.plan_date else None,
+                    "manager": p.manager,
+                    "location": p.location,
+                    "product_category": p.product_category,
                     "product_name": p.product_name,
-                    "product_code": p.product_code,
-                    "planned_qty": p.planned_qty,
-                    "required_hours": p.required_hours,
-                    "required_manpower": p.required_manpower,
-                    "avg_hourly_rate": p.avg_hourly_rate,
-                    "order_plan_qty": p.order_plan_qty,
-                    "safety_stock_deficit": p.safety_stock_deficit,
+                    "quantity": p.quantity,
+                    "total_hours": p.total_hours,
+                    "unit_price": p.unit_price,
+                    "total_value": p.total_value,
+                    "deduction": p.deduction,
+                    "cost": p.cost,
+                    "total_cost": p.total_cost,
+                    "shift_type": p.shift_type,
                     "ai_recommended_qty": p.ai_recommended_qty,
                     "status": p.status,
                     "notes": p.notes,
@@ -2085,14 +2101,18 @@ def create_production_plans_v2(
         for item in body:
             plan = ScmProductionPlanV2(
                 plan_date=item.plan_date,
+                manager=item.manager,
+                location=item.location,
+                product_category=item.product_category,
                 product_name=item.product_name,
-                product_code=item.product_code,
-                planned_qty=item.planned_qty,
-                required_hours=item.required_hours,
-                required_manpower=item.required_manpower,
-                avg_hourly_rate=item.avg_hourly_rate,
-                order_plan_qty=item.order_plan_qty,
-                safety_stock_deficit=item.safety_stock_deficit,
+                quantity=item.quantity,
+                total_hours=item.total_hours,
+                unit_price=item.unit_price,
+                total_value=item.total_value,
+                deduction=item.deduction,
+                cost=item.cost,
+                total_cost=item.total_cost,
+                shift_type=item.shift_type,
                 ai_recommended_qty=item.ai_recommended_qty,
                 status=item.status,
                 notes=item.notes,
@@ -2206,18 +2226,27 @@ def ai_recommend_production(
         )
         order_plan_total = int(order_plan_total)
 
-        # 3. 과거 시간당 생산량 평균
-        avg_hourly = (
-            db.query(func.avg(ScmProductionResult.hourly_rate))
+        # 3. 과거 원가 평균
+        avg_cost_val = (
+            db.query(func.avg(ScmProductionResult.cost))
             .filter(ScmProductionResult.product_name.ilike(f"%{product_name}%"))
             .scalar()
         )
-        avg_hourly_rate = float(avg_hourly) if avg_hourly else 0
+        avg_cost = float(avg_cost_val) if avg_cost_val else 0
 
         # 4. 추천 수량 계산
         recommended_qty = max(safety_stock_deficit, order_plan_total)
 
         # 5. 필요 시간 / 인력 계산
+        avg_quantity_per_hour = (
+            db.query(
+                func.avg(ScmProductionResult.quantity / func.nullif(ScmProductionResult.total_hours, 0))
+            )
+            .filter(ScmProductionResult.product_name.ilike(f"%{product_name}%"))
+            .scalar()
+        )
+        avg_hourly_rate = float(avg_quantity_per_hour) if avg_quantity_per_hour else 0
+
         if avg_hourly_rate > 0:
             required_hours = round(recommended_qty / avg_hourly_rate, 2)
         else:
@@ -2234,7 +2263,7 @@ def ai_recommend_production(
                 "current_stock": current_stock,
                 "safety_stock": safety_stock,
                 "order_plan_total": order_plan_total,
-                "avg_hourly_rate": round(avg_hourly_rate, 2),
+                "avg_cost": round(avg_cost, 2),
                 "recommended_qty": recommended_qty,
                 "required_hours": required_hours,
                 "required_manpower": required_manpower,
@@ -2270,7 +2299,7 @@ def share_production_plan(
                 "id": p.id,
                 "plan_date": str(p.plan_date) if p.plan_date else None,
                 "product_name": p.product_name,
-                "planned_qty": p.planned_qty,
+                "quantity": p.quantity,
                 "status": p.status,
             }
             for p in plans
