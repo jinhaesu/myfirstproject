@@ -32,6 +32,7 @@ DEFAULT_CHANNELS = [
     {"name": "올리브영", "category": "버티컬", "integration_type": "rpa"},
     {"name": "올웨이즈", "category": "버티컬", "integration_type": "rpa"},
     {"name": "마켓컬리", "category": "버티컬", "integration_type": "rpa"},
+    {"name": "비마트", "category": "버티컬", "integration_type": "rpa"},
 
     # 홈쇼핑/TV
     {"name": "롯데 홈쇼핑", "category": "홈쇼핑", "integration_type": "rpa"},

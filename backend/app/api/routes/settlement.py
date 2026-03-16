@@ -80,6 +80,15 @@ class RpaTestRequest(BaseModel):
     login_password: str
     selectors: Optional[dict] = None
 
+class RpaCollectTestRequest(BaseModel):
+    channel_name: str
+    year: int
+    month: int
+
+class RpaCollectTestAllRequest(BaseModel):
+    year: int
+    month: int
+
 class ReportCreate(BaseModel):
     report_name: str
     year: int
@@ -278,6 +287,73 @@ async def test_rpa_connection(data: RpaTestRequest, user=Depends(get_current_use
     rpa_svc = get_settlement_rpa_service()
     result = await rpa_svc.test_channel_connection(data.channel_name, data.dict())
     return result
+
+
+@router.post("/rpa-collect-test")
+async def test_rpa_collect(data: RpaCollectTestRequest, user=Depends(get_current_user)):
+    """단일 채널 수집 테스트 (데이터 저장 없이 수집만 시도)"""
+    svc = SettlementService()
+    rpa_svc = get_settlement_rpa_service()
+
+    from app.services.channel_service import ChannelService
+    ch_svc = ChannelService()
+    channel = ch_svc.get_channel_by_name(data.channel_name)
+    channel_id = channel["id"] if channel else data.channel_name
+
+    rpa_config = svc.get_rpa_config(channel_id)
+    result = await rpa_svc.collect_settlement(data.channel_name, data.year, data.month, rpa_config)
+    return {
+        "channel_name": data.channel_name,
+        "year": data.year,
+        "month": data.month,
+        "test_mode": True,
+        **result,
+    }
+
+
+@router.post("/rpa-collect-test-all")
+async def test_rpa_collect_all(data: RpaCollectTestAllRequest, user=Depends(get_current_user)):
+    """전체 채널 수집 테스트 (데이터 저장 없이 수집만 시도)"""
+    svc = SettlementService()
+    rpa_svc = get_settlement_rpa_service()
+    configs = svc.get_all_rpa_configs()
+    config_map = {c["channel_name"]: c for c in configs}
+
+    from app.services.channel_service import ChannelService
+    ch_svc = ChannelService()
+
+    results = []
+    for channel_name, defaults in CHANNEL_RPA_DEFAULTS.items():
+        channel = ch_svc.get_channel_by_name(channel_name)
+        if not channel:
+            continue
+        config = config_map.get(channel_name, {})
+        if not config.get("login_id"):
+            results.append({
+                "channel_name": channel_name,
+                "success": False,
+                "message": "로그인 정보 미설정",
+                "test_mode": True,
+            })
+            continue
+
+        result = await rpa_svc.collect_settlement(channel_name, data.year, data.month, config)
+        results.append({
+            "channel_name": channel_name,
+            "test_mode": True,
+            **result,
+        })
+
+    success_count = sum(1 for r in results if r.get("success"))
+    return {
+        "year": data.year,
+        "month": data.month,
+        "test_mode": True,
+        "total": len(results),
+        "success_count": success_count,
+        "fail_count": len(results) - success_count,
+        "results": results,
+    }
 
 
 # === RPA 수집 API ===

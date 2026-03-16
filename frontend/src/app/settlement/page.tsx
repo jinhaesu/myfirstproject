@@ -35,27 +35,28 @@ const ALL_CHANNELS = [
   { name: '올리브영', category: '버티컬', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산관리' },
   { name: '올웨이즈', category: '버티컬', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산' },
   { name: '마켓컬리', category: '버티컬', type: 'rpa', loginUrl: 'https://partners.kurly.com/login', settlementUrl: '', note: '파트너센터 → 정산' },
+  { name: '비마트', category: '버티컬', type: 'rpa', loginUrl: 'https://self.baemin.com/login', settlementUrl: 'https://self.baemin.com/settlement', note: '배민셀프서비스 → 정산관리' },
   { name: '롯데 홈쇼핑', category: '홈쇼핑', type: 'rpa', loginUrl: '', settlementUrl: '', note: '협력사 시스템 → 정산' },
   { name: 'GS 샵', category: '홈쇼핑', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산' },
   { name: 'NS MALL', category: '홈쇼핑', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산' },
   { name: '신세계 TV 쇼핑', category: '홈쇼핑', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산' },
   { name: 'CJ온스타일', category: '홈쇼핑', type: 'rpa', loginUrl: '', settlementUrl: '', note: '파트너센터 → 정산' },
   { name: '롯데온', category: '백화점', type: 'rpa', loginUrl: '', settlementUrl: '', note: '셀러오피스 → 정산' },
-  { name: '롯데 백화점', category: '백화점', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: '팔도감', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: '이지웰', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: '라이프케어', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: '삼성카드쇼핑', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: '농협몰', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: '베네피아', category: '복지몰', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: '홈플러스', category: '대형마트', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: '메가마트', category: '대형마트', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: '이마트', category: '대형마트', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: 'GS25', category: '편의점', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: 'CU', category: '편의점', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: '삼성웰스토리', category: 'B2B', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: 'CJ프레시웨이', category: 'B2B', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
-  { name: '아워홈', category: 'B2B', type: 'manual', loginUrl: '', settlementUrl: '', note: '수동 입력 또는 엑셀 업로드' },
+  { name: '롯데 백화점', category: '백화점', type: 'rpa', loginUrl: 'https://partner.lottedept.com/login', settlementUrl: 'https://partner.lottedept.com/settlement', note: '파트너센터 → 정산관리' },
+  { name: '팔도감', category: '복지몰', type: 'rpa', loginUrl: 'https://partner.paldogam.co.kr/login', settlementUrl: 'https://partner.paldogam.co.kr/settlement', note: '파트너센터 → 정산관리' },
+  { name: '이지웰', category: '복지몰', type: 'rpa', loginUrl: 'https://partner.ezwel.com/login', settlementUrl: 'https://partner.ezwel.com/settlement', note: '파트너센터 → 정산관리' },
+  { name: '라이프케어', category: '복지몰', type: 'rpa', loginUrl: 'https://partner.lifecare.co.kr/login', settlementUrl: 'https://partner.lifecare.co.kr/settlement', note: '파트너센터 → 정산관리' },
+  { name: '삼성카드쇼핑', category: '복지몰', type: 'rpa', loginUrl: 'https://partner.samsungcard.com/login', settlementUrl: 'https://partner.samsungcard.com/settlement', note: '파트너센터 → 정산관리' },
+  { name: '농협몰', category: '복지몰', type: 'rpa', loginUrl: 'https://partner.nonghyupmall.com/login', settlementUrl: 'https://partner.nonghyupmall.com/settlement', note: '파트너센터 → 정산관리' },
+  { name: '베네피아', category: '복지몰', type: 'rpa', loginUrl: 'https://partner.benepia.co.kr/login', settlementUrl: 'https://partner.benepia.co.kr/settlement', note: '파트너센터 → 정산관리' },
+  { name: '홈플러스', category: '대형마트', type: 'rpa', loginUrl: 'https://partner.homeplus.co.kr/login', settlementUrl: 'https://partner.homeplus.co.kr/settlement', note: '파트너센터 → 정산관리' },
+  { name: '메가마트', category: '대형마트', type: 'rpa', loginUrl: 'https://partner.megamart.com/login', settlementUrl: 'https://partner.megamart.com/settlement', note: '파트너센터 → 정산관리' },
+  { name: '이마트', category: '대형마트', type: 'rpa', loginUrl: 'https://partner.emart.com/login', settlementUrl: 'https://partner.emart.com/settlement', note: '파트너센터 → 정산관리' },
+  { name: 'GS25', category: '편의점', type: 'rpa', loginUrl: 'https://partner.gs25.com/login', settlementUrl: 'https://partner.gs25.com/settlement', note: '파트너센터 → 정산관리' },
+  { name: 'CU', category: '편의점', type: 'rpa', loginUrl: 'https://partner.cu.co.kr/login', settlementUrl: 'https://partner.cu.co.kr/settlement', note: '파트너센터 → 정산관리' },
+  { name: '삼성웰스토리', category: 'B2B', type: 'rpa', loginUrl: 'https://partner.welstory.com/login', settlementUrl: 'https://partner.welstory.com/settlement', note: '파트너센터 → 정산관리' },
+  { name: 'CJ프레시웨이', category: 'B2B', type: 'rpa', loginUrl: 'https://partner.cjfreshway.com/login', settlementUrl: 'https://partner.cjfreshway.com/settlement', note: '파트너센터 → 정산관리' },
+  { name: '아워홈', category: 'B2B', type: 'rpa', loginUrl: 'https://partner.ourhome.co.kr/login', settlementUrl: 'https://partner.ourhome.co.kr/settlement', note: '파트너센터 → 정산관리' },
 ];
 
 // 카테고리별 그룹핑
@@ -1295,6 +1296,11 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
   const [editForm, setEditForm] = useState<SavedRpaConfig | null>(null);
   const [testingChannel, setTestingChannel] = useState<string | null>(null);
   const [savingChannel, setSavingChannel] = useState<string | null>(null);
+  const [collectTestingChannel, setCollectTestingChannel] = useState<string | null>(null);
+  const [collectTestingAll, setCollectTestingAll] = useState(false);
+  const [collectTestResults, setCollectTestResults] = useState<Record<string, { success: boolean; message: string; data?: any }>>({});
+  const [testYear] = useState(new Date().getFullYear());
+  const [testMonth] = useState(new Date().getMonth() + 1);
 
   // 저장된 RPA 설정 로드 (실패해도 OK — 빈 상태로 시작)
   const fetchData = useCallback(async () => {
@@ -1332,13 +1338,18 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
     if (!editForm || !editingChannel) return;
     setSavingChannel(editingChannel.name);
     try {
+      const payload: Record<string, any> = {
+        channel_id: editingChannel.name,
+        ...editForm,
+        channel_name: editingChannel.name,
+      };
+      // 비밀번호가 빈 값이면 전송하지 않아 기존 값 유지
+      if (!payload.login_password) {
+        delete payload.login_password;
+      }
       await fetchApi('/api/settlement/rpa-config', {
         method: 'POST',
-        body: JSON.stringify({
-          channel_id: editingChannel.name,
-          ...editForm,
-          channel_name: editingChannel.name,
-        }),
+        body: JSON.stringify(payload),
       });
       setToast({ type: 'success', message: `${editingChannel.name} 설정 저장 완료` });
       setEditingChannel(null);
@@ -1371,6 +1382,62 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
     }
   };
 
+  const handleCollectTest = async (channelName: string) => {
+    const saved = savedConfigs[channelName];
+    if (!saved?.login_id) {
+      setToast({ type: 'error', message: `${channelName}: 먼저 로그인 정보를 설정하세요` });
+      return;
+    }
+    setCollectTestingChannel(channelName);
+    try {
+      const result = await fetchApi('/api/settlement/rpa-collect-test', {
+        method: 'POST',
+        body: JSON.stringify({ channel_name: channelName, year: testYear, month: testMonth }),
+      });
+      setCollectTestResults((prev) => ({ ...prev, [channelName]: result }));
+      setToast({
+        type: result.success ? 'success' : 'error',
+        message: `[${channelName}] 수집 테스트: ${result.message || (result.success ? '성공' : '실패')}${result.data?.settlement_amount ? ` (정산금액: ${Number(result.data.settlement_amount).toLocaleString()}원)` : ''}`,
+      });
+    } catch (err: any) {
+      setCollectTestResults((prev) => ({ ...prev, [channelName]: { success: false, message: err.message } }));
+      setToast({ type: 'error', message: `[${channelName}] 수집 테스트 실패: ${err.message}` });
+    } finally {
+      setCollectTestingChannel(null);
+    }
+  };
+
+  const handleCollectTestAll = async () => {
+    const configuredChannels = ALL_CHANNELS.filter((ch) => savedConfigs[ch.name]?.login_id);
+    if (configuredChannels.length === 0) {
+      setToast({ type: 'error', message: '설정된 채널이 없습니다. 먼저 채널별 로그인 정보를 입력하세요.' });
+      return;
+    }
+    setCollectTestingAll(true);
+    setCollectTestResults({});
+    try {
+      const result = await fetchApi('/api/settlement/rpa-collect-test-all', {
+        method: 'POST',
+        body: JSON.stringify({ year: testYear, month: testMonth }),
+      });
+      const resultMap: Record<string, any> = {};
+      if (result.results) {
+        result.results.forEach((r: any) => {
+          resultMap[r.channel_name] = r;
+        });
+      }
+      setCollectTestResults(resultMap);
+      setToast({
+        type: result.success_count > 0 ? 'success' : 'error',
+        message: `전체 수집 테스트 완료: ${result.success_count}/${result.total} 성공`,
+      });
+    } catch (err: any) {
+      setToast({ type: 'error', message: `전체 수집 테스트 실패: ${err.message}` });
+    } finally {
+      setCollectTestingAll(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-20">
@@ -1381,6 +1448,52 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
 
   return (
     <div className="space-y-6">
+      {/* 수집 테스트 영역 */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800">수집 테스트</h3>
+            <p className="text-sm text-slate-500">{testYear}년 {testMonth}월 기준 — 데이터를 저장하지 않고 수집 가능 여부만 확인합니다</p>
+          </div>
+          <button
+            onClick={handleCollectTestAll}
+            disabled={collectTestingAll || collectTestingChannel !== null}
+            className="px-5 py-2.5 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors disabled:opacity-50 flex items-center gap-2 font-medium"
+          >
+            {collectTestingAll ? (
+              <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 전체 테스트 중...</>
+            ) : (
+              <>전체 수집 테스트</>
+            )}
+          </button>
+        </div>
+
+        {/* 전체 수집 테스트 결과 요약 */}
+        {Object.keys(collectTestResults).length > 0 && (
+          <div className="bg-slate-50 rounded-lg p-4">
+            <div className="flex items-center gap-4 mb-3">
+              <span className="text-sm font-medium text-slate-700">테스트 결과:</span>
+              <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full font-medium">
+                성공 {Object.values(collectTestResults).filter((r) => r.success).length}
+              </span>
+              <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-medium">
+                실패 {Object.values(collectTestResults).filter((r) => !r.success).length}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {Object.entries(collectTestResults).map(([name, result]) => (
+                <div key={name} className={`px-3 py-2 rounded-lg text-xs flex items-center justify-between ${result.success ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
+                  <span className={`font-medium ${result.success ? 'text-emerald-700' : 'text-red-700'}`}>{name}</span>
+                  <span className={result.success ? 'text-emerald-600' : 'text-red-500'}>
+                    {result.success ? (result.data?.settlement_amount ? `${Number(result.data.settlement_amount).toLocaleString()}원` : '성공') : '실패'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* 사용 가이드 */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
         <h4 className="text-sm font-bold text-amber-800 mb-2">RPA 설정 가이드</h4>
@@ -1392,7 +1505,7 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
             <li><strong>정산 페이지 URL</strong> — 로그인 후 정산/결산 내역을 확인하는 페이지 주소</li>
             <li><strong>다운로드 방식</strong> — 해당 채널에서 정산 데이터를 가져오는 방법 (웹 스크래핑 / 엑셀 다운로드)</li>
           </ol>
-          <p className="mt-2 text-amber-600">각 채널의 <strong>&quot;편집&quot;</strong> 버튼을 눌러 설정하세요. 설정 후 <strong>&quot;연결 테스트&quot;</strong>로 로그인이 되는지 확인할 수 있습니다.</p>
+          <p className="mt-2 text-amber-600">각 채널의 <strong>&quot;편집&quot;</strong> 버튼을 눌러 설정하세요. 설정 후 <strong>&quot;연결 테스트&quot;</strong>로 로그인이 되는지, <strong>&quot;수집 테스트&quot;</strong>로 데이터 수집이 되는지 확인할 수 있습니다.</p>
         </div>
       </div>
 
@@ -1412,7 +1525,6 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
               const saved = savedConfigs[ch.name];
               const isConfigured = !!(saved?.login_id);
               const isTesting = testingChannel === ch.name;
-              const isManual = ch.type === 'manual';
 
               return (
                 <div key={ch.name} className="p-4 flex flex-wrap items-center gap-4">
@@ -1420,44 +1532,51 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
                   <div className="flex-1 min-w-[250px]">
                     <div className="flex items-center gap-2">
                       <h5 className="font-medium text-slate-800">{ch.name}</h5>
-                      {isManual ? (
-                        <span className="px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-500 rounded-full">수동입력</span>
-                      ) : isConfigured ? (
+                      {isConfigured ? (
                         <span className="px-2 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 rounded-full">설정완료</span>
                       ) : (
                         <span className="px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-600 rounded-full">미설정</span>
                       )}
                       <span className="px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-600 rounded-full">{ch.type.toUpperCase()}</span>
+                      {collectTestResults[ch.name] && (
+                        <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${collectTestResults[ch.name].success ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
+                          {collectTestResults[ch.name].success ? '수집OK' : '수집실패'}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-slate-500 mt-1">
-                      {isManual ? (
-                        <p>{ch.note} — 결산 현황 탭에서 엑셀 업로드 또는 수동 입력하세요</p>
-                      ) : (
-                        <>
-                          <p>로그인: {saved?.login_url || ch.loginUrl || <span className="text-red-400">URL 미설정</span>}
-                            {saved?.login_id && <span className="text-emerald-600 ml-1">(ID: {saved.login_id})</span>}
-                          </p>
-                          <p>정산: {saved?.settlement_url || ch.settlementUrl || <span className="text-red-400">URL 미설정</span>}</p>
-                          <p className="text-slate-400">{ch.note}</p>
-                        </>
-                      )}
+                      <p>로그인: {saved?.login_url || ch.loginUrl || <span className="text-red-400">URL 미설정</span>}
+                        {saved?.login_id && <span className="text-emerald-600 ml-1">(ID: {saved.login_id})</span>}
+                      </p>
+                      <p>정산: {saved?.settlement_url || ch.settlementUrl || <span className="text-red-400">URL 미설정</span>}</p>
+                      <p className="text-slate-400">{ch.note}</p>
                     </div>
                   </div>
 
                   {/* 액션 버튼 */}
                   <div className="flex items-center gap-2">
-                    {!isManual && (
-                      <>
-                        <button
-                          onClick={() => handleTest(ch.name)}
-                          disabled={isTesting || !isConfigured}
-                          className="px-3 py-1.5 text-xs bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                          title={!isConfigured ? '먼저 편집에서 로그인 정보를 설정하세요' : ''}
-                        >
-                          {isTesting ? '테스트 중...' : '연결 테스트'}
-                        </button>
-                      </>
-                    )}
+                    <button
+                      onClick={() => handleTest(ch.name)}
+                      disabled={isTesting || !isConfigured}
+                      className="px-3 py-1.5 text-xs bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={!isConfigured ? '먼저 편집에서 로그인 정보를 설정하세요' : ''}
+                    >
+                      {isTesting ? '테스트 중...' : '연결 테스트'}
+                    </button>
+                    <button
+                      onClick={() => handleCollectTest(ch.name)}
+                      disabled={collectTestingChannel === ch.name || !isConfigured || collectTestingAll}
+                      className={`px-3 py-1.5 text-xs rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed font-medium ${
+                        collectTestResults[ch.name]?.success
+                          ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                          : collectTestResults[ch.name] && !collectTestResults[ch.name].success
+                          ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                          : 'bg-violet-50 text-violet-600 hover:bg-violet-100'
+                      }`}
+                      title={!isConfigured ? '먼저 편집에서 로그인 정보를 설정하세요' : collectTestResults[ch.name]?.message || ''}
+                    >
+                      {collectTestingChannel === ch.name ? '수집 테스트 중...' : collectTestResults[ch.name]?.success ? '수집 성공' : collectTestResults[ch.name] ? '수집 실패' : '수집 테스트'}
+                    </button>
                     <button
                       onClick={() => handleEdit(ch)}
                       className="px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium"

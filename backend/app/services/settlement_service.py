@@ -280,6 +280,9 @@ class SettlementService:
                             "excel_column_mapping", "excel_skip_rows", "excel_sheet_name",
                             "auto_collect_day", "is_enabled", "extra_config"]:
                     if key in data:
+                        # 비밀번호는 빈 값이면 기존 값 유지 (초기화 방지)
+                        if key == "login_password" and not data[key]:
+                            continue
                         setattr(existing, key, data[key])
                 db.commit()
                 db.refresh(existing)

@@ -103,6 +103,11 @@ CHANNEL_RPA_DEFAULTS = {
         "settlement_url": "https://partners.kurly.com/settlement",
         "method": "rpa",
     },
+    "비마트": {
+        "login_url": "https://self.baemin.com/login",
+        "settlement_url": "https://self.baemin.com/settlement",
+        "method": "rpa",
+    },
     # === 홈쇼핑 ===
     "롯데 홈쇼핑": {
         "login_url": "https://partner.lotteimall.com/login",
@@ -135,24 +140,84 @@ CHANNEL_RPA_DEFAULTS = {
         "settlement_url": "https://partner.lotteon.com/settlement",
         "method": "rpa",
     },
-    "롯데 백화점": {"method": "manual"},
+    "롯데 백화점": {
+        "login_url": "https://partner.lottedept.com/login",
+        "settlement_url": "https://partner.lottedept.com/settlement",
+        "method": "rpa",
+    },
     # === 복지몰 ===
-    "팔도감": {"method": "manual"},
-    "이지웰": {"method": "manual"},
-    "라이프케어": {"method": "manual"},
-    "삼성카드쇼핑": {"method": "manual"},
-    "농협몰": {"method": "manual"},
-    "베네피아": {"method": "manual"},
+    "팔도감": {
+        "login_url": "https://partner.paldogam.co.kr/login",
+        "settlement_url": "https://partner.paldogam.co.kr/settlement",
+        "method": "rpa",
+    },
+    "이지웰": {
+        "login_url": "https://partner.ezwel.com/login",
+        "settlement_url": "https://partner.ezwel.com/settlement",
+        "method": "rpa",
+    },
+    "라이프케어": {
+        "login_url": "https://partner.lifecare.co.kr/login",
+        "settlement_url": "https://partner.lifecare.co.kr/settlement",
+        "method": "rpa",
+    },
+    "삼성카드쇼핑": {
+        "login_url": "https://partner.samsungcard.com/login",
+        "settlement_url": "https://partner.samsungcard.com/settlement",
+        "method": "rpa",
+    },
+    "농협몰": {
+        "login_url": "https://partner.nonghyupmall.com/login",
+        "settlement_url": "https://partner.nonghyupmall.com/settlement",
+        "method": "rpa",
+    },
+    "베네피아": {
+        "login_url": "https://partner.benepia.co.kr/login",
+        "settlement_url": "https://partner.benepia.co.kr/settlement",
+        "method": "rpa",
+    },
     # === 대형마트/편의점 ===
-    "홈플러스": {"method": "manual"},
-    "메가마트": {"method": "manual"},
-    "이마트": {"method": "manual"},
-    "GS25": {"method": "manual"},
-    "CU": {"method": "manual"},
+    "홈플러스": {
+        "login_url": "https://partner.homeplus.co.kr/login",
+        "settlement_url": "https://partner.homeplus.co.kr/settlement",
+        "method": "rpa",
+    },
+    "메가마트": {
+        "login_url": "https://partner.megamart.com/login",
+        "settlement_url": "https://partner.megamart.com/settlement",
+        "method": "rpa",
+    },
+    "이마트": {
+        "login_url": "https://partner.emart.com/login",
+        "settlement_url": "https://partner.emart.com/settlement",
+        "method": "rpa",
+    },
+    "GS25": {
+        "login_url": "https://partner.gs25.com/login",
+        "settlement_url": "https://partner.gs25.com/settlement",
+        "method": "rpa",
+    },
+    "CU": {
+        "login_url": "https://partner.cu.co.kr/login",
+        "settlement_url": "https://partner.cu.co.kr/settlement",
+        "method": "rpa",
+    },
     # === B2B ===
-    "삼성웰스토리": {"method": "manual"},
-    "CJ프레시웨이": {"method": "manual"},
-    "아워홈": {"method": "manual"},
+    "삼성웰스토리": {
+        "login_url": "https://partner.welstory.com/login",
+        "settlement_url": "https://partner.welstory.com/settlement",
+        "method": "rpa",
+    },
+    "CJ프레시웨이": {
+        "login_url": "https://partner.cjfreshway.com/login",
+        "settlement_url": "https://partner.cjfreshway.com/settlement",
+        "method": "rpa",
+    },
+    "아워홈": {
+        "login_url": "https://partner.ourhome.co.kr/login",
+        "settlement_url": "https://partner.ourhome.co.kr/settlement",
+        "method": "rpa",
+    },
 }
 
 # 범용 로그인 셀렉터 전략
