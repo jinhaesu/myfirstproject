@@ -256,12 +256,17 @@ class SettlementService:
             self._close_db(db)
 
     def get_rpa_config(self, channel_id: str) -> Optional[dict]:
-        """채널별 RPA 설정 조회"""
+        """채널별 RPA 설정 조회 (channel_id 또는 channel_name으로 검색)"""
         db = self._get_db()
         try:
             config = db.query(SettlementRpaConfig).filter(
                 SettlementRpaConfig.channel_id == channel_id
             ).first()
+            # channel_id로 못 찾으면 channel_name으로도 검색
+            if not config:
+                config = db.query(SettlementRpaConfig).filter(
+                    SettlementRpaConfig.channel_name == channel_id
+                ).first()
             return self._rpa_config_to_dict(config) if config else None
         finally:
             self._close_db(db)

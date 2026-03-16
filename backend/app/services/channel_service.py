@@ -43,12 +43,9 @@ DEFAULT_CHANNELS = [
 
     # 백화점/오프라인
     {"name": "롯데온", "category": "백화점", "integration_type": "rpa"},
-    {"name": "롯데 백화점", "category": "백화점", "integration_type": "manual"},
 
     # 복지몰
-    {"name": "팔도감", "category": "복지몰", "integration_type": "manual"},
     {"name": "이지웰", "category": "복지몰", "integration_type": "manual"},
-    {"name": "라이프케어", "category": "복지몰", "integration_type": "manual"},
     {"name": "삼성카드쇼핑", "category": "복지몰", "integration_type": "manual"},
     {"name": "농협몰", "category": "복지몰", "integration_type": "manual"},
     {"name": "베네피아", "category": "복지몰", "integration_type": "manual"},

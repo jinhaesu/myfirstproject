@@ -140,25 +140,10 @@ CHANNEL_RPA_DEFAULTS = {
         "settlement_url": "https://partner.lotteon.com/settlement",
         "method": "rpa",
     },
-    "롯데 백화점": {
-        "login_url": "https://partner.lottedept.com/login",
-        "settlement_url": "https://partner.lottedept.com/settlement",
-        "method": "rpa",
-    },
     # === 복지몰 ===
-    "팔도감": {
-        "login_url": "https://partner.paldogam.co.kr/login",
-        "settlement_url": "https://partner.paldogam.co.kr/settlement",
-        "method": "rpa",
-    },
     "이지웰": {
         "login_url": "https://partner.ezwel.com/login",
         "settlement_url": "https://partner.ezwel.com/settlement",
-        "method": "rpa",
-    },
-    "라이프케어": {
-        "login_url": "https://partner.lifecare.co.kr/login",
-        "settlement_url": "https://partner.lifecare.co.kr/settlement",
         "method": "rpa",
     },
     "삼성카드쇼핑": {
