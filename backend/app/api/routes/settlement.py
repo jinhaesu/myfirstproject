@@ -296,13 +296,14 @@ async def test_rpa_collect(data: RpaCollectTestRequest, user=Depends(get_current
     rpa_svc = get_settlement_rpa_service()
 
     # channel_name으로 저장된 설정을 우선 조회, 없으면 DB channel_id로 조회
-    rpa_config = svc.get_rpa_config(data.channel_name)
+    # include_password=True: 수집 시 실제 비밀번호 필요
+    rpa_config = svc.get_rpa_config(data.channel_name, include_password=True)
     if not rpa_config:
         from app.services.channel_service import ChannelService
         ch_svc = ChannelService()
         channel = ch_svc.get_channel_by_name(data.channel_name)
         if channel:
-            rpa_config = svc.get_rpa_config(channel["id"])
+            rpa_config = svc.get_rpa_config(channel["id"], include_password=True)
 
     result = await rpa_svc.collect_settlement(data.channel_name, data.year, data.month, rpa_config)
     return {
@@ -319,7 +320,8 @@ async def test_rpa_collect_all(data: RpaCollectTestAllRequest, user=Depends(get_
     """전체 채널 수집 테스트 (데이터 저장 없이 수집만 시도)"""
     svc = SettlementService()
     rpa_svc = get_settlement_rpa_service()
-    configs = svc.get_all_rpa_configs()
+    # include_password=True: 수집 시 실제 비밀번호 필요
+    configs = svc.get_all_rpa_configs(include_password=True)
     config_map = {c["channel_name"]: c for c in configs}
 
     from app.services.channel_service import ChannelService
@@ -385,10 +387,10 @@ async def collect_settlement_rpa(
         "collection_type": "rpa",
     })
 
-    # RPA 설정 조회 (channel_name으로 저장된 경우도 처리)
-    rpa_config = svc.get_rpa_config(data.channel_name)
+    # RPA 설정 조회 (include_password=True: 수집 시 실제 비밀번호 필요)
+    rpa_config = svc.get_rpa_config(data.channel_name, include_password=True)
     if not rpa_config:
-        rpa_config = svc.get_rpa_config(channel_id)
+        rpa_config = svc.get_rpa_config(channel_id, include_password=True)
 
     async def _bg_collect():
         try:
@@ -444,7 +446,7 @@ async def collect_all_settlements_rpa(
 ):
     """전체 RPA 채널 일괄 수집"""
     svc = SettlementService()
-    configs = svc.get_all_rpa_configs()
+    configs = svc.get_all_rpa_configs(include_password=True)
     config_map = {c["channel_name"]: c for c in configs}
 
     logs = []
