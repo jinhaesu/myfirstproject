@@ -295,12 +295,15 @@ async def test_rpa_collect(data: RpaCollectTestRequest, user=Depends(get_current
     svc = SettlementService()
     rpa_svc = get_settlement_rpa_service()
 
-    from app.services.channel_service import ChannelService
-    ch_svc = ChannelService()
-    channel = ch_svc.get_channel_by_name(data.channel_name)
-    channel_id = channel["id"] if channel else data.channel_name
+    # channel_name으로 저장된 설정을 우선 조회, 없으면 DB channel_id로 조회
+    rpa_config = svc.get_rpa_config(data.channel_name)
+    if not rpa_config:
+        from app.services.channel_service import ChannelService
+        ch_svc = ChannelService()
+        channel = ch_svc.get_channel_by_name(data.channel_name)
+        if channel:
+            rpa_config = svc.get_rpa_config(channel["id"])
 
-    rpa_config = svc.get_rpa_config(channel_id)
     result = await rpa_svc.collect_settlement(data.channel_name, data.year, data.month, rpa_config)
     return {
         "channel_name": data.channel_name,
@@ -382,8 +385,10 @@ async def collect_settlement_rpa(
         "collection_type": "rpa",
     })
 
-    # RPA 설정 조회
-    rpa_config = svc.get_rpa_config(channel_id)
+    # RPA 설정 조회 (channel_name으로 저장된 경우도 처리)
+    rpa_config = svc.get_rpa_config(data.channel_name)
+    if not rpa_config:
+        rpa_config = svc.get_rpa_config(channel_id)
 
     async def _bg_collect():
         try:
