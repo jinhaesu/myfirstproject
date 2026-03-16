@@ -277,18 +277,21 @@ class SettlementRpaService:
             except Exception:
                 continue
 
-    async def _login(self, page, login_url: str, login_id: str, login_pw: str, custom_selectors: Optional[dict] = None) -> bool:
-        """범용 로그인"""
+    async def _login(self, page, login_url: str, login_id: str, login_pw: str, custom_selectors: Optional[dict] = None) -> dict:
+        """범용 로그인 — 성공/실패 + 상세 진단 정보 반환"""
+        # 1단계: 페이지 접근
         try:
             await page.goto(login_url, wait_until="networkidle", timeout=30000)
         except Exception as e:
             logger.warning(f"로그인 페이지 접근 실패: {e}")
-            return False
+            return {"success": False, "reason": "page_load_fail", "detail": f"로그인 페이지 접근 실패: {str(e)[:200]}"}
 
         await asyncio.sleep(1)
         await self._dismiss_popups(page)
 
-        # 커스텀 셀렉터가 있으면 우선 시도
+        initial_url = page.url
+
+        # 2단계: 로그인 전략 시도
         strategies = []
         if custom_selectors:
             strategies.append({
@@ -299,21 +302,29 @@ class SettlementRpaService:
             })
         strategies.extend(LOGIN_STRATEGIES)
 
+        tried_strategies = []
+        filled = False
+
         for strategy in strategies:
             if not strategy.get("username"):
                 continue
             try:
                 username_el = page.locator(strategy["username"]).first
                 if not await username_el.is_visible(timeout=2000):
+                    tried_strategies.append(f"{strategy['name']}: ID필드 없음")
                     continue
                 password_el = page.locator(strategy["password"]).first
                 if not await password_el.is_visible(timeout=1000):
+                    tried_strategies.append(f"{strategy['name']}: PW필드 없음")
                     continue
+
+                tried_strategies.append(f"{strategy['name']}: 필드 발견")
 
                 await username_el.clear()
                 await username_el.fill(login_id)
                 await password_el.clear()
                 await password_el.fill(login_pw)
+                filled = True
 
                 submit_el = page.locator(strategy["submit"]).first
                 if await submit_el.is_visible(timeout=1000):
@@ -326,15 +337,36 @@ class SettlementRpaService:
                 except Exception:
                     await asyncio.sleep(3)
 
-                # 로그인 성공 확인
-                if "/login" not in page.url.lower():
-                    await self._dismiss_popups(page)
-                    return True
+                current_url = page.url
+                # 로그인 성공 확인: URL이 변경되었거나 /login이 사라졌으면 성공
+                url_changed = current_url != initial_url
+                no_login_in_url = "/login" not in current_url.lower() and "/signin" not in current_url.lower() and "/log-in" not in current_url.lower()
 
-            except Exception:
+                if url_changed or no_login_in_url:
+                    await self._dismiss_popups(page)
+                    return {"success": True, "reason": "ok", "detail": f"로그인 성공 (전략: {strategy['name']}, URL: {current_url[:100]})"}
+
+                # 에러 메시지 감지
+                error_texts = []
+                for err_sel in ['.error', '.alert-danger', '.login-error', '.err-msg', '[class*="error"]', '[class*="alert"]']:
+                    try:
+                        err_el = page.locator(err_sel).first
+                        if await err_el.is_visible(timeout=500):
+                            error_texts.append(await err_el.inner_text())
+                    except Exception:
+                        pass
+
+                if error_texts:
+                    return {"success": False, "reason": "login_rejected", "detail": f"사이트 에러 메시지: {'; '.join(error_texts)[:200]}"}
+
+            except Exception as e:
+                tried_strategies.append(f"{strategy['name']}: 오류 {str(e)[:50]}")
                 continue
 
-        return False
+        if not filled:
+            return {"success": False, "reason": "no_fields_found", "detail": f"로그인 필드를 찾을 수 없음. 시도: {', '.join(tried_strategies)}. 페이지 URL: {page.url[:100]}"}
+
+        return {"success": False, "reason": "login_not_redirected", "detail": f"로그인 시도 후 페이지 변경 없음. 현재 URL: {page.url[:100]}. 시도: {', '.join(tried_strategies)}"}
 
     async def _scrape_settlement(self, page, settlement_url: str, year: int, month: int) -> Optional[dict]:
         """정산 페이지에서 데이터 스크래핑"""
@@ -630,12 +662,13 @@ class SettlementRpaService:
 
             try:
                 # 1) 로그인
-                logged_in = await self._login(page, login_url, login_id, login_pw, custom_selectors)
-                if not logged_in:
+                login_result = await self._login(page, login_url, login_id, login_pw, custom_selectors)
+                if not login_result.get("success"):
                     screenshot = await self._take_screenshot(page, f"{channel_name}_login_fail")
                     return {
                         "success": False,
-                        "message": f"{channel_name} 로그인 실패",
+                        "message": f"{channel_name} 로그인 실패: {login_result.get('detail', '알 수 없는 오류')}",
+                        "login_debug": login_result,
                         "screenshot": screenshot,
                     }
 
@@ -706,11 +739,12 @@ class SettlementRpaService:
             context = await browser.new_context(viewport={"width": 1920, "height": 1080}, locale="ko-KR")
             page = await context.new_page()
             try:
-                logged_in = await self._login(page, login_url, login_id, login_pw, rpa_config.get("selectors"))
+                login_result = await self._login(page, login_url, login_id, login_pw, rpa_config.get("selectors"))
                 screenshot = await self._take_screenshot(page, f"{channel_name}_test")
                 return {
-                    "success": logged_in,
-                    "message": f"{'로그인 성공' if logged_in else '로그인 실패'}",
+                    "success": login_result.get("success", False),
+                    "message": login_result.get("detail", "로그인 실패"),
+                    "login_debug": login_result,
                     "screenshot": screenshot,
                     "url": page.url,
                 }
