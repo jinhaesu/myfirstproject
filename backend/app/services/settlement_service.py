@@ -246,16 +246,16 @@ class SettlementService:
         }
 
     # === RPA 설정 관리 ===
-    def get_all_rpa_configs(self) -> list[dict]:
+    def get_all_rpa_configs(self, include_password: bool = False) -> list[dict]:
         """전체 RPA 설정 조회"""
         db = self._get_db()
         try:
             configs = db.query(SettlementRpaConfig).order_by(SettlementRpaConfig.channel_name).all()
-            return [self._rpa_config_to_dict(c) for c in configs]
+            return [self._rpa_config_to_dict(c, include_password=include_password) for c in configs]
         finally:
             self._close_db(db)
 
-    def get_rpa_config(self, channel_id: str) -> Optional[dict]:
+    def get_rpa_config(self, channel_id: str, include_password: bool = False) -> Optional[dict]:
         """채널별 RPA 설정 조회 (channel_id 또는 channel_name으로 검색)"""
         db = self._get_db()
         try:
@@ -267,7 +267,7 @@ class SettlementService:
                 config = db.query(SettlementRpaConfig).filter(
                     SettlementRpaConfig.channel_name == channel_id
                 ).first()
-            return self._rpa_config_to_dict(config) if config else None
+            return self._rpa_config_to_dict(config, include_password=include_password) if config else None
         finally:
             self._close_db(db)
 
@@ -475,16 +475,16 @@ class SettlementService:
             "updated_at": s.updated_at.isoformat() if s.updated_at else None,
         }
 
-    def _rpa_config_to_dict(self, c: SettlementRpaConfig) -> dict:
+    def _rpa_config_to_dict(self, c: SettlementRpaConfig, include_password: bool = False) -> dict:
         if not c:
             return None
-        return {
+        result = {
             "id": c.id,
             "channel_id": c.channel_id,
             "channel_name": c.channel_name,
             "login_url": c.login_url,
             "login_id": c.login_id,
-            "has_password": bool(c.login_password),  # 비밀번호는 마스킹
+            "has_password": bool(c.login_password),
             "selectors": c.selectors,
             "settlement_url": c.settlement_url,
             "date_format": c.date_format,
@@ -497,6 +497,9 @@ class SettlementService:
             "last_collected_at": c.last_collected_at.isoformat() if c.last_collected_at else None,
             "extra_config": c.extra_config,
         }
+        if include_password:
+            result["login_password"] = c.login_password
+        return result
 
     def _report_to_dict(self, r: SettlementReport) -> dict:
         if not r:
