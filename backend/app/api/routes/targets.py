@@ -905,6 +905,10 @@ def _build_report_html(year, month, targets, sales, by_manager_target, by_manage
         """Korean number format with commas (round to int)."""
         return f"{round(num):,}"
 
+    def _ex_vat(num):
+        """부가세 별도 금액 (VAT 10% 제외)."""
+        return round(num / 1.1)
+
     def _rc(rate):
         """Rate color."""
         if rate >= 100:
@@ -1003,14 +1007,15 @@ def _build_report_html(year, month, targets, sales, by_manager_target, by_manage
     for mgr in all_managers:
         t = managers_target.get(mgr, {})
         s = managers_sales.get(mgr, {})
-        target_sales = t.get("매출", 0)
-        actual_sales = s.get("매출", 0)
-        target_qty = t.get("판매량", 0)
+        # 부가세 별도 금액으로 변환 (매출, 공헌이익, 광고선전비)
+        target_sales = _ex_vat(t.get("매출", 0))
+        actual_sales = _ex_vat(s.get("매출", 0))
+        target_qty = t.get("판매량", 0)  # 수량은 변환 없음
         actual_qty = s.get("판매량", 0)
-        target_contrib = t.get("공헌이익", 0)
-        actual_contrib = s.get("공헌이익", 0)
-        target_adv = t.get("광고선전비", 0)
-        actual_adv = s.get("광고선전비", 0) or s.get("마케팅비", 0)
+        target_contrib = _ex_vat(t.get("공헌이익", 0))
+        actual_contrib = _ex_vat(s.get("공헌이익", 0))
+        target_adv = _ex_vat(t.get("광고선전비", 0))
+        actual_adv = _ex_vat(s.get("광고선전비", 0) or s.get("마케팅비", 0))
 
         manager_comparisons.append({
             "manager": mgr,
@@ -1066,7 +1071,7 @@ def _build_report_html(year, month, targets, sales, by_manager_target, by_manage
                 # Target grid: [channel, m1, m2, ..., m12]; index = effective_month (1-based)
                 month_idx = effective_month
                 val = _parse_num(row[month_idx]) if len(row) > month_idx else 0
-                channel_target_map[ch_label] = channel_target_map.get(ch_label, 0) + val
+                channel_target_map[ch_label] = channel_target_map.get(ch_label, 0) + _ex_vat(val)
 
         channel_actual_map = {}
         for sl in mgr_sales:
@@ -1079,7 +1084,7 @@ def _build_report_html(year, month, targets, sales, by_manager_target, by_manage
                     continue
                 # Sales grid: [channel, day1, day2, ..., day31]; sum all days
                 total = sum(_parse_num(row[i]) for i in range(1, len(row)))
-                channel_actual_map[ch_label] = channel_actual_map.get(ch_label, 0) + total
+                channel_actual_map[ch_label] = channel_actual_map.get(ch_label, 0) + _ex_vat(total)
 
         all_channels = sorted(set(list(channel_target_map.keys()) + list(channel_actual_map.keys())))
         for ch in all_channels:
@@ -1249,8 +1254,8 @@ def _build_report_html(year, month, targets, sales, by_manager_target, by_manage
             f'<table style="width:100%;border-collapse:collapse;font-size:13px">'
             f'<thead><tr style="background:#f8fafc">'
             f'<th style="text-align:left;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">채널</th>'
-            f'<th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">목표</th>'
-            f'<th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">실적</th>'
+            f'<th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">목표<br><span style="font-size:9px;color:#7c3aed">(부가세별도)</span></th>'
+            f'<th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">실적<br><span style="font-size:9px;color:#7c3aed">(부가세별도)</span></th>'
             f'<th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">달성률</th>'
             f'<th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">상태</th>'
             f'</tr></thead>'
@@ -1353,6 +1358,7 @@ def _build_report_html(year, month, targets, sales, by_manager_target, by_manage
         f'<div style="text-align:center;padding-bottom:20px;border-bottom:3px solid #6366f1;margin-bottom:24px">'
         f'<h1 style="font-size:22px;font-weight:800;color:#1e1b4b;margin:0 0 6px 0">{year}년 {effective_month}월 목표 달성 현황 리포트</h1>'
         f'<p style="font-size:13px;color:#64748b;margin:0">기준일: {effective_month}월 {yesterday}일까지 | 생성일시: {now_str}</p>'
+        f'<p style="font-size:12px;color:#7c3aed;font-weight:600;margin:4px 0 0 0">* 모든 금액은 부가세 별도 (VAT excluded) 기준입니다</p>'
         f'</div>'
         f'<div style="margin-bottom:20px">'
         f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'
@@ -1362,9 +1368,9 @@ def _build_report_html(year, month, targets, sales, by_manager_target, by_manage
         f'<table style="width:100%;border-collapse:collapse;font-size:12px">'
         f'<thead><tr style="background:#f5f3ff">'
         f'<th style="text-align:left;padding:10px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">담당자</th>'
-        f'<th style="{th_style}">목표매출</th><th style="{th_style}">실적매출</th><th style="{th_style}">매출달성률</th>'
+        f'<th style="{th_style}">목표매출<br><span style="font-size:10px;color:#7c3aed">(부가세별도)</span></th><th style="{th_style}">실적매출<br><span style="font-size:10px;color:#7c3aed">(부가세별도)</span></th><th style="{th_style}">매출달성률</th>'
         f'<th style="{th_style}">목표판매량</th><th style="{th_style}">실적판매량</th><th style="{th_style}">판매량달성률</th>'
-        f'<th style="{th_style}">목표공헌이익</th><th style="{th_style}">실적공헌이익</th><th style="{th_style}">공헌이익달성률</th>'
+        f'<th style="{th_style}">목표공헌이익<br><span style="font-size:10px;color:#7c3aed">(부가세별도)</span></th><th style="{th_style}">실적공헌이익<br><span style="font-size:10px;color:#7c3aed">(부가세별도)</span></th><th style="{th_style}">공헌이익달성률</th>'
         f'</tr></thead>'
         f'<tbody>{mgr_rows}{sum_row}</tbody>'
         f'</table>'
@@ -1420,6 +1426,7 @@ def _build_report_html(year, month, targets, sales, by_manager_target, by_manage
         f'</div>'
         f'<div style="margin-top:30px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center">'
         f'<p style="font-size:11px;color:#94a3b8;margin:0">이 리포트는 Nuldam Analytics에서 자동 생성되었습니다.</p>'
+        f'<p style="font-size:11px;color:#7c3aed;font-weight:600;margin:4px 0 0 0">* 본 리포트의 모든 금액은 부가세 별도(VAT excluded) 기준으로 작성되었습니다.</p>'
         f'</div>'
         f'</div>'
 
