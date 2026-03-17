@@ -1,0 +1,6 @@
+playwright
+pandas
+openpyxl
+httpx
+rich
+python-dotenv
