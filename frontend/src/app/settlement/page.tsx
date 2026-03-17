@@ -1158,6 +1158,18 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
         </button>
       </div>
 
+      {/* 로컬 에이전트 안내 */}
+      <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <span className="text-lg">💻</span>
+          <div className="text-xs text-violet-700 space-y-1">
+            <p className="font-bold text-sm text-violet-800">로컬 에이전트로 수집하기 (권장)</p>
+            <p>클라우드 서버 수집은 쇼핑몰의 IP 차단/CAPTCHA로 실패할 수 있습니다. 사무실 PC에서 <strong>로컬 에이전트</strong>를 실행하면 실제 브라우저로 안정적으로 수집됩니다.</p>
+            <p className="text-violet-600">설치 방법은 <strong>&quot;RPA 설정&quot;</strong> 탭의 &quot;설치 가이드&quot; 버튼을 참고하세요.</p>
+          </div>
+        </div>
+      </div>
+
       {/* Progress */}
       {(collectingChannel || collectingAll) && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
@@ -1298,18 +1310,31 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
   const [collectTestResults, setCollectTestResults] = useState<Record<string, { success: boolean; message: string; data?: any }>>({});
   const [testYear] = useState(new Date().getFullYear());
   const [testMonth] = useState(new Date().getMonth() + 1);
+  const [agentStatus, setAgentStatus] = useState<any>(null);
+  const [showAgentGuide, setShowAgentGuide] = useState(false);
+
+  // 로컬 에이전트 상태 조회
+  const fetchAgentStatus = useCallback(async () => {
+    const data = await fetchSafe('/api/settlement/agent/status', null);
+    setAgentStatus(data);
+  }, []);
 
   // 저장된 RPA 설정 로드 (실패해도 OK — 빈 상태로 시작)
   const fetchData = useCallback(async () => {
     setIsLoading(true);
-    const data = await fetchSafe('/api/settlement/rpa-configs', []);
-    const configMap: Record<string, SavedRpaConfig> = {};
-    if (Array.isArray(data)) {
-      data.forEach((c: any) => { if (c.channel_name) configMap[c.channel_name] = c; });
-    }
-    setSavedConfigs(configMap);
+    await Promise.all([
+      (async () => {
+        const data = await fetchSafe('/api/settlement/rpa-configs', []);
+        const configMap: Record<string, SavedRpaConfig> = {};
+        if (Array.isArray(data)) {
+          data.forEach((c: any) => { if (c.channel_name) configMap[c.channel_name] = c; });
+        }
+        setSavedConfigs(configMap);
+      })(),
+      fetchAgentStatus(),
+    ]);
     setIsLoading(false);
-  }, []);
+  }, [fetchAgentStatus]);
 
   useEffect(() => {
     fetchData();
@@ -1445,47 +1470,72 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
 
   return (
     <div className="space-y-6">
-      {/* 수집 테스트 영역 */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-slate-800">수집 테스트</h3>
-            <p className="text-sm text-slate-500">{testYear}년 {testMonth}월 기준 — 데이터를 저장하지 않고 수집 가능 여부만 확인합니다</p>
+      {/* 로컬 에이전트 상태 */}
+      <div className={`rounded-xl shadow-sm border p-5 ${agentStatus?.connected ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${agentStatus?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+            <div>
+              <h3 className="text-lg font-semibold text-slate-800">로컬 RPA 에이전트</h3>
+              <p className="text-sm text-slate-500">
+                {agentStatus?.connected
+                  ? `연결됨 — ${agentStatus.hostname || '사무실 PC'} (${agentStatus.status === 'collecting' ? `${agentStatus.current_channel} 수집 중 ${agentStatus.channels_completed}/${agentStatus.channels_total}` : '대기 중'})`
+                  : agentStatus?.status === 'never_connected' ? '에이전트가 아직 연결된 적 없습니다' : `연결 끊김 (마지막: ${agentStatus?.last_heartbeat ? new Date(agentStatus.last_heartbeat).toLocaleString('ko-KR') : '-'})`}
+              </p>
+            </div>
           </div>
-          <button
-            onClick={handleCollectTestAll}
-            disabled={collectTestingAll || collectTestingChannel !== null}
-            className="px-5 py-2.5 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors disabled:opacity-50 flex items-center gap-2 font-medium"
-          >
-            {collectTestingAll ? (
-              <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 전체 테스트 중...</>
-            ) : (
-              <>전체 수집 테스트</>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={fetchAgentStatus} className="px-3 py-1.5 text-xs bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+              새로고침
+            </button>
+            <button onClick={() => setShowAgentGuide(!showAgentGuide)} className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium">
+              {showAgentGuide ? '가이드 닫기' : '설치 가이드'}
+            </button>
+          </div>
         </div>
 
-        {/* 전체 수집 테스트 결과 요약 */}
-        {Object.keys(collectTestResults).length > 0 && (
-          <div className="bg-slate-50 rounded-lg p-4">
-            <div className="flex items-center gap-4 mb-3">
-              <span className="text-sm font-medium text-slate-700">테스트 결과:</span>
-              <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full font-medium">
-                성공 {Object.values(collectTestResults).filter((r) => r.success).length}
-              </span>
-              <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-medium">
-                실패 {Object.values(collectTestResults).filter((r) => !r.success).length}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {Object.entries(collectTestResults).map(([name, result]) => (
-                <div key={name} className={`px-3 py-2 rounded-lg text-xs flex items-center justify-between ${result.success ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
-                  <span className={`font-medium ${result.success ? 'text-emerald-700' : 'text-red-700'}`}>{name}</span>
-                  <span className={result.success ? 'text-emerald-600' : 'text-red-500'}>
-                    {result.success ? (result.data?.settlement_amount ? `${Number(result.data.settlement_amount).toLocaleString()}원` : '성공') : '실패'}
-                  </span>
+        {agentStatus?.last_collection_at && (
+          <p className="text-xs text-slate-500">마지막 수집: {new Date(agentStatus.last_collection_at).toLocaleString('ko-KR')}</p>
+        )}
+
+        {/* 설치 가이드 */}
+        {showAgentGuide && (
+          <div className="mt-4 bg-white rounded-lg border border-slate-200 p-4">
+            <h4 className="text-sm font-bold text-slate-800 mb-3">로컬 에이전트 설치 방법</h4>
+            <div className="text-xs text-slate-600 space-y-2">
+              <div className="flex gap-3 items-start">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">1</span>
+                <p>사무실 PC에 <strong>Python 3.10+</strong> 설치 (python.org에서 다운로드)</p>
+              </div>
+              <div className="flex gap-3 items-start">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">2</span>
+                <p>프로젝트의 <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">local-agent</code> 폴더를 사무실 PC에 복사</p>
+              </div>
+              <div className="flex gap-3 items-start">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">3</span>
+                <p><code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">setup.bat</code> 실행 (가상환경 + 패키지 + 브라우저 자동 설치)</p>
+              </div>
+              <div className="flex gap-3 items-start">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">4</span>
+                <div>
+                  <p><code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">.env</code> 파일에 서버 URL과 API 키 입력:</p>
+                  <pre className="bg-slate-800 text-green-400 rounded p-2 mt-1 text-[10px] overflow-x-auto">
+{`BACKEND_URL=https://your-railway-app.railway.app
+AGENT_API_KEY=your-api-key`}
+                  </pre>
                 </div>
-              ))}
+              </div>
+              <div className="flex gap-3 items-start">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">5</span>
+                <div>
+                  <p><code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">run.bat</code> 실행하면 브라우저가 열리며 각 채널에 자동 로그인 시작</p>
+                  <p className="text-slate-400 mt-1">CAPTCHA나 2단계 인증이 나오면 브라우저에서 직접 처리하면 됩니다</p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 p-2 bg-violet-50 rounded-lg text-xs text-violet-700">
+              <strong>특정 채널만 수집:</strong> <code className="bg-violet-100 px-1 rounded">run.bat --channel &quot;쿠팡 WING&quot;</code><br/>
+              <strong>채널 목록 보기:</strong> <code className="bg-violet-100 px-1 rounded">run.bat --list</code>
             </div>
           </div>
         )}
@@ -1495,14 +1545,14 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
         <h4 className="text-sm font-bold text-amber-800 mb-2">RPA 설정 가이드</h4>
         <div className="text-xs text-amber-700 space-y-1.5">
-          <p>RPA가 실제로 동작하려면, 각 채널마다 아래 정보를 직접 입력해야 합니다:</p>
+          <p>각 채널마다 아래 정보를 입력하면, 로컬 에이전트가 자동으로 로그인하여 결산 데이터를 수집합니다:</p>
           <ol className="list-decimal ml-4 space-y-1">
             <li><strong>로그인 URL</strong> — 각 채널 셀러 어드민(파트너센터) 로그인 페이지 주소</li>
             <li><strong>로그인 ID / 비밀번호</strong> — 해당 채널에 등록된 판매자 계정 정보</li>
             <li><strong>정산 페이지 URL</strong> — 로그인 후 정산/결산 내역을 확인하는 페이지 주소</li>
             <li><strong>다운로드 방식</strong> — 해당 채널에서 정산 데이터를 가져오는 방법 (웹 스크래핑 / 엑셀 다운로드)</li>
           </ol>
-          <p className="mt-2 text-amber-600">각 채널의 <strong>&quot;편집&quot;</strong> 버튼을 눌러 설정하세요. 설정 후 <strong>&quot;연결 테스트&quot;</strong>로 로그인이 되는지, <strong>&quot;수집 테스트&quot;</strong>로 데이터 수집이 되는지 확인할 수 있습니다.</p>
+          <p className="mt-2 text-amber-600">각 채널의 <strong>&quot;편집&quot;</strong> 버튼을 눌러 설정하세요. 수집은 사무실 PC의 <strong>로컬 에이전트</strong>에서 실행됩니다.</p>
         </div>
       </div>
 

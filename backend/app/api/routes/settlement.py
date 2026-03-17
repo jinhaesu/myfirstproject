@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from io import BytesIO
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Header
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -18,6 +18,14 @@ from app.services.settlement_email_service import SettlementEmailService
 
 router = APIRouter(prefix="/settlement", tags=["settlement"])
 logger = logging.getLogger(__name__)
+
+
+async def verify_agent_key(x_agent_key: str = Header(...)):
+    from app.config import get_settings
+    settings = get_settings()
+    if not settings.LOCAL_AGENT_API_KEY or x_agent_key != settings.LOCAL_AGENT_API_KEY:
+        raise HTTPException(401, "Invalid agent API key")
+    return True
 
 
 # === Pydantic Models ===
@@ -571,3 +579,177 @@ async def send_report_now(data: ReportSendNow, user=Depends(get_current_user)):
     email_svc = SettlementEmailService()
     result = email_svc.send_settlement_report(data.recipients, data.year, data.month, settlements, comparison)
     return result
+
+
+# === Local Agent Pydantic Models ===
+
+class AgentSubmitData(BaseModel):
+    channel_name: str
+    channel_id: Optional[str] = None
+    category: Optional[str] = "기타"
+    year: int
+    month: int
+    gross_sales: float = 0
+    net_sales: float = 0
+    settlement_amount: float = 0
+    commission: float = 0
+    shipping_cost: float = 0
+    refund_amount: float = 0
+    order_count: int = 0
+    quantity: int = 0
+    raw_data: Optional[dict] = None
+
+
+class AgentLogData(BaseModel):
+    channel_name: str
+    channel_id: Optional[str] = None
+    year: int
+    month: int
+    status: str  # running, success, failed, skipped
+    error_message: Optional[str] = None
+    settlement_amount: Optional[float] = None
+    details: Optional[dict] = None
+
+
+class AgentHeartbeat(BaseModel):
+    agent_version: str = "1.0.0"
+    hostname: Optional[str] = None
+    ip: Optional[str] = None
+    status: str = "idle"  # idle, collecting, error
+    current_channel: Optional[str] = None
+    channels_completed: int = 0
+    channels_total: int = 0
+
+
+# === Local Agent API ===
+
+@router.get("/agent/configs")
+async def get_agent_configs(agent=Depends(verify_agent_key)):
+    """로컬 에이전트용 — 전체 RPA 설정 조회 (비밀번호 포함)"""
+    svc = SettlementService()
+    configs = svc.get_all_rpa_configs(include_password=True)
+    # Merge with channel defaults for channels without saved config
+    saved_names = {c["channel_name"] for c in configs}
+    for ch_name, defaults in CHANNEL_RPA_DEFAULTS.items():
+        if ch_name not in saved_names:
+            configs.append({
+                "channel_name": ch_name,
+                "login_url": defaults.get("login_url", ""),
+                "settlement_url": defaults.get("settlement_url", ""),
+                "method": defaults.get("method", "rpa"),
+                "login_id": None,
+                "login_password": None,
+                "is_enabled": True,
+            })
+    return configs
+
+
+@router.post("/agent/submit")
+async def agent_submit_data(data: AgentSubmitData, agent=Depends(verify_agent_key)):
+    """로컬 에이전트 — 수집된 결산 데이터 제출"""
+    svc = SettlementService()
+    settlement = svc.upsert_settlement({
+        "channel_id": data.channel_id or data.channel_name,
+        "channel_name": data.channel_name,
+        "category": data.category,
+        "year": data.year,
+        "month": data.month,
+        "gross_sales": data.gross_sales,
+        "net_sales": data.net_sales,
+        "settlement_amount": data.settlement_amount,
+        "commission": data.commission,
+        "shipping_cost": data.shipping_cost,
+        "refund_amount": data.refund_amount,
+        "order_count": data.order_count,
+        "quantity": data.quantity,
+        "source": "local_agent",
+        "raw_data": data.raw_data,
+    })
+    return {"success": True, "settlement": settlement}
+
+
+@router.post("/agent/log")
+async def agent_report_log(data: AgentLogData, agent=Depends(verify_agent_key)):
+    """로컬 에이전트 — 수집 로그 보고"""
+    svc = SettlementService()
+    log = svc.create_collection_log({
+        "channel_id": data.channel_id or data.channel_name,
+        "channel_name": data.channel_name,
+        "year": data.year,
+        "month": data.month,
+        "collection_type": "local_agent",
+        "status": data.status,
+        "error_message": data.error_message,
+        "settlement_amount": data.settlement_amount,
+        "details": data.details,
+    })
+    return {"success": True, "log": log}
+
+
+@router.post("/agent/heartbeat")
+async def agent_heartbeat(data: AgentHeartbeat, agent=Depends(verify_agent_key)):
+    """로컬 에이전트 — 하트비트"""
+    from app.db_models import LocalAgentStatus
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        status = db.query(LocalAgentStatus).filter(LocalAgentStatus.id == "default").first()
+        now = datetime.now(timezone.utc)
+        if status:
+            status.last_heartbeat = now
+            status.agent_version = data.agent_version
+            status.hostname = data.hostname
+            status.ip = data.ip
+            status.status = data.status
+            status.current_channel = data.current_channel
+            status.channels_completed = data.channels_completed
+            status.channels_total = data.channels_total
+            if data.status == "idle" and status.channels_completed > 0:
+                status.last_collection_at = now
+        else:
+            status = LocalAgentStatus(
+                id="default",
+                last_heartbeat=now,
+                agent_version=data.agent_version,
+                hostname=data.hostname,
+                ip=data.ip,
+                status=data.status,
+                current_channel=data.current_channel,
+                channels_completed=data.channels_completed,
+                channels_total=data.channels_total,
+            )
+            db.add(status)
+        db.commit()
+        return {"ok": True, "server_time": now.isoformat()}
+    finally:
+        db.close()
+
+
+@router.get("/agent/status")
+async def get_agent_status(user=Depends(get_current_user)):
+    """프론트엔드용 — 로컬 에이전트 상태 조회"""
+    from app.db_models import LocalAgentStatus
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        status = db.query(LocalAgentStatus).filter(LocalAgentStatus.id == "default").first()
+        if not status:
+            return {"connected": False, "status": "never_connected"}
+        now = datetime.now(timezone.utc)
+        last_hb = status.last_heartbeat
+        # Consider connected if heartbeat within last 5 minutes
+        connected = (now - last_hb).total_seconds() < 300 if last_hb else False
+        return {
+            "connected": connected,
+            "status": status.status,
+            "last_heartbeat": last_hb.isoformat() if last_hb else None,
+            "agent_version": status.agent_version,
+            "hostname": status.hostname,
+            "ip": status.ip,
+            "current_channel": status.current_channel,
+            "channels_completed": status.channels_completed,
+            "channels_total": status.channels_total,
+            "last_collection_at": status.last_collection_at.isoformat() if status.last_collection_at else None,
+        }
+    finally:
+        db.close()

@@ -39,6 +39,7 @@ def init_db():
             Target, Sale,
             MonthlySettlement, SettlementRpaConfig,
             SettlementReport, SettlementCollectionLog,
+            LocalAgentStatus,
             ScmOrder, ScmStaffMember, ScmSchedule, ScmTask,
             ScmProductionPlan, ScmInventoryItem, ScmShipment,
             TargetReportSchedule,

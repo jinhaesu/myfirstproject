@@ -216,6 +216,22 @@ class SettlementReport(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
+class LocalAgentStatus(Base):
+    """로컬 RPA 에이전트 상태"""
+    __tablename__ = "local_agent_status"
+
+    id = Column(String, primary_key=True, default="default")
+    last_heartbeat = Column(DateTime(timezone=True))
+    agent_version = Column(String, nullable=True)
+    hostname = Column(String, nullable=True)
+    ip = Column(String, nullable=True)
+    status = Column(String, default="idle")  # idle, collecting, error
+    current_channel = Column(String, nullable=True)
+    channels_completed = Column(Integer, default=0)
+    channels_total = Column(Integer, default=0)
+    last_collection_at = Column(DateTime(timezone=True), nullable=True)
+
+
 class SettlementCollectionLog(Base):
     """결산 데이터 수집 로그"""
     __tablename__ = "settlement_collection_logs"

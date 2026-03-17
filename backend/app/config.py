@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     RESEND_FROM_EMAIL: str = "noreply@yourdomain.com"
     OTP_EXPIRATION_MINUTES: int = 5
 
+    # Local RPA Agent
+    LOCAL_AGENT_API_KEY: str = ""
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
