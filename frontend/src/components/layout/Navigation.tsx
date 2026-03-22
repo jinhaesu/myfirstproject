@@ -44,13 +44,20 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: '사방넷 기반 관리',
-    icon: 'sabangnet',
-    pathPrefix: ['/sabangnet'],
+    label: '제품 관리',
+    icon: 'productList',
+    pathPrefix: ['/sabangnet/products', '/sabangnet/mapping'],
     items: [
-      { href: '/sabangnet/products', label: '제품 목록', icon: 'productList', section: '제품 관리' },
+      { href: '/sabangnet/products', label: '제품 목록', icon: 'productList' },
       { href: '/sabangnet/mapping', label: '매핑 자동화', icon: 'mapping' },
-      { href: '/sabangnet/cs', label: '게시판 CS 대응', icon: 'cs', section: 'CS 관리' },
+    ],
+  },
+  {
+    label: 'CS 관리',
+    icon: 'voiceCs',
+    pathPrefix: ['/sabangnet/cs', '/sabangnet/voice-cs'],
+    items: [
+      { href: '/sabangnet/cs', label: '게시판 CS 대응', icon: 'cs' },
       { href: '/sabangnet/voice-cs', label: '음성 CS 대응', icon: 'voiceCs' },
     ],
   },
