@@ -609,3 +609,74 @@ class MappingLog(Base):
     items_failed = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
+
+
+# ──────────────────────────────────────────────
+# 음성 CS 대응 Models (Voice CS)
+# ──────────────────────────────────────────────
+
+class VoiceCsCall(Base):
+    """통화 내역"""
+    __tablename__ = "voice_cs_calls"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    call_id = Column(String(200), unique=True, index=True)  # 외부 통화 ID (Vapi 등)
+    phone_number = Column(String(50), nullable=False)  # 고객 전화번호
+    direction = Column(String(20), default="inbound")  # inbound/outbound
+    started_at = Column(DateTime, nullable=True)
+    ended_at = Column(DateTime, nullable=True)
+    duration_seconds = Column(Integer, default=0)
+    status = Column(String(50), default="completed")  # ringing/in_progress/completed/failed/missed
+    transcript = Column(Text, nullable=True)  # 전체 통화 텍스트
+    ai_summary = Column(Text, nullable=True)  # AI 요약
+    customer_name = Column(String(200), nullable=True)  # 매핑된 고객명
+    order_number = Column(String(200), nullable=True)  # 매핑된 주문번호
+    order_info = Column(JSON, nullable=True)  # 사방넷에서 가져온 주문 상세
+    category = Column(String(100), nullable=True)  # AI 분류 (배송/교환/상품문의 등)
+    sentiment = Column(String(50), nullable=True)  # positive/neutral/negative
+    action_items = Column(JSON, nullable=True)  # [{title, description, priority, status}]
+    resolved = Column(Boolean, default=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class VoiceCsManual(Base):
+    """음성 응대 매뉴얼"""
+    __tablename__ = "voice_cs_manuals"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(300), nullable=False)
+    category = Column(String(100), nullable=True)  # 배송, 교환/반품, 상품문의, 인사말, 에스컬레이션 등
+    content = Column(Text, nullable=False)  # 매뉴얼 내용
+    scenario_type = Column(String(100), nullable=True)  # 시나리오 유형 (자주묻는질문, 클레임, 일반안내 등)
+    sample_dialogue = Column(Text, nullable=True)  # 예시 대화
+    priority_order = Column(Integer, default=0)  # 표시 순서
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class VoiceCsConfig(Base):
+    """음성 CS 설정"""
+    __tablename__ = "voice_cs_config"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    config_key = Column(String(100), nullable=False, unique=True)
+    config_value = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class VoiceCsPhoneNumber(Base):
+    """등록된 전화번호"""
+    __tablename__ = "voice_cs_phone_numbers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    phone_number = Column(String(50), nullable=False, unique=True)
+    label = Column(String(200), nullable=True)  # 번호 설명 (예: 고객센터 대표번호)
+    provider = Column(String(50), default="vapi")  # vapi/twilio
+    provider_id = Column(String(200), nullable=True)  # 외부 서비스 ID
+    is_active = Column(Boolean, default=True)
+    total_calls = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
