@@ -9,6 +9,7 @@ interface NavItem {
   href: string;
   label: string;
   icon: string;
+  section?: string; // 섹션 헤더 (이 아이템 위에 표시)
 }
 
 interface NavGroup {
@@ -47,8 +48,10 @@ const navGroups: NavGroup[] = [
     icon: 'sabangnet',
     pathPrefix: ['/sabangnet'],
     items: [
-      { href: '/sabangnet/cs', label: '게시판 CS 대응', icon: 'cs' },
+      { href: '/sabangnet/products', label: '제품 목록', icon: 'productList', section: '제품 관리' },
       { href: '/sabangnet/mapping', label: '매핑 자동화', icon: 'mapping' },
+      { href: '/sabangnet/cs', label: '게시판 CS 대응', icon: 'cs', section: 'CS 관리' },
+      { href: '/sabangnet/voice-cs', label: '음성 CS 대응', icon: 'voiceCs' },
     ],
   },
 ];
@@ -122,6 +125,16 @@ const iconMap: Record<string, JSX.Element> = {
   mapping: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+    </svg>
+  ),
+  productList: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+    </svg>
+  ),
+  voiceCs: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
     </svg>
   ),
   scm: (
@@ -199,22 +212,31 @@ export function Navigation() {
                     {/* 드롭다운 */}
                     {isOpen && (
                       <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
-                        {group.items.map((item) => {
+                        {group.items.map((item, idx) => {
                           const itemActive = pathname === item.href;
                           return (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              onClick={() => setOpenGroup(null)}
-                              className={`flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
-                                itemActive
-                                  ? 'bg-blue-50 text-blue-700 font-semibold'
-                                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                              }`}
-                            >
-                              {iconMap[item.icon]}
-                              {item.label}
-                            </Link>
+                            <div key={item.href}>
+                              {item.section && (
+                                <>
+                                  {idx > 0 && <div className="border-t border-slate-100 my-1" />}
+                                  <p className="px-4 pt-2 pb-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                    {item.section}
+                                  </p>
+                                </>
+                              )}
+                              <Link
+                                href={item.href}
+                                onClick={() => setOpenGroup(null)}
+                                className={`flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
+                                  itemActive
+                                    ? 'bg-blue-50 text-blue-700 font-semibold'
+                                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                }`}
+                              >
+                                {iconMap[item.icon]}
+                                {item.label}
+                              </Link>
+                            </div>
                           );
                         })}
                       </div>
@@ -271,22 +293,31 @@ export function Navigation() {
                 <p className="px-3 py-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
                   {group.label}
                 </p>
-                {group.items.map((item) => {
+                {group.items.map((item, idx) => {
                   const itemActive = pathname === item.href;
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                        itemActive
-                          ? 'bg-blue-50 text-blue-700 font-semibold'
-                          : 'text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      {iconMap[item.icon]}
-                      {item.label}
-                    </Link>
+                    <div key={item.href}>
+                      {item.section && (
+                        <>
+                          {idx > 0 && <div className="border-t border-slate-100 my-1 mx-3" />}
+                          <p className="px-3 pt-2 pb-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                            {item.section}
+                          </p>
+                        </>
+                      )}
+                      <Link
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                          itemActive
+                            ? 'bg-blue-50 text-blue-700 font-semibold'
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        {iconMap[item.icon]}
+                        {item.label}
+                      </Link>
+                    </div>
                   );
                 })}
               </div>
