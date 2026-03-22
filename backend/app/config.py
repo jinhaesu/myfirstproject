@@ -49,6 +49,16 @@ class Settings(BaseSettings):
     RESEND_FROM_EMAIL: str = "noreply@yourdomain.com"
     OTP_EXPIRATION_MINUTES: int = 5
 
+    # 사방넷 API
+    SABANGNET_API_KEY: str = ""
+    SABANGNET_API_URL: str = ""
+
+    # Vapi (AI 전화 응대)
+    VAPI_API_KEY: str = ""
+
+    # ElevenLabs (음성 클로닝/TTS)
+    ELEVENLABS_API_KEY: str = ""
+
     # Local RPA Agent
     LOCAL_AGENT_API_KEY: str = ""
 
