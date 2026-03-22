@@ -299,6 +299,24 @@ export default function MappingPage() {
   const [config, setConfig] = useState<MappingConfig>(defaultConfig);
   const [savingConfig, setSavingConfig] = useState(false);
 
+  // Register & Map modal state (신규 등록 + 즉시 매핑)
+  const [showRegisterMapModal, setShowRegisterMapModal] = useState(false);
+  const [registerMapTarget, setRegisterMapTarget] = useState<MallProduct | null>(null);
+  const [registerMapForm, setRegisterMapForm] = useState({
+    sabangnet_product_code: '',
+    product_name: '',
+    category: '',
+    is_set: false,
+    set_components: [] as Array<{product_code: string; qty: number}>,
+  });
+  const [savingRegisterMap, setSavingRegisterMap] = useState(false);
+
+  // Manual map modal state (기존 상품에 수동 매핑)
+  const [showManualMapModal, setShowManualMapModal] = useState(false);
+  const [manualMapTarget, setManualMapTarget] = useState<MallProduct | null>(null);
+  const [manualMapProductId, setManualMapProductId] = useState<number | null>(null);
+  const [manualMapSearch, setManualMapSearch] = useState('');
+
   // ── Auth guard ──
   useEffect(() => {
     if (!authLoading && !user) {
@@ -451,6 +469,64 @@ export default function MappingPage() {
     if (result.ok) {
       showToast('샘플 상품 등록 완료');
       loadProducts();
+    }
+  };
+
+  // 신규 등록 + 즉시 매핑
+  const openRegisterMapModal = (mallProduct: MallProduct) => {
+    setRegisterMapTarget(mallProduct);
+    setRegisterMapForm({
+      sabangnet_product_code: '',
+      product_name: mallProduct.mall_product_name.replace(/\[.*?\]/g, '').replace(/널담\s*/g, '널담 ').trim(),
+      category: '',
+      is_set: !!mallProduct.mall_option_name?.includes('세트'),
+      set_components: [],
+    });
+    setShowRegisterMapModal(true);
+  };
+
+  const handleRegisterAndMap = async () => {
+    if (!registerMapTarget) return;
+    setSavingRegisterMap(true);
+    const result = await fetchMutate('/api/sabangnet/mapping/register-and-map', 'POST', {
+      mall_product_id: registerMapTarget.id,
+      ...registerMapForm,
+    });
+    setSavingRegisterMap(false);
+    if (result.ok) {
+      showToast(result.data?.is_new_product ? '신규 상품 등록 및 매핑 완료' : '기존 상품에 매핑 완료');
+      setShowRegisterMapModal(false);
+      setRegisterMapTarget(null);
+      loadUnmapped();
+      loadProducts();
+      loadDashboard();
+    } else {
+      showToast('등록/매핑 실패');
+    }
+  };
+
+  // 기존 상품에 수동 매핑
+  const openManualMapModal = (mallProduct: MallProduct) => {
+    setManualMapTarget(mallProduct);
+    setManualMapProductId(null);
+    setManualMapSearch('');
+    setShowManualMapModal(true);
+  };
+
+  const handleManualMap = async () => {
+    if (!manualMapTarget || !manualMapProductId) return;
+    const result = await fetchMutate('/api/sabangnet/mapping/manual-map', 'POST', {
+      mall_product_id: manualMapTarget.id,
+      product_id: manualMapProductId,
+    });
+    if (result.ok) {
+      showToast('수동 매핑 완료');
+      setShowManualMapModal(false);
+      setManualMapTarget(null);
+      loadUnmapped();
+      loadDashboard();
+    } else {
+      showToast('수동 매핑 실패');
     }
   };
 
@@ -660,20 +736,40 @@ export default function MappingPage() {
                           {formatDate(item.created_at)}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => handleAiSuggest(item.id)}
-                            disabled={isSuggesting}
-                            className="flex items-center gap-1.5 bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 disabled:opacity-60 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap"
-                          >
-                            {isSuggesting ? (
-                              <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                            ) : (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleAiSuggest(item.id)}
+                              disabled={isSuggesting}
+                              className="flex items-center gap-1 bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 disabled:opacity-60 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap"
+                            >
+                              {isSuggesting ? (
+                                <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
+                              )}
+                              AI
+                            </button>
+                            <button
+                              onClick={() => openManualMapModal(item)}
+                              className="flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap"
+                            >
                               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
                               </svg>
-                            )}
-                            AI 매칭
-                          </button>
+                              매핑
+                            </button>
+                            <button
+                              onClick={() => openRegisterMapModal(item)}
+                              className="flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                              신규
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1572,6 +1668,234 @@ export default function MappingPage() {
 
       {/* Product modal */}
       {showProductModal && renderProductModal()}
+
+      {/* 신규 등록 + 즉시 매핑 모달 */}
+      {showRegisterMapModal && registerMapTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">신규 상품 등록 & 매핑</h3>
+                  <p className="text-xs text-slate-500 mt-1">새 상품을 등록하고 바로 매핑합니다</p>
+                </div>
+                <button onClick={() => setShowRegisterMapModal(false)} className="text-slate-400 hover:text-slate-600">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              {/* 매핑 대상 쇼핑몰 상품 정보 */}
+              <div className="bg-slate-50 rounded-xl p-4 mb-5 border border-slate-200">
+                <p className="text-xs font-semibold text-slate-500 mb-2">매핑 대상 (쇼핑몰 상품)</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${getMallColor(registerMapTarget.mall_name).bg} ${getMallColor(registerMapTarget.mall_name).text} ${getMallColor(registerMapTarget.mall_name).border}`}>
+                    {registerMapTarget.mall_name}
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">{registerMapTarget.mall_product_code}</span>
+                </div>
+                <p className="text-sm font-semibold text-slate-800">{registerMapTarget.mall_product_name}</p>
+                {registerMapTarget.mall_option_name && (
+                  <p className="text-xs text-slate-500 mt-1">{registerMapTarget.mall_option_name}</p>
+                )}
+              </div>
+
+              {/* 신규 상품 정보 입력 */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">사방넷 상품코드 *</label>
+                  <input
+                    type="text" placeholder="예: ND-NEW-001"
+                    value={registerMapForm.sabangnet_product_code}
+                    onChange={e => setRegisterMapForm(prev => ({ ...prev, sabangnet_product_code: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">상품명 *</label>
+                  <input
+                    type="text" placeholder="자사 상품명"
+                    value={registerMapForm.product_name}
+                    onChange={e => setRegisterMapForm(prev => ({ ...prev, product_name: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">카테고리</label>
+                  <input
+                    type="text" placeholder="예: 마카롱, 케이크, 세트"
+                    value={registerMapForm.category}
+                    onChange={e => setRegisterMapForm(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-semibold text-slate-700">세트 상품</label>
+                  <button
+                    onClick={() => setRegisterMapForm(prev => ({ ...prev, is_set: !prev.is_set }))}
+                    className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${registerMapForm.is_set ? 'bg-blue-500' : 'bg-slate-200'}`}
+                  >
+                    <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform mt-0.5 ${registerMapForm.is_set ? 'translate-x-5 ml-0.5' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                {registerMapForm.is_set && (
+                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-blue-700">세트 구성</p>
+                      <button
+                        onClick={() => setRegisterMapForm(prev => ({
+                          ...prev,
+                          set_components: [...prev.set_components, { product_code: '', qty: 1 }],
+                        }))}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                      >+ 구성 추가</button>
+                    </div>
+                    {registerMapForm.set_components.map((comp, i) => (
+                      <div key={i} className="flex items-center gap-2 mb-2">
+                        <input
+                          type="text" placeholder="상품코드"
+                          value={comp.product_code}
+                          onChange={e => {
+                            const updated = [...registerMapForm.set_components];
+                            updated[i] = { ...updated[i], product_code: e.target.value };
+                            setRegisterMapForm(prev => ({ ...prev, set_components: updated }));
+                          }}
+                          className="flex-1 border border-blue-200 rounded px-2 py-1.5 text-xs"
+                        />
+                        <input
+                          type="number" min={1} placeholder="수량"
+                          value={comp.qty}
+                          onChange={e => {
+                            const updated = [...registerMapForm.set_components];
+                            updated[i] = { ...updated[i], qty: parseInt(e.target.value) || 1 };
+                            setRegisterMapForm(prev => ({ ...prev, set_components: updated }));
+                          }}
+                          className="w-16 border border-blue-200 rounded px-2 py-1.5 text-xs"
+                        />
+                        <button
+                          onClick={() => setRegisterMapForm(prev => ({
+                            ...prev,
+                            set_components: prev.set_components.filter((_, j) => j !== i),
+                          }))}
+                          className="text-red-400 hover:text-red-600"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 버튼 */}
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+                <button onClick={() => setShowRegisterMapModal(false)}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+                  취소
+                </button>
+                <button onClick={handleRegisterAndMap}
+                  disabled={savingRegisterMap || !registerMapForm.sabangnet_product_code || !registerMapForm.product_name}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors">
+                  {savingRegisterMap && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                  등록 & 매핑
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 수동 매핑 모달 (기존 자사 상품 선택) */}
+      {showManualMapModal && manualMapTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">수동 매핑</h3>
+                  <p className="text-xs text-slate-500 mt-1">기존 자사 상품에 직접 매핑합니다</p>
+                </div>
+                <button onClick={() => setShowManualMapModal(false)} className="text-slate-400 hover:text-slate-600">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              {/* 매핑 대상 */}
+              <div className="bg-slate-50 rounded-xl p-4 mb-5 border border-slate-200">
+                <p className="text-xs font-semibold text-slate-500 mb-2">매핑 대상 (쇼핑몰 상품)</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${getMallColor(manualMapTarget.mall_name).bg} ${getMallColor(manualMapTarget.mall_name).text} ${getMallColor(manualMapTarget.mall_name).border}`}>
+                    {manualMapTarget.mall_name}
+                  </span>
+                </div>
+                <p className="text-sm font-semibold text-slate-800">{manualMapTarget.mall_product_name}</p>
+                {manualMapTarget.mall_option_name && (
+                  <p className="text-xs text-slate-500 mt-1">{manualMapTarget.mall_option_name}</p>
+                )}
+              </div>
+
+              {/* 자사 상품 검색 & 선택 */}
+              <div>
+                <input
+                  type="text" placeholder="자사 상품 검색..."
+                  value={manualMapSearch}
+                  onChange={e => setManualMapSearch(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"
+                />
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {products
+                    .filter(p => p.is_active && (!manualMapSearch ||
+                      p.product_name.toLowerCase().includes(manualMapSearch.toLowerCase()) ||
+                      p.sabangnet_product_code.toLowerCase().includes(manualMapSearch.toLowerCase())
+                    ))
+                    .map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => setManualMapProductId(p.id)}
+                        className={`w-full text-left rounded-xl p-3 border transition-colors ${
+                          manualMapProductId === p.id
+                            ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-200'
+                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800">{p.product_name}</p>
+                            <p className="text-xs text-slate-400 font-mono mt-0.5">{p.sabangnet_product_code}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {p.category && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{p.category}</span>}
+                            {p.is_set && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">세트</span>}
+                            {manualMapProductId === p.id && (
+                              <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  {products.filter(p => p.is_active).length === 0 && (
+                    <p className="text-center text-slate-400 text-sm py-6">등록된 자사 상품이 없습니다</p>
+                  )}
+                </div>
+              </div>
+
+              {/* 버튼 */}
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+                <button onClick={() => setShowManualMapModal(false)}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+                  취소
+                </button>
+                <button onClick={handleManualMap}
+                  disabled={!manualMapProductId}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors">
+                  매핑 연결
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

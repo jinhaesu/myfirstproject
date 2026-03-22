@@ -943,6 +943,139 @@ def set_product_components(product_id: int, body: dict, db: Session = Depends(ge
 
 
 # ──────────────────────────────────────────────
+# 신규 등록 + 즉시 매핑
+# ──────────────────────────────────────────────
+
+class RegisterAndMapRequest(BaseModel):
+    """미매핑 쇼핑몰 상품에 대해 새 자사 상품을 등록하고 바로 매핑"""
+    mall_product_id: int
+    sabangnet_product_code: str
+    product_name: str
+    category: Optional[str] = None
+    is_set: bool = False
+    set_components: Optional[list] = None
+
+
+@router.post("/register-and-map")
+def register_and_map(body: RegisterAndMapRequest, db: Session = Depends(get_db)):
+    """신규 자사 상품 등록 + 쇼핑몰 상품 즉시 매핑 (매칭 불가 시 사용)"""
+    try:
+        # 1. 쇼핑몰 상품 확인
+        mall_product = db.query(MappingMallProduct).filter(MappingMallProduct.id == body.mall_product_id).first()
+        if not mall_product:
+            raise HTTPException(status_code=404, detail="쇼핑몰 상품을 찾을 수 없습니다")
+        if mall_product.is_mapped:
+            raise HTTPException(status_code=400, detail="이미 매핑된 상품입니다")
+
+        # 2. 자사 상품 등록 (기존이면 재사용)
+        existing = (
+            db.query(MappingProduct)
+            .filter(MappingProduct.sabangnet_product_code == body.sabangnet_product_code)
+            .first()
+        )
+        if existing:
+            product = existing
+        else:
+            product = MappingProduct(
+                sabangnet_product_code=body.sabangnet_product_code,
+                product_name=body.product_name,
+                category=body.category,
+                is_set=body.is_set,
+                set_components=body.set_components,
+                is_active=True,
+            )
+            db.add(product)
+            db.flush()
+
+        # 3. 매핑 연결
+        mall_product.is_mapped = True
+        mall_product.mapped_product_id = product.id
+        mall_product.mapped_at = datetime.now()
+
+        # 4. 로그 기록
+        log = MappingLog(
+            action="register_and_map",
+            mall_name=mall_product.mall_name,
+            details={
+                "mall_product_id": body.mall_product_id,
+                "mall_product_name": mall_product.mall_product_name,
+                "product_code": body.sabangnet_product_code,
+                "product_name": body.product_name,
+                "is_new_product": existing is None,
+            },
+            items_processed=1,
+            items_success=1,
+            items_failed=0,
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(product)
+
+        return {
+            "message": "상품 등록 및 매핑 완료",
+            "product": _product_to_dict(product),
+            "mall_product": _mall_product_to_dict(mall_product),
+            "is_new_product": existing is None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"신규 등록+매핑 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/manual-map")
+def manual_map(body: dict, db: Session = Depends(get_db)):
+    """기존 자사 상품에 수동 매핑 (AI 제안 없이 직접 선택)"""
+    try:
+        mall_product_id = body.get("mall_product_id")
+        product_id = body.get("product_id")
+
+        if not mall_product_id or not product_id:
+            raise HTTPException(status_code=400, detail="mall_product_id와 product_id가 필요합니다")
+
+        mall_product = db.query(MappingMallProduct).filter(MappingMallProduct.id == mall_product_id).first()
+        if not mall_product:
+            raise HTTPException(status_code=404, detail="쇼핑몰 상품을 찾을 수 없습니다")
+
+        product = db.query(MappingProduct).filter(MappingProduct.id == product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="자사 상품을 찾을 수 없습니다")
+
+        mall_product.is_mapped = True
+        mall_product.mapped_product_id = product.id
+        mall_product.mapped_at = datetime.now()
+
+        log = MappingLog(
+            action="manual_map",
+            mall_name=mall_product.mall_name,
+            details={
+                "mall_product_id": mall_product_id,
+                "product_id": product_id,
+                "product_code": product.sabangnet_product_code,
+            },
+            items_processed=1,
+            items_success=1,
+            items_failed=0,
+        )
+        db.add(log)
+        db.commit()
+
+        return {
+            "message": "수동 매핑 완료",
+            "product": _product_to_dict(product),
+            "mall_product": _mall_product_to_dict(mall_product),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"수동 매핑 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ──────────────────────────────────────────────
 # 설정
 # ──────────────────────────────────────────────
 
