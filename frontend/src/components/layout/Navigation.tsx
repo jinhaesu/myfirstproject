@@ -48,6 +48,7 @@ const navGroups: NavGroup[] = [
     pathPrefix: ['/sabangnet'],
     items: [
       { href: '/sabangnet/cs', label: '게시판 CS 대응', icon: 'cs' },
+      { href: '/sabangnet/mapping', label: '매핑 자동화', icon: 'mapping' },
     ],
   },
 ];
@@ -116,6 +117,11 @@ const iconMap: Record<string, JSX.Element> = {
   results: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  ),
+  mapping: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
     </svg>
   ),
   scm: (

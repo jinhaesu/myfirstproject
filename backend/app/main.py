@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api.routes import chat, tables, query, auth, targets, ai, channels, smartstore, cafe24, coupang_wing, coupang_rocket, analytics, market_analysis, campaign_planner, settlement, scm, sabangnet
+from app.api.routes import chat, tables, query, auth, targets, ai, channels, smartstore, cafe24, coupang_wing, coupang_rocket, analytics, market_analysis, campaign_planner, settlement, scm, sabangnet, sabangnet_mapping
 from app.database import init_db
 
 settings = get_settings()
@@ -224,6 +224,7 @@ app.include_router(campaign_planner.router, prefix="/api", tags=["campaign-plann
 app.include_router(settlement.router, prefix="/api", tags=["settlement"])
 app.include_router(scm.router, prefix="/api", tags=["scm"])
 app.include_router(sabangnet.router, prefix="/api", tags=["sabangnet"])
+app.include_router(sabangnet_mapping.router, prefix="/api", tags=["sabangnet-mapping"])
 
 
 @app.get("/")

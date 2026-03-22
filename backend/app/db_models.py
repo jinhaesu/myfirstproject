@@ -542,3 +542,70 @@ class CsConfig(Base):
     config_key = Column(String(100), nullable=False, unique=True)
     config_value = Column(Text, nullable=True)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+# ──────────────────────────────────────────────
+# 상품 매핑 자동화 Models (사방넷 연동)
+# ──────────────────────────────────────────────
+
+class MappingProduct(Base):
+    """자사 상품 마스터"""
+    __tablename__ = "mapping_products"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sabangnet_product_code = Column(String(100), unique=True, index=True)  # 사방넷 상품코드
+    product_name = Column(String(300), nullable=False)  # 자사 상품명
+    options = Column(JSON, nullable=True)  # 옵션 목록 (색상, 사이즈 등)
+    category = Column(String(100), nullable=True)  # 상품 카테고리
+    is_set = Column(Boolean, default=False)  # 세트 상품 여부
+    set_components = Column(JSON, nullable=True)  # 세트 구성 [{"product_code": "...", "qty": 1}]
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class MappingMallProduct(Base):
+    """쇼핑몰 상품 (미매핑 대상)"""
+    __tablename__ = "mapping_mall_products"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    mall_name = Column(String(100), nullable=False, index=True)  # 쇼핑몰명
+    mall_product_code = Column(String(200), nullable=True)  # 쇼핑몰 상품코드
+    mall_product_name = Column(String(500), nullable=False)  # 쇼핑몰 등록 상품명
+    mall_option_name = Column(String(300), nullable=True)  # 쇼핑몰 옵션명
+    mall_option_code = Column(String(200), nullable=True)
+    is_mapped = Column(Boolean, default=False, index=True)
+    mapped_product_id = Column(Integer, ForeignKey("mapping_products.id"), nullable=True)
+    mapped_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class MappingSuggestion(Base):
+    """AI 매칭 제안"""
+    __tablename__ = "mapping_suggestions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    mall_product_id = Column(Integer, ForeignKey("mapping_mall_products.id"), index=True)
+    suggested_product_id = Column(Integer, ForeignKey("mapping_products.id"))
+    confidence = Column(Float, default=0.0)  # 0.0~1.0 신뢰도
+    match_reason = Column(Text, nullable=True)  # AI 매칭 근거
+    status = Column(String(50), default="pending")  # pending/approved/rejected/auto_approved
+    reviewed_by = Column(String(100), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+
+
+class MappingLog(Base):
+    """매핑 작업 이력"""
+    __tablename__ = "mapping_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    action = Column(String(50), nullable=False)  # collect/ai_suggest/approve/reject/register/auto_approve
+    mall_name = Column(String(100), nullable=True)
+    details = Column(JSON, nullable=True)  # 상세 내용
+    items_processed = Column(Integer, default=0)
+    items_success = Column(Integer, default=0)
+    items_failed = Column(Integer, default=0)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())

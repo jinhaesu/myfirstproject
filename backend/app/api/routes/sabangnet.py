@@ -1132,3 +1132,370 @@ def _ref_to_dict(ref: CsReferenceData) -> dict:
         "created_at": ref.created_at.isoformat() if ref.created_at else None,
         "updated_at": ref.updated_at.isoformat() if ref.updated_at else None,
     }
+
+
+# ──────────────────────────────────────────────
+# CS 분석 (Analytics) 엔드포인트
+# ──────────────────────────────────────────────
+
+@router.get("/inquiries/analytics/volume")
+def get_inquiry_volume(
+    period: str = Query(default="daily", description="daily 또는 monthly"),
+    days: int = Query(default=30, description="일별 조회 시 최근 N일"),
+    months: int = Query(default=12, description="월별 조회 시 최근 N개월"),
+    db: Session = Depends(get_db),
+):
+    """일별/월별 문의 수량 통계 (쇼핑몰별·카테고리별 breakdown 포함)"""
+    import random
+    from datetime import timedelta
+
+    try:
+        total_count = db.query(func.count(CsInquiry.id)).scalar() or 0
+
+        if total_count == 0:
+            # 샘플 데이터 반환
+            random.seed(42)
+            malls = ["스마트스토어", "쿠팡", "11번가", "카카오선물하기"]
+            categories = ["배송문의", "교환/반품", "상품문의", "기타"]
+            base = datetime.now()
+
+            if period == "monthly":
+                sample_data = []
+                for i in range(months):
+                    d = base.replace(day=1) - timedelta(days=30 * (months - 1 - i))
+                    month_str = d.strftime("%Y-%m")
+                    total = random.randint(40, 150)
+                    by_mall = {m: random.randint(5, max(5, total // 4)) for m in malls}
+                    by_category = {c: random.randint(5, max(5, total // 4)) for c in categories}
+                    sample_data.append({
+                        "date": month_str,
+                        "total": total,
+                        "by_mall": by_mall,
+                        "by_category": by_category,
+                    })
+            else:
+                sample_data = []
+                for i in range(14):
+                    d = base - timedelta(days=13 - i)
+                    date_str = d.strftime("%Y-%m-%d")
+                    total = random.randint(5, 25)
+                    by_mall = {m: random.randint(1, max(1, total // 4)) for m in malls}
+                    by_category = {c: random.randint(1, max(1, total // 4)) for c in categories}
+                    sample_data.append({
+                        "date": date_str,
+                        "total": total,
+                        "by_mall": by_mall,
+                        "by_category": by_category,
+                    })
+
+            return {"period": period, "data": sample_data, "is_sample": True}
+
+        # 실제 DB 데이터 집계
+        base = datetime.now()
+        data = []
+
+        if period == "monthly":
+            cutoff = base.replace(day=1)
+            for i in range(months):
+                month_start = (cutoff.replace(day=1) - timedelta(days=30 * (months - 1 - i))).replace(day=1)
+                month_end = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+                month_str = month_start.strftime("%Y-%m")
+
+                rows = (
+                    db.query(CsInquiry)
+                    .filter(CsInquiry.inquiry_date >= month_start, CsInquiry.inquiry_date < month_end)
+                    .all()
+                )
+                total = len(rows)
+                by_mall: dict = {}
+                by_category: dict = {}
+                for r in rows:
+                    mall = r.mall_name or "기타"
+                    by_mall[mall] = by_mall.get(mall, 0) + 1
+                    cat = r.category or "기타"
+                    by_category[cat] = by_category.get(cat, 0) + 1
+
+                data.append({"date": month_str, "total": total, "by_mall": by_mall, "by_category": by_category})
+        else:
+            for i in range(days):
+                d = base - timedelta(days=days - 1 - i)
+                date_str = d.strftime("%Y-%m-%d")
+                day_start = d.replace(hour=0, minute=0, second=0, microsecond=0)
+                day_end = day_start + timedelta(days=1)
+
+                rows = (
+                    db.query(CsInquiry)
+                    .filter(CsInquiry.inquiry_date >= day_start, CsInquiry.inquiry_date < day_end)
+                    .all()
+                )
+                total = len(rows)
+                by_mall: dict = {}
+                by_category: dict = {}
+                for r in rows:
+                    mall = r.mall_name or "기타"
+                    by_mall[mall] = by_mall.get(mall, 0) + 1
+                    cat = r.category or "기타"
+                    by_category[cat] = by_category.get(cat, 0) + 1
+
+                data.append({"date": date_str, "total": total, "by_mall": by_mall, "by_category": by_category})
+
+        return {"period": period, "data": data, "is_sample": False}
+
+    except Exception as e:
+        logger.error(f"문의 수량 통계 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/inquiries/analytics/keywords")
+async def get_inquiry_keywords(
+    days: int = Query(default=30, description="최근 N일간 문의 분석"),
+    db: Session = Depends(get_db),
+):
+    """문의 키워드 분석 (AI 기반, Claude API 사용)"""
+    from datetime import timedelta
+
+    sample_keywords = [
+        {"keyword": "배송 지연", "count": 23, "importance": "high", "category": "배송문의",
+         "sample_inquiries": ["주문한 상품이 아직 안 왔어요", "배송이 3일째 안 움직여요"]},
+        {"keyword": "파손/훼손", "count": 15, "importance": "high", "category": "교환/반품",
+         "sample_inquiries": ["케이크가 깨져서 왔어요", "포장이 찢어져 있었습니다"]},
+        {"keyword": "교환 절차", "count": 12, "importance": "medium", "category": "교환/반품",
+         "sample_inquiries": ["다른 맛으로 교환하고 싶어요", "교환은 어떻게 하나요?"]},
+        {"keyword": "성분/알레르기", "count": 10, "importance": "medium", "category": "상품문의",
+         "sample_inquiries": ["비누 성분이 궁금해요", "알레르기 있는데 괜찮을까요?"]},
+        {"keyword": "선물 포장", "count": 8, "importance": "medium", "category": "기타",
+         "sample_inquiries": ["선물 포장 가능한가요?", "메시지 카드 넣을 수 있나요?"]},
+        {"keyword": "유통기한", "count": 7, "importance": "medium", "category": "상품문의",
+         "sample_inquiries": ["마카롱 유통기한이 어떻게 되나요?", "케이크 보관 방법 알려주세요"]},
+        {"keyword": "환불", "count": 6, "importance": "high", "category": "교환/반품",
+         "sample_inquiries": ["환불 처리해주세요", "환불은 언제 되나요?"]},
+        {"keyword": "택배사 변경", "count": 5, "importance": "low", "category": "배송문의",
+         "sample_inquiries": ["택배사를 바꿔주실 수 있나요?", "다른 택배사로 보내주세요"]},
+        {"keyword": "대량 주문", "count": 4, "importance": "medium", "category": "기타",
+         "sample_inquiries": ["100개 이상 주문 가능한가요?", "단체 할인 있나요?"]},
+        {"keyword": "재입고", "count": 3, "importance": "low", "category": "상품문의",
+         "sample_inquiries": ["품절된 상품 재입고 언제 되나요?", "라벤더 캔들 재입고 알림"]},
+    ]
+
+    try:
+        cutoff = datetime.now() - __import__("datetime").timedelta(days=days)
+        inquiries = (
+            db.query(CsInquiry)
+            .filter(CsInquiry.inquiry_date >= cutoff)
+            .all()
+        )
+        count = len(inquiries)
+
+        if count == 0:
+            return {"keywords": sample_keywords, "total_inquiries_analyzed": 0, "period_days": days, "is_sample": True}
+
+        api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            return {"keywords": sample_keywords, "total_inquiries_analyzed": count, "period_days": days, "is_sample": True}
+
+        contents = "\n".join(
+            f"- [{i.title or '제목없음'}] {(i.content or '')[:200]}"
+            for i in inquiries
+        )
+
+        prompt = f"""다음은 고객 문의 목록입니다. 주요 키워드를 분석해주세요.
+
+문의 내용들:
+{contents}
+
+다음 JSON 형식으로 답변:
+{{
+  "keywords": [
+    {{"keyword": "키워드", "count": 출현빈도, "importance": "high/medium/low", "category": "관련 카테고리", "sample_inquiries": ["관련 문의 제목1", "제목2"]}},
+    ...
+  ]
+}}
+최대 15개 키워드를 importance 순으로 정렬해주세요."""
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": api_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": "claude-sonnet-4-20250514",
+                        "max_tokens": 2048,
+                        "messages": [{"role": "user", "content": prompt}],
+                    },
+                    timeout=60.0,
+                )
+                if resp.status_code == 200:
+                    raw_text = resp.json()["content"][0]["text"]
+                    # JSON 블록 추출
+                    json_start = raw_text.find("{")
+                    json_end = raw_text.rfind("}") + 1
+                    if json_start != -1 and json_end > json_start:
+                        parsed = json.loads(raw_text[json_start:json_end])
+                        return {
+                            "keywords": parsed.get("keywords", []),
+                            "total_inquiries_analyzed": count,
+                            "period_days": days,
+                            "is_sample": False,
+                        }
+                else:
+                    logger.error(f"Claude API 응답 오류 (keywords): {resp.status_code} - {resp.text}")
+        except Exception as e:
+            logger.error(f"Claude API 호출 실패 (keywords): {e}")
+
+        # Claude 실패 시 샘플 반환
+        return {"keywords": sample_keywords, "total_inquiries_analyzed": count, "period_days": days, "is_sample": True}
+
+    except Exception as e:
+        logger.error(f"키워드 분석 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/inquiries/analytics/action-items")
+async def get_action_items(
+    days: int = Query(default=30, description="최근 N일간 문의 기반 분석"),
+    db: Session = Depends(get_db),
+):
+    """AI 기반 액션 아이템 추천 (문의 키워드 분석 결과 활용)"""
+    from datetime import timedelta
+
+    sample_actions = [
+        {"title": "배송 프로세스 개선",
+         "description": "배송 지연 관련 문의가 가장 많습니다. 물류 파트너사와 배송 리드타임 단축 협의가 필요합니다.",
+         "priority": "high", "category": "배송",
+         "related_keywords": ["배송 지연", "택배사 변경"],
+         "estimated_impact": "배송 관련 문의 30% 감소 예상"},
+        {"title": "포장 품질 강화",
+         "description": "케이크/마카롱 등 파손 관련 교환/반품이 빈번합니다. 완충재 보강 및 포장 방식 개선이 필요합니다.",
+         "priority": "high", "category": "품질",
+         "related_keywords": ["파손/훼손", "교환 절차"],
+         "estimated_impact": "파손 관련 클레임 50% 감소, 교환/반품 비용 절감"},
+        {"title": "상품 상세페이지 성분 정보 강화",
+         "description": "성분/알레르기 문의가 꾸준합니다. 상세페이지에 전성분, 알레르기 유발물질 표기를 강화하면 문의를 사전 차단할 수 있습니다.",
+         "priority": "medium", "category": "상품정보",
+         "related_keywords": ["성분/알레르기", "유통기한"],
+         "estimated_impact": "상품문의 25% 감소"},
+        {"title": "선물포장 서비스 안내 페이지 제작",
+         "description": "선물 포장 가능 여부 문의가 반복됩니다. 선물 포장 옵션을 상품 페이지에 명시하고, 메시지 카드 서비스를 눈에 띄게 안내하세요.",
+         "priority": "medium", "category": "서비스",
+         "related_keywords": ["선물 포장"],
+         "estimated_impact": "선물 관련 문의 80% 감소"},
+        {"title": "B2B/대량주문 전용 페이지 개설",
+         "description": "단체/대량 주문 문의가 있습니다. 별도 견적 요청 폼이나 B2B 안내 페이지를 만들면 매출 기회를 놓치지 않을 수 있습니다.",
+         "priority": "medium", "category": "영업",
+         "related_keywords": ["대량 주문"],
+         "estimated_impact": "B2B 매출 기회 확보"},
+        {"title": "자동 환불 처리 시스템 도입",
+         "description": "단순 환불 문의는 자동화할 수 있습니다. 환불 조건(7일 이내, 미개봉 등) 충족 시 자동 처리 flow를 구축하세요.",
+         "priority": "low", "category": "운영",
+         "related_keywords": ["환불"],
+         "estimated_impact": "CS 담당자 업무 시간 주 2시간 절감"},
+        {"title": "재입고 알림 서비스 도입",
+         "description": "품절 상품 재입고 문의가 있습니다. 카카오 알림톡 기반 재입고 알림 서비스를 도입하면 재구매 전환율을 높일 수 있습니다.",
+         "priority": "low", "category": "마케팅",
+         "related_keywords": ["재입고"],
+         "estimated_impact": "재구매 전환율 15% 향상"},
+    ]
+
+    try:
+        cutoff = datetime.now() - __import__("datetime").timedelta(days=days)
+        inquiries = (
+            db.query(CsInquiry)
+            .filter(CsInquiry.inquiry_date >= cutoff)
+            .all()
+        )
+        count = len(inquiries)
+
+        if count == 0:
+            return {
+                "action_items": sample_actions,
+                "generated_at": datetime.now().isoformat(),
+                "based_on_inquiries": 0,
+                "is_sample": True,
+            }
+
+        api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            return {
+                "action_items": sample_actions,
+                "generated_at": datetime.now().isoformat(),
+                "based_on_inquiries": count,
+                "is_sample": True,
+            }
+
+        # 키워드 요약 생성 (category 별 빈도)
+        category_counts: dict = {}
+        for inq in inquiries:
+            cat = inq.category or "기타"
+            category_counts[cat] = category_counts.get(cat, 0) + 1
+        keywords_summary = ", ".join(f"{cat}({cnt}건)" for cat, cnt in sorted(category_counts.items(), key=lambda x: -x[1]))
+
+        sample_contents = "\n".join(
+            f"- {(inq.content or '')[:150]}"
+            for inq in inquiries[:30]
+        )
+
+        prompt = f"""고객 문의 분석 결과를 바탕으로, 우리 팀이 취해야 할 액션 아이템을 추천해주세요.
+
+문의 키워드 및 빈도:
+{keywords_summary}
+
+문의 내용 샘플:
+{sample_contents}
+
+JSON 형식으로 답변:
+{{
+  "action_items": [
+    {{"title": "액션 제목", "description": "상세 설명", "priority": "high/medium/low", "category": "관련 카테고리", "related_keywords": ["키워드1", "키워드2"], "estimated_impact": "기대 효과 설명"}},
+    ...
+  ]
+}}
+최대 8개, priority 순으로 정렬."""
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": api_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": "claude-sonnet-4-20250514",
+                        "max_tokens": 2048,
+                        "messages": [{"role": "user", "content": prompt}],
+                    },
+                    timeout=60.0,
+                )
+                if resp.status_code == 200:
+                    raw_text = resp.json()["content"][0]["text"]
+                    json_start = raw_text.find("{")
+                    json_end = raw_text.rfind("}") + 1
+                    if json_start != -1 and json_end > json_start:
+                        parsed = json.loads(raw_text[json_start:json_end])
+                        return {
+                            "action_items": parsed.get("action_items", []),
+                            "generated_at": datetime.now().isoformat(),
+                            "based_on_inquiries": count,
+                            "is_sample": False,
+                        }
+                else:
+                    logger.error(f"Claude API 응답 오류 (action-items): {resp.status_code} - {resp.text}")
+        except Exception as e:
+            logger.error(f"Claude API 호출 실패 (action-items): {e}")
+
+        # Claude 실패 시 샘플 반환
+        return {
+            "action_items": sample_actions,
+            "generated_at": datetime.now().isoformat(),
+            "based_on_inquiries": count,
+            "is_sample": True,
+        }
+
+    except Exception as e:
+        logger.error(f"액션 아이템 생성 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

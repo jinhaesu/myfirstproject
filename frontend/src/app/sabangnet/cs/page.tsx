@@ -106,6 +106,30 @@ interface Stats {
   pending_approval: number;
 }
 
+interface VolumeData {
+  date: string;
+  total: number;
+  by_mall: Record<string, number>;
+  by_category: Record<string, number>;
+}
+
+interface KeywordData {
+  keyword: string;
+  count: number;
+  importance: 'high' | 'medium' | 'low';
+  category: string;
+  sample_inquiries: string[];
+}
+
+interface ActionItem {
+  title: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+  category: string;
+  related_keywords: string[];
+  estimated_impact: string;
+}
+
 // ─────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────
@@ -231,7 +255,7 @@ export default function CSPage() {
   const router = useRouter();
 
   // ── Tab State ──
-  const [activeTab, setActiveTab] = useState<'inquiries' | 'reference' | 'settings'>('inquiries');
+  const [activeTab, setActiveTab] = useState<'inquiries' | 'analytics' | 'reference' | 'settings'>('inquiries');
 
   // ── Global State ──
   const [toast, setToast] = useState<string | null>(null);
@@ -264,6 +288,15 @@ export default function CSPage() {
   const [refFile, setRefFile] = useState<File | null>(null);
   const [removeFile, setRemoveFile] = useState(false);
   const [uploadingRef, setUploadingRef] = useState(false);
+
+  // ── Analytics State ──
+  const [volumeData, setVolumeData] = useState<VolumeData[]>([]);
+  const [volumePeriod, setVolumePeriod] = useState<'daily' | 'monthly'>('daily');
+  const [keywords, setKeywords] = useState<KeywordData[]>([]);
+  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
+  const [loadingKeywords, setLoadingKeywords] = useState(false);
+  const [loadingActions, setLoadingActions] = useState(false);
+  const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
 
   // ── Settings State ──
   const [config, setConfig] = useState<CSConfig>(defaultConfig);
@@ -310,6 +343,33 @@ export default function CSPage() {
     const t = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // ── Analytics lazy load ──
+  useEffect(() => {
+    if (activeTab === 'analytics' && !analyticsLoaded && user) {
+      loadAnalytics();
+    }
+  }, [activeTab, analyticsLoaded, user]);
+
+  const loadAnalytics = async () => {
+    setAnalyticsLoaded(true);
+    // Volume data
+    const volData = await fetchSafe<{period: string; data: VolumeData[]}>(`/api/sabangnet/inquiries/analytics/volume?period=${volumePeriod}`, {period: volumePeriod, data: []});
+    if (volData.data && volData.data.length > 0) setVolumeData(volData.data);
+    // Keywords
+    const kwData = await fetchSafe<{keywords: KeywordData[]}>('/api/sabangnet/inquiries/analytics/keywords', {keywords: []});
+    if (kwData.keywords && kwData.keywords.length > 0) setKeywords(kwData.keywords);
+  };
+
+  // ── Volume period reload ──
+  useEffect(() => {
+    if (activeTab === 'analytics' && user) {
+      (async () => {
+        const volData = await fetchSafe<{period: string; data: VolumeData[]}>(`/api/sabangnet/inquiries/analytics/volume?period=${volumePeriod}`, {period: volumePeriod, data: []});
+        if (volData.data && volData.data.length > 0) setVolumeData(volData.data);
+      })();
+    }
+  }, [volumePeriod]);
 
   // ── Stats ──
   const stats = useMemo<Stats>(() => {
@@ -636,6 +696,19 @@ export default function CSPage() {
     setShowRefModal(true);
   }, []);
 
+  // ── Analytics Actions ──
+  const handleGenerateActions = async () => {
+    setLoadingActions(true);
+    const result = await fetchMutate('/api/sabangnet/inquiries/analytics/action-items', 'POST');
+    if (result.ok && result.data?.action_items) {
+      setActionItems(result.data.action_items);
+      showToast('액션 아이템이 생성되었습니다.');
+    } else {
+      showToast('액션 아이템 생성에 실패했습니다.');
+    }
+    setLoadingActions(false);
+  };
+
   // ── Settings Actions ──
   const handleSaveConfig = useCallback(async () => {
     setSavingConfig(true);
@@ -745,6 +818,7 @@ export default function CSPage() {
           <nav className="flex gap-6">
             {([
               { key: 'inquiries' as const, label: '문의 관리' },
+              { key: 'analytics' as const, label: '분석' },
               { key: 'reference' as const, label: '참고 데이터' },
               { key: 'settings' as const, label: '설정' },
             ]).map(tab => (
@@ -1194,7 +1268,217 @@ export default function CSPage() {
         )}
 
         {/* ═══════════════════════════════════════════ */}
-        {/* Tab 2: 참고 데이터                          */}
+        {/* Tab 2: 분석                                 */}
+        {/* ═══════════════════════════════════════════ */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            {/* ── 문의 수량 통계 ── */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-gray-900">문의 수량 추이</h3>
+                <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+                  {(['daily', 'monthly'] as const).map(p => (
+                    <button key={p} onClick={() => setVolumePeriod(p)}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                        volumePeriod === p ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      }`}>
+                      {p === 'daily' ? '일별' : '월별'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {volumeData.length > 0 ? (
+                <div>
+                  {/* 간이 바 차트 */}
+                  <div className="space-y-2">
+                    {volumeData.map((d, i) => {
+                      const maxTotal = Math.max(...volumeData.map(v => v.total), 1);
+                      return (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="text-xs text-gray-500 w-20 shrink-0 text-right font-mono">
+                            {volumePeriod === 'daily' ? d.date.slice(5) : d.date}
+                          </span>
+                          <div className="flex-1 h-7 bg-gray-50 rounded-lg overflow-hidden relative">
+                            <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-lg transition-all"
+                              style={{ width: `${(d.total / maxTotal) * 100}%` }} />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-700">
+                              {d.total}건
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 쇼핑몰별 요약 (마지막 데이터 기준) */}
+                  {volumeData.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-gray-100">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">쇼핑몰별 분포 (최근)</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {Object.entries(volumeData[volumeData.length - 1].by_mall).map(([mall, count]) => {
+                          const mc = MALL_COLORS[mall] || DEFAULT_BADGE;
+                          return (
+                            <div key={mall} className={`${mc.bg} ${mc.border} border rounded-lg p-3 text-center`}>
+                              <p className={`text-xs font-semibold ${mc.text}`}>{mall}</p>
+                              <p className={`text-lg font-bold ${mc.text} mt-1`}>{count}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 카테고리별 요약 */}
+                  {volumeData.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">카테고리별 분포 (최근)</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {Object.entries(volumeData[volumeData.length - 1].by_category).map(([cat, count]) => (
+                          <div key={cat} className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
+                            <p className="text-xs font-semibold text-slate-600">{cat}</p>
+                            <p className="text-lg font-bold text-slate-800 mt-1">{count}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-10 text-gray-400 text-sm">문의 데이터가 없습니다</div>
+              )}
+            </div>
+
+            {/* ── 키워드 분석 ── */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-gray-900">주요 키워드 분석</h3>
+                <button onClick={async () => {
+                  setLoadingKeywords(true);
+                  const kwData = await fetchSafe<{keywords: KeywordData[]}>('/api/sabangnet/inquiries/analytics/keywords', {keywords: []});
+                  if (kwData.keywords) setKeywords(kwData.keywords);
+                  setLoadingKeywords(false);
+                }}
+                  disabled={loadingKeywords}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-100 disabled:opacity-50 transition-colors">
+                  {loadingKeywords && <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+                  새로고침
+                </button>
+              </div>
+
+              {keywords.length > 0 ? (
+                <div className="space-y-3">
+                  {keywords.map((kw, i) => {
+                    const maxCount = Math.max(...keywords.map(k => k.count), 1);
+                    const importanceColor = kw.importance === 'high' ? 'bg-red-100 text-red-700 border-red-200' :
+                      kw.importance === 'medium' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                      'bg-gray-100 text-gray-600 border-gray-200';
+                    return (
+                      <div key={i} className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50/50 transition-colors">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-sm font-bold text-gray-900 min-w-0">{kw.keyword}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${importanceColor}`}>
+                            {kw.importance === 'high' ? '높음' : kw.importance === 'medium' ? '보통' : '낮음'}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                            {kw.category}
+                          </span>
+                          <span className="ml-auto text-sm font-bold text-blue-600">{kw.count}회</span>
+                        </div>
+                        {/* 빈도 바 */}
+                        <div className="h-2 bg-gray-100 rounded-full mb-2">
+                          <div className="h-full bg-blue-400 rounded-full transition-all" style={{ width: `${(kw.count / maxCount) * 100}%` }} />
+                        </div>
+                        {/* 샘플 문의 */}
+                        {kw.sample_inquiries.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {kw.sample_inquiries.map((s, j) => (
+                              <span key={j} className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md">"{s}"</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-10 text-gray-400 text-sm">키워드 데이터가 없습니다</div>
+              )}
+            </div>
+
+            {/* ── 액션 아이템 추천 ── */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">대응 액션 아이템</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">고객 문의 분석 기반 AI 추천</p>
+                </div>
+                <button onClick={handleGenerateActions}
+                  disabled={loadingActions}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                  {loadingActions ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  )}
+                  AI 분석 실행
+                </button>
+              </div>
+
+              {actionItems.length > 0 ? (
+                <div className="space-y-3">
+                  {actionItems.map((item, i) => {
+                    const prioColor = item.priority === 'high' ? 'border-l-red-500 bg-red-50/30' :
+                      item.priority === 'medium' ? 'border-l-amber-500 bg-amber-50/30' :
+                      'border-l-gray-400 bg-gray-50/30';
+                    const prioBadge = item.priority === 'high' ? 'bg-red-100 text-red-700' :
+                      item.priority === 'medium' ? 'bg-amber-100 text-amber-700' :
+                      'bg-gray-100 text-gray-600';
+                    return (
+                      <div key={i} className={`border border-gray-100 border-l-4 ${prioColor} rounded-xl p-4`}>
+                        <div className="flex items-start gap-3">
+                          <span className="text-lg font-bold text-gray-300 mt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <h4 className="text-sm font-bold text-gray-900">{item.title}</h4>
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${prioBadge}`}>
+                                {item.priority === 'high' ? '긴급' : item.priority === 'medium' ? '중요' : '참고'}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600">{item.category}</span>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                            <div className="flex items-center gap-4 text-xs">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-gray-400">관련 키워드:</span>
+                                <div className="flex gap-1">
+                                  {item.related_keywords.map((k, j) => (
+                                    <span key={j} className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{k}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="mt-2 flex items-center gap-1.5 text-xs">
+                              <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                              <span className="text-emerald-600 font-medium">{item.estimated_impact}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-gray-400 text-sm mb-3">아직 분석 결과가 없습니다</p>
+                  <p className="text-gray-400 text-xs">"AI 분석 실행" 버튼을 눌러 문의 데이터 기반 액션 아이템을 생성하세요</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════ */}
+        {/* Tab 3: 참고 데이터                          */}
         {/* ═══════════════════════════════════════════ */}
         {activeTab === 'reference' && (
           <div>
