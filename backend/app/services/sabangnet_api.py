@@ -128,36 +128,73 @@ class SabangnetAPI:
         return {"total": total, "results": results}
 
     async def _call_api(self, endpoint: str, xml_content: str) -> str:
-        """사방넷 API 호출 (xml_url 방식 또는 직접 POST)"""
+        """사방넷 API 호출
+
+        3가지 방식을 순차 시도:
+        1. 직접 POST (가장 빠르고 간단)
+        2. xml_url GET 방식 (사방넷 공식 방식)
+        3. xml_url을 query param으로 data URI 전달
+        """
         if not self._available:
             raise ValueError("사방넷 API가 설정되지 않았습니다")
 
-        # 방법 1: BACKEND_PUBLIC_URL이 있으면 xml_url 방식
-        if self.has_backend_url:
-            request_id = store_xml(xml_content)
-            xml_url = f"{self.backend_url}/api/sabangnet/xml-host/{request_id}"
-            api_url = f"{self.base_url}/{endpoint}?xml_url={xml_url}"
+        api_url = f"{self.base_url}/{endpoint}"
+        xml_bytes = xml_content.encode("euc-kr", errors="replace")
 
-            logger.info(f"사방넷 API 호출 (xml_url): {api_url}")
-
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(api_url, timeout=30.0, follow_redirects=True)
-                return resp.text
-
-        # 방법 2: 직접 POST (fallback)
-        else:
-            api_url = f"{self.base_url}/{endpoint}"
-            logger.info(f"사방넷 API 호출 (직접POST): {api_url}")
-
-            async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(verify=False) as client:
+            # 방법 1: 직접 POST
+            try:
+                logger.info(f"사방넷 API 호출 (POST): {api_url}")
                 resp = await client.post(
                     api_url,
-                    content=xml_content.encode("euc-kr"),
+                    content=xml_bytes,
                     headers={"Content-Type": "application/xml; charset=euc-kr"},
                     timeout=30.0,
                     follow_redirects=True,
                 )
-                return resp.text
+                text = resp.text
+                # JSON 에러 응답이 아니고, 유효한 XML이면 성공
+                if text.strip().startswith("<?xml") or "<DATA>" in text or "총건수" in text:
+                    logger.info(f"사방넷 POST 성공: {len(text)}bytes")
+                    return text
+                logger.info(f"사방넷 POST 응답이 XML이 아님: {text[:200]}")
+            except Exception as e:
+                logger.warning(f"사방넷 POST 실패: {e}")
+
+            # 방법 2: xml_url 방식 (BACKEND_PUBLIC_URL 필요)
+            if self.has_backend_url:
+                try:
+                    request_id = store_xml(xml_content)
+                    xml_url = f"{self.backend_url}/api/sabangnet/xml-host/{request_id}"
+                    full_url = f"{api_url}?xml_url={xml_url}"
+                    logger.info(f"사방넷 API 호출 (xml_url): {full_url}")
+                    resp = await client.get(full_url, timeout=30.0, follow_redirects=True)
+                    text = resp.text
+                    if text.strip().startswith("<?xml") or "<DATA>" in text or "총건수" in text:
+                        logger.info(f"사방넷 xml_url 성공: {len(text)}bytes")
+                        return text
+                    logger.info(f"사방넷 xml_url 응답: {text[:300]}")
+                except Exception as e:
+                    logger.warning(f"사방넷 xml_url 실패: {e}")
+
+            # 방법 3: form data로 POST
+            try:
+                logger.info(f"사방넷 API 호출 (form): {api_url}")
+                resp = await client.post(
+                    api_url,
+                    data={"xml_data": xml_content},
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    timeout=30.0,
+                    follow_redirects=True,
+                )
+                text = resp.text
+                logger.info(f"사방넷 form 응답: {text[:300]}")
+                return text
+            except Exception as e:
+                logger.warning(f"사방넷 form 실패: {e}")
+
+            # 모든 방법 실패
+            raise ValueError("사방넷 API 호출 실패: 모든 방식(POST/xml_url/form) 시도 실패")
 
     # ── 문의사항 수집 ──
 
