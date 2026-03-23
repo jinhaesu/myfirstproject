@@ -309,14 +309,28 @@ export default function CSPage() {
     }
   }, [authLoading, user, router]);
 
+  // ── Pagination state ──
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 50;
+
+  const loadInquiries = useCallback(async (page = 1) => {
+    const raw = await fetchSafe<{ items: Inquiry[]; total: number; page: number } | Inquiry[]>(
+      `/api/sabangnet/inquiries?page=${page}&page_size=${PAGE_SIZE}`, []
+    );
+    if (Array.isArray(raw)) {
+      if (raw.length > 0) setInquiries(raw);
+    } else {
+      if (raw?.items?.length > 0) setInquiries(raw.items);
+      if (raw?.total) setTotalCount(raw.total);
+    }
+    setCurrentPage(page);
+  }, []);
+
   // ── Load data ──
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      const raw = await fetchSafe<{ items: Inquiry[] } | Inquiry[]>('/api/sabangnet/inquiries', []);
-      const data = Array.isArray(raw) ? raw : (raw?.items || []);
-      if (data.length > 0) setInquiries(data);
-    })();
+    loadInquiries(1);
     (async () => {
       const raw = await fetchSafe<{ items: ReferenceData[] } | ReferenceData[]>('/api/sabangnet/reference-data', []);
       const data = Array.isArray(raw) ? raw : (raw?.items || []);
@@ -440,9 +454,7 @@ export default function CSPage() {
         const totalFetched = data.total_fetched ?? 0;
 
         // 수집 후 목록 재조회
-        const raw = await fetchSafe<{ items: Inquiry[] } | Inquiry[]>('/api/sabangnet/inquiries', []);
-        const items = Array.isArray(raw) ? raw : (raw?.items || []);
-        if (items.length > 0) setInquiries(items);
+        await loadInquiries(1);
 
         if (source === 'sabangnet_api') {
           showToast(`사방넷에서 ${created}건 수집 (총 ${totalFetched}건 조회)`);
@@ -460,6 +472,17 @@ export default function CSPage() {
       showToast('수집 요청 시간 초과 또는 네트워크 오류');
     }
     setCollecting(false);
+  }, [showToast, loadInquiries]);
+
+  const handleDelete = useCallback(async (id: number) => {
+    const result = await fetchMutate(`/api/sabangnet/inquiries/${id}`, 'DELETE');
+    if (result.ok) {
+      setInquiries(prev => prev.filter(i => i.id !== id));
+      setTotalCount(prev => prev - 1);
+      showToast('문의가 삭제되었습니다.');
+    } else {
+      showToast('삭제 실패');
+    }
   }, [showToast]);
 
   const handleGenerateAI = useCallback(async (id: number) => {
@@ -1166,10 +1189,20 @@ export default function CSPage() {
                               )}
                             </div>
 
-                            {/* Status badge */}
-                            <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full border ${statusColor.bg} ${statusColor.text} ${statusColor.border}`}>
-                              {statusColor.label}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              {/* Delete button */}
+                              <button
+                                onClick={() => handleDelete(inquiry.id)}
+                                className="inline-flex items-center p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                title="삭제"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                              {/* Status badge */}
+                              <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full border ${statusColor.bg} ${statusColor.text} ${statusColor.border}`}>
+                                {statusColor.label}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1292,6 +1325,58 @@ export default function CSPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {activeTab === 'inquiries' && totalCount > PAGE_SIZE && (
+          <div className="flex items-center justify-between mt-4 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <span className="text-sm text-gray-500">
+              총 {totalCount.toLocaleString()}건 · {currentPage}/{Math.ceil(totalCount / PAGE_SIZE)} 페이지
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => loadInquiries(currentPage - 1)}
+                disabled={currentPage <= 1}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+              >
+                이전
+              </button>
+              {/* 페이지 번호 */}
+              {Array.from({ length: Math.min(5, Math.ceil(totalCount / PAGE_SIZE)) }, (_, i) => {
+                const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => loadInquiries(pageNum)}
+                    className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => loadInquiries(currentPage + 1)}
+                disabled={currentPage >= Math.ceil(totalCount / PAGE_SIZE)}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+              >
+                다음
+              </button>
             </div>
           </div>
         )}
