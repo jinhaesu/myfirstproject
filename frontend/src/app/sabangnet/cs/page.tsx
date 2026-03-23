@@ -278,6 +278,7 @@ export default function CSPage() {
   const [bulkGenerating, setBulkGenerating] = useState(false);
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const [bulkAiAllRunning, setBulkAiAllRunning] = useState(false);
 
   // ── Reference Data State ──
   const [referenceData, setReferenceData] = useState<ReferenceData[]>(sampleReferenceData);
@@ -477,6 +478,42 @@ export default function CSPage() {
     }
     setCollecting(false);
   }, [showToast, loadInquiries]);
+
+  const handleBulkAiAll = useCallback(async () => {
+    setBulkAiAllRunning(true);
+    let totalGenerated = 0;
+    let remaining = 1;
+
+    // 50건씩 반복 처리
+    while (remaining > 0) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
+        const res = await fetch(`${API_BASE}/api/sabangnet/inquiries/bulk-generate-all-new?page_size=50`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        const data = await res.json().catch(() => null);
+        if (data) {
+          totalGenerated += data.generated || 0;
+          remaining = data.remaining || 0;
+          showToast(`AI 생성 중... ${totalGenerated}건 완료 (남은 신규: ${remaining}건)`);
+        } else {
+          break;
+        }
+        if ((data.generated || 0) === 0) break;
+      } catch {
+        showToast('AI 생성 중 오류 발생');
+        break;
+      }
+    }
+
+    setBulkAiAllRunning(false);
+    showToast(`전체 AI 답변 생성 완료: ${totalGenerated}건`);
+    loadInquiries(currentPage);
+  }, [showToast, loadInquiries, currentPage]);
 
   const handleDelete = useCallback(async (id: number) => {
     const result = await fetchMutate(`/api/sabangnet/inquiries/${id}`, 'DELETE');
@@ -866,6 +903,27 @@ export default function CSPage() {
               )}
               문의 수집
             </button>
+
+            {/* Bulk AI Generate button */}
+            {stats.unanswered > 0 && (
+              <button
+                onClick={handleBulkAiAll}
+                disabled={bulkAiAllRunning}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              >
+                {bulkAiAllRunning ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    AI 생성 중...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    전체 AI 답변 생성 ({fmt(stats.unanswered)}건)
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 

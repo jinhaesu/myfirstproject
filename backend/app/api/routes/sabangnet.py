@@ -191,7 +191,9 @@ def generate_template_response(inquiry: CsInquiry) -> str:
 
 async def generate_ai_response(inquiry: CsInquiry, reference_data_list: list) -> str:
     """Claude API를 사용해 CS 답변 초안 생성"""
-    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    from app.config import get_settings
+    settings = get_settings()
+    api_key = settings.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
 
     if not api_key:
         # Fallback: 템플릿 기반 답변
@@ -735,6 +737,51 @@ async def bulk_generate_ai(data: BulkAiGenerateRequest, db: Session = Depends(ge
         "total_requested": len(data.inquiry_ids),
         "generated_count": generated_count,
         "errors": errors,
+    }
+
+
+@router.post("/inquiries/bulk-generate-all-new")
+async def bulk_generate_all_new(
+    page_size: int = Query(default=50, description="한 번에 처리할 건수"),
+    db: Session = Depends(get_db),
+):
+    """신규(new) 상태 문의 전체에 AI 답변 일괄 생성"""
+    ref_data = (
+        db.query(CsReferenceData)
+        .filter(CsReferenceData.is_active == True)
+        .all()
+    )
+
+    new_inquiries = (
+        db.query(CsInquiry)
+        .filter(CsInquiry.status == "new")
+        .order_by(CsInquiry.inquiry_date.desc())
+        .limit(page_size)
+        .all()
+    )
+
+    total_new = db.query(func.count(CsInquiry.id)).filter(CsInquiry.status == "new").scalar() or 0
+    generated = 0
+    failed = 0
+
+    for inquiry in new_inquiries:
+        try:
+            ai_text = await generate_ai_response(inquiry, ref_data)
+            inquiry.ai_response = ai_text
+            inquiry.status = "ai_drafted"
+            generated += 1
+        except Exception as e:
+            logger.error(f"AI 생성 실패 (id={inquiry.id}): {e}")
+            failed += 1
+
+    db.commit()
+    remaining = total_new - generated
+    return {
+        "generated": generated,
+        "failed": failed,
+        "remaining": max(0, remaining),
+        "total_new": total_new,
+        "message": f"{generated}건 AI 답변 생성 완료 (남은 신규: {max(0, remaining)}건)",
     }
 
 
