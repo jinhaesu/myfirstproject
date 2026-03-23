@@ -474,6 +474,39 @@ def serve_xml(request_id: str):
     )
 
 
+@router.get("/debug/api-test")
+async def debug_api_test():
+    """사방넷 API 연결 테스트 - 실제 응답을 그대로 반환"""
+    from app.services.sabangnet_api import get_sabangnet_api
+    api = get_sabangnet_api()
+
+    result = {
+        "api_available": api.is_available,
+        "login_id": api.login_id,
+        "admin_no": api.admin_no,
+        "base_url": api.base_url,
+        "backend_url": api.backend_url,
+        "has_auth_key": bool(api.auth_key),
+    }
+
+    if not api.is_available:
+        result["error"] = "API 설정 불완전 (SABANGNET_LOGIN_ID, SABANGNET_ADMIN_NO, SABANGNET_API_KEY 필요)"
+        return result
+
+    try:
+        api_result = await api.collect_inquiries()
+        result["api_success"] = api_result.get("success", False)
+        result["items_count"] = len(api_result.get("items", []))
+        result["raw_response"] = api_result.get("raw", "")[:2000]
+        result["error_if_any"] = api_result.get("error", None)
+        if api_result.get("items"):
+            result["first_item"] = api_result["items"][0]
+    except Exception as e:
+        result["exception"] = str(e)
+
+    return result
+
+
 @router.post("/inquiries/collect")
 async def collect_inquiries(db: Session = Depends(get_db)):
     """사방넷 API로 문의 수집.
@@ -543,6 +576,7 @@ async def collect_inquiries(db: Session = Depends(get_db)):
                     "items_created": created,
                     "total_fetched": len(items),
                     "source": "sabangnet_api",
+                    "raw_response": result.get("raw", "")[:500],
                 }
             else:
                 error_msg = result.get("error", "알 수 없는 오류")
