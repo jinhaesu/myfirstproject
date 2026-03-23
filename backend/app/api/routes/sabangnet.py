@@ -497,12 +497,14 @@ async def debug_api_test():
         api_result = await api.collect_inquiries()
         result["api_success"] = api_result.get("success", False)
         result["items_count"] = len(api_result.get("items", []))
-        result["raw_response"] = api_result.get("raw", "")[:2000]
+        result["raw_response"] = api_result.get("raw", "")[:3000]
         result["error_if_any"] = api_result.get("error", None)
         if api_result.get("items"):
             result["first_item"] = api_result["items"][0]
     except Exception as e:
         result["exception"] = str(e)
+        import traceback
+        result["traceback"] = traceback.format_exc()[-1000:]
 
     return result
 
