@@ -14,6 +14,7 @@ from sqlalchemy import func, or_
 
 from app.database import get_db
 from app.db_models import VoiceCsCall, VoiceCsManual, VoiceCsConfig, VoiceCsPhoneNumber
+from app.services.vapi_service import get_vapi_service
 
 router = APIRouter(prefix="/sabangnet/voice-cs", tags=["sabangnet-voice-cs"])
 logger = logging.getLogger(__name__)
@@ -255,8 +256,52 @@ async def list_calls(
     try:
         total_count = db.query(func.count(VoiceCsCall.id)).scalar() or 0
 
+        # DB가 비어 있으면 Vapi에서 통화 내역 동기화 시도
         if total_count == 0:
-            # 샘플 데이터 필터링
+            vapi = get_vapi_service()
+            if vapi.is_available:
+                vapi_calls = await vapi.list_calls()
+                if vapi_calls:
+                    for vc in vapi_calls:
+                        existing = db.query(VoiceCsCall).filter(
+                            VoiceCsCall.call_id == vc.get("id")
+                        ).first()
+                        if existing:
+                            continue
+                        try:
+                            started_raw = vc.get("startedAt")
+                            ended_raw = vc.get("endedAt")
+                            started_dt = (
+                                datetime.fromisoformat(started_raw.replace("Z", "+00:00"))
+                                if started_raw else None
+                            )
+                            ended_dt = (
+                                datetime.fromisoformat(ended_raw.replace("Z", "+00:00"))
+                                if ended_raw else None
+                            )
+                            call = VoiceCsCall(
+                                call_id=vc.get("id"),
+                                phone_number=vc.get("customer", {}).get("number", ""),
+                                direction="inbound" if vc.get("type") == "inboundPhoneCall" else "outbound",
+                                started_at=started_dt,
+                                ended_at=ended_dt,
+                                duration_seconds=int(vc.get("duration") or 0),
+                                status="completed" if vc.get("status") == "ended" else (vc.get("status") or "completed"),
+                                transcript=vc.get("transcript", ""),
+                            )
+                            db.add(call)
+                        except Exception as sync_err:
+                            logger.warning(f"Vapi 통화 동기화 실패 (call_id={vc.get('id')}): {sync_err}")
+                    try:
+                        db.commit()
+                        total_count = db.query(func.count(VoiceCsCall.id)).scalar() or 0
+                        logger.info(f"Vapi 통화 {len(vapi_calls)}건 동기화 완료 (DB 저장: {total_count}건)")
+                    except Exception as commit_err:
+                        db.rollback()
+                        logger.error(f"Vapi 통화 동기화 커밋 실패: {commit_err}")
+
+        if total_count == 0:
+            # Vapi도 비어 있거나 미설정 — 샘플 데이터 필터링
             filtered = list(sample_calls)
             if status:
                 filtered = [c for c in filtered if c.get("status") == status]
@@ -484,7 +529,7 @@ async def list_phone_numbers(db: Session = Depends(get_db)):
 
 @router.post("/phone-numbers", status_code=201)
 async def create_phone_number(body: PhoneNumberCreate, db: Session = Depends(get_db)):
-    """번호 등록"""
+    """번호 등록 (provider=vapi 이고 VAPI_API_KEY 설정 시 Vapi에서 실제 번호 발급)"""
     try:
         existing = db.query(VoiceCsPhoneNumber).filter(
             VoiceCsPhoneNumber.phone_number == body.phone_number
@@ -492,10 +537,26 @@ async def create_phone_number(body: PhoneNumberCreate, db: Session = Depends(get
         if existing:
             raise HTTPException(status_code=409, detail="이미 등록된 전화번호입니다.")
 
+        # Vapi API에서 번호 생성 시도
+        vapi = get_vapi_service()
+        provider_id = None
+        actual_number = body.phone_number
+
+        if vapi.is_available and body.provider == "vapi":
+            result = await vapi.create_phone_number()
+            if not result.get("error"):
+                provider_id = result.get("id")
+                # Vapi에서 할당된 실제 번호가 있으면 사용
+                actual_number = result.get("number") or body.phone_number
+                logger.info(f"Vapi 전화번호 생성 완료: provider_id={provider_id}, number={actual_number}")
+            else:
+                logger.warning(f"Vapi 번호 생성 실패: {result.get('message')} — 로컬 번호로 등록")
+
         record = VoiceCsPhoneNumber(
-            phone_number=body.phone_number,
+            phone_number=actual_number,
             label=body.label,
             provider=body.provider,
+            provider_id=provider_id,
         )
         db.add(record)
         db.commit()
@@ -510,11 +571,21 @@ async def create_phone_number(body: PhoneNumberCreate, db: Session = Depends(get
 
 @router.delete("/phone-numbers/{id}", status_code=204)
 async def delete_phone_number(id: int, db: Session = Depends(get_db)):
-    """번호 삭제"""
+    """번호 삭제 (Vapi에 등록된 번호면 Vapi에서도 삭제)"""
     try:
         record = db.query(VoiceCsPhoneNumber).filter(VoiceCsPhoneNumber.id == id).first()
         if not record:
             raise HTTPException(status_code=404, detail="전화번호를 찾을 수 없습니다.")
+
+        # Vapi에서도 삭제
+        vapi = get_vapi_service()
+        if record.provider_id and vapi.is_available:
+            result = await vapi.delete_phone_number(record.provider_id)
+            if result.get("error"):
+                logger.warning(f"Vapi 번호 삭제 실패 (로컬 삭제는 계속): {result.get('message')}")
+            else:
+                logger.info(f"Vapi 전화번호 삭제 완료: provider_id={record.provider_id}")
+
         db.delete(record)
         db.commit()
         return None
@@ -677,6 +748,10 @@ async def get_config(db: Session = Depends(get_db)):
         # auto_order_lookup을 bool로 변환
         config["auto_order_lookup"] = config.get("auto_order_lookup", "true").lower() == "true"
 
+        # Vapi API 키 연결 상태 (환경변수 기준)
+        vapi = get_vapi_service()
+        config["vapi_connected"] = vapi.is_available
+
         return config
     except Exception as e:
         logger.error(f"Get config error: {e}")
@@ -824,33 +899,26 @@ async def webhook_call_started(body: dict, db: Session = Depends(get_db)):
         # 사방넷 주문 조회 (전화번호 기반)
         if phone_number:
             try:
-                from app.config import get_settings
-                import httpx
-                settings = get_settings()
+                from app.services.sabangnet_api import get_sabangnet_api
+                api = get_sabangnet_api()
 
-                sabangnet_url = getattr(settings, "SABANGNET_API_URL", None)
-                sabangnet_key = getattr(settings, "SABANGNET_API_KEY", None)
-
-                if sabangnet_url and sabangnet_key:
-                    async with httpx.AsyncClient(timeout=10.0) as client:
-                        resp = await client.get(
-                            f"{sabangnet_url}/orders",
-                            params={"receiver_phone": phone_number, "limit": 3},
-                            headers={"Authorization": f"Bearer {sabangnet_key}"},
-                        )
-                        if resp.status_code == 200:
-                            order_data = resp.json()
-                            if order_data.get("items"):
-                                latest = order_data["items"][0]
-                                order_info = {
-                                    "product": latest.get("product_name"),
-                                    "quantity": latest.get("quantity"),
-                                    "status": latest.get("status"),
-                                    "order_number": latest.get("order_number"),
-                                }
-                                record.order_number = latest.get("order_number")
-                                record.customer_name = latest.get("customer_name")
-                                record.order_info = order_info
+                if api.is_available:
+                    order_result = await api.get_order_by_phone(phone_number)
+                    if not order_result.get("error"):
+                        orders = order_result.get("data", order_result.get("items", []))
+                        if orders:
+                            latest = orders[0]
+                            order_info = {
+                                "customer_name": latest.get("buyer_name"),
+                                "order_number": latest.get("order_no"),
+                                "order_info": latest,
+                                "source": "sabangnet_api",
+                            }
+                            record.order_number = latest.get("order_no")
+                            record.customer_name = latest.get("buyer_name")
+                            record.order_info = order_info
+                    else:
+                        logger.warning(f"사방넷 주문 조회 오류: {order_result.get('message')}")
             except Exception as sab_err:
                 logger.warning(f"Sabangnet order lookup failed: {sab_err}")
 

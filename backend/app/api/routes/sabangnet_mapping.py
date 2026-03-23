@@ -356,9 +356,65 @@ def get_logs(
 # ──────────────────────────────────────────────
 
 @router.post("/collect")
-def collect_unmapped(db: Session = Depends(get_db)):
-    """사방넷 API로 미매핑 상품 수집 (현재 샘플 데이터로 시뮬레이션)"""
+async def collect_unmapped(db: Session = Depends(get_db)):
+    """사방넷 API로 미매핑 상품 수집.
+    API가 설정되어 있으면 실제 사방넷 API를 호출하고,
+    미설정 시 샘플 데이터로 fallback.
+    """
     try:
+        from app.services.sabangnet_api import get_sabangnet_api
+        api = get_sabangnet_api()
+
+        if api.is_available:
+            result = await api.get_unmapped_products()
+            if not result.get("error"):
+                items = result.get("data", result.get("items", []))
+                created = 0
+                skipped = 0
+                for item in items:
+                    existing = (
+                        db.query(MappingMallProduct)
+                        .filter(
+                            MappingMallProduct.mall_product_code == item.get("product_code", "")
+                        )
+                        .first()
+                    )
+                    if existing:
+                        skipped += 1
+                        continue
+                    mp = MappingMallProduct(
+                        mall_name=item.get("mall_name", item.get("shopping_mall", "")),
+                        mall_product_code=item.get("product_code", ""),
+                        mall_product_name=item.get("product_name", ""),
+                        mall_option_name=item.get("option_name", None),
+                        mall_option_code=item.get("option_code", None),
+                        is_mapped=False,
+                    )
+                    db.add(mp)
+                    created += 1
+
+                db.commit()
+
+                log = MappingLog(
+                    action="collect",
+                    details={"source": "sabangnet_api", "created": created, "skipped": skipped},
+                    items_processed=len(items),
+                    items_success=created,
+                    items_failed=0,
+                )
+                db.add(log)
+                db.commit()
+
+                return {
+                    "message": f"수집 완료: {created}개 신규 등록, {skipped}개 스킵",
+                    "created": created,
+                    "skipped": skipped,
+                    "source": "sabangnet_api",
+                }
+            else:
+                logger.warning(f"사방넷 API 오류, 샘플 데이터 사용: {result.get('message')}")
+
+        # API 미설정 또는 API 오류 시 샘플 데이터 fallback
         samples = [
             {
                 "mall_name": "쿠팡",
@@ -424,7 +480,7 @@ def collect_unmapped(db: Session = Depends(get_db)):
 
         log = MappingLog(
             action="collect",
-            details={"source": "simulation", "created": created, "skipped": skipped},
+            details={"source": "sample", "created": created, "skipped": skipped},
             items_processed=len(samples),
             items_success=created,
             items_failed=0,
@@ -436,7 +492,10 @@ def collect_unmapped(db: Session = Depends(get_db)):
             "message": f"수집 완료: {created}개 신규 등록, {skipped}개 스킵",
             "created": created,
             "skipped": skipped,
+            "source": "sample",
         }
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"미매핑 상품 수집 실패: {e}")
