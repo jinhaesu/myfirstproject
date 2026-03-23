@@ -461,12 +461,62 @@ def delete_inquiry(inquiry_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/inquiries/collect")
-def collect_inquiries(db: Session = Depends(get_db)):
-    """사방넷 API로 문의 수집 (placeholder - 목 데이터 반환)"""
-    logger.info("사방넷 문의 수집 요청 (placeholder)")
+async def collect_inquiries(db: Session = Depends(get_db)):
+    """사방넷 API로 문의 수집.
+    API가 설정되어 있으면 실제 사방넷 API를 호출하고,
+    미설정 시 샘플 데이터로 fallback.
+    """
+    logger.info("사방넷 문의 수집 요청")
 
-    # 실제 구현 시 사방넷 API 호출하여 문의 수집
-    # 현재는 목 데이터 반환
+    try:
+        from app.services.sabangnet_api import get_sabangnet_api
+        api = get_sabangnet_api()
+
+        if api.is_available:
+            result = await api.get_inquiries()
+            if not result.get("error"):
+                items = result.get("data", result.get("items", []))
+                created = 0
+                for item in items:
+                    existing = (
+                        db.query(CsInquiry)
+                        .filter(CsInquiry.external_id == str(item.get("id", "")))
+                        .first()
+                    )
+                    if existing:
+                        continue
+                    inquiry = CsInquiry(
+                        external_id=str(item.get("id", "")),
+                        mall_name=item.get("mall_name", item.get("shopping_mall", "")),
+                        board_type=item.get("board_type", item.get("inquiry_type", "")),
+                        customer_name=item.get("customer_name", item.get("buyer_name", "")),
+                        customer_id=item.get("customer_id", ""),
+                        product_name=item.get("product_name", ""),
+                        order_number=item.get("order_number", item.get("order_no", "")),
+                        title=item.get("title", item.get("subject", "")),
+                        content=item.get("content", item.get("message", "")),
+                        inquiry_date=(
+                            datetime.fromisoformat(item["inquiry_date"])
+                            if item.get("inquiry_date")
+                            else datetime.now()
+                        ),
+                        status="new",
+                        priority="normal",
+                    )
+                    db.add(inquiry)
+                    created += 1
+                db.commit()
+                return {
+                    "message": f"사방넷에서 {created}건 수집 완료",
+                    "items_created": created,
+                    "source": "sabangnet_api",
+                }
+            else:
+                logger.warning(f"사방넷 API 오류, 샘플 데이터 사용: {result.get('message')}")
+    except Exception as e:
+        logger.warning(f"사방넷 API 호출 실패, 샘플 데이터 사용: {e}")
+
+    # API 미설정 또는 API 오류 시 샘플 데이터 fallback
     mock_inquiries = [
         {
             "external_id": "SBN-2026-001",
@@ -495,7 +545,6 @@ def collect_inquiries(db: Session = Depends(get_db)):
 
     created = []
     for item in mock_inquiries:
-        # 중복 체크
         existing = (
             db.query(CsInquiry)
             .filter(CsInquiry.external_id == item["external_id"])
@@ -522,9 +571,10 @@ def collect_inquiries(db: Session = Depends(get_db)):
         db.commit()
 
     return {
-        "message": "사방넷 문의 수집 완료 (placeholder)",
+        "message": "사방넷 문의 수집 완료 (샘플 데이터)",
         "collected_count": len(created),
         "external_ids": created,
+        "source": "sample",
     }
 
 
@@ -1190,54 +1240,75 @@ def get_inquiry_volume(
 
             return {"period": period, "data": sample_data, "is_sample": True}
 
-        # 실제 DB 데이터 집계
+        # 실제 DB 데이터 집계 — 단일 쿼리로 전체 범위 조회 후 Python에서 집계
         base = datetime.now()
         data = []
 
         if period == "monthly":
-            cutoff = base.replace(day=1)
+            # 조회 범위 계산 (months 개월치 전체를 한 번에 조회)
+            range_start = (base.replace(day=1) - timedelta(days=30 * (months - 1))).replace(day=1)
+            range_end = (base.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+            rows = (
+                db.query(CsInquiry.inquiry_date, CsInquiry.mall_name, CsInquiry.category)
+                .filter(CsInquiry.inquiry_date >= range_start, CsInquiry.inquiry_date < range_end)
+                .all()
+            )
+
+            # 월별 버킷 초기화 — 데이터가 없는 달도 0으로 채워 차트에서 연속 표시
+            buckets: dict = {}
             for i in range(months):
-                month_start = (cutoff.replace(day=1) - timedelta(days=30 * (months - 1 - i))).replace(day=1)
-                month_end = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+                month_start = (base.replace(day=1) - timedelta(days=30 * (months - 1 - i))).replace(day=1)
                 month_str = month_start.strftime("%Y-%m")
+                buckets[month_str] = {"total": 0, "by_mall": {}, "by_category": {}}
 
-                rows = (
-                    db.query(CsInquiry)
-                    .filter(CsInquiry.inquiry_date >= month_start, CsInquiry.inquiry_date < month_end)
-                    .all()
-                )
-                total = len(rows)
-                by_mall: dict = {}
-                by_category: dict = {}
-                for r in rows:
-                    mall = r.mall_name or "기타"
-                    by_mall[mall] = by_mall.get(mall, 0) + 1
-                    cat = r.category or "기타"
-                    by_category[cat] = by_category.get(cat, 0) + 1
+            for r in rows:
+                if r.inquiry_date is None:
+                    continue
+                month_str = r.inquiry_date.strftime("%Y-%m")
+                if month_str not in buckets:
+                    continue
+                bucket = buckets[month_str]
+                bucket["total"] += 1
+                mall = r.mall_name or "기타"
+                bucket["by_mall"][mall] = bucket["by_mall"].get(mall, 0) + 1
+                cat = r.category or "기타"
+                bucket["by_category"][cat] = bucket["by_category"].get(cat, 0) + 1
 
-                data.append({"date": month_str, "total": total, "by_mall": by_mall, "by_category": by_category})
+            data = [{"date": k, **v} for k, v in sorted(buckets.items())]
+
         else:
+            # 조회 범위 계산 (days 일치 전체를 한 번에 조회)
+            range_start = (base - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+            range_end = base.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+            rows = (
+                db.query(CsInquiry.inquiry_date, CsInquiry.mall_name, CsInquiry.category)
+                .filter(CsInquiry.inquiry_date >= range_start, CsInquiry.inquiry_date <= range_end)
+                .all()
+            )
+
+            # 일별 버킷 초기화 — 데이터가 없는 날도 0으로 채워 차트에서 연속 표시
+            buckets: dict = {}
             for i in range(days):
                 d = base - timedelta(days=days - 1 - i)
                 date_str = d.strftime("%Y-%m-%d")
-                day_start = d.replace(hour=0, minute=0, second=0, microsecond=0)
-                day_end = day_start + timedelta(days=1)
+                buckets[date_str] = {"total": 0, "by_mall": {}, "by_category": {}}
 
-                rows = (
-                    db.query(CsInquiry)
-                    .filter(CsInquiry.inquiry_date >= day_start, CsInquiry.inquiry_date < day_end)
-                    .all()
-                )
-                total = len(rows)
-                by_mall: dict = {}
-                by_category: dict = {}
-                for r in rows:
-                    mall = r.mall_name or "기타"
-                    by_mall[mall] = by_mall.get(mall, 0) + 1
-                    cat = r.category or "기타"
-                    by_category[cat] = by_category.get(cat, 0) + 1
+            for r in rows:
+                if r.inquiry_date is None:
+                    continue
+                date_str = r.inquiry_date.strftime("%Y-%m-%d")
+                if date_str not in buckets:
+                    continue
+                bucket = buckets[date_str]
+                bucket["total"] += 1
+                mall = r.mall_name or "기타"
+                bucket["by_mall"][mall] = bucket["by_mall"].get(mall, 0) + 1
+                cat = r.category or "기타"
+                bucket["by_category"][cat] = bucket["by_category"].get(cat, 0) + 1
 
-                data.append({"date": date_str, "total": total, "by_mall": by_mall, "by_category": by_category})
+            data = [{"date": k, **v} for k, v in sorted(buckets.items())]
 
         return {"period": period, "data": data, "is_sample": False}
 
@@ -1278,10 +1349,12 @@ async def get_inquiry_keywords(
     ]
 
     try:
-        cutoff = datetime.now() - __import__("datetime").timedelta(days=days)
+        from datetime import timedelta
+        cutoff = datetime.now() - timedelta(days=days)
         inquiries = (
             db.query(CsInquiry)
             .filter(CsInquiry.inquiry_date >= cutoff)
+            .order_by(CsInquiry.inquiry_date.desc())
             .all()
         )
         count = len(inquiries)
@@ -1293,27 +1366,51 @@ async def get_inquiry_keywords(
         if not api_key:
             return {"keywords": sample_keywords, "total_inquiries_analyzed": count, "period_days": days, "is_sample": True}
 
+        # 100건 초과 시 최근 100건만 사용 (토큰 절약)
+        analysis_targets = inquiries[:100]
+        analysis_count = len(analysis_targets)
+
         contents = "\n".join(
-            f"- [{i.title or '제목없음'}] {(i.content or '')[:200]}"
-            for i in inquiries
+            f"{idx + 1}. [{inq.title or '제목없음'}] {(inq.content or '')[:200]}"
+            for idx, inq in enumerate(analysis_targets)
         )
 
-        prompt = f"""다음은 고객 문의 목록입니다. 주요 키워드를 분석해주세요.
+        def _build_keywords_prompt(inq_count: int, inq_contents: str) -> str:
+            return f"""다음은 고객 문의 {inq_count}건입니다. 주요 키워드와 이슈를 분석해주세요.
 
 문의 내용들:
-{contents}
+{inq_contents}
 
-다음 JSON 형식으로 답변:
+반드시 다음 JSON 형식으로만 답변하세요 (다른 텍스트 없이):
 {{
   "keywords": [
-    {{"keyword": "키워드", "count": 출현빈도, "importance": "high/medium/low", "category": "관련 카테고리", "sample_inquiries": ["관련 문의 제목1", "제목2"]}},
-    ...
+    {{
+      "keyword": "키워드명",
+      "count": 관련문의수,
+      "importance": "high/medium/low",
+      "category": "배송문의/교환반품/상품문의/기타",
+      "trend": "increasing/stable/decreasing",
+      "sample_inquiries": ["관련 문의 제목1", "제목2"]
+    }}
   ]
 }}
-최대 15개 키워드를 importance 순으로 정렬해주세요."""
+최대 15개, importance가 high인 것부터 정렬.
+"trend"는 최근 문의에서 해당 키워드 빈도가 증가/유지/감소 추세인지 판단."""
 
+        def _extract_json_from_text(raw_text: str) -> dict | None:
+            json_start = raw_text.find("{")
+            json_end = raw_text.rfind("}") + 1
+            if json_start != -1 and json_end > json_start:
+                try:
+                    return json.loads(raw_text[json_start:json_end])
+                except json.JSONDecodeError:
+                    return None
+            return None
+
+        parsed_result = None
         try:
             async with httpx.AsyncClient() as client:
+                # 1차 시도: 전체 프롬프트
                 resp = await client.post(
                     "https://api.anthropic.com/v1/messages",
                     headers={
@@ -1323,30 +1420,62 @@ async def get_inquiry_keywords(
                     },
                     json={
                         "model": "claude-sonnet-4-20250514",
-                        "max_tokens": 2048,
-                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": 3000,
+                        "messages": [{"role": "user", "content": _build_keywords_prompt(analysis_count, contents)}],
                     },
                     timeout=60.0,
                 )
                 if resp.status_code == 200:
                     raw_text = resp.json()["content"][0]["text"]
-                    # JSON 블록 추출
-                    json_start = raw_text.find("{")
-                    json_end = raw_text.rfind("}") + 1
-                    if json_start != -1 and json_end > json_start:
-                        parsed = json.loads(raw_text[json_start:json_end])
-                        return {
-                            "keywords": parsed.get("keywords", []),
-                            "total_inquiries_analyzed": count,
-                            "period_days": days,
-                            "is_sample": False,
-                        }
+                    parsed_result = _extract_json_from_text(raw_text)
+                    if parsed_result is None:
+                        logger.warning("keywords 1차 JSON 파싱 실패, 재시도")
                 else:
-                    logger.error(f"Claude API 응답 오류 (keywords): {resp.status_code} - {resp.text}")
+                    logger.error(f"Claude API 응답 오류 (keywords 1차): {resp.status_code} - {resp.text}")
+
+                # 2차 시도: 파싱 실패 시 간소화된 프롬프트로 재시도
+                if parsed_result is None:
+                    retry_prompt = (
+                        f"고객 문의 {analysis_count}건의 키워드를 분석해 JSON만 출력하세요.\n"
+                        f"문의 목록:\n{contents}\n\n"
+                        '출력 형식: {"keywords": [{"keyword": "...", "count": 숫자, "importance": "high/medium/low", '
+                        '"category": "배송문의/교환반품/상품문의/기타", "trend": "increasing/stable/decreasing", '
+                        '"sample_inquiries": ["제목1"]}]}'
+                    )
+                    resp2 = await client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={
+                            "x-api-key": api_key,
+                            "anthropic-version": "2023-06-01",
+                            "content-type": "application/json",
+                        },
+                        json={
+                            "model": "claude-sonnet-4-20250514",
+                            "max_tokens": 2048,
+                            "messages": [{"role": "user", "content": retry_prompt}],
+                        },
+                        timeout=60.0,
+                    )
+                    if resp2.status_code == 200:
+                        raw_text2 = resp2.json()["content"][0]["text"]
+                        parsed_result = _extract_json_from_text(raw_text2)
+                        if parsed_result is None:
+                            logger.error("keywords 2차 JSON 파싱도 실패")
+                    else:
+                        logger.error(f"Claude API 응답 오류 (keywords 2차): {resp2.status_code} - {resp2.text}")
+
         except Exception as e:
             logger.error(f"Claude API 호출 실패 (keywords): {e}")
 
-        # Claude 실패 시 샘플 반환
+        if parsed_result is not None:
+            return {
+                "keywords": parsed_result.get("keywords", []),
+                "total_inquiries_analyzed": analysis_count,
+                "period_days": days,
+                "is_sample": False,
+            }
+
+        # Claude 완전 실패 시 샘플 반환
         return {"keywords": sample_keywords, "total_inquiries_analyzed": count, "period_days": days, "is_sample": True}
 
     except Exception as e:
@@ -1401,10 +1530,12 @@ async def get_action_items(
     ]
 
     try:
-        cutoff = datetime.now() - __import__("datetime").timedelta(days=days)
+        from datetime import timedelta
+        cutoff = datetime.now() - timedelta(days=days)
         inquiries = (
             db.query(CsInquiry)
             .filter(CsInquiry.inquiry_date >= cutoff)
+            .order_by(CsInquiry.inquiry_date.desc())
             .all()
         )
         count = len(inquiries)
@@ -1426,35 +1557,120 @@ async def get_action_items(
                 "is_sample": True,
             }
 
-        # 키워드 요약 생성 (category 별 빈도)
-        category_counts: dict = {}
+        # ── Step 1: keywords 분석 먼저 수행 (액션 아이템 품질 향상) ──
+        keywords_for_action: list = []
+        keywords_summary_text = ""
+        try:
+            analysis_targets = inquiries[:100]
+            kw_contents = "\n".join(
+                f"{idx + 1}. [{inq.title or '제목없음'}] {(inq.content or '')[:200]}"
+                for idx, inq in enumerate(analysis_targets)
+            )
+            kw_prompt = (
+                f"고객 문의 {len(analysis_targets)}건의 주요 키워드를 분석해 JSON만 출력하세요.\n"
+                f"문의 목록:\n{kw_contents}\n\n"
+                '출력 형식: {"keywords": [{"keyword": "...", "count": 숫자, "importance": "high/medium/low", '
+                '"category": "배송문의/교환반품/상품문의/기타", "trend": "increasing/stable/decreasing", '
+                '"sample_inquiries": ["제목1"]}]}'
+            )
+            async with httpx.AsyncClient() as kw_client:
+                kw_resp = await kw_client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": api_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": "claude-sonnet-4-20250514",
+                        "max_tokens": 2048,
+                        "messages": [{"role": "user", "content": kw_prompt}],
+                    },
+                    timeout=60.0,
+                )
+            if kw_resp.status_code == 200:
+                kw_raw = kw_resp.json()["content"][0]["text"]
+                kw_start = kw_raw.find("{")
+                kw_end = kw_raw.rfind("}") + 1
+                if kw_start != -1 and kw_end > kw_start:
+                    kw_parsed = json.loads(kw_raw[kw_start:kw_end])
+                    keywords_for_action = kw_parsed.get("keywords", [])
+                    keywords_summary_text = "\n".join(
+                        f"- {kw['keyword']} ({kw.get('count', '?')}건, {kw.get('importance', '')} / {kw.get('trend', '')})"
+                        for kw in keywords_for_action[:10]
+                    )
+        except Exception as kw_err:
+            logger.warning(f"action-items용 keywords 사전 분석 실패 (무시하고 계속): {kw_err}")
+
+        # keywords 분석 실패 시 카테고리 빈도로 대체
+        if not keywords_summary_text:
+            category_counts: dict = {}
+            for inq in inquiries:
+                cat = inq.category or "기타"
+                category_counts[cat] = category_counts.get(cat, 0) + 1
+            keywords_summary_text = "\n".join(
+                f"- {cat}: {cnt}건"
+                for cat, cnt in sorted(category_counts.items(), key=lambda x: -x[1])
+            )
+
+        # ── Step 2: 카테고리 분포 계산 ──
+        category_dist: dict = {}
         for inq in inquiries:
             cat = inq.category or "기타"
-            category_counts[cat] = category_counts.get(cat, 0) + 1
-        keywords_summary = ", ".join(f"{cat}({cnt}건)" for cat, cnt in sorted(category_counts.items(), key=lambda x: -x[1]))
-
-        sample_contents = "\n".join(
-            f"- {(inq.content or '')[:150]}"
-            for inq in inquiries[:30]
+            category_dist[cat] = category_dist.get(cat, 0) + 1
+        category_distribution_text = "\n".join(
+            f"- {cat}: {cnt}건 ({round(cnt / count * 100)}%)"
+            for cat, cnt in sorted(category_dist.items(), key=lambda x: -x[1])
         )
 
-        prompt = f"""고객 문의 분석 결과를 바탕으로, 우리 팀이 취해야 할 액션 아이템을 추천해주세요.
+        # ── Step 3: 샘플 문의 내용 (최근 30건, 제목+내용 포함) ──
+        sample_contents = "\n".join(
+            f"{idx + 1}. [{inq.title or '제목없음'}] {(inq.content or '')[:150]}"
+            for idx, inq in enumerate(inquiries[:30])
+        )
 
-문의 키워드 및 빈도:
-{keywords_summary}
+        prompt = f"""고객 문의 데이터 분석 결과를 바탕으로, CS 팀이 취해야 할 구체적인 액션 아이템을 추천해주세요.
 
-문의 내용 샘플:
+## 분석 기간: 최근 {days}일
+## 총 문의 수: {count}건
+
+## 키워드 분석 결과:
+{keywords_summary_text}
+
+## 최근 문의 샘플 ({min(30, count)}건):
 {sample_contents}
 
-JSON 형식으로 답변:
+## 카테고리별 문의 분포:
+{category_distribution_text}
+
+반드시 다음 JSON 형식으로만 답변하세요:
 {{
   "action_items": [
-    {{"title": "액션 제목", "description": "상세 설명", "priority": "high/medium/low", "category": "관련 카테고리", "related_keywords": ["키워드1", "키워드2"], "estimated_impact": "기대 효과 설명"}},
-    ...
+    {{
+      "title": "구체적인 액션 제목",
+      "description": "상세 설명 (왜 필요한지, 어떻게 실행하는지)",
+      "priority": "high/medium/low",
+      "category": "배송/품질/서비스/운영/마케팅/상품정보",
+      "related_keywords": ["키워드1", "키워드2"],
+      "estimated_impact": "구체적인 기대 효과",
+      "suggested_deadline": "즉시/1주일/1개월/분기"
+    }}
   ]
 }}
-최대 8개, priority 순으로 정렬."""
+최대 8개, priority 순으로 정렬.
+각 액션은 구체적이고 실행 가능해야 합니다."""
 
+        def _extract_json_action(raw_text: str) -> dict | None:
+            json_start = raw_text.find("{")
+            json_end = raw_text.rfind("}") + 1
+            if json_start != -1 and json_end > json_start:
+                try:
+                    return json.loads(raw_text[json_start:json_end])
+                except json.JSONDecodeError:
+                    return None
+            return None
+
+        parsed_result = None
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
@@ -1466,27 +1682,29 @@ JSON 형식으로 답변:
                     },
                     json={
                         "model": "claude-sonnet-4-20250514",
-                        "max_tokens": 2048,
+                        "max_tokens": 3000,
                         "messages": [{"role": "user", "content": prompt}],
                     },
-                    timeout=60.0,
+                    timeout=90.0,
                 )
                 if resp.status_code == 200:
                     raw_text = resp.json()["content"][0]["text"]
-                    json_start = raw_text.find("{")
-                    json_end = raw_text.rfind("}") + 1
-                    if json_start != -1 and json_end > json_start:
-                        parsed = json.loads(raw_text[json_start:json_end])
-                        return {
-                            "action_items": parsed.get("action_items", []),
-                            "generated_at": datetime.now().isoformat(),
-                            "based_on_inquiries": count,
-                            "is_sample": False,
-                        }
+                    parsed_result = _extract_json_action(raw_text)
+                    if parsed_result is None:
+                        logger.error(f"action-items JSON 파싱 실패. 응답 앞 300자: {raw_text[:300]}")
                 else:
                     logger.error(f"Claude API 응답 오류 (action-items): {resp.status_code} - {resp.text}")
         except Exception as e:
             logger.error(f"Claude API 호출 실패 (action-items): {e}")
+
+        if parsed_result is not None:
+            return {
+                "action_items": parsed_result.get("action_items", []),
+                "generated_at": datetime.now().isoformat(),
+                "based_on_inquiries": count,
+                "keywords_analyzed": len(keywords_for_action),
+                "is_sample": False,
+            }
 
         # Claude 실패 시 샘플 반환
         return {
