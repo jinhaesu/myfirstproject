@@ -457,11 +457,15 @@ export default function CSPage() {
         await loadInquiries(1);
 
         if (source === 'sabangnet_api') {
-          showToast(`사방넷에서 ${created}건 수집 (총 ${totalFetched}건 조회)`);
+          if (created > 0) {
+            showToast(`신규 ${created}건 수집 완료 (사방넷 총 ${totalFetched}건)`);
+          } else {
+            showToast(`새로운 문의 없음 (사방넷 ${totalFetched}건 모두 수집 완료)`);
+          }
         } else if (created > 0) {
-          showToast(`${created}건 수집 완료 (샘플)`);
+          showToast(`${created}건 수집 완료`);
         } else {
-          showToast(data.message || '새로운 문의가 없습니다.');
+          showToast('새로운 문의가 없습니다.');
         }
       } else {
         const errMsg = data?.detail || data?.message || '수집 실패';
