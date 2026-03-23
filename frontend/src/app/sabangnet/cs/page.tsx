@@ -422,13 +422,42 @@ export default function CSPage() {
 
   const handleCollect = useCallback(async () => {
     setCollecting(true);
-    const result = await fetchMutate('/api/sabangnet/inquiries/collect', 'POST');
-    if (result.ok && result.data) {
-      const data = await fetchSafe<Inquiry[]>('/api/sabangnet/inquiries', []);
-      if (data.length > 0) setInquiries(data);
-      showToast('문의를 수집했습니다.');
-    } else {
-      showToast('문의 수집을 시뮬레이션했습니다.');
+    // 사방넷 API 호출은 시간이 걸리므로 타임아웃을 30초로 설정
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    try {
+      const res = await fetch(`${API_BASE}/api/sabangnet/inquiries/collect`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data) {
+        const created = data.items_created ?? 0;
+        const source = data.source ?? 'unknown';
+        const totalFetched = data.total_fetched ?? 0;
+
+        // 수집 후 목록 재조회
+        const raw = await fetchSafe<{ items: Inquiry[] } | Inquiry[]>('/api/sabangnet/inquiries', []);
+        const items = Array.isArray(raw) ? raw : (raw?.items || []);
+        if (items.length > 0) setInquiries(items);
+
+        if (source === 'sabangnet_api') {
+          showToast(`사방넷에서 ${created}건 수집 (총 ${totalFetched}건 조회)`);
+        } else if (created > 0) {
+          showToast(`${created}건 수집 완료 (샘플)`);
+        } else {
+          showToast(data.message || '새로운 문의가 없습니다.');
+        }
+      } else {
+        const errMsg = data?.detail || data?.message || '수집 실패';
+        showToast(`수집 실패: ${errMsg}`);
+      }
+    } catch (e) {
+      clearTimeout(timeoutId);
+      showToast('수집 요청 시간 초과 또는 네트워크 오류');
     }
     setCollecting(false);
   }, [showToast]);

@@ -545,9 +545,24 @@ async def collect_inquiries(db: Session = Depends(get_db)):
                     "source": "sabangnet_api",
                 }
             else:
-                logger.warning(f"사방넷 API 오류: {result.get('error')}")
+                error_msg = result.get("error", "알 수 없는 오류")
+                raw_resp = result.get("raw", "")
+                logger.warning(f"사방넷 API 오류: {error_msg}, raw: {raw_resp[:300]}")
+                return {
+                    "message": f"사방넷 API 오류: {error_msg}",
+                    "items_created": 0,
+                    "source": "sabangnet_api_error",
+                    "error_detail": str(error_msg),
+                    "raw_response": raw_resp[:300],
+                }
     except Exception as e:
-        logger.warning(f"사방넷 API 호출 실패, 샘플 데이터 사용: {e}")
+        logger.error(f"사방넷 API 호출 실패: {e}", exc_info=True)
+        return {
+            "message": f"사방넷 API 호출 실패: {str(e)}",
+            "items_created": 0,
+            "source": "api_exception",
+            "error_detail": str(e),
+        }
 
     # API 미설정 또는 API 오류 시 샘플 데이터 fallback
     mock_inquiries = [
