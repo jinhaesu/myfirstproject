@@ -491,6 +491,25 @@ async def debug_api_test():
         "has_auth_key": bool(api.auth_key),
     }
 
+    # Claude API 테스트
+    from app.config import get_settings as _gs
+    _s = _gs()
+    result["anthropic_key_set"] = bool(_s.ANTHROPIC_API_KEY)
+    result["anthropic_key_prefix"] = _s.ANTHROPIC_API_KEY[:10] + "..." if _s.ANTHROPIC_API_KEY else "EMPTY"
+
+    try:
+        async with httpx.AsyncClient() as _c:
+            _r = await _c.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": _s.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": "claude-sonnet-4-20250514", "max_tokens": 50, "messages": [{"role": "user", "content": "Say OK"}]},
+                timeout=10.0,
+            )
+            result["claude_test_status"] = _r.status_code
+            result["claude_test_response"] = _r.text[:200]
+    except Exception as e:
+        result["claude_test_error"] = str(e)
+
     if not api.is_available:
         result["error"] = "API 설정 불완전 (SABANGNET_LOGIN_ID, SABANGNET_ADMIN_NO, SABANGNET_API_KEY 필요)"
         return result
