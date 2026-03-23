@@ -13,6 +13,7 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import Response
+from fastapi.responses import Response as FastAPIResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, distinct
@@ -460,6 +461,19 @@ def delete_inquiry(inquiry_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/xml-host/{request_id}")
+def serve_xml(request_id: str):
+    """사방넷 API가 가져갈 XML 요청 파일 호스팅"""
+    from app.services.sabangnet_api import get_stored_xml
+    xml_content = get_stored_xml(request_id)
+    if not xml_content:
+        raise HTTPException(status_code=404, detail="XML not found or expired")
+    return FastAPIResponse(
+        content=xml_content.encode("euc-kr", errors="replace"),
+        media_type="application/xml; charset=euc-kr",
+    )
+
+
 @router.post("/inquiries/collect")
 async def collect_inquiries(db: Session = Depends(get_db)):
     """사방넷 API로 문의 수집.
@@ -473,46 +487,65 @@ async def collect_inquiries(db: Session = Depends(get_db)):
         api = get_sabangnet_api()
 
         if api.is_available:
-            result = await api.get_inquiries()
-            if not result.get("error"):
-                items = result.get("data", result.get("items", []))
+            result = await api.collect_inquiries()
+            if result.get("success"):
+                items = result.get("items", [])
                 created = 0
                 for item in items:
+                    # 사방넷 XML 필드명 → CsInquiry 매핑
+                    external_id = item.get("NUM", "")
+                    if not external_id:
+                        continue
                     existing = (
                         db.query(CsInquiry)
-                        .filter(CsInquiry.external_id == str(item.get("id", "")))
+                        .filter(CsInquiry.external_id == external_id)
                         .first()
                     )
                     if existing:
                         continue
+
+                    # 수집일자 파싱 (20190909164517 형식)
+                    inquiry_date = datetime.now()
+                    raw_date = item.get("INS_DM", item.get("REG_DM", ""))
+                    if raw_date and len(raw_date) >= 8:
+                        try:
+                            if len(raw_date) >= 14:
+                                inquiry_date = datetime.strptime(raw_date[:14], "%Y%m%d%H%M%S")
+                            else:
+                                inquiry_date = datetime.strptime(raw_date[:8], "%Y%m%d")
+                        except ValueError:
+                            pass
+
                     inquiry = CsInquiry(
-                        external_id=str(item.get("id", "")),
-                        mall_name=item.get("mall_name", item.get("shopping_mall", "")),
-                        board_type=item.get("board_type", item.get("inquiry_type", "")),
-                        customer_name=item.get("customer_name", item.get("buyer_name", "")),
-                        customer_id=item.get("customer_id", ""),
-                        product_name=item.get("product_name", ""),
-                        order_number=item.get("order_number", item.get("order_no", "")),
-                        title=item.get("title", item.get("subject", "")),
-                        content=item.get("content", item.get("message", "")),
-                        inquiry_date=(
-                            datetime.fromisoformat(item["inquiry_date"])
-                            if item.get("inquiry_date")
-                            else datetime.now()
+                        external_id=external_id,
+                        mall_name=item.get("MALL_ID", ""),
+                        board_type=item.get("CS_GUBUN", ""),
+                        customer_name=item.get("INS_NM", ""),
+                        customer_id=item.get("MALL_USER_ID", ""),
+                        product_name=item.get("PRODUCT_NM", ""),
+                        order_number=item.get("ORDER_ID", ""),
+                        title=item.get("SUBJECT", ""),
+                        content=item.get("CNTS", ""),
+                        inquiry_date=inquiry_date,
+                        status="new" if item.get("CS_STATUS") == "001" else (
+                            "ai_drafted" if item.get("CS_STATUS") == "002" else (
+                                "sent" if item.get("CS_STATUS") == "003" else "new"
+                            )
                         ),
-                        status="new",
                         priority="normal",
+                        category=item.get("CS_GUBUN", ""),
                     )
                     db.add(inquiry)
                     created += 1
                 db.commit()
                 return {
-                    "message": f"사방넷에서 {created}건 수집 완료",
+                    "message": f"사방넷에서 {created}건 수집 완료 (총 {len(items)}건 조회)",
                     "items_created": created,
+                    "total_fetched": len(items),
                     "source": "sabangnet_api",
                 }
             else:
-                logger.warning(f"사방넷 API 오류, 샘플 데이터 사용: {result.get('message')}")
+                logger.warning(f"사방넷 API 오류: {result.get('error')}")
     except Exception as e:
         logger.warning(f"사방넷 API 호출 실패, 샘플 데이터 사용: {e}")
 
@@ -697,8 +730,8 @@ def approve_inquiry(
 
 
 @router.post("/inquiries/{inquiry_id}/send")
-def send_response(inquiry_id: int, db: Session = Depends(get_db)):
-    """사방넷 API로 답변 발송 (placeholder)"""
+async def send_response(inquiry_id: int, db: Session = Depends(get_db)):
+    """사방넷 API로 답변 발송"""
     inquiry = db.query(CsInquiry).filter(CsInquiry.id == inquiry_id).first()
     if not inquiry:
         raise HTTPException(status_code=404, detail="문의사항을 찾을 수 없습니다")
@@ -709,11 +742,23 @@ def send_response(inquiry_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="발송할 답변이 없습니다")
 
     try:
-        # 실제 구현 시 사방넷 API 호출
-        logger.info(
-            f"사방넷 답변 발송 (placeholder): inquiry_id={inquiry_id}, "
-            f"external_id={inquiry.external_id}, mall={inquiry.mall_name}"
-        )
+        # 사방넷 API로 답변 실제 발송
+        from app.services.sabangnet_api import get_sabangnet_api
+        api = get_sabangnet_api()
+        if api.is_available and inquiry.external_id and inquiry.final_response:
+            send_result = await api.send_inquiry_response([{
+                "num": inquiry.external_id,
+                "content": inquiry.final_response,
+            }])
+            if send_result.get("success"):
+                logger.info(f"사방넷 답변 발송 성공: {inquiry.external_id}")
+            else:
+                logger.warning(f"사방넷 답변 발송 실패: {send_result}")
+        else:
+            logger.info(
+                f"사방넷 답변 발송 (API 미설정 또는 external_id 없음): inquiry_id={inquiry_id}, "
+                f"external_id={inquiry.external_id}, mall={inquiry.mall_name}"
+            )
 
         inquiry.status = "sent"
         inquiry.sent_at = datetime.utcnow()
@@ -724,7 +769,7 @@ def send_response(inquiry_id: int, db: Session = Depends(get_db)):
             "inquiry_id": inquiry_id,
             "status": "sent",
             "sent_at": inquiry.sent_at.isoformat() if inquiry.sent_at else None,
-            "message": "답변 발송 완료 (placeholder)",
+            "message": "답변 발송 완료",
         }
     except HTTPException:
         raise

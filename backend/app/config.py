@@ -49,9 +49,12 @@ class Settings(BaseSettings):
     RESEND_FROM_EMAIL: str = "noreply@yourdomain.com"
     OTP_EXPIRATION_MINUTES: int = 5
 
-    # 사방넷 API
-    SABANGNET_API_KEY: str = ""
-    SABANGNET_API_URL: str = ""
+    # 사방넷 API (쇼핑몰 통합관리)
+    SABANGNET_API_KEY: str = ""        # 인증키 (SEND_AUTH_KEY)
+    SABANGNET_API_URL: str = ""        # 미사용 (하위호환)
+    SABANGNET_LOGIN_ID: str = ""       # 로그인 아이디 (SEND_COMPAYNY_ID)
+    SABANGNET_ADMIN_NO: str = ""       # 관리자 번호 (sbadminXX의 XX)
+    BACKEND_PUBLIC_URL: str = ""       # 백엔드 공개 URL (Railway 배포 URL)
 
     # Vapi (AI 전화 응대)
     VAPI_API_KEY: str = ""
