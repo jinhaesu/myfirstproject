@@ -1,19 +1,17 @@
-"""사방넷 API 연동 서비스
+"""사방넷 쇼핑몰 통합관리 API 서비스
 
-사방넷 API 인증 방식:
-- api-access-key와 api-secret-key를 사용하여 HMAC-SHA256 signature 생성
-- Authorization 헤더: LIVE-HMAC-SHA256 {signature}
-- 실제 API URL과 키는 환경변수에서 가져옴
+사방넷 API는 XML 기반으로 동작합니다:
+1. XML 요청 파일을 웹 서버에 호스팅
+2. 사방넷 URL에 xml_url 파라미터로 호스팅 URL 전달
+3. 사방넷이 XML을 가져가서 처리 후 XML 응답 반환
 
-참고: 사방넷의 정확한 API 스펙은 https://www.sbfulfillment.co.kr/developers/ver2 참조
-현재는 일반적인 사방넷 API 패턴을 기반으로 구현하되,
-실제 연동 시 사방넷 개발가이드 확인 후 조정이 필요할 수 있음
+Base URL: https://sbadmin{N}.sabangnet.co.kr/RTL_API/
 """
-import hmac
-import hashlib
-import time
 import logging
-from typing import Optional
+import uuid
+import xml.etree.ElementTree as ET
+from datetime import datetime
+from typing import Optional, List, Dict, Any
 
 import httpx
 
@@ -21,157 +19,291 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+# 임시 XML 저장소 (메모리 기반, TTL 관리는 별도)
+_xml_store: Dict[str, str] = {}
+
+
+def store_xml(xml_content: str) -> str:
+    """XML을 임시 저장하고 고유 ID 반환"""
+    request_id = str(uuid.uuid4())
+    _xml_store[request_id] = xml_content
+    # 저장소가 100개 이상이면 오래된 것 정리
+    if len(_xml_store) > 100:
+        keys = list(_xml_store.keys())
+        for k in keys[:50]:
+            _xml_store.pop(k, None)
+    return request_id
+
+
+def get_stored_xml(request_id: str) -> Optional[str]:
+    """저장된 XML 조회 후 삭제 (일회성)"""
+    return _xml_store.pop(request_id, None)
+
 
 class SabangnetAPI:
-    """사방넷 API 클라이언트"""
+    """사방넷 쇼핑몰 통합관리 XML API 클라이언트"""
 
     def __init__(self):
         settings = get_settings()
-        self.api_key = settings.SABANGNET_API_KEY
-        self.api_url = settings.SABANGNET_API_URL
-        self._available = bool(self.api_key and self.api_url)
+        self.auth_key = settings.SABANGNET_API_KEY
+        self.login_id = settings.SABANGNET_LOGIN_ID
+        self.admin_no = settings.SABANGNET_ADMIN_NO
+        self.backend_url = settings.BACKEND_PUBLIC_URL.rstrip("/") if settings.BACKEND_PUBLIC_URL else ""
+
+        self._available = bool(self.auth_key and self.login_id and self.admin_no)
+
+        if self._available:
+            self.base_url = f"https://sbadmin{self.admin_no}.sabangnet.co.kr/RTL_API"
+        else:
+            self.base_url = ""
 
     @property
     def is_available(self) -> bool:
         return self._available
 
-    def _generate_signature(self, timestamp: str) -> str:
-        """HMAC-SHA256 서명 생성"""
-        message = f"{self.api_key}{timestamp}"
-        signature = hmac.new(
-            self.api_key.encode("utf-8"),
-            message.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-        return signature
+    @property
+    def has_backend_url(self) -> bool:
+        return bool(self.backend_url)
 
-    def _get_headers(self) -> dict:
-        """인증 헤더 생성"""
-        timestamp = str(int(time.time() * 1000))
-        signature = self._generate_signature(timestamp)
-        return {
-            "Content-Type": "application/json",
-            "Authorization": f"LIVE-HMAC-SHA256 {signature}",
-            "x-api-key": self.api_key,
-            "x-api-timestamp": timestamp,
-        }
+    def _build_header_xml(self, extra_header: dict = None) -> str:
+        """공통 XML 헤더 생성"""
+        today = datetime.now().strftime("%Y%m%d")
+        header = f"""    <HEADER>
+        <SEND_COMPAYNY_ID>{self.login_id}</SEND_COMPAYNY_ID>
+        <SEND_AUTH_KEY>{self.auth_key}</SEND_AUTH_KEY>
+        <SEND_DATE>{today}</SEND_DATE>"""
+        if extra_header:
+            for key, val in extra_header.items():
+                header += f"\n        <{key}>{val}</{key}>"
+        header += "\n    </HEADER>"
+        return header
 
-    async def _request(self, method: str, endpoint: str, data: dict = None) -> dict:
-        """공통 API 요청"""
+    def _parse_xml_response(self, xml_text: str) -> List[Dict[str, str]]:
+        """XML 응답을 파싱하여 DATA 목록 반환"""
+        items = []
+        try:
+            # EUC-KR 인코딩 처리
+            if xml_text.strip().startswith("<?xml"):
+                # encoding 선언이 있으면 바이트로 변환 후 파싱
+                try:
+                    root = ET.fromstring(xml_text.encode("utf-8"))
+                except ET.ParseError:
+                    # EUC-KR로 인코딩된 경우
+                    xml_text_clean = xml_text.replace('encoding="euc-kr"', 'encoding="utf-8"')
+                    xml_text_clean = xml_text_clean.replace("encoding='euc-kr'", "encoding='utf-8'")
+                    root = ET.fromstring(xml_text_clean.encode("utf-8"))
+            else:
+                root = ET.fromstring(xml_text)
+
+            for data_elem in root.findall("DATA"):
+                item = {}
+                for child in data_elem:
+                    item[child.tag] = (child.text or "").strip()
+                if item:
+                    items.append(item)
+
+        except ET.ParseError as e:
+            logger.error(f"사방넷 XML 파싱 실패: {e}")
+            logger.debug(f"XML 내용: {xml_text[:500]}")
+        except Exception as e:
+            logger.error(f"사방넷 응답 처리 실패: {e}")
+
+        return items
+
+    def _parse_text_response(self, text: str) -> Dict[str, Any]:
+        """텍스트 형태 응답 파싱 (답변 송신 결과 등)"""
+        lines = text.strip().split("\n")
+        results = []
+        total = 0
+        for line in lines:
+            line = line.strip()
+            if line.startswith("총건수"):
+                try:
+                    total = int(line.split(":")[1].strip())
+                except (IndexError, ValueError):
+                    pass
+            elif line.startswith("["):
+                success = "성공" in line
+                results.append({"line": line, "success": success})
+        return {"total": total, "results": results}
+
+    async def _call_api(self, endpoint: str, xml_content: str) -> str:
+        """사방넷 API 호출 (xml_url 방식 또는 직접 POST)"""
         if not self._available:
             raise ValueError("사방넷 API가 설정되지 않았습니다")
 
-        url = f"{self.api_url.rstrip('/')}/{endpoint.lstrip('/')}"
-        headers = self._get_headers()
+        # 방법 1: BACKEND_PUBLIC_URL이 있으면 xml_url 방식
+        if self.has_backend_url:
+            request_id = store_xml(xml_content)
+            xml_url = f"{self.backend_url}/api/sabangnet/xml-host/{request_id}"
+            api_url = f"{self.base_url}/{endpoint}?xml_url={xml_url}"
+
+            logger.info(f"사방넷 API 호출 (xml_url): {api_url}")
+
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(api_url, timeout=30.0, follow_redirects=True)
+                return resp.text
+
+        # 방법 2: 직접 POST (fallback)
+        else:
+            api_url = f"{self.base_url}/{endpoint}"
+            logger.info(f"사방넷 API 호출 (직접POST): {api_url}")
+
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    api_url,
+                    content=xml_content.encode("euc-kr"),
+                    headers={"Content-Type": "application/xml; charset=euc-kr"},
+                    timeout=30.0,
+                    follow_redirects=True,
+                )
+                return resp.text
+
+    # ── 문의사항 수집 ──
+
+    async def collect_inquiries(self, start_date: str = None, end_date: str = None,
+                                 status: str = None) -> Dict[str, Any]:
+        """사방넷에 수집된 문의사항 가져오기
+
+        Args:
+            start_date: 검색 시작일 YYYYMMDD (기본: 30일 전)
+            end_date: 검색 종료일 YYYYMMDD (기본: 오늘)
+            status: 001=신규접수, 002=답변저장, 003=답변전송, 004=강제완료, None=전체
+        """
+        if not start_date:
+            from datetime import timedelta
+            start_date = (datetime.now() - timedelta(days=30)).strftime("%Y%m%d")
+        if not end_date:
+            end_date = datetime.now().strftime("%Y%m%d")
+
+        data_section = f"""    <DATA>
+        <CS_ST_DATE>{start_date}</CS_ST_DATE>
+        <CS_ED_DATE>{end_date}</CS_ED_DATE>"""
+        if status:
+            data_section += f"\n        <CS_STATUS>{status}</CS_STATUS>"
+        data_section += "\n    </DATA>"
+
+        xml_content = f"""<?xml version="1.0" encoding="EUC-KR"?>
+<SABANG_CS_LIST>
+{self._build_header_xml()}
+{data_section}
+</SABANG_CS_LIST>"""
 
         try:
-            async with httpx.AsyncClient() as client:
-                if method == "GET":
-                    resp = await client.get(url, headers=headers, params=data, timeout=15.0)
-                elif method == "POST":
-                    resp = await client.post(url, headers=headers, json=data, timeout=15.0)
-                elif method == "PUT":
-                    resp = await client.put(url, headers=headers, json=data, timeout=15.0)
-                else:
-                    raise ValueError(f"Unsupported method: {method}")
-
-                if resp.status_code == 200:
-                    return resp.json()
-                else:
-                    logger.error(f"사방넷 API 오류: {resp.status_code} - {resp.text[:500]}")
-                    return {
-                        "error": True,
-                        "status_code": resp.status_code,
-                        "message": resp.text[:500],
-                    }
-        except httpx.TimeoutException:
-            logger.error(f"사방넷 API 타임아웃: {url}")
-            return {"error": True, "message": "API 요청 시간 초과"}
+            response_text = await self._call_api("xml_cs_info.html", xml_content)
+            items = self._parse_xml_response(response_text)
+            logger.info(f"사방넷 문의사항 수집 완료: {len(items)}건")
+            return {"success": True, "items": items, "raw": response_text[:1000]}
         except Exception as e:
-            logger.error(f"사방넷 API 호출 실패: {e}")
-            return {"error": True, "message": str(e)}
+            logger.error(f"사방넷 문의사항 수집 실패: {e}")
+            return {"success": False, "error": str(e), "items": []}
 
-    # ── 상품 관련 ──
+    # ── 문의사항 답변 ──
 
-    async def get_products(self, page: int = 1, limit: int = 100) -> dict:
-        """사방넷 등록 상품 목록 조회"""
-        return await self._request("GET", "/api/v2/products", {
-            "page": page,
-            "limit": limit,
-        })
+    async def send_inquiry_response(self, responses: List[Dict[str, str]]) -> Dict[str, Any]:
+        """문의사항 답변 송신
 
-    async def get_product(self, product_code: str) -> dict:
-        """상품 상세 조회"""
-        return await self._request("GET", f"/api/v2/products/{product_code}")
+        Args:
+            responses: [{"num": "사방넷일련번호", "content": "답변내용"}, ...]
+        """
+        data_sections = ""
+        for r in responses:
+            data_sections += f"""    <DATA>
+        <NUM><![CDATA[{r['num']}]]></NUM>
+        <CS_RE_CONTENT><![CDATA[{r['content']}]]></CS_RE_CONTENT>
+    </DATA>
+"""
 
-    async def create_product(self, product_data: dict) -> dict:
-        """상품 등록"""
-        return await self._request("POST", "/api/v2/products", product_data)
+        xml_content = f"""<?xml version="1.0" encoding="EUC-KR"?>
+<SABANG_CS_ANS_REGI>
+{self._build_header_xml()}
+{data_sections}</SABANG_CS_ANS_REGI>"""
 
-    async def update_product(self, product_code: str, product_data: dict) -> dict:
-        """상품 수정"""
-        return await self._request("PUT", f"/api/v2/products/{product_code}", product_data)
+        try:
+            response_text = await self._call_api("xml_cs_ans.html", xml_content)
+            result = self._parse_text_response(response_text)
+            return {"success": True, **result, "raw": response_text[:1000]}
+        except Exception as e:
+            logger.error(f"사방넷 답변 송신 실패: {e}")
+            return {"success": False, "error": str(e)}
 
-    # ── 주문 관련 ──
+    # ── 클레임 수집 ──
 
-    async def get_orders(
-        self,
-        status: Optional[str] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-        page: int = 1,
-    ) -> dict:
-        """주문 목록 조회"""
-        params: dict = {"page": page}
-        if status:
-            params["status"] = status
-        if date_from:
-            params["date_from"] = date_from
-        if date_to:
-            params["date_to"] = date_to
-        return await self._request("GET", "/api/v2/orders", params)
+    async def collect_claims(self, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
+        """클레임 데이터 수집
 
-    async def get_order_by_phone(self, phone_number: str) -> dict:
-        """전화번호로 주문 조회 (음성 CS에서 사용)"""
-        # 전화번호 포맷 정리 (하이픈/공백 제거)
-        clean_phone = phone_number.replace("-", "").replace(" ", "")
-        return await self._request("GET", "/api/v2/orders", {
-            "buyer_phone": clean_phone,
-            "sort": "order_date_desc",
-            "limit": 5,
-        })
+        Args:
+            start_date: 검색 시작일 YYYYMMDD
+            end_date: 검색 종료일 YYYYMMDD
+        """
+        if not start_date:
+            from datetime import timedelta
+            start_date = (datetime.now() - timedelta(days=30)).strftime("%Y%m%d")
+        if not end_date:
+            end_date = datetime.now().strftime("%Y%m%d")
 
-    # ── 문의사항 관련 ──
+        fields = "IDX|ORDER_ID|MALL_ID|MALL_USER_ID|ORDER_STATUS|USER_NAME|USER_CEL|PRODUCT_NAME|SALE_CNT|ORDER_DATE|CLAME_STATUS_GUBUN|CLAME_CONTENT|CLAME_INS_DATE|CLAME_REG_DATE|CL_IDX|COMPAYNY_GOODS_CD"
 
-    async def get_inquiries(self, status: Optional[str] = None, page: int = 1) -> dict:
-        """문의사항 목록 조회 (게시판 CS)"""
-        params: dict = {"page": page}
-        if status:
-            params["status"] = status
-        return await self._request("GET", "/api/v2/inquiries", params)
+        xml_content = f"""<?xml version="1.0" encoding="EUC-KR"?>
+<SABANG_ORDER_LIST>
+{self._build_header_xml()}
+    <DATA>
+        <CLM_ST_DATE>{start_date}</CLM_ST_DATE>
+        <CLM_ED_DATE>{end_date}</CLM_ED_DATE>
+        <CLM_FIELD><![CDATA[{fields}]]></CLM_FIELD>
+        <LANG>UTF-8</LANG>
+    </DATA>
+</SABANG_ORDER_LIST>"""
 
-    async def send_inquiry_response(self, inquiry_id: str, response_text: str) -> dict:
-        """문의사항 답변 송신"""
-        return await self._request(
-            "POST",
-            f"/api/v2/inquiries/{inquiry_id}/response",
-            {"response": response_text},
-        )
+        try:
+            response_text = await self._call_api("xml_clm_info.html", xml_content)
+            items = self._parse_xml_response(response_text)
+            logger.info(f"사방넷 클레임 수집 완료: {len(items)}건")
+            return {"success": True, "items": items, "raw": response_text[:1000]}
+        except Exception as e:
+            logger.error(f"사방넷 클레임 수집 실패: {e}")
+            return {"success": False, "error": str(e), "items": []}
 
-    # ── 매핑 관련 ──
+    # ── 상품 쇼핑몰별 수정 ──
 
-    async def get_unmapped_products(self) -> dict:
-        """매핑되지 않은 쇼핑몰 상품 조회"""
-        return await self._request("GET", "/api/v2/products/unmapped")
+    async def update_mall_product(self, updates: List[Dict[str, str]]) -> Dict[str, Any]:
+        """상품 쇼핑몰별 데이터 수정
 
-    async def set_product_mapping(
-        self, mall_product_code: str, sabangnet_product_code: str
-    ) -> dict:
-        """상품 매핑 설정"""
-        return await self._request("POST", "/api/v2/products/mapping", {
-            "mall_product_code": mall_product_code,
-            "sabangnet_product_code": sabangnet_product_code,
-        })
+        Args:
+            updates: [{"mall_code": "shop0121", "product_code": "ABC123", "price": "10000", ...}, ...]
+        """
+        data_sections = ""
+        for u in updates:
+            data_sections += "    <DATA>\n"
+            data_sections += f"        <MALL_CODE>{u.get('mall_code', '')}</MALL_CODE>\n"
+            data_sections += f"        <COMPAYNY_GOODS_CD><![CDATA[{u.get('product_code', '')}]]></COMPAYNY_GOODS_CD>\n"
+            if u.get("price"):
+                data_sections += f"        <MALL_GOODS_PRICE>{u['price']}</MALL_GOODS_PRICE>\n"
+            if u.get("product_name"):
+                data_sections += f"        <MALL_PROD_NAME>{u['product_name']}</MALL_PROD_NAME>\n"
+            if u.get("description"):
+                data_sections += f"        <MALL_PROD_DESC><![CDATA[{u['description']}]]></MALL_PROD_DESC>\n"
+            if u.get("stock_rate"):
+                data_sections += f"        <MALL_STOCK_RATE>{u['stock_rate']}</MALL_STOCK_RATE>\n"
+            data_sections += "    </DATA>\n"
+
+        xml_content = f"""<?xml version="1.0" encoding="EUC-KR"?>
+<SABANG_GOODS_REGI>
+{self._build_header_xml({"SEND_GOODS_CD_RT": "Y", "RESULT_TYPE": "XML"})}
+{data_sections}</SABANG_GOODS_REGI>"""
+
+        try:
+            response_text = await self._call_api("xml_goods_info3.html", xml_content)
+            # XML 응답 또는 텍스트 응답 파싱
+            if "<" in response_text and ">" in response_text:
+                items = self._parse_xml_response(response_text)
+                return {"success": True, "items": items, "raw": response_text[:1000]}
+            else:
+                result = self._parse_text_response(response_text)
+                return {"success": True, **result, "raw": response_text[:1000]}
+        except Exception as e:
+            logger.error(f"사방넷 상품 수정 실패: {e}")
+            return {"success": False, "error": str(e)}
 
 
 def get_sabangnet_api() -> SabangnetAPI:
