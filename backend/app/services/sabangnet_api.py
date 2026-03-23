@@ -82,18 +82,13 @@ class SabangnetAPI:
         """XML 응답을 파싱하여 DATA 목록 반환"""
         items = []
         try:
-            # EUC-KR 인코딩 처리
-            if xml_text.strip().startswith("<?xml"):
-                # encoding 선언이 있으면 바이트로 변환 후 파싱
-                try:
-                    root = ET.fromstring(xml_text.encode("utf-8"))
-                except ET.ParseError:
-                    # EUC-KR로 인코딩된 경우
-                    xml_text_clean = xml_text.replace('encoding="euc-kr"', 'encoding="utf-8"')
-                    xml_text_clean = xml_text_clean.replace("encoding='euc-kr'", "encoding='utf-8'")
-                    root = ET.fromstring(xml_text_clean.encode("utf-8"))
-            else:
-                root = ET.fromstring(xml_text)
+            # encoding="euc-kr" 선언을 제거 (이미 Python str로 디코딩된 상태)
+            clean = xml_text
+            clean = clean.replace('encoding="euc-kr"', 'encoding="utf-8"')
+            clean = clean.replace("encoding='euc-kr'", "encoding='utf-8'")
+            clean = clean.replace('encoding="EUC-KR"', 'encoding="utf-8"')
+
+            root = ET.fromstring(clean.encode("utf-8"))
 
             for data_elem in root.findall("DATA"):
                 item = {}
@@ -104,7 +99,22 @@ class SabangnetAPI:
 
         except ET.ParseError as e:
             logger.error(f"사방넷 XML 파싱 실패: {e}")
-            logger.debug(f"XML 내용: {xml_text[:500]}")
+            logger.error(f"XML 앞부분: {xml_text[:300]}")
+            # fallback: 정규식으로 DATA 추출 시도
+            try:
+                import re
+                data_blocks = re.findall(r'<DATA>(.*?)</DATA>', xml_text, re.DOTALL)
+                for block in data_blocks:
+                    item = {}
+                    tags = re.findall(r'<(\w+)>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</\1>', block)
+                    for tag_name, tag_value in tags:
+                        item[tag_name] = tag_value.strip()
+                    if item:
+                        items.append(item)
+                if items:
+                    logger.info(f"정규식 fallback으로 {len(items)}건 파싱 성공")
+            except Exception as e2:
+                logger.error(f"정규식 fallback도 실패: {e2}")
         except Exception as e:
             logger.error(f"사방넷 응답 처리 실패: {e}")
 
@@ -152,7 +162,11 @@ class SabangnetAPI:
                     timeout=30.0,
                     follow_redirects=True,
                 )
-                text = resp.text
+                # EUC-KR 응답을 제대로 디코딩
+                try:
+                    text = resp.content.decode("euc-kr", errors="replace")
+                except Exception:
+                    text = resp.text
                 # JSON 에러 응답이 아니고, 유효한 XML이면 성공
                 if text.strip().startswith("<?xml") or "<DATA>" in text or "총건수" in text:
                     logger.info(f"사방넷 POST 성공: {len(text)}bytes")
