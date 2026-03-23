@@ -279,6 +279,8 @@ export default function CSPage() {
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
   const [bulkAiAllRunning, setBulkAiAllRunning] = useState(false);
+  const [bulkRegenRunning, setBulkRegenRunning] = useState(false);
+  const [totalStats, setTotalStats] = useState<{total: number; new: number; ai_drafted: number; template_responses: number; real_ai_responses: number; approved: number; sent: number} | null>(null);
 
   // ── Reference Data State ──
   const [referenceData, setReferenceData] = useState<ReferenceData[]>(sampleReferenceData);
@@ -332,6 +334,10 @@ export default function CSPage() {
   useEffect(() => {
     if (!user) return;
     loadInquiries(1);
+    (async () => {
+      const stats = await fetchSafe<any>('/api/sabangnet/inquiries/total-stats', null);
+      if (stats) setTotalStats(stats);
+    })();
     (async () => {
       const raw = await fetchSafe<{ items: ReferenceData[] } | ReferenceData[]>('/api/sabangnet/reference-data', []);
       const data = Array.isArray(raw) ? raw : (raw?.items || []);
@@ -513,6 +519,45 @@ export default function CSPage() {
     setBulkAiAllRunning(false);
     showToast(`전체 AI 답변 생성 완료: ${totalGenerated}건`);
     loadInquiries(currentPage);
+    // stats 재조회
+    const stats = await fetchSafe<any>('/api/sabangnet/inquiries/total-stats', null);
+    if (stats) setTotalStats(stats);
+  }, [showToast, loadInquiries, currentPage]);
+
+  const handleBulkRegenerate = useCallback(async () => {
+    setBulkRegenRunning(true);
+    let totalGenerated = 0;
+    let remaining = 1;
+
+    while (remaining > 0) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
+        const res = await fetch(`${API_BASE}/api/sabangnet/inquiries/bulk-regenerate?page_size=30`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        const data = await res.json().catch(() => null);
+        if (data) {
+          totalGenerated += data.generated || 0;
+          remaining = data.remaining || 0;
+          showToast(`AI 재생성 중... ${totalGenerated}건 완료 (남은 템플릿: ${remaining}건)`);
+        } else break;
+        if ((data.generated || 0) === 0) break;
+      } catch {
+        showToast('AI 재생성 중 오류 발생');
+        break;
+      }
+    }
+
+    setBulkRegenRunning(false);
+    showToast(`AI 답변 재생성 완료: ${totalGenerated}건`);
+    loadInquiries(currentPage);
+    // stats 재조회
+    const stats = await fetchSafe<any>('/api/sabangnet/inquiries/total-stats', null);
+    if (stats) setTotalStats(stats);
   }, [showToast, loadInquiries, currentPage]);
 
   const handleDelete = useCallback(async (id: number) => {
@@ -881,13 +926,16 @@ export default function CSPage() {
           <div className="flex items-center gap-3 flex-wrap">
             {/* Stats badges */}
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
-              미답변 <span className="font-bold text-gray-900">{fmt(stats.unanswered)}건</span>
+              총 <span className="font-bold text-gray-900">{fmt(totalStats?.total || 0)}건</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+              미답변 <span className="font-bold text-gray-900">{fmt(totalStats?.new || 0)}건</span>
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-              AI 초안 <span className="font-bold text-blue-900">{fmt(stats.ai_drafted)}건</span>
+              AI 답변 <span className="font-bold text-blue-900">{fmt(totalStats?.real_ai_responses || 0)}건</span>
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-              승인대기 <span className="font-bold text-emerald-900">{fmt(stats.pending_approval)}건</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+              템플릿 <span className="font-bold text-red-900">{fmt(totalStats?.template_responses || 0)}건</span>
             </span>
 
             {/* Collect button */}
@@ -905,7 +953,7 @@ export default function CSPage() {
             </button>
 
             {/* Bulk AI Generate button */}
-            {stats.unanswered > 0 && (
+            {(totalStats?.new || 0) > 0 && (
               <button
                 onClick={handleBulkAiAll}
                 disabled={bulkAiAllRunning}
@@ -919,7 +967,28 @@ export default function CSPage() {
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                    전체 AI 답변 생성 ({fmt(stats.unanswered)}건)
+                    전체 AI 답변 생성 ({fmt(totalStats?.new || 0)}건)
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Bulk Regenerate button */}
+            {(totalStats?.template_responses || 0) > 0 && (
+              <button
+                onClick={handleBulkRegenerate}
+                disabled={bulkRegenRunning}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
+              >
+                {bulkRegenRunning ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    재생성 중...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    템플릿 답변 재생성 ({fmt(totalStats?.template_responses || 0)}건)
                   </>
                 )}
               </button>
@@ -1177,6 +1246,26 @@ export default function CSPage() {
                             {inquiry.product_name && <> | 상품: {inquiry.product_name}</>}
                             {inquiry.order_number && <> | 주문: {inquiry.order_number}</>}
                           </p>
+
+                          {/* Auto-detected actions */}
+                          {(inquiry as any).auto_action?.actions?.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-2">
+                              {(inquiry as any).auto_action.actions.map((action: any, idx: number) => (
+                                <span key={idx} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                  action.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
+                                  action.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                  'bg-gray-100 text-gray-600 border border-gray-200'
+                                }`}>
+                                  {action.type === 'refund' && '💰'}
+                                  {action.type === 'exchange' && '🔄'}
+                                  {action.type === 'damage' && '📦'}
+                                  {action.type === 'delivery' && '🚚'}
+                                  {action.type === 'restock' && '📋'}
+                                  {action.label}
+                                </span>
+                              ))}
+                            </div>
+                          )}
 
                           {/* Action row */}
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
