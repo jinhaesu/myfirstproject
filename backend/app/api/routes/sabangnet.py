@@ -208,26 +208,29 @@ async def generate_ai_response(inquiry: CsInquiry, reference_data_list: list) ->
         ref_parts.append(part)
     ref_context = "\n\n".join(ref_parts)
 
-    prompt = f"""당신은 쇼핑몰 고객 문의에 답변하는 CS 담당자입니다.
-아래 고객 문의에 대해 정중하고 친절한 답변을 작성해주세요.
+    prompt = f"""당신은 '{inquiry.mall_name}' 쇼핑몰의 널담(Nuldam) 브랜드 CS 담당자입니다.
+고객 문의에 대해 전문적이고 친절한 답변을 작성해주세요.
 
 ## 참고 자료
-{ref_context}
+{ref_context if ref_context else '(등록된 참고 자료 없음)'}
 
 ## 고객 문의 정보
 - 쇼핑몰: {inquiry.mall_name}
 - 문의 유형: {inquiry.board_type or '일반문의'}
+- 문의 구분: {inquiry.category or '미분류'}
 - 상품명: {inquiry.product_name or '미지정'}
 - 주문번호: {inquiry.order_number or '미지정'}
+- 고객명: {inquiry.customer_name or '미지정'}
 - 제목: {inquiry.title or ''}
 - 내용: {inquiry.content}
 
 ## 답변 작성 지침
-1. 고객의 문의 내용을 정확히 이해하고 답변
-2. 참고 자료에 해당하는 정보가 있으면 활용
-3. 정중하고 친절한 톤 유지
-4. 구체적인 해결 방안 제시
-5. 필요시 추가 안내 사항 포함
+1. 고객의 문의 내용을 정확히 파악하고 구체적으로 답변하세요
+2. 참고 자료에 해당 정보가 있으면 적극 활용하세요
+3. 교환/반품/환불 요청 시 구체적인 절차를 안내하세요
+4. '{inquiry.mall_name} 널담 고객센터' 명의로 작성하세요
+5. 문의 내용에 맞는 구체적인 해결 방안을 제시하세요
+6. 일반적인 템플릿이 아닌, 이 고객의 상황에 맞춘 답변을 작성하세요
 
 답변:"""
 
@@ -310,6 +313,38 @@ def get_inquiry_stats(db: Session = Depends(get_db)):
         }
     except Exception as e:
         logger.error(f"문의 통계 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/inquiries/total-stats")
+def get_total_stats(db: Session = Depends(get_db)):
+    """전체 문의 통계 (DB 전체 기준, 페이지네이션 무관)"""
+    try:
+        total = db.query(func.count(CsInquiry.id)).scalar() or 0
+        new_count = db.query(func.count(CsInquiry.id)).filter(CsInquiry.status == "new").scalar() or 0
+        ai_drafted = db.query(func.count(CsInquiry.id)).filter(CsInquiry.status == "ai_drafted").scalar() or 0
+        approved = db.query(func.count(CsInquiry.id)).filter(CsInquiry.status == "approved").scalar() or 0
+        sent = db.query(func.count(CsInquiry.id)).filter(CsInquiry.status == "sent").scalar() or 0
+
+        # 템플릿 답변 수 (재생성 필요)
+        template_pattern = "%확인 후 빠르게 처리해 드리겠습니다%"
+        template_count = (
+            db.query(func.count(CsInquiry.id))
+            .filter(CsInquiry.status == "ai_drafted", CsInquiry.ai_response.ilike(template_pattern))
+            .scalar() or 0
+        )
+
+        return {
+            "total": total,
+            "new": new_count,
+            "ai_drafted": ai_drafted,
+            "template_responses": template_count,
+            "real_ai_responses": ai_drafted - template_count,
+            "approved": approved,
+            "sent": sent,
+        }
+    except Exception as e:
+        logger.error(f"전체 통계 조회 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -801,6 +836,69 @@ async def bulk_generate_all_new(
         "remaining": max(0, remaining),
         "total_new": total_new,
         "message": f"{generated}건 AI 답변 생성 완료 (남은 신규: {max(0, remaining)}건)",
+    }
+
+
+@router.post("/inquiries/bulk-regenerate")
+async def bulk_regenerate(
+    page_size: int = Query(default=30, description="한 번에 처리할 건수"),
+    db: Session = Depends(get_db),
+):
+    """템플릿 답변(ai_drafted)을 Claude AI로 재생성.
+    '확인 후 빠르게 처리해 드리겠습니다' 같은 템플릿 패턴을 감지하여 재생성.
+    """
+    ref_data = (
+        db.query(CsReferenceData)
+        .filter(CsReferenceData.is_active == True)
+        .all()
+    )
+
+    # 템플릿 패턴 감지: "확인 후 빠르게 처리해 드리겠습니다" 포함된 답변
+    template_pattern = "%확인 후 빠르게 처리해 드리겠습니다%"
+    template_inquiries = (
+        db.query(CsInquiry)
+        .filter(
+            CsInquiry.status == "ai_drafted",
+            CsInquiry.ai_response.ilike(template_pattern),
+        )
+        .order_by(CsInquiry.inquiry_date.desc())
+        .limit(page_size)
+        .all()
+    )
+
+    total_template = (
+        db.query(func.count(CsInquiry.id))
+        .filter(
+            CsInquiry.status == "ai_drafted",
+            CsInquiry.ai_response.ilike(template_pattern),
+        )
+        .scalar() or 0
+    )
+
+    generated = 0
+    failed = 0
+
+    for inquiry in template_inquiries:
+        try:
+            ai_text = await generate_ai_response(inquiry, ref_data)
+            # 여전히 템플릿이면 스킵 (API 실패)
+            if "확인 후 빠르게 처리해 드리겠습니다" in ai_text:
+                failed += 1
+                continue
+            inquiry.ai_response = ai_text
+            generated += 1
+        except Exception as e:
+            logger.error(f"AI 재생성 실패 (id={inquiry.id}): {e}")
+            failed += 1
+
+    db.commit()
+    remaining = total_template - generated
+    return {
+        "generated": generated,
+        "failed": failed,
+        "remaining": max(0, remaining),
+        "total_template": total_template,
+        "message": f"{generated}건 AI 재생성 완료 (남은 템플릿: {max(0, remaining)}건)",
     }
 
 
@@ -1302,29 +1400,53 @@ def update_config(data: ConfigUpdate, db: Session = Depends(get_db)):
 # 헬퍼 함수
 # ──────────────────────────────────────────────
 
-def _inquiry_to_dict(inquiry: CsInquiry) -> dict:
+def _detect_action(inq: CsInquiry) -> dict:
+    """문의 내용에서 필요한 액션을 자동 감지"""
+    content = (inq.content or "").lower() + " " + (inq.title or "").lower() + " " + (inq.board_type or "").lower()
+
+    actions = []
+    if any(w in content for w in ["환불", "취소", "캔슬"]):
+        actions.append({"type": "refund", "label": "환불 처리", "priority": "high"})
+    if any(w in content for w in ["교환", "반품", "수거"]):
+        actions.append({"type": "exchange", "label": "교환/반품 처리", "priority": "high"})
+    if any(w in content for w in ["파손", "깨짐", "훼손", "불량"]):
+        actions.append({"type": "damage", "label": "파손 보상", "priority": "high"})
+    if any(w in content for w in ["배송", "지연", "안왔", "안 왔", "늦"]):
+        actions.append({"type": "delivery", "label": "배송 확인", "priority": "medium"})
+    if any(w in content for w in ["재입고", "품절", "재고"]):
+        actions.append({"type": "restock", "label": "재입고 안내", "priority": "low"})
+
+    return {
+        "actions": actions,
+        "has_order": bool(inq.order_number),
+        "order_number": inq.order_number or None,
+    }
+
+
+def _inquiry_to_dict(inq: CsInquiry) -> dict:
     """CsInquiry ORM 객체를 dict로 변환"""
     return {
-        "id": inquiry.id,
-        "external_id": inquiry.external_id,
-        "mall_name": inquiry.mall_name,
-        "board_type": inquiry.board_type,
-        "customer_name": inquiry.customer_name,
-        "customer_id": inquiry.customer_id,
-        "product_name": inquiry.product_name,
-        "order_number": inquiry.order_number,
-        "title": inquiry.title,
-        "content": inquiry.content,
-        "inquiry_date": inquiry.inquiry_date.isoformat() if inquiry.inquiry_date else None,
-        "status": inquiry.status,
-        "ai_response": inquiry.ai_response,
-        "final_response": inquiry.final_response,
-        "sent_at": inquiry.sent_at.isoformat() if inquiry.sent_at else None,
-        "auto_mode": inquiry.auto_mode,
-        "category": inquiry.category,
-        "priority": inquiry.priority,
-        "created_at": inquiry.created_at.isoformat() if inquiry.created_at else None,
-        "updated_at": inquiry.updated_at.isoformat() if inquiry.updated_at else None,
+        "id": inq.id,
+        "external_id": inq.external_id,
+        "mall_name": inq.mall_name,
+        "board_type": inq.board_type,
+        "customer_name": inq.customer_name,
+        "customer_id": inq.customer_id,
+        "product_name": inq.product_name,
+        "order_number": inq.order_number,
+        "title": inq.title,
+        "content": inq.content,
+        "inquiry_date": inq.inquiry_date.isoformat() if inq.inquiry_date else None,
+        "status": inq.status,
+        "ai_response": inq.ai_response,
+        "final_response": inq.final_response,
+        "sent_at": inq.sent_at.isoformat() if inq.sent_at else None,
+        "auto_mode": inq.auto_mode,
+        "category": inq.category,
+        "priority": inq.priority,
+        "created_at": inq.created_at.isoformat() if inq.created_at else None,
+        "updated_at": inq.updated_at.isoformat() if inq.updated_at else None,
+        "auto_action": _detect_action(inq),
     }
 
 
