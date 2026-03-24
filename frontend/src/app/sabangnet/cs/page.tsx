@@ -301,6 +301,7 @@ export default function CSPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [generatingIds, setGeneratingIds] = useState<Set<number>>(new Set());
   const [sendingIds, setSendingIds] = useState<Set<number>>(new Set());
+  const [fetchingOrderIds, setFetchingOrderIds] = useState<Set<number>>(new Set());
   const [collecting, setCollecting] = useState(false);
   const [bulkGenerating, setBulkGenerating] = useState(false);
   const [bulkSending, setBulkSending] = useState(false);
@@ -325,6 +326,7 @@ export default function CSPage() {
   const [keywords, setKeywords] = useState<KeywordData[]>([]);
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [loadingKeywords, setLoadingKeywords] = useState(false);
+  const [keywordsSample, setKeywordsSample] = useState(false);
   const [loadingActions, setLoadingActions] = useState(false);
   const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
 
@@ -361,6 +363,10 @@ export default function CSPage() {
   useEffect(() => {
     if (!user) return;
     loadInquiries(1);
+    // 자동 주문/배송 정보 일괄 조회
+    fetchMutate('/api/sabangnet/inquiries/auto-fetch-order-details', 'POST').then(() => {
+      loadInquiries();
+    });
     (async () => {
       const stats = await fetchSafe<any>('/api/sabangnet/inquiries/total-stats', null);
       if (stats) setTotalStats(stats);
@@ -405,8 +411,9 @@ export default function CSPage() {
     const volData = await fetchSafe<{period: string; data: VolumeData[]}>(`/api/sabangnet/inquiries/analytics/volume?period=${volumePeriod}`, {period: volumePeriod, data: []});
     if (volData.data && volData.data.length > 0) setVolumeData(volData.data);
     // Keywords
-    const kwData = await fetchSafe<{keywords: KeywordData[]}>('/api/sabangnet/inquiries/analytics/keywords', {keywords: []});
+    const kwData = await fetchSafe<{keywords: KeywordData[]; is_sample?: boolean}>('/api/sabangnet/inquiries/analytics/keywords', {keywords: []});
     if (kwData.keywords && kwData.keywords.length > 0) setKeywords(kwData.keywords);
+    setKeywordsSample(kwData.is_sample ?? false);
   };
 
   // ── Volume period reload ──
@@ -1335,12 +1342,15 @@ export default function CSPage() {
                           <span className="text-xs font-semibold text-slate-600">주문/배송 정보</span>
                           <button
                             onClick={async () => {
+                              setFetchingOrderIds(prev => new Set(prev).add(inquiry.id));
                               await fetchSafe(`/api/sabangnet/inquiries/${inquiry.id}/order-detail`, null);
+                              setFetchingOrderIds(prev => { const s = new Set(prev); s.delete(inquiry.id); return s; });
                               loadInquiries();
                             }}
-                            className="text-[11px] px-2 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                            disabled={fetchingOrderIds.has(inquiry.id)}
+                            className="text-[11px] px-2 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
                           >
-                            실시간 조회
+                            {fetchingOrderIds.has(inquiry.id) ? '조회중...' : '실시간 조회'}
                           </button>
                         </div>
                         {inquiry.delivery_tracking ? (
@@ -1549,59 +1559,66 @@ export default function CSPage() {
 
               {volumeData.length > 0 ? (
                 <div>
-                  {/* 간이 바 차트 */}
-                  <div className="space-y-2">
+                  {/* 좌우 바 차트 */}
+                  <div className="flex items-end gap-1 overflow-x-auto pb-2" style={{ minHeight: '160px' }}>
                     {volumeData.map((d, i) => {
                       const maxTotal = Math.max(...volumeData.map(v => v.total), 1);
+                      const pct = (d.total / maxTotal) * 100;
                       return (
-                        <div key={i} className="flex items-center gap-3">
-                          <span className="text-xs text-gray-500 w-20 shrink-0 text-right font-mono">
+                        <div key={i} className="flex flex-col items-center gap-1 min-w-[32px] flex-1">
+                          <span className="text-[10px] font-bold text-gray-700">{d.total}</span>
+                          <div className="w-full bg-gray-100 rounded-t-md relative" style={{ height: '120px' }}>
+                            <div
+                              className="absolute bottom-0 w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-md transition-all"
+                              style={{ height: `${Math.max(pct, 4)}%` }}
+                            />
+                          </div>
+                          <span className="text-[9px] text-gray-500 font-mono whitespace-nowrap">
                             {volumePeriod === 'daily' ? d.date.slice(5) : d.date}
                           </span>
-                          <div className="flex-1 h-7 bg-gray-50 rounded-lg overflow-hidden relative">
-                            <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-lg transition-all"
-                              style={{ width: `${(d.total / maxTotal) * 100}%` }} />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-700">
-                              {d.total}건
-                            </span>
-                          </div>
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* 쇼핑몰별 요약 (마지막 데이터 기준) */}
-                  {volumeData.length > 0 && (
-                    <div className="mt-6 pt-4 border-t border-gray-100">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3">쇼핑몰별 분포 (최근)</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {/* 쇼핑몰별 + 카테고리별 가로 나열 */}
+                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100">
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-500 mb-2">쇼핑몰별 (최근)</h4>
+                      <div className="space-y-1.5">
                         {Object.entries(volumeData[volumeData.length - 1].by_mall).map(([mall, count]) => {
                           const mc = MALL_COLORS[mall] || DEFAULT_BADGE;
+                          const mallMax = Math.max(...Object.values(volumeData[volumeData.length - 1].by_mall), 1);
                           return (
-                            <div key={mall} className={`${mc.bg} ${mc.border} border rounded-lg p-3 text-center`}>
-                              <p className={`text-xs font-semibold ${mc.text}`}>{mall}</p>
-                              <p className={`text-lg font-bold ${mc.text} mt-1`}>{count}</p>
+                            <div key={mall} className="flex items-center gap-2">
+                              <span className={`text-[10px] font-semibold w-16 shrink-0 ${mc.text}`}>{mall}</span>
+                              <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${mc.bg} border ${mc.border}`} style={{ width: `${(count / mallMax) * 100}%` }} />
+                              </div>
+                              <span className="text-[10px] font-bold text-gray-700 w-6 text-right">{count}</span>
                             </div>
                           );
                         })}
                       </div>
                     </div>
-                  )}
-
-                  {/* 카테고리별 요약 */}
-                  {volumeData.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3">카테고리별 분포 (최근)</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {Object.entries(volumeData[volumeData.length - 1].by_category).map(([cat, count]) => (
-                          <div key={cat} className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
-                            <p className="text-xs font-semibold text-slate-600">{cat}</p>
-                            <p className="text-lg font-bold text-slate-800 mt-1">{count}</p>
-                          </div>
-                        ))}
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-500 mb-2">카테고리별 (최근)</h4>
+                      <div className="space-y-1.5">
+                        {Object.entries(volumeData[volumeData.length - 1].by_category).map(([cat, count]) => {
+                          const catMax = Math.max(...Object.values(volumeData[volumeData.length - 1].by_category), 1);
+                          return (
+                            <div key={cat} className="flex items-center gap-2">
+                              <span className="text-[10px] font-semibold w-16 shrink-0 text-slate-600">{cat}</span>
+                              <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-slate-300" style={{ width: `${(count / catMax) * 100}%` }} />
+                              </div>
+                              <span className="text-[10px] font-bold text-gray-700 w-6 text-right">{count}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-10 text-gray-400 text-sm">문의 데이터가 없습니다</div>
@@ -1611,11 +1628,15 @@ export default function CSPage() {
             {/* ── 키워드 분석 ── */}
             <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-gray-900">주요 키워드 분석</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-bold text-gray-900">주요 키워드 분석</h3>
+                  {keywordsSample && <span className="text-[10px] px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full border border-amber-200">샘플 데이터 - 실제 문의가 수집되면 AI 분석됩니다</span>}
+                </div>
                 <button onClick={async () => {
                   setLoadingKeywords(true);
-                  const kwData = await fetchSafe<{keywords: KeywordData[]}>('/api/sabangnet/inquiries/analytics/keywords', {keywords: []});
+                  const kwData = await fetchSafe<{keywords: KeywordData[]; is_sample?: boolean}>('/api/sabangnet/inquiries/analytics/keywords', {keywords: []});
                   if (kwData.keywords) setKeywords(kwData.keywords);
+                  setKeywordsSample(kwData.is_sample ?? false);
                   setLoadingKeywords(false);
                 }}
                   disabled={loadingKeywords}
