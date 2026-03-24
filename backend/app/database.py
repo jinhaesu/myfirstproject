@@ -46,6 +46,7 @@ def init_db():
             ScmOrderPlan, ScmProductionResult, ScmProductionPlanV2,
             ScmProduct,
             CsInquiry, CsReferenceData, CsConfig,
+            DeliveryTracking, CsFollowUpAction,
         )
         from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401
         from app.models.scheduled_report import ScheduledReport  # noqa: F401
@@ -67,3 +68,16 @@ def init_db():
                 conn.commit()
         except Exception:
             pass  # 이미 있거나 DB가 ALTER를 지원하지 않으면 무시
+
+        try:
+            from sqlalchemy import text
+            with engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE cs_inquiries ADD COLUMN IF NOT EXISTS sabangnet_status VARCHAR(50)"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE cs_inquiries ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP"
+                ))
+                conn.commit()
+        except Exception:
+            pass

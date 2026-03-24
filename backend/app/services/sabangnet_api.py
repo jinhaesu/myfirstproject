@@ -356,6 +356,40 @@ class SabangnetAPI:
             logger.error(f"사방넷 상품 수정 실패: {e}")
             return {"success": False, "error": str(e)}
 
+    # ── 주문 상세 조회 ──
+
+    async def get_order_detail(self, order_id: str) -> Dict[str, Any]:
+        """주문번호로 주문 상세 정보 조회
+
+        Args:
+            order_id: 사방넷 주문번호 (ORDER_ID)
+        Returns:
+            주문 상태, 배송사, 운송장번호, 배송상태 등
+        """
+        if not order_id:
+            return {"success": False, "error": "주문번호가 없습니다", "items": []}
+
+        fields = "IDX|ORDER_ID|ORDER_STATUS|DELIVERY_COMPANY_NM|DELIVERY_NO|PRODUCT_NM|SALE_CNT|ORDER_DATE|ORDER_TOTAL_PRICE|USER_NAME|USER_CEL|DELIVERY_PRICE|COMPAYNY_GOODS_CD|MALL_ID"
+
+        xml_content = f"""<?xml version="1.0" encoding="EUC-KR"?>
+<SABANG_ORDER_LIST>
+{self._build_header_xml()}
+    <DATA>
+        <ORDER_ID><![CDATA[{order_id}]]></ORDER_ID>
+        <ORD_FIELD><![CDATA[{fields}]]></ORD_FIELD>
+        <LANG>UTF-8</LANG>
+    </DATA>
+</SABANG_ORDER_LIST>"""
+
+        try:
+            response_text = await self._call_api("xml_ord_info.html", xml_content)
+            items = self._parse_xml_response(response_text)
+            logger.info(f"사방넷 주문 조회 완료: {order_id} → {len(items)}건")
+            return {"success": True, "items": items, "raw": response_text[:1000]}
+        except Exception as e:
+            logger.error(f"사방넷 주문 조회 실패 ({order_id}): {e}")
+            return {"success": False, "error": str(e), "items": []}
+
 
 def get_sabangnet_api() -> SabangnetAPI:
     """SabangnetAPI 인스턴스 반환"""

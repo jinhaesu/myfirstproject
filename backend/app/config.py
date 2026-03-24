@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     # ElevenLabs (음성 클로닝/TTS)
     ELEVENLABS_API_KEY: str = ""
 
+    # 스마트택배 (배송 추적)
+    SWEETTRACKER_API_KEY: str = ""
+
     # Local RPA Agent
     LOCAL_AGENT_API_KEY: str = ""
 

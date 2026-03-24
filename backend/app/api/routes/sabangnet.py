@@ -20,7 +20,7 @@ from sqlalchemy import func, distinct
 import httpx
 
 from app.database import get_db
-from app.db_models import CsInquiry, CsReferenceData, CsConfig
+from app.db_models import CsInquiry, CsReferenceData, CsConfig, DeliveryTracking, CsFollowUpAction
 
 router = APIRouter(prefix="/sabangnet", tags=["sabangnet"])
 logger = logging.getLogger(__name__)
@@ -189,7 +189,7 @@ def generate_template_response(inquiry: CsInquiry) -> str:
     )
 
 
-async def generate_ai_response(inquiry: CsInquiry, reference_data_list: list) -> str:
+async def generate_ai_response(inquiry: CsInquiry, reference_data_list: list, db: Session = None) -> str:
     """Claude API를 사용해 CS 답변 초안 생성"""
     from app.config import get_settings
     settings = get_settings()
@@ -208,11 +208,91 @@ async def generate_ai_response(inquiry: CsInquiry, reference_data_list: list) ->
         ref_parts.append(part)
     ref_context = "\n\n".join(ref_parts)
 
+    # 실시간 주문/배송 정보 조회
+    order_context = ""
+    delivery_context = ""
+    if inquiry.order_number:
+        try:
+            from app.services.sabangnet_api import get_sabangnet_api
+            api = get_sabangnet_api()
+            if api.is_available:
+                order_data = await api.get_order_detail(inquiry.order_number)
+                if order_data.get("success") and order_data.get("items"):
+                    oi = order_data["items"][0]
+                    order_context = f"""
+## 실시간 주문 정보
+- 주문번호: {inquiry.order_number}
+- 주문상태: {oi.get('ORDER_STATUS', '확인불가')}
+- 배송사: {oi.get('DELIVERY_COMPANY_NM', '미정')}
+- 운송장번호: {oi.get('DELIVERY_NO', '미발급')}
+- 주문일: {oi.get('ORDER_DATE', '')}
+- 상품명: {oi.get('PRODUCT_NM', '')}
+- 수량: {oi.get('SALE_CNT', '')}
+- 결제금액: {oi.get('ORDER_TOTAL_PRICE', '')}원
+"""
+                    # 운송장번호가 있으면 배송 추적
+                    tracking_no = oi.get('DELIVERY_NO', '').strip()
+                    courier_name = oi.get('DELIVERY_COMPANY_NM', '').strip()
+                    if tracking_no and courier_name:
+                        try:
+                            from app.services.delivery_tracker import DeliveryTracker
+                            tracker = DeliveryTracker()
+                            tracking = await tracker.track_delivery(tracking_no, courier_name)
+                            if tracking.get("success"):
+                                delivery_context = f"""
+## 실시간 배송 추적
+- 현재상태: {tracking.get('status_text', '확인불가')}
+- 최근이벤트: {tracking.get('last_event', '')}
+- 배달완료여부: {'완료' if tracking.get('complete') else '미완료'}
+"""
+                                if tracking.get('events'):
+                                    recent = tracking['events'][-3:]  # 최근 3건
+                                    delivery_context += "- 최근 배송이력:\n"
+                                    for ev in recent:
+                                        delivery_context += f"  · {ev.get('time', '')} {ev.get('location', '')} - {ev.get('status', '')}\n"
+
+                                # DB에 배송 추적 정보 저장
+                                if db:
+                                    try:
+                                        existing_track = db.query(DeliveryTracking).filter(
+                                            DeliveryTracking.inquiry_id == inquiry.id
+                                        ).first()
+                                        if existing_track:
+                                            existing_track.tracking_number = tracking_no
+                                            existing_track.courier_name = courier_name
+                                            existing_track.courier_code = tracking.get('courier_code', '')
+                                            existing_track.current_status = tracking.get('status', 'unknown')
+                                            existing_track.last_event = tracking.get('last_event', '')
+                                            existing_track.tracking_history = tracking.get('events', [])
+                                            existing_track.last_checked_at = datetime.now()
+                                        else:
+                                            dt = DeliveryTracking(
+                                                inquiry_id=inquiry.id,
+                                                order_number=inquiry.order_number,
+                                                tracking_number=tracking_no,
+                                                courier_name=courier_name,
+                                                courier_code=tracking.get('courier_code', ''),
+                                                current_status=tracking.get('status', 'unknown'),
+                                                last_event=tracking.get('last_event', ''),
+                                                tracking_history=tracking.get('events', []),
+                                                order_detail=order_data.get("items", [{}])[0] if order_data.get("items") else None,
+                                            )
+                                            db.add(dt)
+                                        db.commit()
+                                    except Exception as e_track:
+                                        logger.warning(f"배송 추적 저장 실패: {e_track}")
+                        except Exception as e_delivery:
+                            logger.warning(f"배송 추적 조회 실패: {e_delivery}")
+        except Exception as e_order:
+            logger.warning(f"주문 상세 조회 실패: {e_order}")
+
     prompt = f"""당신은 '{inquiry.mall_name}' 쇼핑몰의 널담(Nuldam) 브랜드 CS 담당자입니다.
 고객 문의에 대해 전문적이고 친절한 답변을 작성해주세요.
 
 ## 참고 자료
 {ref_context if ref_context else '(등록된 참고 자료 없음)'}
+{order_context}
+{delivery_context}
 
 ## 고객 문의 정보
 - 쇼핑몰: {inquiry.mall_name}
@@ -231,6 +311,13 @@ async def generate_ai_response(inquiry: CsInquiry, reference_data_list: list) ->
 4. '{inquiry.mall_name} 널담 고객센터' 명의로 작성하세요
 5. 문의 내용에 맞는 구체적인 해결 방안을 제시하세요
 6. 일반적인 템플릿이 아닌, 이 고객의 상황에 맞춘 답변을 작성하세요
+7. 주문 정보와 배송 상태가 제공된 경우, 해당 정보를 바탕으로 구체적인 답변을 작성하세요 (예: 운송장번호, 현재 배송 위치 등)
+8. 배송 지연/미배송 문의 시 실제 배송 상태를 기반으로 정확한 안내를 해주세요
+
+## 후속 조치 태그
+답변 끝에 필요한 후속 조치를 [ACTION:type] 형태로 태그해주세요.
+가능한 액션: exchange(교환), refund(환불), reship(재배송), damage_claim(파손보상), restock_notify(재입고알림), delivery_check(배송확인), none(조치불필요)
+예: [ACTION:delivery_check] 또는 [ACTION:exchange]
 
 답변:"""
 
@@ -410,7 +497,7 @@ def list_inquiries(
             "total": total,
             "page": page,
             "page_size": page_size,
-            "items": [_inquiry_to_dict(item) for item in items],
+            "items": [_inquiry_to_dict(item, db) for item in items],
         }
     except Exception as e:
         logger.error(f"문의 목록 조회 실패: {e}")
@@ -423,7 +510,7 @@ def get_inquiry(inquiry_id: int, db: Session = Depends(get_db)):
     inquiry = db.query(CsInquiry).filter(CsInquiry.id == inquiry_id).first()
     if not inquiry:
         raise HTTPException(status_code=404, detail="문의사항을 찾을 수 없습니다")
-    return _inquiry_to_dict(inquiry)
+    return _inquiry_to_dict(inquiry, db)
 
 
 @router.post("/inquiries")
@@ -449,7 +536,7 @@ def create_inquiry(data: InquiryCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(inquiry)
         logger.info(f"문의 생성: id={inquiry.id}, mall={inquiry.mall_name}")
-        return _inquiry_to_dict(inquiry)
+        return _inquiry_to_dict(inquiry, db)
     except Exception as e:
         db.rollback()
         logger.error(f"문의 생성 실패: {e}")
@@ -475,7 +562,7 @@ def update_inquiry(inquiry_id: int, data: InquiryUpdate, db: Session = Depends(g
             inquiry.priority = data.priority
         db.commit()
         db.refresh(inquiry)
-        return _inquiry_to_dict(inquiry)
+        return _inquiry_to_dict(inquiry, db)
     except Exception as e:
         db.rollback()
         logger.error(f"문의 업데이트 실패: {e}")
@@ -582,6 +669,7 @@ async def collect_inquiries(db: Session = Depends(get_db)):
             if result.get("success"):
                 items = result.get("items", [])
                 created = 0
+                updated = 0
                 for item in items:
                     # 사방넷 XML 필드명 → CsInquiry 매핑
                     external_id = item.get("NUM", "")
@@ -593,6 +681,17 @@ async def collect_inquiries(db: Session = Depends(get_db)):
                         .first()
                     )
                     if existing:
+                        # 양방향 동기화: 사방넷 상태가 변경되었으면 내부 상태도 업데이트
+                        cs_status = item.get("CS_STATUS", "")
+                        if cs_status and cs_status != getattr(existing, 'sabangnet_status', None):
+                            existing.sabangnet_status = cs_status
+                            existing.last_synced_at = datetime.now()
+                            # 사방넷에서 이미 답변된 경우 → 내부 상태도 갱신
+                            if cs_status in ("002", "003") and existing.status in ("new", "ai_drafted"):
+                                existing.status = "answered_externally"
+                            elif cs_status == "004" and existing.status not in ("sent",):
+                                existing.status = "closed_externally"
+                            updated += 1
                         continue
 
                     # 수집일자 파싱 (20190909164517 형식)
@@ -630,8 +729,9 @@ async def collect_inquiries(db: Session = Depends(get_db)):
                     created += 1
                 db.commit()
                 return {
-                    "message": f"사방넷에서 {created}건 수집 완료 (총 {len(items)}건 조회)",
+                    "message": f"사방넷에서 {created}건 수집, {updated}건 상태 동기화 완료 (총 {len(items)}건 조회)",
                     "items_created": created,
+                    "items_updated": updated,
                     "total_fetched": len(items),
                     "source": "sabangnet_api",
                     "raw_response": result.get("raw", "")[:500],
@@ -718,6 +818,57 @@ async def collect_inquiries(db: Session = Depends(get_db)):
     }
 
 
+@router.post("/inquiries/sync-status")
+async def sync_inquiry_statuses(db: Session = Depends(get_db)):
+    """사방넷 상태와 내부 상태를 동기화 (전체 미완료 건 대상)"""
+    try:
+        from app.services.sabangnet_api import get_sabangnet_api
+        api = get_sabangnet_api()
+        if not api.is_available:
+            raise HTTPException(status_code=400, detail="사방넷 API 미설정")
+
+        # 미완료 상태의 문의 조회
+        pending = db.query(CsInquiry).filter(
+            CsInquiry.status.notin_(["sent", "answered_externally", "closed_externally"])
+        ).all()
+
+        if not pending:
+            return {"message": "동기화할 문의가 없습니다", "updated": 0}
+
+        # 사방넷에서 최신 상태 수집
+        result = await api.collect_inquiries()
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail="사방넷 조회 실패")
+
+        # external_id → CS_STATUS 매핑
+        status_map = {}
+        for item in result.get("items", []):
+            ext_id = item.get("NUM", "")
+            if ext_id:
+                status_map[ext_id] = item.get("CS_STATUS", "")
+
+        updated = 0
+        for inq in pending:
+            if inq.external_id and inq.external_id in status_map:
+                cs_status = status_map[inq.external_id]
+                if cs_status != inq.sabangnet_status:
+                    inq.sabangnet_status = cs_status
+                    inq.last_synced_at = datetime.now()
+                    if cs_status in ("002", "003") and inq.status in ("new", "ai_drafted"):
+                        inq.status = "answered_externally"
+                    elif cs_status == "004":
+                        inq.status = "closed_externally"
+                    updated += 1
+
+        db.commit()
+        return {"message": f"{updated}건 상태 동기화 완료", "updated": updated, "total_checked": len(pending)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"상태 동기화 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ──────────────────────────────────────────────
 # AI 답변 생성 엔드포인트
 # ──────────────────────────────────────────────
@@ -738,13 +889,16 @@ async def generate_ai_for_inquiry(inquiry_id: int, db: Session = Depends(get_db)
         )
 
         # AI 답변 생성
-        ai_text = await generate_ai_response(inquiry, ref_data)
+        ai_text = await generate_ai_response(inquiry, ref_data, db)
 
         # 저장 및 상태 업데이트
         inquiry.ai_response = ai_text
         inquiry.status = "ai_drafted"
         db.commit()
         db.refresh(inquiry)
+
+        # 후속 조치 파싱 및 저장
+        _parse_ai_actions(ai_text, inquiry.id, db)
 
         logger.info(f"AI 답변 생성 완료: inquiry_id={inquiry_id}")
         return {
@@ -777,10 +931,11 @@ async def bulk_generate_ai(data: BulkAiGenerateRequest, db: Session = Depends(ge
             errors.append({"id": inq_id, "error": "문의사항을 찾을 수 없습니다"})
             continue
         try:
-            ai_text = await generate_ai_response(inquiry, ref_data)
+            ai_text = await generate_ai_response(inquiry, ref_data, db)
             inquiry.ai_response = ai_text
             inquiry.status = "ai_drafted"
             generated_count += 1
+            _parse_ai_actions(ai_text, inquiry.id, db)
         except Exception as e:
             errors.append({"id": inq_id, "error": str(e)})
 
@@ -820,10 +975,11 @@ async def bulk_generate_all_new(
 
     for inquiry in new_inquiries:
         try:
-            ai_text = await generate_ai_response(inquiry, ref_data)
+            ai_text = await generate_ai_response(inquiry, ref_data, db)
             inquiry.ai_response = ai_text
             inquiry.status = "ai_drafted"
             generated += 1
+            _parse_ai_actions(ai_text, inquiry.id, db)
         except Exception as e:
             logger.error(f"AI 생성 실패 (id={inquiry.id}): {e}")
             failed += 1
@@ -880,13 +1036,14 @@ async def bulk_regenerate(
 
     for inquiry in template_inquiries:
         try:
-            ai_text = await generate_ai_response(inquiry, ref_data)
+            ai_text = await generate_ai_response(inquiry, ref_data, db)
             # 여전히 템플릿이면 스킵 (API 실패)
             if "확인 후 빠르게 처리해 드리겠습니다" in ai_text:
                 failed += 1
                 continue
             inquiry.ai_response = ai_text
             generated += 1
+            _parse_ai_actions(ai_text, inquiry.id, db)
         except Exception as e:
             logger.error(f"AI 재생성 실패 (id={inquiry.id}): {e}")
             failed += 1
@@ -1423,9 +1580,54 @@ def _detect_action(inq: CsInquiry) -> dict:
     }
 
 
-def _inquiry_to_dict(inq: CsInquiry) -> dict:
+def _parse_ai_actions(ai_response: str, inquiry_id: int, db: Session) -> list:
+    """AI 답변에서 [ACTION:type] 태그를 파싱하여 후속 조치 레코드 생성"""
+    import re
+    actions = []
+    action_labels = {
+        "exchange": "교환 처리",
+        "refund": "환불 처리",
+        "reship": "재배송 처리",
+        "damage_claim": "파손 보상",
+        "restock_notify": "재입고 알림",
+        "delivery_check": "배송 확인",
+    }
+
+    matches = re.findall(r'\[ACTION:(\w+)\]', ai_response)
+    for action_type in matches:
+        if action_type == "none":
+            continue
+        label = action_labels.get(action_type, action_type)
+        # 중복 체크
+        existing = db.query(CsFollowUpAction).filter(
+            CsFollowUpAction.inquiry_id == inquiry_id,
+            CsFollowUpAction.action_type == action_type,
+            CsFollowUpAction.status.in_(["pending", "in_progress"]),
+        ).first()
+        if not existing:
+            action = CsFollowUpAction(
+                inquiry_id=inquiry_id,
+                action_type=action_type,
+                action_label=label,
+                priority="high" if action_type in ("refund", "exchange", "damage_claim") else "medium",
+                ai_suggested=True,
+            )
+            db.add(action)
+            actions.append({"type": action_type, "label": label})
+
+    if actions:
+        try:
+            db.commit()
+        except Exception as e:
+            logger.warning(f"후속 조치 저장 실패: {e}")
+            db.rollback()
+
+    return actions
+
+
+def _inquiry_to_dict(inq: CsInquiry, db: Session = None) -> dict:
     """CsInquiry ORM 객체를 dict로 변환"""
-    return {
+    result = {
         "id": inq.id,
         "external_id": inq.external_id,
         "mall_name": inq.mall_name,
@@ -1444,10 +1646,45 @@ def _inquiry_to_dict(inq: CsInquiry) -> dict:
         "auto_mode": inq.auto_mode,
         "category": inq.category,
         "priority": inq.priority,
+        "sabangnet_status": getattr(inq, 'sabangnet_status', None),
+        "last_synced_at": inq.last_synced_at.isoformat() if getattr(inq, 'last_synced_at', None) else None,
         "created_at": inq.created_at.isoformat() if inq.created_at else None,
         "updated_at": inq.updated_at.isoformat() if inq.updated_at else None,
         "auto_action": _detect_action(inq),
     }
+
+    if db:
+        # 배송 추적 정보
+        delivery = db.query(DeliveryTracking).filter(
+            DeliveryTracking.inquiry_id == inq.id
+        ).first()
+        if delivery:
+            result["delivery_tracking"] = {
+                "tracking_number": delivery.tracking_number,
+                "courier_name": delivery.courier_name,
+                "current_status": delivery.current_status,
+                "last_event": delivery.last_event,
+                "order_detail": delivery.order_detail,
+                "last_checked_at": delivery.last_checked_at.isoformat() if delivery.last_checked_at else None,
+            }
+
+        # 후속 조치 목록
+        actions = db.query(CsFollowUpAction).filter(
+            CsFollowUpAction.inquiry_id == inq.id
+        ).order_by(CsFollowUpAction.created_at.desc()).all()
+        if actions:
+            result["followup_actions"] = [{
+                "id": a.id,
+                "action_type": a.action_type,
+                "action_label": a.action_label,
+                "priority": a.priority,
+                "status": a.status,
+                "ai_suggested": a.ai_suggested,
+                "notes": a.notes,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            } for a in actions]
+
+    return result
 
 
 def _ref_to_dict(ref: CsReferenceData) -> dict:
@@ -1465,6 +1702,186 @@ def _ref_to_dict(ref: CsReferenceData) -> dict:
         "is_active": ref.is_active,
         "created_at": ref.created_at.isoformat() if ref.created_at else None,
         "updated_at": ref.updated_at.isoformat() if ref.updated_at else None,
+    }
+
+
+# ──────────────────────────────────────────────
+# 주문 조회 & 배송 추적 엔드포인트
+# ──────────────────────────────────────────────
+
+@router.get("/inquiries/{inquiry_id}/order-detail")
+async def get_order_detail(inquiry_id: int, db: Session = Depends(get_db)):
+    """문의에 연결된 주문 상세 정보 조회 (사방넷 실시간)"""
+    inquiry = db.query(CsInquiry).filter(CsInquiry.id == inquiry_id).first()
+    if not inquiry:
+        raise HTTPException(status_code=404, detail="문의를 찾을 수 없습니다")
+    if not inquiry.order_number:
+        return {"success": False, "error": "주문번호가 없는 문의입니다"}
+
+    from app.services.sabangnet_api import get_sabangnet_api
+    api = get_sabangnet_api()
+    if not api.is_available:
+        raise HTTPException(status_code=400, detail="사방넷 API 미설정")
+
+    result = await api.get_order_detail(inquiry.order_number)
+
+    # 배송 추적도 함께 수행
+    if result.get("success") and result.get("items"):
+        oi = result["items"][0]
+        tracking_no = oi.get("DELIVERY_NO", "").strip()
+        courier_name = oi.get("DELIVERY_COMPANY_NM", "").strip()
+
+        delivery_info = None
+        if tracking_no and courier_name:
+            from app.services.delivery_tracker import DeliveryTracker
+            tracker = DeliveryTracker()
+            delivery_info = await tracker.track_delivery(tracking_no, courier_name)
+
+            # DB 저장/업데이트
+            existing_track = db.query(DeliveryTracking).filter(
+                DeliveryTracking.inquiry_id == inquiry_id
+            ).first()
+            if existing_track:
+                existing_track.tracking_number = tracking_no
+                existing_track.courier_name = courier_name
+                existing_track.current_status = delivery_info.get('status', 'unknown')
+                existing_track.last_event = delivery_info.get('last_event', '')
+                existing_track.tracking_history = delivery_info.get('events', [])
+                existing_track.order_detail = oi
+                existing_track.last_checked_at = datetime.now()
+            else:
+                dt = DeliveryTracking(
+                    inquiry_id=inquiry_id,
+                    order_number=inquiry.order_number,
+                    tracking_number=tracking_no,
+                    courier_name=courier_name,
+                    courier_code=delivery_info.get('courier_code', ''),
+                    current_status=delivery_info.get('status', 'unknown'),
+                    last_event=delivery_info.get('last_event', ''),
+                    tracking_history=delivery_info.get('events', []),
+                    order_detail=oi,
+                )
+                db.add(dt)
+            db.commit()
+
+        return {
+            "success": True,
+            "order": oi,
+            "delivery": delivery_info,
+        }
+
+    return result
+
+
+@router.get("/delivery/track/{tracking_number}")
+async def track_delivery_direct(
+    tracking_number: str,
+    courier_name: str = Query(..., description="택배사명 (예: CJ대한통운)"),
+):
+    """운송장번호로 직접 배송 추적"""
+    from app.services.delivery_tracker import DeliveryTracker
+    tracker = DeliveryTracker()
+    result = await tracker.track_delivery(tracking_number, courier_name)
+    return result
+
+
+# ──────────────────────────────────────────────
+# 후속 조치 (Follow-up Actions) 엔드포인트
+# ──────────────────────────────────────────────
+
+@router.get("/followup-actions")
+def list_followup_actions(
+    status: Optional[str] = None,
+    action_type: Optional[str] = None,
+    priority: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """후속 조치 목록 조회"""
+    query = db.query(CsFollowUpAction)
+    if status:
+        query = query.filter(CsFollowUpAction.status == status)
+    if action_type:
+        query = query.filter(CsFollowUpAction.action_type == action_type)
+    if priority:
+        query = query.filter(CsFollowUpAction.priority == priority)
+
+    total = query.count()
+    actions = query.order_by(CsFollowUpAction.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    return {
+        "items": [{
+            "id": a.id,
+            "inquiry_id": a.inquiry_id,
+            "action_type": a.action_type,
+            "action_label": a.action_label,
+            "priority": a.priority,
+            "status": a.status,
+            "assigned_to": a.assigned_to,
+            "notes": a.notes,
+            "ai_suggested": a.ai_suggested,
+            "completed_at": a.completed_at.isoformat() if a.completed_at else None,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+        } for a in actions],
+        "total": total,
+        "page": page,
+        "limit": limit,
+    }
+
+
+@router.put("/followup-actions/{action_id}")
+def update_followup_action(
+    action_id: int,
+    status: Optional[str] = None,
+    notes: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """후속 조치 상태 업데이트"""
+    action = db.query(CsFollowUpAction).filter(CsFollowUpAction.id == action_id).first()
+    if not action:
+        raise HTTPException(status_code=404, detail="후속 조치를 찾을 수 없습니다")
+
+    if status:
+        action.status = status
+        if status == "completed":
+            action.completed_at = datetime.now()
+    if notes is not None:
+        action.notes = notes
+    if assigned_to is not None:
+        action.assigned_to = assigned_to
+
+    db.commit()
+    return {"message": "업데이트 완료", "id": action_id, "status": action.status}
+
+
+@router.get("/followup-actions/summary")
+def followup_actions_summary(db: Session = Depends(get_db)):
+    """후속 조치 대시보드 요약"""
+    total = db.query(func.count(CsFollowUpAction.id)).scalar() or 0
+    pending = db.query(func.count(CsFollowUpAction.id)).filter(
+        CsFollowUpAction.status == "pending"
+    ).scalar() or 0
+    in_progress = db.query(func.count(CsFollowUpAction.id)).filter(
+        CsFollowUpAction.status == "in_progress"
+    ).scalar() or 0
+    completed = db.query(func.count(CsFollowUpAction.id)).filter(
+        CsFollowUpAction.status == "completed"
+    ).scalar() or 0
+
+    # 유형별 통계
+    type_rows = db.query(
+        CsFollowUpAction.action_type, func.count(CsFollowUpAction.id)
+    ).filter(CsFollowUpAction.status == "pending").group_by(CsFollowUpAction.action_type).all()
+    by_type = {row[0]: row[1] for row in type_rows}
+
+    return {
+        "total": total,
+        "pending": pending,
+        "in_progress": in_progress,
+        "completed": completed,
+        "pending_by_type": by_type,
     }
 
 
