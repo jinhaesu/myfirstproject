@@ -513,6 +513,8 @@ class CsInquiry(Base):
     auto_mode = Column(Boolean, default=False)  # 자동 답변 여부
     category = Column(String(100), nullable=True)  # AI 분류 카테고리
     priority = Column(String(50), default="normal")  # low, normal, high, urgent
+    sabangnet_status = Column(String(50), nullable=True)  # 사방넷 원본 상태: 001, 002, 003, 004
+    last_synced_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -541,6 +543,47 @@ class CsConfig(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     config_key = Column(String(100), nullable=False, unique=True)
     config_value = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class DeliveryTracking(Base):
+    """배송 추적 정보"""
+    __tablename__ = "delivery_tracking"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    inquiry_id = Column(Integer, nullable=True, index=True)
+    order_number = Column(String(200), nullable=True, index=True)
+    tracking_number = Column(String(100), nullable=True, index=True)
+    courier_code = Column(String(50), nullable=True)
+    courier_name = Column(String(100), nullable=True)
+    current_status = Column(String(50), default="unknown")  # pickup, in_transit, out_for_delivery, delivered
+    last_event = Column(Text, nullable=True)
+    last_event_time = Column(DateTime, nullable=True)
+    estimated_delivery = Column(DateTime, nullable=True)
+    tracking_history = Column(JSON, nullable=True)
+    order_detail = Column(JSON, nullable=True)  # 사방넷 주문 상세 정보 캐시
+    last_checked_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class CsFollowUpAction(Base):
+    """CS 후속 조치"""
+    __tablename__ = "cs_followup_actions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    inquiry_id = Column(Integer, nullable=False, index=True)
+    action_type = Column(String(50), nullable=False)  # exchange, refund, reship, damage_claim, restock_notify, delivery_check
+    action_label = Column(String(200), nullable=False)
+    priority = Column(String(20), default="medium")  # low, medium, high, urgent
+    status = Column(String(50), default="pending")  # pending, in_progress, completed, cancelled
+    assigned_to = Column(String(100), nullable=True)
+    notes = Column(Text, nullable=True)
+    ai_suggested = Column(Boolean, default=False)
+    completed_at = Column(DateTime, nullable=True)
+    due_date = Column(DateTime, nullable=True)
+    extra_data = Column(JSON, nullable=True)  # 추가 데이터 (환불금액, 교환상품 등)
+    created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 

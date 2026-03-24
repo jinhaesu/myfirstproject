@@ -72,12 +72,37 @@ interface Inquiry {
   title: string;
   content: string;
   inquiry_date: string;
-  status: 'new' | 'ai_drafted' | 'approved' | 'sent' | 'failed';
+  status: 'new' | 'ai_drafted' | 'approved' | 'sent' | 'failed' | 'answered_externally' | 'closed_externally';
   priority: 'low' | 'normal' | 'high' | 'urgent';
   category: string;
   ai_response: string | null;
   final_response: string | null;
   sent_at: string | null;
+  sabangnet_status?: string | null;
+  last_synced_at?: string | null;
+  delivery_tracking?: {
+    tracking_number: string;
+    courier_name: string;
+    current_status: string;
+    last_event: string;
+    order_detail: Record<string, string> | null;
+    last_checked_at: string | null;
+  };
+  followup_actions?: {
+    id: number;
+    action_type: string;
+    action_label: string;
+    priority: string;
+    status: string;
+    ai_suggested: boolean;
+    notes: string | null;
+    created_at: string;
+  }[];
+  auto_action?: {
+    actions: { type: string; label: string; priority: string }[];
+    has_order: boolean;
+    order_number: string | null;
+  };
 }
 
 interface ReferenceData {
@@ -148,6 +173,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string; 
   'approved':   { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: '승인됨' },
   'sent':       { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200', label: '발송완료' },
   'failed':     { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', label: '실패' },
+  'answered_externally': { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', label: '외부답변' },
+  'closed_externally':   { bg: 'bg-stone-50', text: 'text-stone-700', border: 'border-stone-200', label: '외부종료' },
 };
 
 const PRIORITY_COLORS: Record<string, { bg: string; text: string; border: string; label: string }> = {
@@ -160,7 +187,7 @@ const PRIORITY_COLORS: Record<string, { bg: string; text: string; border: string
 const DEFAULT_BADGE = { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
 
 const MALL_OPTIONS = ['전체', '스마트스토어', '쿠팡', '11번가', '카카오선물하기', '옥션', '지마켓'];
-const STATUS_OPTIONS = ['전체', 'new', 'ai_drafted', 'approved', 'sent', 'failed'];
+const STATUS_OPTIONS = ['전체', 'new', 'ai_drafted', 'approved', 'sent', 'failed', 'answered_externally', 'closed_externally'];
 const CATEGORY_OPTIONS = ['전체', '배송문의', '교환/반품', '상품문의', '기타'];
 const REFERENCE_CATEGORIES = ['배송정책', '교환/반품 정책', 'FAQ', '상품정보', '인사말/맺음말', '프로모션'];
 const TONE_OPTIONS = ['친근한', '정중한', '비즈니스'];
@@ -484,6 +511,16 @@ export default function CSPage() {
     }
     setCollecting(false);
   }, [showToast, loadInquiries]);
+
+  const handleSyncStatus = useCallback(async () => {
+    const res = await fetchMutate('/api/sabangnet/inquiries/sync-status', 'POST');
+    if (res.ok) {
+      alert(`동기화 완료: ${res.data?.updated || 0}건 업데이트`);
+      loadInquiries();
+    } else {
+      alert('동기화 실패');
+    }
+  }, [loadInquiries]);
 
   const handleBulkAiAll = useCallback(async () => {
     setBulkAiAllRunning(true);
@@ -952,6 +989,14 @@ export default function CSPage() {
               문의 수집
             </button>
 
+            {/* Sync Status button */}
+            <button
+              onClick={handleSyncStatus}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+            >
+              상태 동기화
+            </button>
+
             {/* Bulk AI Generate button */}
             {(totalStats?.new || 0) > 0 && (
               <button
@@ -1338,6 +1383,18 @@ export default function CSPage() {
                                   발송 실패
                                 </span>
                               )}
+                              {inquiry.status === 'answered_externally' && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-cyan-600">
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                  사방넷에서 직접 답변됨
+                                </span>
+                              )}
+                              {inquiry.status === 'closed_externally' && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-stone-500">
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                  외부 종료
+                                </span>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-2">
@@ -1362,6 +1419,80 @@ export default function CSPage() {
                     {/* Expanded Response Panel */}
                     {isExpanded && (
                       <div className="border-t border-gray-200 bg-gray-50 p-4">
+                        {/* 주문/배송 정보 */}
+                        {inquiry.order_number && (
+                          <div className="mb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">주문/배송 정보</h4>
+                              <button
+                                onClick={async () => {
+                                  const res = await fetchSafe(`/api/sabangnet/inquiries/${inquiry.id}/order-detail`, null);
+                                  if (res) {
+                                    loadInquiries();
+                                    alert('주문/배송 정보 갱신 완료');
+                                  }
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                              >
+                                실시간 조회
+                              </button>
+                            </div>
+                            {inquiry.delivery_tracking ? (
+                              <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-500">운송장:</span>{' '}
+                                    <span className="font-medium">{inquiry.delivery_tracking.tracking_number || '미발급'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">택배사:</span>{' '}
+                                    <span className="font-medium">{inquiry.delivery_tracking.courier_name || '미정'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">배송상태:</span>{' '}
+                                    <span className={`font-semibold ${
+                                      inquiry.delivery_tracking.current_status === 'delivered' ? 'text-green-600' :
+                                      inquiry.delivery_tracking.current_status === 'in_transit' ? 'text-blue-600' :
+                                      inquiry.delivery_tracking.current_status === 'out_for_delivery' ? 'text-orange-600' :
+                                      'text-gray-600'
+                                    }`}>
+                                      {inquiry.delivery_tracking.current_status === 'delivered' ? '배달완료' :
+                                       inquiry.delivery_tracking.current_status === 'in_transit' ? '배송중' :
+                                       inquiry.delivery_tracking.current_status === 'out_for_delivery' ? '배달출발' :
+                                       inquiry.delivery_tracking.current_status === 'at_pickup' ? '집하' :
+                                       inquiry.delivery_tracking.current_status === 'informationReceived' ? '접수' :
+                                       inquiry.delivery_tracking.current_status || '확인불가'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">최근:</span>{' '}
+                                    <span className="font-medium">{inquiry.delivery_tracking.last_event || '-'}</span>
+                                  </div>
+                                </div>
+                                {inquiry.delivery_tracking.order_detail && (
+                                  <div className="pt-2 border-t border-gray-100 grid grid-cols-2 gap-2 text-xs">
+                                    <div>
+                                      <span className="text-gray-500">주문상태:</span>{' '}
+                                      <span className="font-medium">{inquiry.delivery_tracking.order_detail.ORDER_STATUS || '-'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">결제금액:</span>{' '}
+                                      <span className="font-medium">{inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE ? `${Number(inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE).toLocaleString()}원` : '-'}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                {inquiry.delivery_tracking.last_checked_at && (
+                                  <p className="text-[10px] text-gray-400 pt-1">마지막 조회: {new Date(inquiry.delivery_tracking.last_checked_at).toLocaleString('ko-KR')}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="bg-white rounded-lg border border-gray-200 p-3 text-center">
+                                <p className="text-xs text-gray-400">배송 정보를 조회하려면 &apos;실시간 조회&apos; 버튼을 클릭하세요</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Original inquiry */}
                         <div className="mb-4">
                           <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">원본 문의</h4>
@@ -1424,6 +1555,51 @@ export default function CSPage() {
                                 <span key={ref.id} className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-md border border-gray-200">
                                   [{ref.category}] {ref.title}
                                 </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 후속 조치 */}
+                        {inquiry.followup_actions && inquiry.followup_actions.length > 0 && (
+                          <div className="mb-4">
+                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">후속 조치</h4>
+                            <div className="space-y-1.5">
+                              {inquiry.followup_actions.map(action => (
+                                <div key={action.id} className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-3 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`w-2 h-2 rounded-full ${
+                                      action.status === 'completed' ? 'bg-green-500' :
+                                      action.status === 'in_progress' ? 'bg-blue-500' :
+                                      action.priority === 'high' || action.priority === 'urgent' ? 'bg-red-500' :
+                                      'bg-amber-500'
+                                    }`} />
+                                    <span className="text-xs font-medium text-gray-800">{action.action_label}</span>
+                                    {action.ai_suggested && (
+                                      <span className="text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-full border border-purple-200">AI</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                      action.status === 'completed' ? 'bg-green-50 text-green-700' :
+                                      action.status === 'in_progress' ? 'bg-blue-50 text-blue-700' :
+                                      'bg-amber-50 text-amber-700'
+                                    }`}>
+                                      {action.status === 'completed' ? '완료' : action.status === 'in_progress' ? '진행중' : '대기'}
+                                    </span>
+                                    {action.status === 'pending' && (
+                                      <button
+                                        onClick={async () => {
+                                          await fetchMutate(`/api/sabangnet/followup-actions/${action.id}`, 'PUT', { status: 'completed' });
+                                          loadInquiries();
+                                        }}
+                                        className="text-[10px] text-green-600 hover:text-green-800 font-medium"
+                                      >
+                                        완료처리
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
                               ))}
                             </div>
                           </div>
