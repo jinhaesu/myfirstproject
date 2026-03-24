@@ -1773,6 +1773,100 @@ async def get_order_detail(inquiry_id: int, db: Session = Depends(get_db)):
     return result
 
 
+@router.post("/inquiries/auto-fetch-order-details")
+async def auto_fetch_order_details(db: Session = Depends(get_db)):
+    """주문번호가 있는 문의의 주문/배송 정보를 일괄 자동 조회.
+    2시간 이내 조회된 건은 스킵.
+    """
+    from datetime import timedelta
+    from app.services.sabangnet_api import get_sabangnet_api
+    from app.services.delivery_tracker import DeliveryTracker
+
+    api = get_sabangnet_api()
+    if not api.is_available:
+        return {"message": "사방넷 API 미설정", "fetched": 0}
+
+    tracker = DeliveryTracker()
+    cutoff = datetime.now() - timedelta(hours=2)
+
+    # 주문번호가 있고, 최근 2시간 이내 조회되지 않은 문의
+    inquiries = db.query(CsInquiry).filter(
+        CsInquiry.order_number.isnot(None),
+        CsInquiry.order_number != "",
+        CsInquiry.status.notin_(["closed_externally"]),
+    ).all()
+
+    fetched = 0
+    skipped = 0
+    errors = 0
+
+    for inq in inquiries:
+        # 이미 최근에 조회된 건 스킵
+        existing = db.query(DeliveryTracking).filter(
+            DeliveryTracking.inquiry_id == inq.id
+        ).first()
+        if existing and existing.last_checked_at and existing.last_checked_at > cutoff:
+            skipped += 1
+            continue
+
+        try:
+            order_data = await api.get_order_detail(inq.order_number)
+            if not order_data.get("success") or not order_data.get("items"):
+                errors += 1
+                continue
+
+            oi = order_data["items"][0]
+            tracking_no = oi.get("DELIVERY_NO", "").strip()
+            courier_name = oi.get("DELIVERY_COMPANY_NM", "").strip()
+
+            # 배송 추적
+            delivery_info = None
+            if tracking_no and courier_name:
+                try:
+                    delivery_info = await tracker.track_delivery(tracking_no, courier_name)
+                except Exception:
+                    pass
+
+            # DB 저장/업데이트
+            if existing:
+                existing.tracking_number = tracking_no or existing.tracking_number
+                existing.courier_name = courier_name or existing.courier_name
+                existing.order_detail = oi
+                existing.last_checked_at = datetime.now()
+                if delivery_info and delivery_info.get("success"):
+                    existing.current_status = delivery_info.get("status", "unknown")
+                    existing.last_event = delivery_info.get("last_event", "")
+                    existing.courier_code = delivery_info.get("courier_code", "")
+                    existing.tracking_history = delivery_info.get("events", [])
+            else:
+                dt = DeliveryTracking(
+                    inquiry_id=inq.id,
+                    order_number=inq.order_number,
+                    tracking_number=tracking_no,
+                    courier_name=courier_name,
+                    courier_code=delivery_info.get("courier_code", "") if delivery_info else "",
+                    current_status=delivery_info.get("status", "unknown") if delivery_info and delivery_info.get("success") else "unknown",
+                    last_event=delivery_info.get("last_event", "") if delivery_info and delivery_info.get("success") else "",
+                    tracking_history=delivery_info.get("events", []) if delivery_info and delivery_info.get("success") else [],
+                    order_detail=oi,
+                )
+                db.add(dt)
+
+            fetched += 1
+        except Exception as e:
+            logger.warning(f"주문 자동조회 실패 ({inq.order_number}): {e}")
+            errors += 1
+
+    db.commit()
+    return {
+        "message": f"자동 조회 완료: {fetched}건 갱신, {skipped}건 스킵, {errors}건 실패",
+        "fetched": fetched,
+        "skipped": skipped,
+        "errors": errors,
+        "total": len(inquiries),
+    }
+
+
 @router.get("/delivery/track/{tracking_number}")
 async def track_delivery_direct(
     tracking_number: str,
@@ -2063,7 +2157,9 @@ async def get_inquiry_keywords(
         if count == 0:
             return {"keywords": sample_keywords, "total_inquiries_analyzed": 0, "period_days": days, "is_sample": True}
 
-        api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        from app.config import get_settings
+        _kw_settings = get_settings()
+        api_key = _kw_settings.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
         if not api_key:
             return {"keywords": sample_keywords, "total_inquiries_analyzed": count, "period_days": days, "is_sample": True}
 
