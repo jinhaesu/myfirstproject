@@ -19,7 +19,7 @@ const getAuthHeaders = () => {
 
 const fetchSafe = async <T,>(path: string, defaultValue: T): Promise<T> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       headers: getAuthHeaders(),
@@ -40,7 +40,7 @@ const fetchMutate = async (
   body?: unknown,
 ): Promise<{ ok: boolean; data?: any }> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method,
@@ -1239,26 +1239,22 @@ export default function CSPage() {
                 const mallColor = getMallColor(inquiry.mall_name);
                 const statusColor = getStatusColor(inquiry.status);
                 const priorityColor = getPriorityColor(inquiry.priority);
-                const isExpanded = expandedId === inquiry.id;
                 const isGenerating = generatingIds.has(inquiry.id);
                 const isSending = sendingIds.has(inquiry.id);
 
                 return (
                   <div key={inquiry.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    {/* Inquiry Card Header */}
-                    <div className="p-4">
+                    {/* ── 상단: 배지 + 상태 + 삭제 ── */}
+                    <div className="px-4 pt-4 pb-2">
                       <div className="flex items-start gap-3">
-                        {/* Checkbox */}
                         <input
                           type="checkbox"
                           checked={selectedIds.has(inquiry.id)}
                           onChange={() => toggleSelect(inquiry.id)}
                           className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
-
                         <div className="flex-1 min-w-0">
-                          {/* Top row: badges + date */}
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <div className="flex items-center justify-between gap-2 mb-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border ${mallColor.bg} ${mallColor.text} ${mallColor.border}`}>
                                 {inquiry.mall_name}
@@ -1266,389 +1262,211 @@ export default function CSPage() {
                               <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border bg-gray-50 text-gray-600 border-gray-200">
                                 {inquiry.board_type}
                               </span>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full border ${statusColor.bg} ${statusColor.text} ${statusColor.border}`}>
+                                {statusColor.label}
+                              </span>
                               {(inquiry.priority === 'high' || inquiry.priority === 'urgent') && (
                                 <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border ${priorityColor.bg} ${priorityColor.text} ${priorityColor.border}`}>
                                   {priorityColor.label}
                                 </span>
                               )}
                             </div>
-                            <span className="text-xs text-gray-400 whitespace-nowrap">
-                              {formatDate(inquiry.inquiry_date)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400 whitespace-nowrap">{formatDate(inquiry.inquiry_date)}</span>
+                              <button
+                                onClick={() => handleDelete(inquiry.id)}
+                                className="inline-flex items-center p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                title="삭제"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            </div>
                           </div>
-
-                          {/* Title */}
-                          <h3
-                            className="text-sm font-semibold text-gray-900 mb-1 cursor-pointer hover:text-blue-600 transition-colors"
-                            onClick={() => handleExpandInquiry(inquiry.id)}
-                          >
-                            {inquiry.title}
-                          </h3>
-
-                          {/* Info row */}
+                          <h3 className="text-sm font-semibold text-gray-900 mb-0.5">{inquiry.title}</h3>
                           <p className="text-xs text-gray-500">
                             고객: {inquiry.customer_name}
                             {inquiry.product_name && <> | 상품: {inquiry.product_name}</>}
                             {inquiry.order_number && <> | 주문: {inquiry.order_number}</>}
                           </p>
-
-                          {/* Auto-detected actions */}
-                          {(inquiry as any).auto_action?.actions?.length > 0 && (
-                            <div className="flex items-center gap-1.5 mt-2">
-                              {(inquiry as any).auto_action.actions.map((action: any, idx: number) => (
-                                <span key={idx} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                  action.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
-                                  action.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                                  'bg-gray-100 text-gray-600 border border-gray-200'
-                                }`}>
-                                  {action.type === 'refund' && '💰'}
-                                  {action.type === 'exchange' && '🔄'}
-                                  {action.type === 'damage' && '📦'}
-                                  {action.type === 'delivery' && '🚚'}
-                                  {action.type === 'restock' && '📋'}
-                                  {action.label}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Action row */}
-                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {inquiry.status === 'new' && (
-                                <button
-                                  onClick={() => handleGenerateAI(inquiry.id)}
-                                  disabled={isGenerating}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                                >
-                                  {isGenerating ? (
-                                    <>
-                                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                                      생성 중...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                                      AI 답변 생성
-                                    </>
-                                  )}
-                                </button>
-                              )}
-                              {inquiry.status === 'ai_drafted' && (
-                                <>
-                                  <button
-                                    onClick={() => handleExpandInquiry(inquiry.id)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
-                                  >
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                    답변 확인/수정
-                                  </button>
-                                  <button
-                                    onClick={() => handleApprove(inquiry.id)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                                  >
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                    승인
-                                  </button>
-                                </>
-                              )}
-                              {inquiry.status === 'approved' && (
-                                <button
-                                  onClick={() => handleSend(inquiry.id)}
-                                  disabled={isSending}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-700 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors"
-                                >
-                                  {isSending ? (
-                                    <>
-                                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                                      발송 중...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                                      발송
-                                    </>
-                                  )}
-                                </button>
-                              )}
-                              {inquiry.status === 'sent' && inquiry.sent_at && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500">
-                                  <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                  발송완료 ({formatDate(inquiry.sent_at)})
-                                </span>
-                              )}
-                              {inquiry.status === 'failed' && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600">
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                  발송 실패
-                                </span>
-                              )}
-                              {inquiry.status === 'answered_externally' && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-cyan-600">
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                  사방넷에서 직접 답변됨
-                                </span>
-                              )}
-                              {inquiry.status === 'closed_externally' && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-stone-500">
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                  외부 종료
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              {/* Delete button */}
-                              <button
-                                onClick={() => handleDelete(inquiry.id)}
-                                className="inline-flex items-center p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                title="삭제"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              </button>
-                              {/* Status badge */}
-                              <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full border ${statusColor.bg} ${statusColor.text} ${statusColor.border}`}>
-                                {statusColor.label}
-                              </span>
-                            </div>
-                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Expanded Response Panel */}
-                    {isExpanded && (
-                      <div className="border-t border-gray-200 bg-gray-50 p-4">
-                        {/* 주문/배송 정보 */}
-                        {inquiry.order_number && (
-                          <div className="mb-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">주문/배송 정보</h4>
+                    {/* ── 감지된 액션 + 후속 조치 태그 ── */}
+                    {((inquiry.auto_action?.actions?.length ?? 0) > 0 || (inquiry.followup_actions?.length ?? 0) > 0) && (
+                      <div className="px-4 pb-2 flex items-center gap-1.5 flex-wrap">
+                        {inquiry.auto_action?.actions?.map((action, idx) => (
+                          <span key={`auto-${idx}`} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            action.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
+                            action.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                            'bg-gray-100 text-gray-600 border border-gray-200'
+                          }`}>
+                            {action.type === 'refund' ? '💰' : action.type === 'exchange' ? '🔄' : action.type === 'damage' ? '📦' : action.type === 'delivery' ? '🚚' : '📋'}
+                            {action.label}
+                          </span>
+                        ))}
+                        {inquiry.followup_actions?.map(action => (
+                          <span key={`fu-${action.id}`} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                            action.status === 'completed' ? 'bg-green-50 text-green-700 border border-green-200' :
+                            action.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                            'bg-purple-50 text-purple-700 border border-purple-200'
+                          }`}>
+                            {action.ai_suggested ? 'AI ' : ''}{action.action_label}
+                            {action.status === 'pending' && (
                               <button
                                 onClick={async () => {
-                                  const res = await fetchSafe(`/api/sabangnet/inquiries/${inquiry.id}/order-detail`, null);
-                                  if (res) {
-                                    loadInquiries();
-                                    alert('주문/배송 정보 갱신 완료');
-                                  }
+                                  await fetchMutate(`/api/sabangnet/followup-actions/${action.id}`, 'PUT', { status: 'completed' });
+                                  loadInquiries();
                                 }}
-                                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                className="ml-1 underline text-green-600 hover:text-green-800"
                               >
-                                실시간 조회
-                              </button>
-                            </div>
-                            {inquiry.delivery_tracking ? (
-                              <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                  <div>
-                                    <span className="text-gray-500">운송장:</span>{' '}
-                                    <span className="font-medium">{inquiry.delivery_tracking.tracking_number || '미발급'}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">택배사:</span>{' '}
-                                    <span className="font-medium">{inquiry.delivery_tracking.courier_name || '미정'}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">배송상태:</span>{' '}
-                                    <span className={`font-semibold ${
-                                      inquiry.delivery_tracking.current_status === 'delivered' ? 'text-green-600' :
-                                      inquiry.delivery_tracking.current_status === 'in_transit' ? 'text-blue-600' :
-                                      inquiry.delivery_tracking.current_status === 'out_for_delivery' ? 'text-orange-600' :
-                                      'text-gray-600'
-                                    }`}>
-                                      {inquiry.delivery_tracking.current_status === 'delivered' ? '배달완료' :
-                                       inquiry.delivery_tracking.current_status === 'in_transit' ? '배송중' :
-                                       inquiry.delivery_tracking.current_status === 'out_for_delivery' ? '배달출발' :
-                                       inquiry.delivery_tracking.current_status === 'at_pickup' ? '집하' :
-                                       inquiry.delivery_tracking.current_status === 'informationReceived' ? '접수' :
-                                       inquiry.delivery_tracking.current_status || '확인불가'}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">최근:</span>{' '}
-                                    <span className="font-medium">{inquiry.delivery_tracking.last_event || '-'}</span>
-                                  </div>
-                                </div>
-                                {inquiry.delivery_tracking.order_detail && (
-                                  <div className="pt-2 border-t border-gray-100 grid grid-cols-2 gap-2 text-xs">
-                                    <div>
-                                      <span className="text-gray-500">주문상태:</span>{' '}
-                                      <span className="font-medium">{inquiry.delivery_tracking.order_detail.ORDER_STATUS || '-'}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-gray-500">결제금액:</span>{' '}
-                                      <span className="font-medium">{inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE ? `${Number(inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE).toLocaleString()}원` : '-'}</span>
-                                    </div>
-                                  </div>
-                                )}
-                                {inquiry.delivery_tracking.last_checked_at && (
-                                  <p className="text-[10px] text-gray-400 pt-1">마지막 조회: {new Date(inquiry.delivery_tracking.last_checked_at).toLocaleString('ko-KR')}</p>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="bg-white rounded-lg border border-gray-200 p-3 text-center">
-                                <p className="text-xs text-gray-400">배송 정보를 조회하려면 &apos;실시간 조회&apos; 버튼을 클릭하세요</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Original inquiry */}
-                        <div className="mb-4">
-                          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">원본 문의</h4>
-                          <div className="bg-white rounded-lg border border-gray-200 p-3">
-                            <p className="text-sm text-gray-800 whitespace-pre-wrap">{inquiry.content}</p>
-                          </div>
-                        </div>
-
-                        {/* AI Response / Edit area */}
-                        <div className="mb-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                              {inquiry.status === 'new' ? '답변 (미생성)' : 'AI 생성 답변'}
-                            </h4>
-                            {inquiry.status !== 'new' && inquiry.status !== 'sent' && (
-                              <button
-                                onClick={() => handleGenerateAI(inquiry.id)}
-                                disabled={isGenerating}
-                                className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
-                              >
-                                {isGenerating ? 'AI 재생성 중...' : 'AI 재생성'}
+                                완료
                               </button>
                             )}
-                          </div>
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
-                          {inquiry.status === 'new' && !inquiry.ai_response ? (
-                            <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-                              <p className="text-sm text-gray-400 mb-3">아직 AI 답변이 생성되지 않았습니다.</p>
-                              <button
-                                onClick={() => handleGenerateAI(inquiry.id)}
-                                disabled={isGenerating}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                              >
-                                {isGenerating ? (
-                                  <>
-                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                                    생성 중...
-                                  </>
-                                ) : 'AI 답변 생성'}
-                              </button>
-                            </div>
-                          ) : (
-                            <textarea
-                              value={editingResponse}
-                              onChange={e => setEditingResponse(e.target.value)}
-                              readOnly={inquiry.status === 'sent'}
-                              className={`w-full min-h-[200px] p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y ${
-                                inquiry.status === 'sent' ? 'bg-gray-100 text-gray-600' : 'bg-white text-gray-800'
-                              }`}
-                            />
-                          )}
+                    {/* ── 주문/배송 정보 (항상 노출) ── */}
+                    {inquiry.order_number && (
+                      <div className="mx-4 mb-2 bg-slate-50 rounded-lg border border-slate-200 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-slate-600">주문/배송 정보</span>
+                          <button
+                            onClick={async () => {
+                              await fetchSafe(`/api/sabangnet/inquiries/${inquiry.id}/order-detail`, null);
+                              loadInquiries();
+                            }}
+                            className="text-[11px] px-2 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                          >
+                            실시간 조회
+                          </button>
                         </div>
-
-                        {/* Reference data used */}
-                        {inquiry.status !== 'new' && (
-                          <div className="mb-4">
-                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">참고 데이터</h4>
-                            <div className="flex gap-2 flex-wrap">
-                              {referenceData.filter(r => r.is_active).slice(0, 3).map(ref => (
-                                <span key={ref.id} className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-md border border-gray-200">
-                                  [{ref.category}] {ref.title}
+                        {inquiry.delivery_tracking ? (
+                          <div className="space-y-1.5">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
+                              <div><span className="text-gray-400">운송장</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.tracking_number || '미발급'}</span></div>
+                              <div><span className="text-gray-400">택배사</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.courier_name || '미정'}</span></div>
+                              <div><span className="text-gray-400">배송상태</span>{' '}
+                                <span className={`font-bold ${
+                                  inquiry.delivery_tracking.current_status === 'delivered' ? 'text-green-600' :
+                                  inquiry.delivery_tracking.current_status === 'in_transit' ? 'text-blue-600' :
+                                  inquiry.delivery_tracking.current_status === 'out_for_delivery' ? 'text-orange-600' :
+                                  'text-gray-600'
+                                }`}>
+                                  {inquiry.delivery_tracking.current_status === 'delivered' ? '배달완료' :
+                                   inquiry.delivery_tracking.current_status === 'in_transit' ? '배송중' :
+                                   inquiry.delivery_tracking.current_status === 'out_for_delivery' ? '배달출발' :
+                                   inquiry.delivery_tracking.current_status === 'at_pickup' ? '집하' :
+                                   inquiry.delivery_tracking.current_status === 'informationReceived' ? '접수' :
+                                   inquiry.delivery_tracking.current_status || '확인불가'}
                                 </span>
-                              ))}
+                              </div>
+                              <div><span className="text-gray-400">최근</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.last_event || '-'}</span></div>
                             </div>
-                          </div>
-                        )}
-
-                        {/* 후속 조치 */}
-                        {inquiry.followup_actions && inquiry.followup_actions.length > 0 && (
-                          <div className="mb-4">
-                            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">후속 조치</h4>
-                            <div className="space-y-1.5">
-                              {inquiry.followup_actions.map(action => (
-                                <div key={action.id} className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-3 py-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full ${
-                                      action.status === 'completed' ? 'bg-green-500' :
-                                      action.status === 'in_progress' ? 'bg-blue-500' :
-                                      action.priority === 'high' || action.priority === 'urgent' ? 'bg-red-500' :
-                                      'bg-amber-500'
-                                    }`} />
-                                    <span className="text-xs font-medium text-gray-800">{action.action_label}</span>
-                                    {action.ai_suggested && (
-                                      <span className="text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-full border border-purple-200">AI</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                                      action.status === 'completed' ? 'bg-green-50 text-green-700' :
-                                      action.status === 'in_progress' ? 'bg-blue-50 text-blue-700' :
-                                      'bg-amber-50 text-amber-700'
-                                    }`}>
-                                      {action.status === 'completed' ? '완료' : action.status === 'in_progress' ? '진행중' : '대기'}
-                                    </span>
-                                    {action.status === 'pending' && (
-                                      <button
-                                        onClick={async () => {
-                                          await fetchMutate(`/api/sabangnet/followup-actions/${action.id}`, 'PUT', { status: 'completed' });
-                                          loadInquiries();
-                                        }}
-                                        className="text-[10px] text-green-600 hover:text-green-800 font-medium"
-                                      >
-                                        완료처리
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Action buttons */}
-                        {inquiry.status !== 'sent' && inquiry.status !== 'new' && (
-                          <div className="flex items-center gap-2 pt-3 border-t border-gray-200">
-                            {inquiry.status === 'ai_drafted' && (
-                              <>
-                                <button
-                                  onClick={() => handleApprove(inquiry.id, editingResponse)}
-                                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                                >
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                  수정 후 승인
-                                </button>
-                                <button
-                                  onClick={() => handleApproveAndSend(inquiry.id, editingResponse)}
-                                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors"
-                                >
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                                  승인 후 즉시 발송
-                                </button>
-                              </>
+                            {inquiry.delivery_tracking.order_detail && (
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs pt-1.5 border-t border-slate-200">
+                                <div><span className="text-gray-400">주문상태</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_STATUS || '-'}</span></div>
+                                <div><span className="text-gray-400">결제금액</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE ? `${Number(inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE).toLocaleString()}원` : '-'}</span></div>
+                                <div><span className="text-gray-400">주문일</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_DATE || '-'}</span></div>
+                                <div><span className="text-gray-400">수량</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.SALE_CNT || '-'}</span></div>
+                              </div>
                             )}
-                            {inquiry.status === 'approved' && (
-                              <button
-                                onClick={() => handleSend(inquiry.id)}
-                                disabled={isSending}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-700 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors"
-                              >
-                                {isSending ? (
-                                  <>
-                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                                    발송 중...
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                                    발송
-                                  </>
-                                )}
-                              </button>
+                            {inquiry.delivery_tracking.last_checked_at && (
+                              <p className="text-[10px] text-gray-400">조회: {new Date(inquiry.delivery_tracking.last_checked_at).toLocaleString('ko-KR')}</p>
                             )}
                           </div>
+                        ) : (
+                          <p className="text-xs text-gray-400">조회 전 — &apos;실시간 조회&apos; 버튼을 눌러주세요</p>
                         )}
                       </div>
                     )}
+
+                    {/* ── 문의 내용 (항상 노출) ── */}
+                    <div className="mx-4 mb-2 bg-gray-50 rounded-lg border border-gray-200 p-3">
+                      <span className="text-xs font-semibold text-gray-500 block mb-1">고객 문의</span>
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap">{inquiry.content}</p>
+                    </div>
+
+                    {/* ── AI 답변 (항상 노출) ── */}
+                    <div className="mx-4 mb-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-gray-500">
+                          {inquiry.ai_response ? 'AI 답변' : '답변 미생성'}
+                        </span>
+                        {inquiry.ai_response && inquiry.status !== 'sent' && (
+                          <button
+                            onClick={() => handleGenerateAI(inquiry.id)}
+                            disabled={isGenerating}
+                            className="text-[11px] text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
+                          >
+                            {isGenerating ? '재생성 중...' : 'AI 재생성'}
+                          </button>
+                        )}
+                      </div>
+                      {inquiry.ai_response ? (
+                        <textarea
+                          value={expandedId === inquiry.id ? editingResponse : (inquiry.final_response || inquiry.ai_response || '')}
+                          onChange={e => { setExpandedId(inquiry.id); setEditingResponse(e.target.value); }}
+                          onFocus={() => { if (expandedId !== inquiry.id) { setExpandedId(inquiry.id); setEditingResponse(inquiry.final_response || inquiry.ai_response || ''); } }}
+                          readOnly={inquiry.status === 'sent' || inquiry.status === 'answered_externally' || inquiry.status === 'closed_externally'}
+                          className={`w-full min-h-[120px] p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y ${
+                            inquiry.status === 'sent' ? 'bg-gray-100 text-gray-600' : 'bg-white text-gray-800'
+                          }`}
+                        />
+                      ) : (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                          <button
+                            onClick={() => handleGenerateAI(inquiry.id)}
+                            disabled={isGenerating}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                          >
+                            {isGenerating ? (
+                              <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 생성 중...</>
+                            ) : (
+                              <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> AI 답변 생성</>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── 하단 액션 버튼 (항상 노출) ── */}
+                    <div className="px-4 pb-4 pt-2 flex items-center gap-2 flex-wrap">
+                      {inquiry.status === 'new' && inquiry.ai_response && (
+                        <button onClick={() => handleApprove(inquiry.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> 승인
+                        </button>
+                      )}
+                      {inquiry.status === 'ai_drafted' && (
+                        <>
+                          <button
+                            onClick={() => handleApprove(inquiry.id, expandedId === inquiry.id ? editingResponse : undefined)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> 승인
+                          </button>
+                          <button
+                            onClick={() => handleApproveAndSend(inquiry.id, expandedId === inquiry.id ? editingResponse : undefined)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 승인+발송
+                          </button>
+                        </>
+                      )}
+                      {inquiry.status === 'approved' && (
+                        <button onClick={() => handleSend(inquiry.id)} disabled={isSending} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-700 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors">
+                          {isSending ? <><svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 발송 중...</> : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 발송</>}
+                        </button>
+                      )}
+                      {inquiry.status === 'sent' && inquiry.sent_at && (
+                        <span className="text-xs text-slate-500">발송완료 ({formatDate(inquiry.sent_at)})</span>
+                      )}
+                      {inquiry.status === 'failed' && <span className="text-xs text-red-600">발송 실패</span>}
+                      {inquiry.status === 'answered_externally' && <span className="text-xs text-cyan-600">사방넷에서 직접 답변됨</span>}
+                      {inquiry.status === 'closed_externally' && <span className="text-xs text-stone-500">외부 종료</span>}
+                    </div>
                   </div>
                 );
               })}
