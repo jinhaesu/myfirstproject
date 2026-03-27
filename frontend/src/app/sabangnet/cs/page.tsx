@@ -1374,6 +1374,8 @@ export default function CSPage() {
                                  inquiry.delivery_tracking.current_status === 'at_pickup' ? '집하' :
                                  inquiry.delivery_tracking.current_status === 'informationReceived' ? '접수' :
                                  inquiry.delivery_tracking.current_status === 'no_order' ? '-' :
+                                 inquiry.delivery_tracking.current_status === 'order_found' ? '주문확인' :
+                                 inquiry.delivery_tracking.current_status === 'fetch_failed' ? '조회실패' :
                                  inquiry.delivery_tracking.current_status || '확인불가'}
                               </span>
                             </div>
@@ -1650,39 +1652,37 @@ export default function CSPage() {
               </div>
 
               {keywords.length > 0 ? (
-                <div className="space-y-3">
-                  {keywords.map((kw, i) => {
-                    const maxCount = Math.max(...keywords.map(k => k.count), 1);
-                    const importanceColor = kw.importance === 'high' ? 'bg-red-100 text-red-700 border-red-200' :
-                      kw.importance === 'medium' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                      'bg-gray-100 text-gray-600 border-gray-200';
-                    return (
-                      <div key={i} className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50/50 transition-colors">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-sm font-bold text-gray-900 min-w-0">{kw.keyword}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${importanceColor}`}>
-                            {kw.importance === 'high' ? '높음' : kw.importance === 'medium' ? '보통' : '낮음'}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                            {kw.category}
-                          </span>
-                          <span className="ml-auto text-sm font-bold text-blue-600">{kw.count}회</span>
-                        </div>
-                        {/* 빈도 바 */}
-                        <div className="h-2 bg-gray-100 rounded-full mb-2">
-                          <div className="h-full bg-blue-400 rounded-full transition-all" style={{ width: `${(kw.count / maxCount) * 100}%` }} />
-                        </div>
-                        {/* 샘플 문의 */}
-                        {kw.sample_inquiries.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {kw.sample_inquiries.map((s, j) => (
-                              <span key={j} className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md">"{s}"</span>
-                            ))}
+                <div>
+                  {/* 컴팩트 키워드 테이블 */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {keywords.map((kw, i) => {
+                      const maxCount = Math.max(...keywords.map(k => k.count), 1);
+                      const pct = (kw.count / maxCount) * 100;
+                      return (
+                        <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 group hover:bg-gray-100 transition-colors relative">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${
+                            kw.importance === 'high' ? 'bg-red-500' : kw.importance === 'medium' ? 'bg-amber-400' : 'bg-gray-300'
+                          }`} />
+                          <span className="text-xs font-bold text-gray-900 shrink-0">{kw.keyword}</span>
+                          <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden mx-1">
+                            <div className={`h-full rounded-full transition-all ${
+                              kw.importance === 'high' ? 'bg-red-400' : kw.importance === 'medium' ? 'bg-amber-300' : 'bg-gray-400'
+                            }`} style={{ width: `${pct}%` }} />
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                          <span className="text-xs font-bold text-gray-700 shrink-0 w-8 text-right">{kw.count}</span>
+                          <span className="text-[9px] text-gray-400 shrink-0 w-14">{kw.category}</span>
+                          {/* 호버 시 샘플 표시 */}
+                          {kw.sample_inquiries?.length > 0 && (
+                            <div className="absolute left-0 top-full mt-1 z-10 hidden group-hover:block bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-full max-w-xs">
+                              {kw.sample_inquiries.slice(0, 2).map((s, j) => (
+                                <p key={j} className="text-[10px] text-gray-500 truncate">&quot;{s}&quot;</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-10 text-gray-400 text-sm">키워드 데이터가 없습니다</div>
