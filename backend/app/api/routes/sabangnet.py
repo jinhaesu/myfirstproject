@@ -652,6 +652,89 @@ async def debug_api_test():
     return result
 
 
+@router.get("/debug/order-test/{order_id}")
+async def debug_order_test(order_id: str):
+    """사방넷 주문 API 디버그 - 주문번호로 조회 테스트"""
+    from app.services.sabangnet_api import get_sabangnet_api
+    api = get_sabangnet_api()
+    if not api.is_available:
+        return {"error": "API 미설정"}
+
+    results = {}
+
+    # 1. 주문수집 API (xml_order.html)
+    try:
+        from datetime import timedelta
+        start_date = (datetime.now() - timedelta(days=90)).strftime("%Y%m%d")
+        end_date = datetime.now().strftime("%Y%m%d")
+        fields = "IDX|ORDER_ID|ORDER_STATUS|DELIVERY_COMPANY_NM|DELIVERY_NO|PRODUCT_NM|SALE_CNT|ORDER_DATE|ORDER_TOTAL_PRICE|USER_NAME"
+        xml1 = f"""<?xml version="1.0" encoding="EUC-KR"?>
+<SABANG_ORDER_LIST>
+{api._build_header_xml()}
+    <DATA>
+        <ORD_ST_DATE>{start_date}</ORD_ST_DATE>
+        <ORD_ED_DATE>{end_date}</ORD_ED_DATE>
+        <ORD_FIELD><![CDATA[{fields}]]></ORD_FIELD>
+        <LANG>UTF-8</LANG>
+    </DATA>
+</SABANG_ORDER_LIST>"""
+        resp1 = await api._call_api("xml_order.html", xml1)
+        items1 = api._parse_xml_response(resp1)
+        matched1 = [it for it in items1 if order_id in it.get("ORDER_ID", "")]
+        results["xml_order"] = {
+            "raw_response_head": resp1[:500],
+            "total_items": len(items1),
+            "matched": len(matched1),
+            "first_item": items1[0] if items1 else None,
+            "matched_items": matched1[:3],
+        }
+    except Exception as e:
+        results["xml_order"] = {"error": str(e)}
+
+    # 2. 클레임 API (xml_clm_info.html)
+    try:
+        clm_fields = "IDX|ORDER_ID|MALL_ID|ORDER_STATUS|USER_NAME|USER_CEL|PRODUCT_NAME|SALE_CNT|ORDER_DATE|DELIVERY_COMPANY_NM|DELIVERY_NO|COMPAYNY_GOODS_CD"
+        xml2 = f"""<?xml version="1.0" encoding="EUC-KR"?>
+<SABANG_ORDER_LIST>
+{api._build_header_xml()}
+    <DATA>
+        <CLM_ST_DATE>{start_date}</CLM_ST_DATE>
+        <CLM_ED_DATE>{end_date}</CLM_ED_DATE>
+        <CLM_FIELD><![CDATA[{clm_fields}]]></CLM_FIELD>
+        <LANG>UTF-8</LANG>
+    </DATA>
+</SABANG_ORDER_LIST>"""
+        resp2 = await api._call_api("xml_clm_info.html", xml2)
+        items2 = api._parse_xml_response(resp2)
+        matched2 = [it for it in items2 if order_id in it.get("ORDER_ID", "")]
+        results["xml_clm_info"] = {
+            "raw_response_head": resp2[:500],
+            "total_items": len(items2),
+            "matched": len(matched2),
+            "first_item": items2[0] if items2 else None,
+            "matched_items": matched2[:3],
+        }
+    except Exception as e:
+        results["xml_clm_info"] = {"error": str(e)}
+
+    # 3. CS 문의 API로 해당 주문의 문의 데이터 확인
+    try:
+        cs_result = await api.collect_inquiries()
+        if cs_result.get("success"):
+            cs_items = cs_result.get("items", [])
+            cs_matched = [it for it in cs_items if it.get("ORDER_ID", "") == order_id]
+            results["xml_cs_info"] = {
+                "total_items": len(cs_items),
+                "matched": len(cs_matched),
+                "matched_items": cs_matched[:3],
+                "all_fields_sample": list(cs_items[0].keys()) if cs_items else [],
+            }
+    except Exception as e:
+        results["xml_cs_info"] = {"error": str(e)}
+
+    return {"order_id": order_id, "results": results}
+
+
 @router.post("/inquiries/collect")
 async def collect_inquiries(db: Session = Depends(get_db)):
     """사방넷 API로 문의 수집.
