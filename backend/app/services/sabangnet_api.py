@@ -356,15 +356,17 @@ class SabangnetAPI:
             logger.error(f"사방넷 상품 수정 실패: {e}")
             return {"success": False, "error": str(e)}
 
-    # ── 주문 상세 조회 ──
+    # ── 주문/CS 상세 조회 ──
 
     async def get_order_detail(self, order_id: str, days_back: int = 90) -> Dict[str, Any]:
-        """주문번호로 주문 상세 정보 조회
+        """주문번호로 관련 정보 조회
 
-        3가지 방법을 순차 시도:
-        1. 주문수집 API (xml_order.html) - 날짜범위 + ORDER_ID 필터
-        2. 클레임 API (xml_clm_info.html) - ORDER_ID 포함된 데이터
-        3. 실패 시 빈 결과 반환
+        사방넷 xml_order.html은 404이므로,
+        CS 문의 API와 클레임 API에서 해당 주문 관련 데이터를 수집합니다.
+
+        Args:
+            order_id: 사방넷 주문번호 (ORDER_ID)
+            days_back: 검색할 기간 (기본 90일)
         """
         if not order_id:
             return {"success": False, "error": "주문번호가 없습니다", "items": []}
@@ -373,57 +375,31 @@ class SabangnetAPI:
         start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y%m%d")
         end_date = datetime.now().strftime("%Y%m%d")
 
-        # 방법 1: 주문수집 API
+        # 방법 1: CS 문의 API에서 해당 주문의 문의 데이터 조회
         try:
-            fields = "IDX|ORDER_ID|ORDER_STATUS|DELIVERY_COMPANY_NM|DELIVERY_NO|PRODUCT_NM|SALE_CNT|ORDER_DATE|ORDER_TOTAL_PRICE|USER_NAME|USER_CEL|DELIVERY_PRICE|COMPAYNY_GOODS_CD|MALL_ID"
-            xml_content = f"""<?xml version="1.0" encoding="EUC-KR"?>
-<SABANG_ORDER_LIST>
-{self._build_header_xml()}
-    <DATA>
-        <ORD_ST_DATE>{start_date}</ORD_ST_DATE>
-        <ORD_ED_DATE>{end_date}</ORD_ED_DATE>
-        <ORD_FIELD><![CDATA[{fields}]]></ORD_FIELD>
-        <LANG>UTF-8</LANG>
-    </DATA>
-</SABANG_ORDER_LIST>"""
-            response_text = await self._call_api("xml_order.html", xml_content)
-            all_items = self._parse_xml_response(response_text)
-            matched = [it for it in all_items if it.get("ORDER_ID", "") == order_id]
-            if not matched:
-                matched = [it for it in all_items if order_id in it.get("ORDER_ID", "")]
-            if matched:
-                logger.info(f"사방넷 주문수집 API 성공: {order_id} → {len(matched)}건")
-                return {"success": True, "items": matched, "source": "xml_order"}
-            logger.info(f"사방넷 주문수집 API: {order_id} → 전체 {len(all_items)}건 중 매칭 0건")
+            cs_result = await self.collect_inquiries(start_date, end_date)
+            if cs_result.get("success"):
+                cs_items = cs_result.get("items", [])
+                matched = [it for it in cs_items if it.get("ORDER_ID", "") == order_id]
+                if matched:
+                    logger.info(f"CS API에서 주문 데이터 발견: {order_id} → {len(matched)}건")
+                    return {"success": True, "items": matched, "source": "xml_cs_info"}
         except Exception as e:
-            logger.warning(f"사방넷 주문수집 API 실패: {e}")
+            logger.warning(f"CS API 주문 조회 실패: {e}")
 
-        # 방법 2: 클레임 API (이미 동작 확인됨)
+        # 방법 2: 클레임 API
         try:
-            clm_fields = "IDX|ORDER_ID|MALL_ID|ORDER_STATUS|USER_NAME|USER_CEL|PRODUCT_NAME|SALE_CNT|ORDER_DATE|DELIVERY_COMPANY_NM|DELIVERY_NO|COMPAYNY_GOODS_CD"
-            xml_content2 = f"""<?xml version="1.0" encoding="EUC-KR"?>
-<SABANG_ORDER_LIST>
-{self._build_header_xml()}
-    <DATA>
-        <CLM_ST_DATE>{start_date}</CLM_ST_DATE>
-        <CLM_ED_DATE>{end_date}</CLM_ED_DATE>
-        <CLM_FIELD><![CDATA[{clm_fields}]]></CLM_FIELD>
-        <LANG>UTF-8</LANG>
-    </DATA>
-</SABANG_ORDER_LIST>"""
-            response_text2 = await self._call_api("xml_clm_info.html", xml_content2)
-            all_items2 = self._parse_xml_response(response_text2)
-            matched2 = [it for it in all_items2 if it.get("ORDER_ID", "") == order_id]
-            if not matched2:
-                matched2 = [it for it in all_items2 if order_id in it.get("ORDER_ID", "")]
-            if matched2:
-                logger.info(f"사방넷 클레임 API fallback 성공: {order_id} → {len(matched2)}건")
-                return {"success": True, "items": matched2, "source": "xml_clm_info"}
-            logger.info(f"사방넷 클레임 API: {order_id} → 전체 {len(all_items2)}건 중 매칭 0건")
+            clm_result = await self.collect_claims(start_date, end_date)
+            if clm_result.get("success"):
+                clm_items = clm_result.get("items", [])
+                matched2 = [it for it in clm_items if it.get("ORDER_ID", "") == order_id]
+                if matched2:
+                    logger.info(f"클레임 API에서 주문 데이터 발견: {order_id} → {len(matched2)}건")
+                    return {"success": True, "items": matched2, "source": "xml_clm_info"}
         except Exception as e:
-            logger.warning(f"사방넷 클레임 API도 실패: {e}")
+            logger.warning(f"클레임 API 주문 조회 실패: {e}")
 
-        return {"success": False, "error": "주문수집/클레임 API 모두 매칭 실패", "items": []}
+        return {"success": False, "error": "CS/클레임 API에서 매칭 실패", "items": []}
 
 
 def get_sabangnet_api() -> SabangnetAPI:
