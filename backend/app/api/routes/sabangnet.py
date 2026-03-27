@@ -1773,52 +1773,74 @@ async def get_order_detail(inquiry_id: int, db: Session = Depends(get_db)):
 
     result = await api.get_order_detail(inquiry.order_number)
 
-    # 배송 추적도 함께 수행
+    oi = {}
+    delivery_info = None
+    tracking_no = ""
+    courier_name = ""
+
     if result.get("success") and result.get("items"):
         oi = result["items"][0]
         tracking_no = oi.get("DELIVERY_NO", "").strip()
         courier_name = oi.get("DELIVERY_COMPANY_NM", "").strip()
 
-        delivery_info = None
+        # 운송장번호가 있으면 배송 추적
         if tracking_no and courier_name:
-            from app.services.delivery_tracker import DeliveryTracker
-            tracker = DeliveryTracker()
-            delivery_info = await tracker.track_delivery(tracking_no, courier_name)
+            try:
+                from app.services.delivery_tracker import DeliveryTracker
+                tracker = DeliveryTracker()
+                delivery_info = await tracker.track_delivery(tracking_no, courier_name)
+            except Exception as e_track:
+                logger.warning(f"배송 추적 실패: {e_track}")
 
-            # DB 저장/업데이트
-            existing_track = db.query(DeliveryTracking).filter(
-                DeliveryTracking.inquiry_id == inquiry_id
-            ).first()
-            if existing_track:
-                existing_track.tracking_number = tracking_no
-                existing_track.courier_name = courier_name
-                existing_track.current_status = delivery_info.get('status', 'unknown')
-                existing_track.last_event = delivery_info.get('last_event', '')
-                existing_track.tracking_history = delivery_info.get('events', [])
-                existing_track.order_detail = oi
-                existing_track.last_checked_at = datetime.now()
-            else:
-                dt = DeliveryTracking(
-                    inquiry_id=inquiry_id,
-                    order_number=inquiry.order_number,
-                    tracking_number=tracking_no,
-                    courier_name=courier_name,
-                    courier_code=delivery_info.get('courier_code', ''),
-                    current_status=delivery_info.get('status', 'unknown'),
-                    last_event=delivery_info.get('last_event', ''),
-                    tracking_history=delivery_info.get('events', []),
-                    order_detail=oi,
-                )
-                db.add(dt)
-            db.commit()
+    # 항상 DeliveryTracking 레코드 저장/업데이트 (API 실패해도)
+    existing_track = db.query(DeliveryTracking).filter(
+        DeliveryTracking.inquiry_id == inquiry_id
+    ).first()
+    if existing_track:
+        existing_track.order_detail = oi or existing_track.order_detail
+        existing_track.tracking_number = tracking_no or existing_track.tracking_number
+        existing_track.courier_name = courier_name or existing_track.courier_name
+        existing_track.last_checked_at = datetime.now()
+        if delivery_info and delivery_info.get("success"):
+            existing_track.current_status = delivery_info.get("status", "unknown")
+            existing_track.last_event = delivery_info.get("last_event", "")
+            existing_track.courier_code = delivery_info.get("courier_code", "")
+            existing_track.tracking_history = delivery_info.get("events", [])
+        elif oi:
+            existing_track.current_status = "order_found"
+            existing_track.last_event = f"주문확인 (운송장: {'있음' if tracking_no else '미발급'})"
+    else:
+        status = "unknown"
+        event = ""
+        if delivery_info and delivery_info.get("success"):
+            status = delivery_info.get("status", "unknown")
+            event = delivery_info.get("last_event", "")
+        elif oi:
+            status = "order_found"
+            event = f"주문확인 (운송장: {'있음' if tracking_no else '미발급'})"
+        else:
+            status = "fetch_failed"
+            event = "사방넷 주문 조회 실패"
 
-        return {
-            "success": True,
-            "order": oi,
-            "delivery": delivery_info,
-        }
+        dt = DeliveryTracking(
+            inquiry_id=inquiry_id,
+            order_number=inquiry.order_number,
+            tracking_number=tracking_no,
+            courier_name=courier_name,
+            courier_code=delivery_info.get("courier_code", "") if delivery_info else "",
+            current_status=status,
+            last_event=event,
+            tracking_history=delivery_info.get("events", []) if delivery_info and delivery_info.get("success") else [],
+            order_detail=oi or None,
+        )
+        db.add(dt)
+    db.commit()
 
-    return result
+    return {
+        "success": True,
+        "order": oi or None,
+        "delivery": delivery_info,
+    }
 
 
 @router.post("/inquiries/auto-fetch-order-details")
