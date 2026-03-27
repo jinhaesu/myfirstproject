@@ -1827,7 +1827,7 @@ def _inquiry_to_dict(inq: CsInquiry, db: Session = None) -> dict:
     }
 
     if db:
-        # 배송 추적 정보
+        # 배송 추적 정보 (항상 반환)
         delivery = db.query(DeliveryTracking).filter(
             DeliveryTracking.inquiry_id == inq.id
         ).first()
@@ -1839,6 +1839,22 @@ def _inquiry_to_dict(inq: CsInquiry, db: Session = None) -> dict:
                 "last_event": delivery.last_event,
                 "order_detail": delivery.order_detail,
                 "last_checked_at": delivery.last_checked_at.isoformat() if delivery.last_checked_at else None,
+            }
+        else:
+            # DeliveryTracking 레코드가 없어도 기본 정보 표시
+            result["delivery_tracking"] = {
+                "tracking_number": "",
+                "courier_name": "",
+                "current_status": "pending",
+                "last_event": "수집 대기",
+                "order_detail": {
+                    "ORDER_ID": inq.order_number or "",
+                    "PRODUCT_NM": inq.product_name or "",
+                    "MALL_ID": inq.mall_name or "",
+                    "USER_NAME": inq.customer_name or "",
+                    "CS_GUBUN": inq.category or "",
+                },
+                "last_checked_at": None,
             }
 
         # 후속 조치 목록
@@ -1984,47 +2000,99 @@ async def get_order_detail(inquiry_id: int, db: Session = Depends(get_db)):
 
 @router.post("/inquiries/auto-fetch-order-details")
 async def auto_fetch_order_details(db: Session = Depends(get_db)):
-    """DeliveryTracking 레코드가 없는 모든 문의에 대해 기본 레코드를 생성.
-    주문번호가 있는 건은 사방넷 주문 API로 최신 배송정보 조회 시도.
-    """
+    """전체 문의의 배송정보를 사방넷 클레임 API에서 일괄 조회하여 갱신."""
+    from app.services.sabangnet_api import get_sabangnet_api
+    api = get_sabangnet_api()
+
+    # 1) 클레임 API로 배송 데이터 가져오기
+    order_lookup = {}
+    if api.is_available:
+        try:
+            clm_result = await api.collect_claims()
+            if clm_result.get("success"):
+                for clm in clm_result.get("items", []):
+                    mall_oid = clm.get("MALL_ORDER_ID", "").strip()
+                    sbn_oid = clm.get("ORDER_ID", "").strip()
+                    if mall_oid:
+                        order_lookup[mall_oid] = clm
+                    if sbn_oid:
+                        order_lookup[sbn_oid] = clm
+        except Exception as e:
+            logger.warning(f"클레임 API 일괄 조회 실패: {e}")
+
+    cs_status_map = {"001": "신규접수", "002": "답변저장", "003": "답변전송", "004": "강제완료"}
     all_inquiries = db.query(CsInquiry).all()
     created = 0
     updated = 0
+
     for inq in all_inquiries:
         order_id = (inq.order_number or "").strip()
+        # 배송정보 매칭
+        order_data = order_lookup.get(order_id, {})
+
+        # 기본 상세 정보 (CsInquiry 기반)
         base_detail = {
             "ORDER_ID": order_id,
             "PRODUCT_NM": inq.product_name or "",
             "MALL_ID": inq.mall_name or "",
             "USER_NAME": inq.customer_name or "",
+            "CS_GUBUN": inq.category or "",
         }
+
+        # 배송 데이터 병합
+        if order_data:
+            base_detail.update({
+                "DELIVERY_NO": order_data.get("DELIVERY_NO", ""),
+                "DELIVERY_COMPANY_NM": order_data.get("DELIVERY_COMPANY_NM", ""),
+                "ORDER_STATUS": order_data.get("ORDER_STATUS", ""),
+                "ORDER_TOTAL_PRICE": order_data.get("ORDER_TOTAL_PRICE", ""),
+                "ORDER_DATE": order_data.get("ORDER_DATE", ""),
+                "SALE_CNT": order_data.get("SALE_CNT", ""),
+                "MALL_ORDER_ID": order_data.get("MALL_ORDER_ID", ""),
+            })
+
+        tracking_no = base_detail.get("DELIVERY_NO", "").strip()
+        courier_name = base_detail.get("DELIVERY_COMPANY_NM", "").strip()
+        order_status = base_detail.get("ORDER_STATUS", "")
+
+        if order_data and order_status:
+            status = "synced"
+            event = f"주문: {order_status} | 택배: {courier_name or '미정'} | 운송장: {tracking_no or '미발급'}"
+        elif order_id:
+            status = "collected"
+            event = "문의 수집됨 (배송정보 미매칭)"
+        else:
+            status = "no_order"
+            event = "주문번호 없음"
 
         existing = db.query(DeliveryTracking).filter(DeliveryTracking.inquiry_id == inq.id).first()
         if existing:
-            # 기존 실패/unknown 레코드 → CsInquiry 데이터로 갱신
-            if existing.current_status in ("fetch_failed", "unknown") or not existing.order_detail:
-                existing.order_detail = base_detail if order_id else None
-                existing.current_status = "collected" if order_id else "no_order"
-                existing.last_event = "주문정보 확인됨" if order_id else "주문번호 없음"
-                existing.order_number = order_id
-                updated += 1
+            existing.order_detail = base_detail
+            existing.tracking_number = tracking_no or existing.tracking_number
+            existing.courier_name = courier_name or existing.courier_name
+            existing.current_status = status
+            existing.last_event = event
+            existing.last_checked_at = datetime.now()
+            updated += 1
         else:
             dt = DeliveryTracking(
                 inquiry_id=inq.id,
                 order_number=order_id,
-                tracking_number="",
-                courier_name="",
-                current_status="collected" if order_id else "no_order",
-                last_event="주문정보 확인됨" if order_id else "주문번호 없음",
-                order_detail=base_detail if order_id else None,
+                tracking_number=tracking_no,
+                courier_name=courier_name,
+                current_status=status,
+                last_event=event,
+                order_detail=base_detail,
             )
             db.add(dt)
             created += 1
+
     db.commit()
     return {
-        "message": f"완료: {created}건 생성, {updated}건 갱신",
+        "message": f"배송정보 동기화: {created}건 생성, {updated}건 갱신 (주문데이터 {len(order_lookup)}건)",
         "created": created,
         "updated": updated,
+        "order_data_count": len(order_lookup),
         "total": len(all_inquiries),
     }
 

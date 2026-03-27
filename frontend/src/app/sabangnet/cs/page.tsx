@@ -362,11 +362,12 @@ export default function CSPage() {
   // ── Load data ──
   useEffect(() => {
     if (!user) return;
-    loadInquiries(1);
-    // 자동 주문/배송 정보 일괄 조회
-    fetchMutate('/api/sabangnet/inquiries/auto-fetch-order-details', 'POST').then(() => {
-      loadInquiries();
-    });
+    (async () => {
+      // 1) 배송정보 동기화 먼저
+      await fetchMutate('/api/sabangnet/inquiries/auto-fetch-order-details', 'POST');
+      // 2) 그 다음 문의 목록 로드
+      await loadInquiries(1);
+    })();
     (async () => {
       const stats = await fetchSafe<any>('/api/sabangnet/inquiries/total-stats', null);
       if (stats) setTotalStats(stats);
@@ -1356,40 +1357,36 @@ export default function CSPage() {
                       </div>
                       {!inquiry.order_number ? (
                         <p className="text-xs text-gray-400">주문번호 없음</p>
-                      ) : inquiry.delivery_tracking?.order_detail ? (
+                      ) : (
                         <div className="space-y-1.5">
                           {(() => {
-                            const od = inquiry.delivery_tracking.order_detail;
+                            const od: Record<string, any> = inquiry.delivery_tracking?.order_detail || {};
+                            const dt: Record<string, any> = inquiry.delivery_tracking || {};
                             return (
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
                                 <div><span className="text-gray-400">주문번호</span> <span className="font-medium text-gray-800">{od.ORDER_ID || inquiry.order_number}</span></div>
                                 <div><span className="text-gray-400">상품</span> <span className="font-medium text-gray-800">{od.PRODUCT_NM || od.PRODUCT_NAME || inquiry.product_name || '-'}</span></div>
                                 <div><span className="text-gray-400">쇼핑몰</span> <span className="font-medium text-gray-800">{od.MALL_ID || inquiry.mall_name}</span></div>
                                 <div><span className="text-gray-400">문의상태</span>{' '}
-                                  <span className={`font-bold ${od.CS_STATUS === '답변전송' || od.CS_STATUS === '003' ? 'text-green-600' : od.CS_STATUS === '신규접수' || od.CS_STATUS === '001' ? 'text-red-600' : 'text-gray-700'}`}>
+                                  <span className={`font-bold ${od.CS_STATUS === '답변전송' ? 'text-green-600' : od.CS_STATUS === '신규접수' ? 'text-red-600' : 'text-gray-700'}`}>
                                     {od.CS_STATUS || '-'}
                                   </span>
                                 </div>
-                                {od.COMPAYNY_GOODS_CD && <div><span className="text-gray-400">상품코드</span> <span className="font-medium text-gray-800">{od.COMPAYNY_GOODS_CD}</span></div>}
-                                {od.MALL_CODE && <div><span className="text-gray-400">몰코드</span> <span className="font-medium text-gray-800">{od.MALL_CODE}</span></div>}
-                                {od.DELIVERY_NO && <div><span className="text-gray-400">운송장</span> <span className="font-medium text-gray-800">{od.DELIVERY_NO}</span></div>}
-                                {od.DELIVERY_COMPANY_NM && <div><span className="text-gray-400">택배사</span> <span className="font-medium text-gray-800">{od.DELIVERY_COMPANY_NM}</span></div>}
-                                {od.ORDER_STATUS && <div><span className="text-gray-400">주문상태</span> <span className="font-medium text-gray-800">{od.ORDER_STATUS}</span></div>}
-                                {od.ORDER_TOTAL_PRICE && <div><span className="text-gray-400">결제금액</span> <span className="font-medium text-gray-800">{Number(od.ORDER_TOTAL_PRICE).toLocaleString()}원</span></div>}
+                                <div><span className="text-gray-400">주문상태</span> <span className={`font-medium ${od.ORDER_STATUS ? 'text-blue-700 font-bold' : 'text-gray-400'}`}>{od.ORDER_STATUS || '미확인'}</span></div>
+                                <div><span className="text-gray-400">택배사</span> <span className={`font-medium ${dt.courier_name ? 'text-gray-800' : 'text-gray-400'}`}>{dt.courier_name || od.DELIVERY_COMPANY_NM || '미확인'}</span></div>
+                                <div><span className="text-gray-400">운송장</span> <span className={`font-medium ${dt.tracking_number ? 'text-gray-800' : 'text-gray-400'}`}>{dt.tracking_number || od.DELIVERY_NO || '미확인'}</span></div>
+                                <div><span className="text-gray-400">결제금액</span> <span className="font-medium text-gray-800">{od.ORDER_TOTAL_PRICE ? `${Number(od.ORDER_TOTAL_PRICE).toLocaleString()}원` : '미확인'}</span></div>
                                 {od.SALE_CNT && <div><span className="text-gray-400">수량</span> <span className="font-medium text-gray-800">{od.SALE_CNT}</span></div>}
+                                {od.COMPAYNY_GOODS_CD && <div><span className="text-gray-400">상품코드</span> <span className="font-medium text-gray-800">{od.COMPAYNY_GOODS_CD}</span></div>}
                                 {od.UPD_NM && <div><span className="text-gray-400">답변자</span> <span className="font-medium text-gray-800">{od.UPD_NM}</span></div>}
                                 {od.SEND_DM && <div><span className="text-gray-400">답변일</span> <span className="font-medium text-gray-800">{od.SEND_DM}</span></div>}
                               </div>
                             );
                           })()}
-                          {inquiry.delivery_tracking.last_checked_at && (
+                          {inquiry.delivery_tracking?.last_checked_at && (
                             <p className="text-[10px] text-gray-400">조회: {new Date(inquiry.delivery_tracking.last_checked_at).toLocaleString('ko-KR')}</p>
                           )}
                         </div>
-                      ) : inquiry.delivery_tracking ? (
-                        <p className="text-xs text-gray-400">{inquiry.delivery_tracking.last_event || '데이터 없음'}</p>
-                      ) : (
-                        <p className="text-xs text-gray-400">사방넷 동기화 버튼을 눌러주세요</p>
                       )}
                     </div>
 
