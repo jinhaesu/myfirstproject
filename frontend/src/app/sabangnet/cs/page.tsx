@@ -19,7 +19,7 @@ const getAuthHeaders = () => {
 
 const fetchSafe = async <T,>(path: string, defaultValue: T): Promise<T> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       headers: getAuthHeaders(),
@@ -40,7 +40,7 @@ const fetchMutate = async (
   body?: unknown,
 ): Promise<{ ok: boolean; data?: any }> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method,
@@ -1336,10 +1336,10 @@ export default function CSPage() {
                     )}
 
                     {/* ── 주문/배송 정보 (항상 노출) ── */}
-                    {inquiry.order_number && (
-                      <div className="mx-4 mb-2 bg-slate-50 rounded-lg border border-slate-200 p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-semibold text-slate-600">주문/배송 정보</span>
+                    <div className="mx-4 mb-2 bg-slate-50 rounded-lg border border-slate-200 p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-slate-600">주문/배송 정보</span>
+                        {inquiry.order_number && (
                           <button
                             onClick={async () => {
                               setFetchingOrderIds(prev => new Set(prev).add(inquiry.id));
@@ -1350,48 +1350,51 @@ export default function CSPage() {
                             disabled={fetchingOrderIds.has(inquiry.id)}
                             className="text-[11px] px-2 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
                           >
-                            {fetchingOrderIds.has(inquiry.id) ? '조회중...' : '실시간 조회'}
+                            {fetchingOrderIds.has(inquiry.id) ? '조회중...' : '갱신'}
                           </button>
-                        </div>
-                        {inquiry.delivery_tracking ? (
-                          <div className="space-y-1.5">
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
-                              <div><span className="text-gray-400">운송장</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.tracking_number || '미발급'}</span></div>
-                              <div><span className="text-gray-400">택배사</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.courier_name || '미정'}</span></div>
-                              <div><span className="text-gray-400">배송상태</span>{' '}
-                                <span className={`font-bold ${
-                                  inquiry.delivery_tracking.current_status === 'delivered' ? 'text-green-600' :
-                                  inquiry.delivery_tracking.current_status === 'in_transit' ? 'text-blue-600' :
-                                  inquiry.delivery_tracking.current_status === 'out_for_delivery' ? 'text-orange-600' :
-                                  'text-gray-600'
-                                }`}>
-                                  {inquiry.delivery_tracking.current_status === 'delivered' ? '배달완료' :
-                                   inquiry.delivery_tracking.current_status === 'in_transit' ? '배송중' :
-                                   inquiry.delivery_tracking.current_status === 'out_for_delivery' ? '배달출발' :
-                                   inquiry.delivery_tracking.current_status === 'at_pickup' ? '집하' :
-                                   inquiry.delivery_tracking.current_status === 'informationReceived' ? '접수' :
-                                   inquiry.delivery_tracking.current_status || '확인불가'}
-                                </span>
-                              </div>
-                              <div><span className="text-gray-400">최근</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.last_event || '-'}</span></div>
-                            </div>
-                            {inquiry.delivery_tracking.order_detail && (
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs pt-1.5 border-t border-slate-200">
-                                <div><span className="text-gray-400">주문상태</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_STATUS || '-'}</span></div>
-                                <div><span className="text-gray-400">결제금액</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE ? `${Number(inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE).toLocaleString()}원` : '-'}</span></div>
-                                <div><span className="text-gray-400">주문일</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_DATE || '-'}</span></div>
-                                <div><span className="text-gray-400">수량</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.SALE_CNT || '-'}</span></div>
-                              </div>
-                            )}
-                            {inquiry.delivery_tracking.last_checked_at && (
-                              <p className="text-[10px] text-gray-400">조회: {new Date(inquiry.delivery_tracking.last_checked_at).toLocaleString('ko-KR')}</p>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-400">조회 전 — &apos;실시간 조회&apos; 버튼을 눌러주세요</p>
                         )}
                       </div>
-                    )}
+                      {!inquiry.order_number ? (
+                        <p className="text-xs text-gray-400">주문번호 없음</p>
+                      ) : inquiry.delivery_tracking ? (
+                        <div className="space-y-1.5">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
+                            <div><span className="text-gray-400">운송장</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.tracking_number || '미발급'}</span></div>
+                            <div><span className="text-gray-400">택배사</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.courier_name || '미정'}</span></div>
+                            <div><span className="text-gray-400">배송상태</span>{' '}
+                              <span className={`font-bold ${
+                                inquiry.delivery_tracking.current_status === 'delivered' ? 'text-green-600' :
+                                inquiry.delivery_tracking.current_status === 'in_transit' ? 'text-blue-600' :
+                                inquiry.delivery_tracking.current_status === 'out_for_delivery' ? 'text-orange-600' :
+                                'text-gray-600'
+                              }`}>
+                                {inquiry.delivery_tracking.current_status === 'delivered' ? '배달완료' :
+                                 inquiry.delivery_tracking.current_status === 'in_transit' ? '배송중' :
+                                 inquiry.delivery_tracking.current_status === 'out_for_delivery' ? '배달출발' :
+                                 inquiry.delivery_tracking.current_status === 'at_pickup' ? '집하' :
+                                 inquiry.delivery_tracking.current_status === 'informationReceived' ? '접수' :
+                                 inquiry.delivery_tracking.current_status === 'no_order' ? '-' :
+                                 inquiry.delivery_tracking.current_status || '확인불가'}
+                              </span>
+                            </div>
+                            <div><span className="text-gray-400">최근</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.last_event || '-'}</span></div>
+                          </div>
+                          {inquiry.delivery_tracking.order_detail && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs pt-1.5 border-t border-slate-200">
+                              <div><span className="text-gray-400">주문상태</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_STATUS || '-'}</span></div>
+                              <div><span className="text-gray-400">결제금액</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE ? `${Number(inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE).toLocaleString()}원` : '-'}</span></div>
+                              <div><span className="text-gray-400">주문일</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_DATE || '-'}</span></div>
+                              <div><span className="text-gray-400">수량</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.SALE_CNT || '-'}</span></div>
+                            </div>
+                          )}
+                          {inquiry.delivery_tracking.last_checked_at && (
+                            <p className="text-[10px] text-gray-400">조회: {new Date(inquiry.delivery_tracking.last_checked_at).toLocaleString('ko-KR')}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-400">자동 조회 대기중...</p>
+                      )}
+                    </div>
 
                     {/* ── 문의 내용 (항상 노출) ── */}
                     <div className="mx-4 mb-2 bg-gray-50 rounded-lg border border-gray-200 p-3">
@@ -1635,7 +1638,7 @@ export default function CSPage() {
                 <button onClick={async () => {
                   setLoadingKeywords(true);
                   const kwData = await fetchSafe<{keywords: KeywordData[]; is_sample?: boolean}>('/api/sabangnet/inquiries/analytics/keywords', {keywords: []});
-                  if (kwData.keywords) setKeywords(kwData.keywords);
+                  if (kwData.keywords && kwData.keywords.length > 0) setKeywords(kwData.keywords);
                   setKeywordsSample(kwData.is_sample ?? false);
                   setLoadingKeywords(false);
                 }}
