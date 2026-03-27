@@ -743,22 +743,22 @@ async def collect_inquiries(db: Session = Depends(get_db)):
                         DeliveryTracking.inquiry_id == inq.id
                     ).first()
                     if existing_dt:
+                        # 기존 레코드가 있지만 order_detail이 부실하면 갱신
+                        if not existing_dt.order_detail or existing_dt.current_status in ("fetch_failed", "unknown"):
+                            existing_dt.order_detail = item  # 사방넷 원본 전체 필드
+                            existing_dt.current_status = "collected"
+                            existing_dt.last_event = "수집 데이터 갱신됨"
                         continue
                     order_id = item.get("ORDER_ID", "").strip()
+                    # 사방넷 CS XML의 모든 필드를 order_detail에 저장
                     dt = DeliveryTracking(
                         inquiry_id=inq.id,
                         order_number=order_id,
-                        tracking_number="",
-                        courier_name="",
+                        tracking_number=item.get("DELIVERY_NO", "").strip(),
+                        courier_name=item.get("DELIVERY_COMPANY_NM", "").strip(),
                         current_status="collected" if order_id else "no_order",
-                        last_event="수집완료 - 갱신 버튼으로 최신 배송정보 조회" if order_id else "주문번호 없음",
-                        order_detail={
-                            "ORDER_ID": order_id,
-                            "PRODUCT_NM": item.get("PRODUCT_NM", ""),
-                            "MALL_ID": item.get("MALL_ID", ""),
-                            "INS_NM": item.get("INS_NM", ""),
-                            "CS_STATUS": item.get("CS_STATUS", ""),
-                        },
+                        last_event="수집완료" if order_id else "주문번호 없음",
+                        order_detail=item,  # 사방넷 원본 전체 필드 저장
                     )
                     db.add(dt)
                     dt_created += 1
