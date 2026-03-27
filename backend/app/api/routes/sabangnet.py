@@ -812,9 +812,27 @@ async def collect_inquiries(db: Session = Depends(get_db)):
                     created += 1
                 db.commit()
 
-                # 수집된 문의에 대해 즉시 DeliveryTracking 레코드 생성
-                # (별도 API 호출 없이, 수집 시 받아온 CS 데이터를 기반으로)
+                # ── 배송정보 자동 매칭 ──
+                # 1) 클레임 API로 전체 주문/배송 데이터 가져오기
+                order_lookup = {}  # MALL_ORDER_ID → 주문 데이터
+                try:
+                    clm_result = await api.collect_claims()
+                    if clm_result.get("success"):
+                        for clm in clm_result.get("items", []):
+                            mall_oid = clm.get("MALL_ORDER_ID", "").strip()
+                            sbn_oid = clm.get("ORDER_ID", "").strip()
+                            if mall_oid:
+                                order_lookup[mall_oid] = clm
+                            if sbn_oid:
+                                order_lookup[sbn_oid] = clm
+                        logger.info(f"배송정보 조회: {len(order_lookup)}건 인덱싱 완료")
+                except Exception as e_clm:
+                    logger.warning(f"배송정보 일괄 조회 실패: {e_clm}")
+
+                # 2) CS 문의 + 배송정보 매칭하여 DeliveryTracking 생성/갱신
+                cs_status_map = {"001": "신규접수", "002": "답변저장", "003": "답변전송", "004": "강제완료"}
                 dt_created = 0
+                dt_updated = 0
                 for item in items:
                     ext_id = item.get("NUM", "")
                     if not ext_id:
@@ -822,31 +840,66 @@ async def collect_inquiries(db: Session = Depends(get_db)):
                     inq = db.query(CsInquiry).filter(CsInquiry.external_id == ext_id).first()
                     if not inq:
                         continue
+
+                    order_id = item.get("ORDER_ID", "").strip()
+                    # 배송정보 매칭
+                    order_data = order_lookup.get(order_id, {})
+
+                    # CS 데이터 + 배송 데이터 병합
+                    merged = {**item}
+                    if order_data:
+                        merged.update({
+                            "DELIVERY_NO": order_data.get("DELIVERY_NO", ""),
+                            "DELIVERY_COMPANY_NM": order_data.get("DELIVERY_COMPANY_NM", ""),
+                            "ORDER_STATUS": order_data.get("ORDER_STATUS", ""),
+                            "ORDER_TOTAL_PRICE": order_data.get("ORDER_TOTAL_PRICE", ""),
+                            "ORDER_DATE": order_data.get("ORDER_DATE", ""),
+                            "SALE_CNT": order_data.get("SALE_CNT", merged.get("SALE_CNT", "")),
+                        })
+                    # CS_STATUS 번역
+                    raw_cs = merged.get("CS_STATUS", "")
+                    merged["CS_STATUS"] = cs_status_map.get(raw_cs, raw_cs)
+
+                    tracking_no = merged.get("DELIVERY_NO", "").strip()
+                    courier_name = merged.get("DELIVERY_COMPANY_NM", "").strip()
+                    order_status = merged.get("ORDER_STATUS", "")
+
+                    if order_data and order_status:
+                        status = "synced"
+                        event = f"주문: {order_status} | 택배: {courier_name or '미정'} | 운송장: {tracking_no or '미발급'}"
+                    elif order_id:
+                        status = "collected"
+                        event = "문의 수집됨 (배송정보 미매칭)"
+                    else:
+                        status = "no_order"
+                        event = "주문번호 없음"
+
                     existing_dt = db.query(DeliveryTracking).filter(
                         DeliveryTracking.inquiry_id == inq.id
                     ).first()
                     if existing_dt:
-                        # 기존 레코드가 있지만 order_detail이 부실하면 갱신
-                        if not existing_dt.order_detail or existing_dt.current_status in ("fetch_failed", "unknown"):
-                            existing_dt.order_detail = item  # 사방넷 원본 전체 필드
-                            existing_dt.current_status = "collected"
-                            existing_dt.last_event = "수집 데이터 갱신됨"
-                        continue
-                    order_id = item.get("ORDER_ID", "").strip()
-                    # 사방넷 CS XML의 모든 필드를 order_detail에 저장
-                    dt = DeliveryTracking(
-                        inquiry_id=inq.id,
-                        order_number=order_id,
-                        tracking_number=item.get("DELIVERY_NO", "").strip(),
-                        courier_name=item.get("DELIVERY_COMPANY_NM", "").strip(),
-                        current_status="collected" if order_id else "no_order",
-                        last_event="수집완료" if order_id else "주문번호 없음",
-                        order_detail=item,  # 사방넷 원본 전체 필드 저장
-                    )
-                    db.add(dt)
-                    dt_created += 1
-                if dt_created > 0:
+                        existing_dt.order_detail = merged
+                        existing_dt.tracking_number = tracking_no or existing_dt.tracking_number
+                        existing_dt.courier_name = courier_name or existing_dt.courier_name
+                        existing_dt.current_status = status
+                        existing_dt.last_event = event
+                        existing_dt.last_checked_at = datetime.now()
+                        dt_updated += 1
+                    else:
+                        dt = DeliveryTracking(
+                            inquiry_id=inq.id,
+                            order_number=order_id,
+                            tracking_number=tracking_no,
+                            courier_name=courier_name,
+                            current_status=status,
+                            last_event=event,
+                            order_detail=merged,
+                        )
+                        db.add(dt)
+                        dt_created += 1
+                if dt_created > 0 or dt_updated > 0:
                     db.commit()
+                    logger.info(f"배송정보 매칭: {dt_created}건 생성, {dt_updated}건 갱신")
 
                 return {
                     "message": f"사방넷에서 {created}건 수집, {updated}건 상태 동기화 완료 (총 {len(items)}건 조회)",
