@@ -693,7 +693,7 @@ async def debug_order_test(order_id: str):
 
     # 2. 클레임 API (xml_clm_info.html)
     try:
-        clm_fields = "IDX|ORDER_ID|MALL_ID|ORDER_STATUS|USER_NAME|USER_CEL|PRODUCT_NAME|SALE_CNT|ORDER_DATE|DELIVERY_COMPANY_NM|DELIVERY_NO|COMPAYNY_GOODS_CD"
+        clm_fields = "IDX|ORDER_ID|MALL_ID|MALL_ORDER_ID|ORDER_STATUS|USER_NAME|USER_CEL|PRODUCT_NAME|SALE_CNT|ORDER_DATE|ORDER_TOTAL_PRICE|DELIVERY_COMPANY_NM|DELIVERY_NO|COMPAYNY_GOODS_CD"
         xml2 = f"""<?xml version="1.0" encoding="EUC-KR"?>
 <SABANG_ORDER_LIST>
 {api._build_header_xml()}
@@ -706,7 +706,7 @@ async def debug_order_test(order_id: str):
 </SABANG_ORDER_LIST>"""
         resp2 = await api._call_api("xml_clm_info.html", xml2)
         items2 = api._parse_xml_response(resp2)
-        matched2 = [it for it in items2 if order_id in it.get("ORDER_ID", "")]
+        matched2 = [it for it in items2 if order_id in it.get("MALL_ORDER_ID", "") or order_id in it.get("ORDER_ID", "")]
         results["xml_clm_info"] = {
             "raw_response_head": resp2[:500],
             "total_items": len(items2),
