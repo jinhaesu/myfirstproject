@@ -358,16 +358,24 @@ class SabangnetAPI:
 
     # ── 주문 상세 조회 ──
 
-    async def get_order_detail(self, order_id: str) -> Dict[str, Any]:
+    async def get_order_detail(self, order_id: str, days_back: int = 90) -> Dict[str, Any]:
         """주문번호로 주문 상세 정보 조회
+
+        사방넷 주문수집 API(xml_order.html)는 날짜 범위 기반이므로,
+        최근 N일 주문을 조회한 뒤 ORDER_ID로 필터링합니다.
 
         Args:
             order_id: 사방넷 주문번호 (ORDER_ID)
+            days_back: 검색할 기간 (기본 90일)
         Returns:
             주문 상태, 배송사, 운송장번호, 배송상태 등
         """
         if not order_id:
             return {"success": False, "error": "주문번호가 없습니다", "items": []}
+
+        from datetime import timedelta
+        start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y%m%d")
+        end_date = datetime.now().strftime("%Y%m%d")
 
         fields = "IDX|ORDER_ID|ORDER_STATUS|DELIVERY_COMPANY_NM|DELIVERY_NO|PRODUCT_NM|SALE_CNT|ORDER_DATE|ORDER_TOTAL_PRICE|USER_NAME|USER_CEL|DELIVERY_PRICE|COMPAYNY_GOODS_CD|MALL_ID"
 
@@ -375,17 +383,23 @@ class SabangnetAPI:
 <SABANG_ORDER_LIST>
 {self._build_header_xml()}
     <DATA>
-        <ORDER_ID><![CDATA[{order_id}]]></ORDER_ID>
+        <ORD_ST_DATE>{start_date}</ORD_ST_DATE>
+        <ORD_ED_DATE>{end_date}</ORD_ED_DATE>
         <ORD_FIELD><![CDATA[{fields}]]></ORD_FIELD>
         <LANG>UTF-8</LANG>
     </DATA>
 </SABANG_ORDER_LIST>"""
 
         try:
-            response_text = await self._call_api("xml_ord_info.html", xml_content)
-            items = self._parse_xml_response(response_text)
-            logger.info(f"사방넷 주문 조회 완료: {order_id} → {len(items)}건")
-            return {"success": True, "items": items, "raw": response_text[:1000]}
+            response_text = await self._call_api("xml_order.html", xml_content)
+            all_items = self._parse_xml_response(response_text)
+            # ORDER_ID로 필터링
+            matched = [it for it in all_items if it.get("ORDER_ID", "") == order_id]
+            if not matched and all_items:
+                # 부분 매칭 시도 (주문번호가 포함된 경우)
+                matched = [it for it in all_items if order_id in it.get("ORDER_ID", "")]
+            logger.info(f"사방넷 주문 조회: {order_id} → 전체 {len(all_items)}건 중 {len(matched)}건 매칭")
+            return {"success": True, "items": matched, "total_fetched": len(all_items), "raw": response_text[:500]}
         except Exception as e:
             logger.error(f"사방넷 주문 조회 실패 ({order_id}): {e}")
             return {"success": False, "error": str(e), "items": []}

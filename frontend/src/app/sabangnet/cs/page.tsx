@@ -1375,6 +1375,7 @@ export default function CSPage() {
                                  inquiry.delivery_tracking.current_status === 'informationReceived' ? '접수' :
                                  inquiry.delivery_tracking.current_status === 'no_order' ? '-' :
                                  inquiry.delivery_tracking.current_status === 'order_found' ? '주문확인' :
+                                 inquiry.delivery_tracking.current_status === 'collected' ? '수집완료' :
                                  inquiry.delivery_tracking.current_status === 'fetch_failed' ? '조회실패' :
                                  inquiry.delivery_tracking.current_status || '확인불가'}
                               </span>
