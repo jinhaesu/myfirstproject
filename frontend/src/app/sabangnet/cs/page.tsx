@@ -1384,10 +1384,22 @@ export default function CSPage() {
                           </div>
                           {inquiry.delivery_tracking.order_detail && (
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs pt-1.5 border-t border-slate-200">
-                              <div><span className="text-gray-400">주문상태</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_STATUS || '-'}</span></div>
+                              <div><span className="text-gray-400">주문번호</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_ID || inquiry.order_number || '-'}</span></div>
+                              <div><span className="text-gray-400">상품</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.PRODUCT_NM || inquiry.delivery_tracking.order_detail.PRODUCT_NAME || inquiry.product_name || '-'}</span></div>
+                              <div><span className="text-gray-400">주문상태</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_STATUS || inquiry.delivery_tracking.order_detail.CS_STATUS || '-'}</span></div>
                               <div><span className="text-gray-400">결제금액</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE ? `${Number(inquiry.delivery_tracking.order_detail.ORDER_TOTAL_PRICE).toLocaleString()}원` : '-'}</span></div>
-                              <div><span className="text-gray-400">주문일</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_DATE || '-'}</span></div>
-                              <div><span className="text-gray-400">수량</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.SALE_CNT || '-'}</span></div>
+                              {inquiry.delivery_tracking.order_detail.ORDER_DATE && (
+                                <div><span className="text-gray-400">주문일</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.ORDER_DATE}</span></div>
+                              )}
+                              {inquiry.delivery_tracking.order_detail.SALE_CNT && (
+                                <div><span className="text-gray-400">수량</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.SALE_CNT}</span></div>
+                              )}
+                              {inquiry.delivery_tracking.order_detail.MALL_ID && (
+                                <div><span className="text-gray-400">쇼핑몰</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.MALL_ID}</span></div>
+                              )}
+                              {inquiry.delivery_tracking.order_detail.USER_NAME && (
+                                <div><span className="text-gray-400">고객</span> <span className="font-medium text-gray-800">{inquiry.delivery_tracking.order_detail.USER_NAME || inquiry.delivery_tracking.order_detail.INS_NM}</span></div>
+                              )}
                             </div>
                           )}
                           {inquiry.delivery_tracking.last_checked_at && (
