@@ -728,6 +728,54 @@ async def collect_inquiries(db: Session = Depends(get_db)):
                     db.add(inquiry)
                     created += 1
                 db.commit()
+                # 새로 수집된 문의의 주문/배송 정보 자동 조회
+                if created > 0:
+                    try:
+                        new_inquiries = db.query(CsInquiry).filter(
+                            CsInquiry.order_number.isnot(None),
+                            CsInquiry.order_number != "",
+                        ).all()
+                        from app.services.delivery_tracker import DeliveryTracker
+                        tracker = DeliveryTracker()
+                        auto_fetched = 0
+                        for ninq in new_inquiries:
+                            existing_dt = db.query(DeliveryTracking).filter(
+                                DeliveryTracking.inquiry_id == ninq.id
+                            ).first()
+                            if existing_dt:
+                                continue
+                            try:
+                                order_data = await api.get_order_detail(ninq.order_number)
+                                if order_data.get("success") and order_data.get("items"):
+                                    oi = order_data["items"][0]
+                                    tracking_no = oi.get("DELIVERY_NO", "").strip()
+                                    courier_name = oi.get("DELIVERY_COMPANY_NM", "").strip()
+                                    delivery_info = None
+                                    if tracking_no and courier_name:
+                                        try:
+                                            delivery_info = await tracker.track_delivery(tracking_no, courier_name)
+                                        except Exception:
+                                            pass
+                                    dt = DeliveryTracking(
+                                        inquiry_id=ninq.id,
+                                        order_number=ninq.order_number,
+                                        tracking_number=tracking_no,
+                                        courier_name=courier_name,
+                                        courier_code=delivery_info.get("courier_code", "") if delivery_info and delivery_info.get("success") else "",
+                                        current_status=delivery_info.get("status", "unknown") if delivery_info and delivery_info.get("success") else "unknown",
+                                        last_event=delivery_info.get("last_event", "") if delivery_info and delivery_info.get("success") else "",
+                                        tracking_history=delivery_info.get("events", []) if delivery_info and delivery_info.get("success") else [],
+                                        order_detail=oi,
+                                    )
+                                    db.add(dt)
+                                    auto_fetched += 1
+                            except Exception as e_auto:
+                                logger.warning(f"자동 주문조회 실패 ({ninq.order_number}): {e_auto}")
+                        if auto_fetched > 0:
+                            db.commit()
+                            logger.info(f"수집 후 자동 주문조회: {auto_fetched}건")
+                    except Exception as e_batch:
+                        logger.warning(f"일괄 자동 주문조회 실패: {e_batch}")
                 return {
                     "message": f"사방넷에서 {created}건 수집, {updated}건 상태 동기화 완료 (총 {len(items)}건 조회)",
                     "items_created": created,
@@ -1858,12 +1906,34 @@ async def auto_fetch_order_details(db: Session = Depends(get_db)):
             errors += 1
 
     db.commit()
+    # 주문번호 없는 문의에도 placeholder DeliveryTracking 생성
+    no_order_inquiries = db.query(CsInquiry).filter(
+        (CsInquiry.order_number.is_(None)) | (CsInquiry.order_number == "")
+    ).all()
+    placeholder_created = 0
+    for ninq in no_order_inquiries:
+        existing = db.query(DeliveryTracking).filter(DeliveryTracking.inquiry_id == ninq.id).first()
+        if not existing:
+            dt = DeliveryTracking(
+                inquiry_id=ninq.id,
+                order_number="",
+                tracking_number="",
+                courier_name="",
+                current_status="no_order",
+                last_event="주문번호 없음",
+                order_detail=None,
+            )
+            db.add(dt)
+            placeholder_created += 1
+    if placeholder_created > 0:
+        db.commit()
     return {
-        "message": f"자동 조회 완료: {fetched}건 갱신, {skipped}건 스킵, {errors}건 실패",
+        "message": f"자동 조회 완료: {fetched}건 갱신, {skipped}건 스킵, {errors}건 실패, placeholder {placeholder_created}건 생성",
         "fetched": fetched,
         "skipped": skipped,
         "errors": errors,
         "total": len(inquiries),
+        "placeholder_created": placeholder_created,
     }
 
 
