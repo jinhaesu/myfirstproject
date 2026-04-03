@@ -104,8 +104,9 @@ async def _startup_report_scheduler():
                         resend.api_key = settings.RESEND_API_KEY
 
                         service = TargetsService()
-                        year = sched.year or now.year
-                        month = sched.month or now.month
+                        # 항상 현재 날짜 기준으로 연/월 결정 (스케줄에 고정된 월이 있어도 무시)
+                        year = now.year
+                        month = now.month
 
                         targets = service.get_targets_by_year_month(year, month)
                         sales = service.get_sales_by_year_month(year, month)
