@@ -276,10 +276,10 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
                   isDragOver
-                    ? 'border-blue-400 bg-[#5E6AD2]/10'
+                    ? 'border-[#5E6AD2]/50 bg-[#5E6AD2]/10'
                     : file
                     ? 'border-emerald-300 bg-[#27A644]/10'
-                    : 'border-[#23252A] bg-[#08090A] hover:border-blue-400 hover:bg-[#5E6AD2]/10'
+                    : 'border-[#23252A] bg-[#08090A] hover:border-[#5E6AD2]/50 hover:bg-[#5E6AD2]/10'
                 }`}
               >
                 <input
@@ -462,7 +462,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 <button
                   onClick={handleUpload}
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-[#27A644] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSubmitting ? (
                     <>

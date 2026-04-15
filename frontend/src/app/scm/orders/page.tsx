@@ -716,9 +716,9 @@ export default function OrderPlanPage() {
     if (value === 0 || maxVal === 0) return 'bg-[#08090A]';
     const intensity = value / maxVal;
     if (intensity > 0.8) return 'bg-[#5E6AD2] text-white';
-    if (intensity > 0.6) return 'bg-blue-400 text-white';
-    if (intensity > 0.4) return 'bg-blue-300 text-blue-900';
-    if (intensity > 0.2) return 'bg-blue-200 text-[#828FFF]';
+    if (intensity > 0.6) return 'bg-[#4EA7FC] text-white';
+    if (intensity > 0.4) return 'bg-[#4EA7FC]/70 text-[#F7F8F8]';
+    if (intensity > 0.2) return 'bg-[#5E6AD2]/25 text-[#828FFF]';
     return 'bg-[#5E6AD2]/15 text-[#828FFF]';
   }, []);
 
@@ -1044,7 +1044,7 @@ export default function OrderPlanPage() {
   // ── Auth loading / guard ──
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
           <p className="text-[#8A8F98]">로딩 중...</p>
@@ -1059,7 +1059,7 @@ export default function OrderPlanPage() {
   // RENDER
   // ═══════════════════════════════════════════════
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]">
       <Navigation />
 
       <div className="max-w-[1600px] mx-auto px-4 py-6">
@@ -1150,21 +1150,21 @@ export default function OrderPlanPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Unique Product Count */}
           <div className="bg-gradient-to-br from-[#5E6AD2] to-[#5E6AD2] rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-blue-500/20">
-            <p className="text-blue-100 text-xs font-medium mb-1">총 품목 수</p>
+            <p className="text-[#7070FF]/40 text-xs font-medium mb-1">총 품목 수</p>
             <p className="text-2xl font-bold">{formatNumber(summary.uniqueProductCount)}</p>
-            <p className="text-blue-200 text-xs mt-1">등록된 품목</p>
+            <p className="text-[#7070FF]/60 text-xs mt-1">등록된 품목</p>
           </div>
           {/* Total Planned Qty */}
-          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-emerald-500/20">
+          <div className="bg-gradient-to-br from-[#27A644] to-emerald-600 rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-emerald-500/20">
             <p className="text-emerald-100 text-xs font-medium mb-1">총 계획 수량</p>
             <p className="text-2xl font-bold">{formatNumber(summary.totalPlanned)}</p>
             <p className="text-emerald-200 text-xs mt-1">전체 기간 합계</p>
           </div>
           {/* Avg Daily Qty */}
-          <div className="bg-gradient-to-br from-indigo-500 to-[#5E6AD2] rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-indigo-500/20">
-            <p className="text-indigo-100 text-xs font-medium mb-1">일평균 계획 수량</p>
+          <div className="bg-gradient-to-br from-[#5E6AD2] to-[#5E6AD2] rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-indigo-500/20">
+            <p className="text-[#7070FF]/40 text-xs font-medium mb-1">일평균 계획 수량</p>
             <p className="text-2xl font-bold">{formatNumber(summary.avgDailyQty)}</p>
-            <p className="text-indigo-200 text-xs mt-1">일별 평균</p>
+            <p className="text-[#7070FF]/60 text-xs mt-1">일별 평균</p>
           </div>
           {/* Channel Ratio */}
           <div className="bg-[#0F1011] rounded-2xl p-4 border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
@@ -1183,7 +1183,7 @@ export default function OrderPlanPage() {
                 style={{ width: `${summary.onlineRatio}%` }}
               />
               <div
-                className="bg-orange-400 h-full transition-all rounded-r-full"
+                className="bg-[#FC7840]/80 h-full transition-all rounded-r-full"
                 style={{ width: `${summary.offlineRatio}%` }}
               />
             </div>
@@ -1204,7 +1204,7 @@ export default function OrderPlanPage() {
               value={filterProduct}
               onChange={e => setFilterProduct(e.target.value)}
               placeholder="품명 검색..."
-              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 w-40 transition-colors"
+              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-blue-100 w-40 transition-colors"
             />
           </div>
           {/* Channel Type Filter */}
@@ -1213,7 +1213,7 @@ export default function OrderPlanPage() {
             <select
               value={filterChannelType}
               onChange={e => setFilterChannelType(e.target.value as ChannelType | '전체')}
-              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 bg-[#0F1011] cursor-pointer transition-colors"
+              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-blue-100 bg-[#0F1011] cursor-pointer transition-colors"
             >
               <option value="전체">전체</option>
               <option value="온라인">온라인</option>
@@ -1226,7 +1226,7 @@ export default function OrderPlanPage() {
             <select
               value={filterAssignee}
               onChange={e => setFilterAssignee(e.target.value)}
-              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 bg-[#0F1011] cursor-pointer transition-colors"
+              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-blue-100 bg-[#0F1011] cursor-pointer transition-colors"
             >
               <option value="전체">전체</option>
               {uniqueAssignees.map(a => (
@@ -1312,7 +1312,7 @@ export default function OrderPlanPage() {
               ) : pivotComputed.productNames.length === 0 ? (
                 <div className="text-center py-16 text-[#62666D]">
                   <div className="flex flex-col items-center gap-3">
-                    <svg className="w-12 h-12 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-12 h-12 text-[#62666D]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                     <p className="text-sm">해당 기간에 주문 계획 데이터가 없습니다</p>
@@ -1399,9 +1399,9 @@ export default function OrderPlanPage() {
                 <div className="flex items-center gap-0.5">
                   <div className="w-6 h-4 rounded bg-[#08090A] border border-[#23252A]" />
                   <div className="w-6 h-4 rounded bg-[#5E6AD2]/15" />
-                  <div className="w-6 h-4 rounded bg-blue-200" />
-                  <div className="w-6 h-4 rounded bg-blue-300" />
-                  <div className="w-6 h-4 rounded bg-blue-400" />
+                  <div className="w-6 h-4 rounded bg-[#5E6AD2]/25" />
+                  <div className="w-6 h-4 rounded bg-[#4EA7FC]/70" />
+                  <div className="w-6 h-4 rounded bg-[#4EA7FC]" />
                   <div className="w-6 h-4 rounded bg-[#5E6AD2]" />
                 </div>
                 <span>낮음 ~ 높음</span>
@@ -1577,7 +1577,7 @@ export default function OrderPlanPage() {
                         <tr>
                           <td colSpan={COLUMNS.length + 3} className="text-center py-16 text-[#62666D]">
                             <div className="flex flex-col items-center gap-3">
-                              <svg className="w-12 h-12 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-12 h-12 text-[#62666D]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                               </svg>
                               <p className="text-sm">주문 계획 데이터가 없습니다</p>

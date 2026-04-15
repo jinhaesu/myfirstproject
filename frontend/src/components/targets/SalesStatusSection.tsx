@@ -527,7 +527,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               setEditingSale(null);
               setIsModalOpen(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-emerald-600 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-[#27A644] transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -780,7 +780,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
 
         {/* 실시간 지표 섹션 */}
         {realtime && (
-          <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-[#23252A]">
+          <div className="px-6 py-4 bg-gradient-to-r from-[#08090A] to-indigo-50 border-b border-[#23252A]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex flex-col">
                 <h3 className="text-md font-semibold text-[#F7F8F8] flex items-center gap-2">
@@ -810,7 +810,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
 
             {/* 당일 기준 목표 대비 달성률 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-blue-100 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#5E6AD2]/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
                 <p className="text-sm text-[#8A8F98] mb-1">
                   당일 기준 매출 목표 <span className="text-xs text-[#62666D]">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                 </p>
@@ -821,11 +821,11 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                   실적: {formatNumber(realtime.current.total_sales)}원
                 </p>
               </div>
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-blue-100 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#5E6AD2]/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
                 <p className="text-sm text-[#8A8F98] mb-1">당일 기준 매출 달성률</p>
                 <p className="text-2xl font-bold">{renderRate(realtime.achievement_rate.sales_rate)}</p>
               </div>
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-blue-100 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#5E6AD2]/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
                 <p className="text-sm text-[#8A8F98] mb-1">당일 기준 판매량 목표</p>
                 <p className="text-lg font-bold text-[#D0D6E0]">
                   {formatNumberRaw(realtime.daily_target.total_quantity)}
@@ -834,7 +834,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                   실적: {formatNumberRaw(realtime.current.total_quantity)}
                 </p>
               </div>
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-blue-100 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#5E6AD2]/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
                 <p className="text-sm text-[#8A8F98] mb-1">당일 기준 판매량 달성률</p>
                 <p className="text-2xl font-bold">{renderRate(realtime.achievement_rate.quantity_rate)}</p>
               </div>

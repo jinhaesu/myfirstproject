@@ -1045,7 +1045,7 @@ export default function ProductionResultsPage() {
           )}
           <button
             onClick={saveAll}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#27A644] text-white text-sm font-medium rounded-lg hover:bg-[#1E8A3A] transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             전체 저장
@@ -1162,7 +1162,7 @@ export default function ProductionResultsPage() {
                         if (isEditing) {
                           if (col.type === 'select') {
                             return (
-                              <td key={col.key} className="border border-blue-400 p-0 bg-[#5E6AD2]/10" style={{ width: col.width }}>
+                              <td key={col.key} className="border border-[#5E6AD2]/50 p-0 bg-[#5E6AD2]/10" style={{ width: col.width }}>
                                 <select
                                   ref={editInputRef as any}
                                   value={editValue}
@@ -1177,7 +1177,7 @@ export default function ProductionResultsPage() {
                             );
                           }
                           return (
-                            <td key={col.key} className="border border-blue-400 p-0 bg-[#5E6AD2]/10" style={{ width: col.width }}>
+                            <td key={col.key} className="border border-[#5E6AD2]/50 p-0 bg-[#5E6AD2]/10" style={{ width: col.width }}>
                               <input
                                 ref={editInputRef}
                                 type={col.type === 'date' ? 'date' : 'text'}

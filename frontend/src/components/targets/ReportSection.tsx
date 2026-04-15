@@ -1162,7 +1162,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       >
                         {isSendingEmail ? (
                           <>
-                            <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                            <div className="w-4 h-4 border-2 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
                             발송 중...
                           </>
                         ) : (
@@ -1180,7 +1180,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
 
                 {showEmailInput && (
                   <div className="mt-3 p-4 bg-[#5E6AD2]/10 border border-[#5E6AD2]/30 rounded-lg">
-                    <label className="block text-sm font-medium text-indigo-800 mb-2">수신자 이메일</label>
+                    <label className="block text-sm font-medium text-[#828FFF] mb-2">수신자 이메일</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -1380,7 +1380,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       <div className="space-y-4">
                         {Object.entries(channelsByManager).sort(([a], [b]) => a.localeCompare(b)).map(([manager, channels]) => (
                           <div key={manager} className="bg-[#0F1011] rounded-xl border border-[#23252A] overflow-hidden">
-                            <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-[#23252A]">
+                            <div className="px-4 py-3 bg-gradient-to-r from-[#08090A] to-cyan-50 border-b border-[#23252A]">
                               <h4 className="font-semibold text-[#D0D6E0]">{manager}</h4>
                             </div>
                             <div className="overflow-x-auto">
@@ -1396,7 +1396,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                 </thead>
                                 <tbody>
                                   {channels.sort((a, b) => a.rate - b.rate).map((ch, idx) => (
-                                    <tr key={idx} className="border-b border-slate-50 hover:bg-[#141516]/5">
+                                    <tr key={idx} className="border-b border-[#23252A] hover:bg-[#141516]/5">
                                       <td className="px-4 py-2.5 text-[#D0D6E0]">{ch.channel}</td>
                                       <td className="px-4 py-2.5 text-right text-[#8A8F98]">
                                         {formatKRW(applyVat(ch.targetValue))}
@@ -1525,7 +1525,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   {/* ======================================================== */}
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-emerald-500 to-[#00B8CC]" />
+                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#27A644] to-[#00B8CC]" />
                       <h3 className="text-lg font-bold text-[#F7F8F8]">채널별 개선 아이디어</h3>
                     </div>
 
@@ -1583,7 +1583,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
               {/* ============================================================ */}
               <div className="px-6 py-6 bg-[#08090A] no-print">
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-indigo-500 to-purple-500" />
+                  <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#5E6AD2] to-purple-500" />
                   <h3 className="text-lg font-bold text-[#F7F8F8]">이메일 자동 발송 스케줄</h3>
                 </div>
 
@@ -1737,7 +1737,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           <div className="flex items-center gap-1 ml-3">
                             <button
                               onClick={() => handleEditSchedule(idx)}
-                              className="p-2 text-[#62666D] hover:text-indigo-500 hover:bg-[#5E6AD2]/10 rounded-lg transition-colors"
+                              className="p-2 text-[#62666D] hover:text-[#7070FF] hover:bg-[#5E6AD2]/10 rounded-lg transition-colors"
                               title="수정"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

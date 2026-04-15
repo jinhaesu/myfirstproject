@@ -353,7 +353,7 @@ function ToastContainer({ toasts, onRemove }: { toasts: ToastMessage[]; onRemove
         <div
           key={t.id}
           className={`flex items-center gap-3 px-5 py-3 rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm font-medium transition-all animate-slide-up
-            ${t.type === 'success' ? 'bg-emerald-600 text-white' : ''}
+            ${t.type === 'success' ? 'bg-[#27A644] text-white' : ''}
             ${t.type === 'info' ? 'bg-[#5E6AD2] text-white' : ''}
             ${t.type === 'error' ? 'bg-[#EB5757] text-white' : ''}
           `}
@@ -826,7 +826,7 @@ export default function ProductionPlanPage() {
       // shift_type uses a select
       if (field === 'shift_type') {
         return (
-          <td key={field} className="px-1 py-0.5 border border-blue-400 bg-[#5E6AD2]/10">
+          <td key={field} className="px-1 py-0.5 border border-[#5E6AD2]/50 bg-[#5E6AD2]/10">
             <select
               autoFocus
               className="w-full bg-transparent text-sm outline-none"
@@ -846,7 +846,7 @@ export default function ProductionPlanPage() {
 
       if (field === 'date') {
         return (
-          <td key={field} className="px-1 py-0.5 border border-blue-400 bg-[#5E6AD2]/10">
+          <td key={field} className="px-1 py-0.5 border border-[#5E6AD2]/50 bg-[#5E6AD2]/10">
             <input
               type="date"
               autoFocus
@@ -866,7 +866,7 @@ export default function ProductionPlanPage() {
       // Special case: product_name with autocomplete
       if (field === 'product_name') {
         return (
-          <td key={field} className="px-1 py-0.5 border border-blue-400 bg-[#5E6AD2]/10 relative">
+          <td key={field} className="px-1 py-0.5 border border-[#5E6AD2]/50 bg-[#5E6AD2]/10 relative">
             <input
               type="text"
               autoFocus
@@ -952,7 +952,7 @@ export default function ProductionPlanPage() {
       }
 
       return (
-        <td key={field} className="px-1 py-0.5 border border-blue-400 bg-[#5E6AD2]/10">
+        <td key={field} className="px-1 py-0.5 border border-[#5E6AD2]/50 bg-[#5E6AD2]/10">
           <input
             type={isNumber ? 'number' : 'text'}
             autoFocus
@@ -1079,7 +1079,7 @@ export default function ProductionPlanPage() {
             {/* 계획 추가 */}
             <button
               onClick={addNewPlan}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:bg-emerald-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#27A644] text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:bg-[#1E8A3A] transition-colors"
             >
               <PlusIcon />
               <span>계획 추가</span>

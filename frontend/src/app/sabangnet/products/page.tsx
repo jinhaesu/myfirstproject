@@ -416,7 +416,7 @@ export default function ProductsPage() {
   // ── Loading / Unauth ──
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]/30 flex items-center justify-center">
         <div className="text-[#8A8F98] text-sm">로딩 중...</div>
       </div>
     );
@@ -427,7 +427,7 @@ export default function ProductsPage() {
   // Render
   // ══════════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]/30">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -512,12 +512,12 @@ export default function ProductsPage() {
                   placeholder="상품명 또는 코드 검색..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="flex-1 min-w-[200px] px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  className="flex-1 min-w-[200px] px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
                 />
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  className="px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
                 >
                   {PRODUCT_CATEGORIES.map((c) => (
                     <option key={c} value={c}>{c}</option>
@@ -615,7 +615,7 @@ export default function ProductsPage() {
                           <td className="px-4 py-3 text-center">
                             <button
                               onClick={() => openEditModal(product)}
-                              className="px-3 py-1 text-xs font-medium text-[#7070FF] hover:text-[#828FFF] hover:bg-[#5E6AD2]/10 rounded-lg transition-colors border border-blue-100"
+                              className="px-3 py-1 text-xs font-medium text-[#7070FF] hover:text-[#828FFF] hover:bg-[#5E6AD2]/10 rounded-lg transition-colors border border-[#5E6AD2]/20"
                             >
                               수정
                             </button>
@@ -633,7 +633,7 @@ export default function ProductsPage() {
                                     className="inline-flex items-center gap-1 px-3 py-1 bg-[#0F1011] border border-[#5E6AD2]/30 rounded-full text-xs text-[#828FFF]"
                                   >
                                     <span className="font-mono">{comp.product_code}</span>
-                                    <span className="text-blue-400">x{comp.qty}</span>
+                                    <span className="text-[#4EA7FC]">x{comp.qty}</span>
                                   </span>
                                 ))}
                               </div>
@@ -705,7 +705,7 @@ export default function ProductsPage() {
                       <span className="font-mono text-xs text-[#62666D] mr-2">{p.sabangnet_product_code}</span>
                       <span className="text-sm text-[#D0D6E0] font-medium">{p.product_name}</span>
                       {p.is_set && (
-                        <span className="ml-2 text-xs px-1.5 py-0.5 bg-[#5E6AD2]/10 text-[#7070FF] rounded border border-blue-100">
+                        <span className="ml-2 text-xs px-1.5 py-0.5 bg-[#5E6AD2]/10 text-[#7070FF] rounded border border-[#5E6AD2]/20">
                           세트
                         </span>
                       )}
@@ -820,7 +820,7 @@ function ProductFormFields({
           placeholder="예: ND-MAC-001"
           value={form.sabangnet_product_code}
           onChange={(e) => onChange((prev) => ({ ...prev, sabangnet_product_code: e.target.value }))}
-          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
         />
       </div>
 
@@ -834,7 +834,7 @@ function ProductFormFields({
           placeholder="예: 널담 마카롱 복숭아 요거트 [50g]"
           value={form.product_name}
           onChange={(e) => onChange((prev) => ({ ...prev, product_name: e.target.value }))}
-          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
         />
       </div>
 
@@ -844,7 +844,7 @@ function ProductFormFields({
         <select
           value={form.category}
           onChange={(e) => onChange((prev) => ({ ...prev, category: e.target.value }))}
-          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
         >
           {FORM_CATEGORIES.map((c) => (
             <option key={c} value={c}>{c}</option>
@@ -896,7 +896,7 @@ function ProductFormFields({
 
       {/* 세트 구성 상품 */}
       {form.is_set && (
-        <div className="bg-[#5E6AD2]/10/50 rounded-xl border border-blue-100 p-4 space-y-3">
+        <div className="bg-[#5E6AD2]/10/50 rounded-xl border border-[#5E6AD2]/20 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-[#828FFF]">구성 상품</p>
             <button
@@ -917,7 +917,7 @@ function ProductFormFields({
                 placeholder="상품코드"
                 value={comp.product_code}
                 onChange={(e) => onUpdateComponent(idx, 'product_code', e.target.value)}
-                className="flex-1 px-3 py-1.5 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                className="flex-1 px-3 py-1.5 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
               />
               <input
                 type="number"
@@ -925,7 +925,7 @@ function ProductFormFields({
                 placeholder="수량"
                 value={comp.qty}
                 onChange={(e) => onUpdateComponent(idx, 'qty', Number(e.target.value))}
-                className="w-20 px-3 py-1.5 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                className="w-20 px-3 py-1.5 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
               />
               <button
                 type="button"

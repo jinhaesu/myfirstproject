@@ -917,7 +917,7 @@ export default function CSPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#08090A]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
           <span className="text-sm text-[#8A8F98]">로딩 중...</span>
         </div>
       </div>
@@ -977,7 +977,7 @@ export default function CSPage() {
               미답변 <span className="font-bold text-[#F7F8F8]">{fmt(totalStats?.new || 0)}건</span>
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#5E6AD2]/10 text-[#828FFF] border border-[#5E6AD2]/30">
-              AI 답변 <span className="font-bold text-blue-900">{fmt(totalStats?.real_ai_responses || 0)}건</span>
+              AI 답변 <span className="font-bold text-[#F7F8F8]">{fmt(totalStats?.real_ai_responses || 0)}건</span>
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30">
               템플릿 <span className="font-bold text-red-900">{fmt(totalStats?.template_responses || 0)}건</span>
@@ -1031,7 +1031,7 @@ export default function CSPage() {
               <button
                 onClick={handleBulkRegenerate}
                 disabled={bulkRegenRunning}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#FC7840] text-white text-sm font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#FC7840] text-white text-sm font-medium rounded-lg hover:bg-[#FC7840] disabled:opacity-50 transition-colors"
               >
                 {bulkRegenRunning ? (
                   <>
@@ -1063,7 +1063,7 @@ export default function CSPage() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab.key
-                    ? 'border-blue-600 text-[#7070FF]'
+                    ? 'border-[#5E6AD2] text-[#7070FF]'
                     : 'border-transparent text-[#8A8F98] hover:text-[#D0D6E0]'
                 }`}
               >
@@ -1179,7 +1179,7 @@ export default function CSPage() {
                   </button>
                   <button
                     onClick={handleBulkApprove}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#27A644] text-white rounded-lg hover:bg-[#1E8A3A] transition-colors"
                   >
                     일괄 승인
                   </button>
@@ -1442,7 +1442,7 @@ export default function CSPage() {
                     {/* ── 하단 액션 버튼 (항상 노출) ── */}
                     <div className="px-4 pb-4 pt-2 flex items-center gap-2 flex-wrap">
                       {inquiry.status === 'new' && inquiry.ai_response && (
-                        <button onClick={() => handleApprove(inquiry.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
+                        <button onClick={() => handleApprove(inquiry.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#27A644] text-white rounded-lg hover:bg-[#1E8A3A] transition-colors">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> 승인
                         </button>
                       )}
@@ -1450,7 +1450,7 @@ export default function CSPage() {
                         <>
                           <button
                             onClick={() => handleApprove(inquiry.id, expandedId === inquiry.id ? editingResponse : undefined)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#27A644] text-white rounded-lg hover:bg-[#1E8A3A] transition-colors"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> 승인
                           </button>
@@ -1566,7 +1566,7 @@ export default function CSPage() {
                           <span className="text-[10px] font-bold text-[#D0D6E0]">{d.total}</span>
                           <div className="w-full bg-[#141516] rounded-t-md relative" style={{ height: '120px' }}>
                             <div
-                              className="absolute bottom-0 w-full bg-gradient-to-t from-[#5E6AD2] to-blue-400 rounded-t-md transition-all"
+                              className="absolute bottom-0 w-full bg-gradient-to-t from-[#5E6AD2] to-[#5E6AD2] rounded-t-md transition-all"
                               style={{ height: `${Math.max(pct, 4)}%` }}
                             />
                           </div>
@@ -1653,12 +1653,12 @@ export default function CSPage() {
                       return (
                         <div key={i} className="flex items-center gap-2 bg-[#08090A] rounded-lg px-3 py-2 group hover:bg-[#141516]/5 transition-colors relative">
                           <span className={`w-2 h-2 rounded-full shrink-0 ${
-                            kw.importance === 'high' ? 'bg-[#EB5757]' : kw.importance === 'medium' ? 'bg-amber-400' : 'bg-[#28282C]'
+                            kw.importance === 'high' ? 'bg-[#EB5757]' : kw.importance === 'medium' ? 'bg-[#F0BF00]/80' : 'bg-[#28282C]'
                           }`} />
                           <span className="text-xs font-bold text-[#F7F8F8] shrink-0">{kw.keyword}</span>
                           <div className="flex-1 h-3 bg-[#232326] rounded-full overflow-hidden mx-1">
                             <div className={`h-full rounded-full transition-all ${
-                              kw.importance === 'high' ? 'bg-red-400' : kw.importance === 'medium' ? 'bg-amber-300' : 'bg-[#28282C]'
+                              kw.importance === 'high' ? 'bg-[#EB5757]/80' : kw.importance === 'medium' ? 'bg-[#F0BF00]/60' : 'bg-[#28282C]'
                             }`} style={{ width: `${pct}%` }} />
                           </div>
                           <span className="text-xs font-bold text-[#D0D6E0] shrink-0 w-8 text-right">{kw.count}</span>
@@ -1994,7 +1994,7 @@ export default function CSPage() {
 
                         {/* Drop zone / file input */}
                         {!refFile && (
-                          <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-[#23252A] rounded-lg cursor-pointer hover:border-blue-400 hover:bg-[#5E6AD2]/10/50 transition-colors">
+                          <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-[#23252A] rounded-lg cursor-pointer hover:border-[#5E6AD2]/50 hover:bg-[#5E6AD2]/10/50 transition-colors">
                             <div className="flex flex-col items-center">
                               <svg className="w-6 h-6 text-[#62666D] mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                               <span className="text-xs text-[#8A8F98]">클릭하여 파일 선택</span>

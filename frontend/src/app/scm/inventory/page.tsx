@@ -419,7 +419,7 @@ export default function InventoryPage() {
   // ---------------------------------------------------------------------------
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
           <p className="text-[#8A8F98]">로딩 중...</p>
@@ -438,7 +438,7 @@ export default function InventoryPage() {
   const tabs: TabKey[] = ['재고현황', '출고현황', '재고알림'];
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -940,10 +940,10 @@ export default function InventoryPage() {
                               item.currentStock === 0
                                 ? 'bg-[#EB5757]'
                                 : item.currentStock < item.safetyStock * 0.5
-                                ? 'bg-red-400'
+                                ? 'bg-[#EB5757]/80'
                                 : item.currentStock < item.safetyStock
-                                ? 'bg-orange-400'
-                                : 'bg-yellow-400'
+                                ? 'bg-[#FC7840]/80'
+                                : 'bg-[#F0BF00]/80'
                             }`}
                             style={{
                               width: `${Math.min(100, item.safetyStock > 0 ? (item.currentStock / item.safetyStock) * 100 : 0)}%`,
