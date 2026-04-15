@@ -257,7 +257,7 @@ export default function SettlementPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
         </div>
       }
@@ -292,7 +292,7 @@ function SettlementPageContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -309,7 +309,7 @@ function SettlementPageContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]">
+    <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
@@ -324,7 +324,7 @@ function SettlementPageContent() {
           <div
             className={`mb-4 px-4 py-3 rounded-lg flex items-center justify-between ${
               toast.type === 'success'
-                ? 'bg-[#27A644]/10 text-[#27A644] border border-emerald-200'
+                ? 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/25'
                 : 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
             }`}
           >
@@ -343,7 +343,7 @@ function SettlementPageContent() {
                 className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
                   activeTab === tab.key
                     ? 'border-[#5E6AD2] text-[#7070FF] bg-[#5E6AD2]/10/50'
-                    : 'border-transparent text-[#8A8F98] hover:text-[#D0D6E0] hover:bg-[#141516]/5'
+                    : 'border-transparent text-[#8A8F98] hover:text-[#D0D6E0] hover:bg-white/5/5'
                 }`}
               >
                 {tab.label}
@@ -540,7 +540,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
             <select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
             >
               {years.map((y) => (
                 <option key={y} value={y}>{y}년</option>
@@ -552,7 +552,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
             <select
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
-              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
             >
               {months.map((m) => (
                 <option key={m.value} value={m.value}>{m.label}</option>
@@ -566,7 +566,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           >
             + 수동 입력
           </button>
-          <label className="px-4 py-2 text-sm bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors cursor-pointer">
+          <label className="px-4 py-2 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors cursor-pointer">
             엑셀 업로드
             <input type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelUpload} className="hidden" />
           </label>
@@ -621,7 +621,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                     <Tooltip formatter={(value: number) => fmtWon(value)} />
                     <Legend />
                     <Bar dataKey="총매출" fill="#5E6AD2" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="정산금액" fill="#10B981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="정산금액" fill="#27A644" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -702,7 +702,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                     </tr>
                   ) : (
                     sortedRecords.map((r) => (
-                      <tr key={r.id} className="hover:bg-[#141516]/5 transition-colors">
+                      <tr key={r.id} className="hover:bg-white/5/5 transition-colors">
                         <td className="px-4 py-3">
                           <span
                             className="inline-block px-2 py-0.5 text-xs rounded-full font-medium"
@@ -749,7 +749,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                             {!r.is_confirmed && (
                               <button
                                 onClick={() => handleConfirm(r.id)}
-                                className="p-1 text-emerald-500 hover:bg-[#27A644]/10 rounded transition-colors"
+                                className="p-1 text-[#27A644] hover:bg-[#27A644]/10 rounded transition-colors"
                                 title="확정"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -803,21 +803,21 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
 function SummaryCard({ label, value, color, icon }: { label: string; value: string; color: string; icon: React.ReactNode }) {
   const colorMap: Record<string, string> = {
     blue: 'from-[#5E6AD2] to-[#5E6AD2]',
-    emerald: 'from-[#27A644] to-emerald-600',
-    amber: 'from-amber-500 to-amber-600',
-    violet: 'from-violet-500 to-violet-600',
+    emerald: 'from-[#27A644] to-[#27A644]',
+    amber: 'from-[#F0BF00] to-[#F0BF00]',
+    violet: 'from-[#5E6AD2] to-[#5E6AD2]',
   };
   const bgMap: Record<string, string> = {
     blue: 'bg-[#5E6AD2]/10',
     emerald: 'bg-[#27A644]/10',
     amber: 'bg-[#F0BF00]/10',
-    violet: 'bg-violet-50',
+    violet: 'bg-[#5E6AD2]/10',
   };
   const textMap: Record<string, string> = {
     blue: 'text-[#7070FF]',
     emerald: 'text-[#27A644]',
     amber: 'text-[#F0BF00]',
-    violet: 'text-violet-600',
+    violet: 'text-[#7070FF]',
   };
 
   return (
@@ -907,7 +907,7 @@ function ManualInputModal({
                 type="text"
                 value={form.channel_id}
                 onChange={(e) => updateField('channel_id', e.target.value)}
-                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                 required
                 disabled={!!record}
               />
@@ -918,7 +918,7 @@ function ManualInputModal({
                 type="text"
                 value={form.channel_name}
                 onChange={(e) => updateField('channel_name', e.target.value)}
-                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                 required
               />
             </div>
@@ -928,7 +928,7 @@ function ManualInputModal({
             <select
               value={form.category}
               onChange={(e) => updateField('category', e.target.value)}
-              className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+              className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
             >
               <option value="">선택</option>
               {Object.keys(CATEGORY_COLORS).map((cat) => (
@@ -943,7 +943,7 @@ function ManualInputModal({
                 type="number"
                 value={form.gross_sales}
                 onChange={(e) => updateField('gross_sales', Number(e.target.value))}
-                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
               />
             </div>
             <div>
@@ -952,7 +952,7 @@ function ManualInputModal({
                 type="number"
                 value={form.net_sales}
                 onChange={(e) => updateField('net_sales', Number(e.target.value))}
-                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
               />
             </div>
           </div>
@@ -963,7 +963,7 @@ function ManualInputModal({
                 type="number"
                 value={form.settlement_amount}
                 onChange={(e) => updateField('settlement_amount', Number(e.target.value))}
-                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
               />
             </div>
             <div>
@@ -972,7 +972,7 @@ function ManualInputModal({
                 type="number"
                 value={form.commission}
                 onChange={(e) => updateField('commission', Number(e.target.value))}
-                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
               />
             </div>
           </div>
@@ -982,14 +982,14 @@ function ManualInputModal({
               type="number"
               value={form.order_count}
               onChange={(e) => updateField('order_count', Number(e.target.value))}
-              className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+              className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
             />
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-[#23252A]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-[#141516]/7 transition-colors"
+              className="px-4 py-2 text-sm text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
             >
               취소
             </button>
@@ -1159,13 +1159,13 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
       </div>
 
       {/* 로컬 에이전트 안내 */}
-      <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
+      <div className="bg-[#5E6AD2]/10 border border-[#5E6AD2]/30 rounded-xl p-4">
         <div className="flex items-start gap-3">
           <span className="text-lg">💻</span>
-          <div className="text-xs text-violet-700 space-y-1">
-            <p className="font-bold text-sm text-violet-800">로컬 에이전트로 수집하기 (권장)</p>
+          <div className="text-xs text-[#828FFF] space-y-1">
+            <p className="font-bold text-sm text-[#828FFF]">로컬 에이전트로 수집하기 (권장)</p>
             <p>클라우드 서버 수집은 쇼핑몰의 IP 차단/CAPTCHA로 실패할 수 있습니다. 사무실 PC에서 <strong>로컬 에이전트</strong>를 실행하면 실제 브라우저로 안정적으로 수집됩니다.</p>
-            <p className="text-violet-600">설치 방법은 <strong>&quot;RPA 설정&quot;</strong> 탭의 &quot;설치 가이드&quot; 버튼을 참고하세요.</p>
+            <p className="text-[#7070FF]">설치 방법은 <strong>&quot;RPA 설정&quot;</strong> 탭의 &quot;설치 가이드&quot; 버튼을 참고하세요.</p>
           </div>
         </div>
       </div>
@@ -1262,7 +1262,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
                 <tr><td colSpan={6} className="text-center py-8 text-[#62666D]">수집 로그가 없습니다</td></tr>
               ) : (
                 logs.slice(0, 10).map((log) => (
-                  <tr key={log.id} className="hover:bg-[#141516]/5">
+                  <tr key={log.id} className="hover:bg-white/5/5">
                     <td className="px-4 py-2 font-medium text-[#D0D6E0]">{log.channel_name}</td>
                     <td className="px-4 py-2 text-[#8A8F98]">{log.year}년 {log.month}월</td>
                     <td className="px-4 py-2 text-center">{getStatusBadge(log.status)}</td>
@@ -1471,7 +1471,7 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
   return (
     <div className="space-y-6">
       {/* 로컬 에이전트 상태 */}
-      <div className={`rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border p-5 ${agentStatus?.connected ? 'bg-[#27A644]/10 border-emerald-200' : 'bg-[#08090A] border-[#23252A]'}`}>
+      <div className={`rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border p-5 ${agentStatus?.connected ? 'bg-[#27A644]/10 border-[#27A644]/25' : 'bg-[#08090A] border-[#23252A]'}`}>
         <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
           <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${agentStatus?.connected ? 'bg-[#27A644] animate-pulse' : 'bg-[#28282C]'}`} />
@@ -1485,7 +1485,7 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={fetchAgentStatus} className="px-3 py-1.5 text-xs bg-[#0F1011] border border-[#23252A] text-[#8A8F98] rounded-lg hover:bg-[#141516]/5 transition-colors">
+            <button onClick={fetchAgentStatus} className="px-3 py-1.5 text-xs bg-[#0F1011] border border-[#23252A] text-[#8A8F98] rounded-lg hover:bg-white/5/5 transition-colors">
               새로고침
             </button>
             <button onClick={() => setShowAgentGuide(!showAgentGuide)} className="px-3 py-1.5 text-xs bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors font-medium">
@@ -1519,7 +1519,7 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#5E6AD2]/15 text-[#7070FF] flex items-center justify-center text-[10px] font-bold">4</span>
                 <div>
                   <p><code className="bg-[#141516] px-1.5 py-0.5 rounded text-[11px]">.env</code> 파일에 서버 URL과 API 키 입력:</p>
-                  <pre className="bg-[#0F1011] text-green-400 rounded p-2 mt-1 text-[10px] overflow-x-auto">
+                  <pre className="bg-[#0F1011] text-[#68CC58] rounded p-2 mt-1 text-[10px] overflow-x-auto">
 {`BACKEND_URL=https://your-railway-app.railway.app
 AGENT_API_KEY=your-api-key`}
                   </pre>
@@ -1533,9 +1533,9 @@ AGENT_API_KEY=your-api-key`}
                 </div>
               </div>
             </div>
-            <div className="mt-3 p-2 bg-violet-50 rounded-lg text-xs text-violet-700">
-              <strong>특정 채널만 수집:</strong> <code className="bg-violet-100 px-1 rounded">run.bat --channel &quot;쿠팡 WING&quot;</code><br/>
-              <strong>채널 목록 보기:</strong> <code className="bg-violet-100 px-1 rounded">run.bat --list</code>
+            <div className="mt-3 p-2 bg-[#5E6AD2]/10 rounded-lg text-xs text-[#828FFF]">
+              <strong>특정 채널만 수집:</strong> <code className="bg-[#5E6AD2]/15 px-1 rounded">run.bat --channel &quot;쿠팡 WING&quot;</code><br/>
+              <strong>채널 목록 보기:</strong> <code className="bg-[#5E6AD2]/15 px-1 rounded">run.bat --list</code>
             </div>
           </div>
         )}
@@ -1543,7 +1543,7 @@ AGENT_API_KEY=your-api-key`}
 
       {/* 사용 가이드 */}
       <div className="bg-[#F0BF00]/10 border border-[#F0BF00]/30 rounded-xl p-5">
-        <h4 className="text-sm font-bold text-amber-800 mb-2">RPA 설정 가이드</h4>
+        <h4 className="text-sm font-bold text-[#F0BF00] mb-2">RPA 설정 가이드</h4>
         <div className="text-xs text-[#F0BF00] space-y-1.5">
           <p>각 채널마다 아래 정보를 입력하면, 로컬 에이전트가 자동으로 로그인하여 결산 데이터를 수집합니다:</p>
           <ol className="list-decimal ml-4 space-y-1">
@@ -1592,10 +1592,10 @@ AGENT_API_KEY=your-api-key`}
                       )}
                     </div>
                     <div className="text-xs text-[#8A8F98] mt-1">
-                      <p>로그인: {saved?.login_url || ch.loginUrl || <span className="text-red-400">URL 미설정</span>}
+                      <p>로그인: {saved?.login_url || ch.loginUrl || <span className="text-[#EB5757]">URL 미설정</span>}
                         {saved?.login_id && <span className="text-[#27A644] ml-1">(ID: {saved.login_id})</span>}
                       </p>
-                      <p>정산: {saved?.settlement_url || ch.settlementUrl || <span className="text-red-400">URL 미설정</span>}</p>
+                      <p>정산: {saved?.settlement_url || ch.settlementUrl || <span className="text-[#EB5757]">URL 미설정</span>}</p>
                       <p className="text-[#62666D]">{ch.note}</p>
                     </div>
                   </div>
@@ -1618,7 +1618,7 @@ AGENT_API_KEY=your-api-key`}
                           ? 'bg-[#27A644]/10 text-[#27A644] hover:bg-[#27A644]/15'
                           : collectTestResults[ch.name] && !collectTestResults[ch.name].success
                           ? 'bg-[#EB5757]/10 text-[#EB5757] hover:bg-[#EB5757]/15'
-                          : 'bg-violet-50 text-violet-600 hover:bg-violet-100'
+                          : 'bg-[#5E6AD2]/10 text-[#7070FF] hover:bg-[#5E6AD2]/15'
                       }`}
                       title={!isConfigured ? '먼저 편집에서 로그인 정보를 설정하세요' : collectTestResults[ch.name]?.message || ''}
                     >
@@ -1663,7 +1663,7 @@ AGENT_API_KEY=your-api-key`}
                   type="url"
                   value={editForm.login_url || ''}
                   onChange={(e) => setEditForm({ ...editForm, login_url: e.target.value })}
-                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                   placeholder={editingChannel.loginUrl || 'https://...'}
                 />
               </div>
@@ -1674,7 +1674,7 @@ AGENT_API_KEY=your-api-key`}
                     type="text"
                     value={editForm.login_id || ''}
                     onChange={(e) => setEditForm({ ...editForm, login_id: e.target.value })}
-                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                     placeholder="셀러 계정 ID"
                   />
                 </div>
@@ -1684,7 +1684,7 @@ AGENT_API_KEY=your-api-key`}
                     type="password"
                     value={editForm.login_password || ''}
                     onChange={(e) => setEditForm({ ...editForm, login_password: e.target.value })}
-                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                     placeholder={savedConfigs[editingChannel.name]?.has_password ? '(저장됨 — 변경 시 입력)' : '비밀번호'}
                   />
                 </div>
@@ -1695,7 +1695,7 @@ AGENT_API_KEY=your-api-key`}
                   type="url"
                   value={editForm.settlement_url || ''}
                   onChange={(e) => setEditForm({ ...editForm, settlement_url: e.target.value })}
-                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                   placeholder={editingChannel.settlementUrl || '정산 내역 페이지 URL'}
                 />
                 <p className="text-xs text-[#62666D] mt-1">로그인 후 정산/결산 내역을 확인하는 페이지의 URL</p>
@@ -1706,7 +1706,7 @@ AGENT_API_KEY=your-api-key`}
                   <select
                     value={editForm.download_type || 'scrape'}
                     onChange={(e) => setEditForm({ ...editForm, download_type: e.target.value })}
-                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                   >
                     <option value="scrape">웹 스크래핑 (테이블 읽기)</option>
                     <option value="excel_download">엑셀 다운로드</option>
@@ -1720,7 +1720,7 @@ AGENT_API_KEY=your-api-key`}
                     max={28}
                     value={editForm.auto_collect_day || 5}
                     onChange={(e) => setEditForm({ ...editForm, auto_collect_day: Number(e.target.value) })}
-                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                   />
                 </div>
               </div>
@@ -1728,7 +1728,7 @@ AGENT_API_KEY=your-api-key`}
               <div className="flex justify-end gap-3 pt-4 border-t border-[#23252A]">
                 <button
                   onClick={() => { setEditingChannel(null); setEditForm(null); }}
-                  className="px-4 py-2 text-sm text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-[#141516]/7 transition-colors"
+                  className="px-4 py-2 text-sm text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
                 >
                   취소
                 </button>
@@ -1862,7 +1862,7 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
                 type="text"
                 value={newReport.name}
                 onChange={(e) => setNewReport((p) => ({ ...p, name: e.target.value }))}
-                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                 placeholder="예: 월간 결산 리포트"
                 required
               />
@@ -1873,7 +1873,7 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
                 type="text"
                 value={newReport.recipients}
                 onChange={(e) => setNewReport((p) => ({ ...p, recipients: e.target.value }))}
-                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                 placeholder="user1@example.com, user2@example.com"
                 required
               />
@@ -1887,7 +1887,7 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
                   max={28}
                   value={newReport.schedule_day}
                   onChange={(e) => setNewReport((p) => ({ ...p, schedule_day: Number(e.target.value) }))}
-                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                 />
               </div>
               <div>
@@ -1896,7 +1896,7 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
                   type="time"
                   value={newReport.schedule_time}
                   onChange={(e) => setNewReport((p) => ({ ...p, schedule_time: e.target.value }))}
-                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
                 />
               </div>
             </div>
@@ -1906,7 +1906,7 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
                 id="auto_send"
                 checked={newReport.auto_send}
                 onChange={(e) => setNewReport((p) => ({ ...p, auto_send: e.target.checked }))}
-                className="w-4 h-4 text-[#7070FF] border-[#23252A] rounded focus:ring-blue-500"
+                className="w-4 h-4 text-[#7070FF] border-[#23252A] rounded focus:ring-[#5E6AD2]"
               />
               <label htmlFor="auto_send" className="text-sm text-[#D0D6E0]">자동 발송 활성화</label>
             </div>
@@ -2054,7 +2054,7 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
             <select
               value={filterChannel}
               onChange={(e) => setFilterChannel(e.target.value)}
-              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
             >
               <option value="">전체</option>
               {channelNames.map((name) => (
@@ -2067,7 +2067,7 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
             >
               <option value="">전체</option>
               <option value="success">성공</option>
@@ -2083,7 +2083,7 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
           </div>
           <button
             onClick={() => { setIsLoading(true); fetchLogs(); }}
-            className="px-3 py-2 text-sm bg-[#141516] text-[#8A8F98] rounded-lg hover:bg-[#141516]/7 transition-colors"
+            className="px-3 py-2 text-sm bg-[#141516] text-[#8A8F98] rounded-lg hover:bg-white/5/7 transition-colors"
           >
             새로고침
           </button>
@@ -2120,7 +2120,7 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
                   </tr>
                 ) : (
                   logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-[#141516]/5 transition-colors">
+                    <tr key={log.id} className="hover:bg-white/5/5 transition-colors">
                       <td className="px-4 py-3 font-medium text-[#D0D6E0]">{log.channel_name}</td>
                       <td className="px-4 py-3 text-[#8A8F98]">{log.year}년 {log.month}월</td>
                       <td className="px-4 py-3 text-center">

@@ -221,7 +221,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
               className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
                 chartType === type
                   ? 'bg-[#5E6AD2] text-white shadow-[0px_1px_3px_rgba(0,0,0,0.3)]'
-                  : 'text-[#8A8F98] hover:text-[#F7F8F8] hover:bg-[#0F1011]/5'
+                  : 'text-[#8A8F98] hover:text-[#F7F8F8] hover:bg-white/5/5'
               }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

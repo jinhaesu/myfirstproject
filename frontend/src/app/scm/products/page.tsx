@@ -87,10 +87,10 @@ const CATEGORIES = ['마카롱', '케이크', '쿠키', '비누', '캔들'];
 const LOCATIONS = ['1층', '2층', '3층'];
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  '마카롱': { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200' },
+  '마카롱': { bg: 'bg-[#EB5757]/10', text: 'text-[#D04040]', border: 'border-[#EB5757]/25' },
   '케이크': { bg: 'bg-[#F0BF00]/10', text: 'text-[#F0BF00]', border: 'border-[#F0BF00]/30' },
   '쿠키':   { bg: 'bg-[#FC7840]/10', text: 'text-[#FC7840]', border: 'border-[#FC7840]/30' },
-  '비누':   { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-emerald-200' },
+  '비누':   { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-[#27A644]/25' },
   '캔들':   { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30' },
 };
 
@@ -391,7 +391,7 @@ export default function ProductsPage() {
             </button>
             <button
               onClick={() => downloadCSV(filteredProducts)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-[#23252A] bg-[#0F1011] text-[#D0D6E0] hover:bg-[#141516]/5 transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-[#23252A] bg-[#0F1011] text-[#D0D6E0] hover:bg-white/5/5 transition"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               CSV 다운로드
@@ -464,7 +464,7 @@ export default function ProductsPage() {
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               placeholder="품목명 또는 품목코드 검색..."
-              className="w-full pl-10 pr-4 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50"
             />
           </div>
 
@@ -482,7 +482,7 @@ export default function ProductsPage() {
                       ? cat === '전체'
                         ? 'bg-[#08090A] text-white border-[#34343A]'
                         : `${color!.bg} ${color!.text} ${color!.border} ring-2 ring-offset-1 ring-current`
-                      : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-[#141516]/5'
+                      : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-white/5/5'
                   }`}
                 >
                   {cat}
@@ -497,7 +497,7 @@ export default function ProductsPage() {
               type="checkbox"
               checked={activeOnlyFilter}
               onChange={e => setActiveOnlyFilter(e.target.checked)}
-              className="rounded border-[#23252A] text-[#7070FF] focus:ring-blue-500"
+              className="rounded border-[#23252A] text-[#7070FF] focus:ring-[#5E6AD2]"
             />
             활성만
           </label>
@@ -527,7 +527,7 @@ export default function ProductsPage() {
                     <th
                       key={col.field}
                       onClick={() => handleSort(col.field)}
-                      className={`px-3 py-3 ${col.w} ${col.align} font-semibold text-xs text-[#8A8F98] uppercase tracking-wider cursor-pointer hover:bg-[#141516]/5 transition select-none whitespace-nowrap`}
+                      className={`px-3 py-3 ${col.w} ${col.align} font-semibold text-xs text-[#8A8F98] uppercase tracking-wider cursor-pointer hover:bg-white/5/5 transition select-none whitespace-nowrap`}
                     >
                       {col.label}
                       <SortIcon field={col.field} />
@@ -559,7 +559,7 @@ export default function ProductsPage() {
                     return (
                       <tr
                         key={product.id}
-                        className={`hover:bg-[#141516]/5/80 transition ${rowClass}`}
+                        className={`hover:bg-white/5/5/80 transition ${rowClass}`}
                       >
                         {/* Category badge */}
                         <td className="px-3 py-3 text-center">
@@ -593,7 +593,7 @@ export default function ProductsPage() {
                             <span className="font-semibold text-[#F7F8F8] tabular-nums">{fmt(product.avg_hourly_rate)}</span>
                             <span className="text-xs text-[#62666D]">개/h</span>
                             {product.avg_hourly_rate > 0 && (
-                              <span className={`text-xs ${rateUp ? 'text-[#27A644]' : rateMatch ? 'text-[#62666D]' : 'text-red-400'}`}>
+                              <span className={`text-xs ${rateUp ? 'text-[#27A644]' : rateMatch ? 'text-[#62666D]' : 'text-[#EB5757]'}`}>
                                 {rateUp ? '▲' : rateMatch ? '─' : '▼'}
                               </span>
                             )}
@@ -638,7 +638,7 @@ export default function ProductsPage() {
                                 </button>
                                 <button
                                   onClick={() => setDeleteConfirmId(null)}
-                                  className="px-2 py-1 text-xs rounded bg-[#232326] text-[#8A8F98] hover:bg-[#141516]/7 transition"
+                                  className="px-2 py-1 text-xs rounded bg-[#232326] text-[#8A8F98] hover:bg-white/5/7 transition"
                                 >
                                   취소
                                 </button>
@@ -667,7 +667,7 @@ export default function ProductsPage() {
         {toast && (
           <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
             <div className="bg-[#08090A] text-white px-5 py-3 rounded-xl shadow-2xl text-sm flex items-center gap-2">
-              <svg className="h-4 w-4 text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              <svg className="h-4 w-4 text-[#68CC58] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
               {toast}
             </div>
           </div>
@@ -686,7 +686,7 @@ export default function ProductsPage() {
                 <h2 className="text-lg font-bold text-[#F7F8F8]">
                   {editingProduct ? '품목 수정' : '품목 추가'}
                 </h2>
-                <button onClick={closeModal} className="p-1 rounded-lg hover:bg-[#141516]/5 transition">
+                <button onClick={closeModal} className="p-1 rounded-lg hover:bg-white/5/5 transition">
                   <svg className="h-5 w-5 text-[#62666D]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -702,7 +702,7 @@ export default function ProductsPage() {
                       value={formData.product_name}
                       onChange={e => handleFormChange('product_name', e.target.value)}
                       placeholder="예: 널담 마카롱 복숭아 요거트 [50g]"
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50"
                     />
                   </div>
                   <div>
@@ -712,7 +712,7 @@ export default function ProductsPage() {
                       value={formData.product_code}
                       onChange={e => handleFormChange('product_code', e.target.value)}
                       placeholder="예: MK-001"
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 font-mono"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 font-mono"
                     />
                   </div>
                 </div>
@@ -724,7 +724,7 @@ export default function ProductsPage() {
                     <select
                       value={formData.product_category}
                       onChange={e => handleFormChange('product_category', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 bg-[#0F1011]"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 bg-[#0F1011]"
                     >
                       {CATEGORIES.map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
@@ -736,7 +736,7 @@ export default function ProductsPage() {
                     <select
                       value={formData.default_location}
                       onChange={e => handleFormChange('default_location', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 bg-[#0F1011]"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 bg-[#0F1011]"
                     >
                       {LOCATIONS.map(loc => (
                         <option key={loc} value={loc}>{loc}</option>
@@ -754,7 +754,7 @@ export default function ProductsPage() {
                       value={formData.default_unit_price || ''}
                       onChange={e => handleFormChange('default_unit_price', Number(e.target.value))}
                       placeholder="0"
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 tabular-nums"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 tabular-nums"
                     />
                   </div>
                   <div>
@@ -764,7 +764,7 @@ export default function ProductsPage() {
                       value={formData.default_cost || ''}
                       onChange={e => handleFormChange('default_cost', Number(e.target.value))}
                       placeholder="0"
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 tabular-nums"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 tabular-nums"
                     />
                   </div>
                 </div>
@@ -778,7 +778,7 @@ export default function ProductsPage() {
                       value={formData.safety_stock || ''}
                       onChange={e => handleFormChange('safety_stock', Number(e.target.value))}
                       placeholder="0"
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 tabular-nums"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 tabular-nums"
                     />
                   </div>
                   <div>
@@ -803,7 +803,7 @@ export default function ProductsPage() {
                     onChange={e => handleFormChange('notes', e.target.value)}
                     rows={2}
                     placeholder="메모 입력..."
-                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 resize-none"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 resize-none"
                   />
                 </div>
 
@@ -833,7 +833,7 @@ export default function ProductsPage() {
               <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[#23252A] bg-[#08090A] rounded-b-2xl">
                 <button
                   onClick={closeModal}
-                  className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#0F1011] border border-[#23252A] rounded-lg hover:bg-[#141516]/5 transition"
+                  className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#0F1011] border border-[#23252A] rounded-lg hover:bg-white/5/5 transition"
                 >
                   취소
                 </button>

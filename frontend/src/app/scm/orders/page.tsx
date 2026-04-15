@@ -372,7 +372,7 @@ function PastePreviewModal({
         <div className="px-6 py-4 border-t border-[#23252A] flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] hover:bg-[#141516]/7 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] hover:bg-white/5/7 rounded-lg transition-colors"
           >
             취소
           </button>
@@ -495,7 +495,7 @@ function CellBreakdownModal({
         <div className="px-6 py-3 border-t border-[#23252A] flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] hover:bg-[#141516]/7 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] hover:bg-white/5/7 rounded-lg transition-colors"
           >
             닫기
           </button>
@@ -1044,7 +1044,7 @@ export default function OrderPlanPage() {
   // ── Auth loading / guard ──
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
           <p className="text-[#8A8F98]">로딩 중...</p>
@@ -1059,7 +1059,7 @@ export default function OrderPlanPage() {
   // RENDER
   // ═══════════════════════════════════════════════
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]">
+    <main className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]">
       <Navigation />
 
       <div className="max-w-[1600px] mx-auto px-4 py-6">
@@ -1078,7 +1078,7 @@ export default function OrderPlanPage() {
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   viewMode === 'pivot'
                     ? 'bg-[#5E6AD2] text-white shadow-inner'
-                    : 'text-[#8A8F98] hover:bg-[#141516]/5'
+                    : 'text-[#8A8F98] hover:bg-white/5/5'
                 }`}
               >
                 <span className="flex items-center gap-1.5">
@@ -1093,7 +1093,7 @@ export default function OrderPlanPage() {
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   viewMode === 'detail'
                     ? 'bg-[#5E6AD2] text-white shadow-inner'
-                    : 'text-[#8A8F98] hover:bg-[#141516]/5'
+                    : 'text-[#8A8F98] hover:bg-white/5/5'
                 }`}
               >
                 <span className="flex items-center gap-1.5">
@@ -1129,7 +1129,7 @@ export default function OrderPlanPage() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setDateRange(getWeekRange(new Date()))}
-                className="px-3 py-2 text-xs font-medium text-[#8A8F98] bg-[#0F1011] hover:bg-[#141516]/5 border border-[#23252A] rounded-lg transition-colors"
+                className="px-3 py-2 text-xs font-medium text-[#8A8F98] bg-[#0F1011] hover:bg-white/5/5 border border-[#23252A] rounded-lg transition-colors"
               >
                 이번 주
               </button>
@@ -1138,7 +1138,7 @@ export default function OrderPlanPage() {
                   const d = new Date();
                   setDateRange({ start: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`, end: d.toISOString().slice(0, 10) });
                 }}
-                className="px-3 py-2 text-xs font-medium text-[#8A8F98] bg-[#0F1011] hover:bg-[#141516]/5 border border-[#23252A] rounded-lg transition-colors"
+                className="px-3 py-2 text-xs font-medium text-[#8A8F98] bg-[#0F1011] hover:bg-white/5/5 border border-[#23252A] rounded-lg transition-colors"
               >
                 이번 달
               </button>
@@ -1149,19 +1149,19 @@ export default function OrderPlanPage() {
         {/* ── Summary Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Unique Product Count */}
-          <div className="bg-gradient-to-br from-[#5E6AD2] to-[#5E6AD2] rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-blue-500/20">
+          <div className="bg-gradient-to-br from-[#5E6AD2] to-[#5E6AD2] rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[#5E6AD2]/20">
             <p className="text-[#7070FF]/40 text-xs font-medium mb-1">총 품목 수</p>
             <p className="text-2xl font-bold">{formatNumber(summary.uniqueProductCount)}</p>
             <p className="text-[#7070FF]/60 text-xs mt-1">등록된 품목</p>
           </div>
           {/* Total Planned Qty */}
-          <div className="bg-gradient-to-br from-[#27A644] to-emerald-600 rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-emerald-500/20">
-            <p className="text-emerald-100 text-xs font-medium mb-1">총 계획 수량</p>
+          <div className="bg-gradient-to-br from-[#27A644] to-[#27A644] rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[#27A644]/20">
+            <p className="text-[#27A644]/15 text-xs font-medium mb-1">총 계획 수량</p>
             <p className="text-2xl font-bold">{formatNumber(summary.totalPlanned)}</p>
-            <p className="text-emerald-200 text-xs mt-1">전체 기간 합계</p>
+            <p className="text-[#27A644]/25 text-xs mt-1">전체 기간 합계</p>
           </div>
           {/* Avg Daily Qty */}
-          <div className="bg-gradient-to-br from-[#5E6AD2] to-[#5E6AD2] rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-indigo-500/20">
+          <div className="bg-gradient-to-br from-[#5E6AD2] to-[#5E6AD2] rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[#5E6AD2]/20">
             <p className="text-[#7070FF]/40 text-xs font-medium mb-1">일평균 계획 수량</p>
             <p className="text-2xl font-bold">{formatNumber(summary.avgDailyQty)}</p>
             <p className="text-[#7070FF]/60 text-xs mt-1">일별 평균</p>
@@ -1204,7 +1204,7 @@ export default function OrderPlanPage() {
               value={filterProduct}
               onChange={e => setFilterProduct(e.target.value)}
               placeholder="품명 검색..."
-              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-blue-100 w-40 transition-colors"
+              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-[#5E6AD2]/30 w-40 transition-colors"
             />
           </div>
           {/* Channel Type Filter */}
@@ -1213,7 +1213,7 @@ export default function OrderPlanPage() {
             <select
               value={filterChannelType}
               onChange={e => setFilterChannelType(e.target.value as ChannelType | '전체')}
-              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-blue-100 bg-[#0F1011] cursor-pointer transition-colors"
+              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-[#5E6AD2]/30 bg-[#0F1011] cursor-pointer transition-colors"
             >
               <option value="전체">전체</option>
               <option value="온라인">온라인</option>
@@ -1226,7 +1226,7 @@ export default function OrderPlanPage() {
             <select
               value={filterAssignee}
               onChange={e => setFilterAssignee(e.target.value)}
-              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-blue-100 bg-[#0F1011] cursor-pointer transition-colors"
+              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-[#5E6AD2]/30 bg-[#0F1011] cursor-pointer transition-colors"
             >
               <option value="전체">전체</option>
               {uniqueAssignees.map(a => (
@@ -1240,14 +1240,14 @@ export default function OrderPlanPage() {
           {/* Row Count */}
           <span className="text-xs text-[#62666D]">
             {filteredRows.length}건
-            {viewMode === 'detail' && dirtyCount > 0 && <span className="text-amber-500 font-medium ml-1">({dirtyCount}건 수정됨)</span>}
+            {viewMode === 'detail' && dirtyCount > 0 && <span className="text-[#F0BF00] font-medium ml-1">({dirtyCount}건 수정됨)</span>}
           </span>
         </div>
 
         {/* Save Message */}
         {saveMessage && (
           <div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 ${
-            saveMessage.type === 'success' ? 'bg-[#27A644]/10 text-[#27A644] border border-emerald-200' : 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
+            saveMessage.type === 'success' ? 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/25' : 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
           }`}>
             {saveMessage.type === 'success' ? (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1355,7 +1355,7 @@ export default function OrderPlanPage() {
                             return (
                               <td
                                 key={date}
-                                className={`px-3 py-2.5 text-center border-r border-[#23252A] cursor-pointer transition-all hover:ring-2 hover:ring-blue-400 hover:ring-inset ${colorClass}`}
+                                className={`px-3 py-2.5 text-center border-r border-[#23252A] cursor-pointer transition-all hover:ring-2 hover:ring-[#4EA7FC] hover:ring-inset ${colorClass}`}
                                 onClick={() => handlePivotCellClick(product, date)}
                                 title={`${product} / ${formatDateLabel(date)}: ${formatNumber(val)}`}
                               >
@@ -1430,7 +1430,7 @@ export default function OrderPlanPage() {
               {/* Add Multiple Rows */}
               <div className="relative group">
                 <button
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#8A8F98] bg-[#08090A] hover:bg-[#141516]/5 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#8A8F98] bg-[#08090A] hover:bg-white/5/5 rounded-lg transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -1456,7 +1456,7 @@ export default function OrderPlanPage() {
               {/* Load Products from API */}
               <button
                 onClick={loadProductsFromApi}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#7070FF] bg-[#5E6AD2]/10 hover:bg-[#5E6AD2]/15 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -1501,7 +1501,7 @@ export default function OrderPlanPage() {
                 disabled={saving || dirtyCount === 0}
                 className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-lg transition-all shadow-[0px_1px_3px_rgba(0,0,0,0.2)] ${
                   dirtyCount > 0
-                    ? 'text-white bg-[#5E6AD2] hover:bg-[#828FFF] shadow-blue-500/20'
+                    ? 'text-white bg-[#5E6AD2] hover:bg-[#828FFF] shadow-[#5E6AD2]/20'
                     : 'text-[#62666D] bg-[#141516] cursor-not-allowed'
                 }`}
               >
@@ -1547,7 +1547,7 @@ export default function OrderPlanPage() {
                             type="checkbox"
                             checked={filteredRows.length > 0 && selectedRowIds.size === filteredRows.length}
                             onChange={toggleAllSelection}
-                            className="w-3.5 h-3.5 rounded border-[#23252A] text-[#7070FF] focus:ring-blue-500 cursor-pointer"
+                            className="w-3.5 h-3.5 rounded border-[#23252A] text-[#7070FF] focus:ring-[#5E6AD2] cursor-pointer"
                           />
                         </th>
                         {/* Row number */}
@@ -1595,7 +1595,7 @@ export default function OrderPlanPage() {
                             <tr
                               key={row.id}
                               className={`border-b border-[#23252A] transition-colors ${
-                                selectedRowIds.has(row.id) ? 'bg-[#5E6AD2]/10/60' : isNewRow ? 'bg-[#27A644]/10/30' : isRowDirty ? 'bg-[#F0BF00]/10/30' : 'hover:bg-[#141516]/5/50'
+                                selectedRowIds.has(row.id) ? 'bg-[#5E6AD2]/10/60' : isNewRow ? 'bg-[#27A644]/10/30' : isRowDirty ? 'bg-[#F0BF00]/10/30' : 'hover:bg-white/5/5/50'
                               }`}
                             >
                               {/* Checkbox */}
@@ -1604,7 +1604,7 @@ export default function OrderPlanPage() {
                                   type="checkbox"
                                   checked={selectedRowIds.has(row.id)}
                                   onChange={() => toggleRowSelection(row.id)}
-                                  className="w-3.5 h-3.5 rounded border-[#23252A] text-[#7070FF] focus:ring-blue-500 cursor-pointer"
+                                  className="w-3.5 h-3.5 rounded border-[#23252A] text-[#7070FF] focus:ring-[#5E6AD2] cursor-pointer"
                                 />
                               </td>
                               {/* Row number */}
@@ -1635,7 +1635,7 @@ export default function OrderPlanPage() {
                                   } else if (cellValue > 0 && cellValue < row.plannedQty) {
                                     valueColorClass = 'text-[#F0BF00]';
                                   } else if (cellValue === 0 && row.plannedQty > 0) {
-                                    valueColorClass = 'text-red-400';
+                                    valueColorClass = 'text-[#EB5757]';
                                   }
                                 }
 
@@ -1778,11 +1778,11 @@ export default function OrderPlanPage() {
               </button>
               <div className="text-xs text-[#62666D] flex items-center gap-4">
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#27A644]/15 border border-green-300" />
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#27A644]/15 border border-[#27A644]/40" />
                   신규 행
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#F0BF00]/15 border border-amber-300" />
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#F0BF00]/15 border border-[#F0BF00]/40" />
                   수정됨
                 </span>
                 <span>

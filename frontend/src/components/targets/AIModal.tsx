@@ -147,7 +147,7 @@ export function AIModal({ isOpen, onClose, data, mode }: AIModalProps) {
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-[#141516] text-[#D0D6E0] rounded-lg hover:bg-[#141516]/7 transition-colors"
+            className="px-4 py-2 bg-[#141516] text-[#D0D6E0] rounded-lg hover:bg-white/5/7 transition-colors"
           >
             닫기
           </button>

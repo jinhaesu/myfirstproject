@@ -129,7 +129,7 @@ interface VoiceConfig {
 // Constants
 // ─────────────────────────────────────────────
 const CALL_STATUS: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  'completed':   { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-emerald-200', label: '완료' },
+  'completed':   { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-[#27A644]/25', label: '완료' },
   'in_progress': { bg: 'bg-[#5E6AD2]/10',    text: 'text-[#828FFF]',    border: 'border-[#5E6AD2]/30',    label: '통화중' },
   'missed':      { bg: 'bg-[#EB5757]/10',     text: 'text-[#EB5757]',     border: 'border-[#EB5757]/30',     label: '부재중' },
   'failed':      { bg: 'bg-[#08090A]',    text: 'text-[#D0D6E0]',    border: 'border-[#23252A]',    label: '실패' },
@@ -667,8 +667,8 @@ export default function VoiceCsPage() {
         {/* ── Page Header ── */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
-              <svg className="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-10 h-10 bg-[#5E6AD2]/15 rounded-xl flex items-center justify-center">
+              <svg className="w-5 h-5 text-[#7070FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
                 />
@@ -696,8 +696,8 @@ export default function VoiceCsPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`px-5 py-2 text-sm font-medium rounded-lg transition-all ${
                 activeTab === tab.id
-                  ? 'bg-violet-600 text-white shadow-[0px_1px_3px_rgba(0,0,0,0.2)]'
-                  : 'text-[#8A8F98] hover:text-[#F7F8F8] hover:bg-[#141516]/5'
+                  ? 'bg-[#5E6AD2] text-white shadow-[0px_1px_3px_rgba(0,0,0,0.2)]'
+                  : 'text-[#8A8F98] hover:text-[#F7F8F8] hover:bg-white/5/5'
               }`}
             >
               {tab.label}
@@ -726,7 +726,7 @@ export default function VoiceCsPage() {
                   {Math.floor(dashboard.avg_duration / 60)}분 {dashboard.avg_duration % 60}초
                 </p>
               </div>
-              <div className="bg-[#0F1011] rounded-xl p-4 border border-red-100 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] bg-[#EB5757]/10">
+              <div className="bg-[#0F1011] rounded-xl p-4 border border-[#EB5757]/15 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] bg-[#EB5757]/10">
                 <p className="text-xs text-[#EB5757] font-medium mb-1">미해결 건</p>
                 <p className="text-2xl font-bold text-[#EB5757]">{dashboard.unresolved_count.toLocaleString()}</p>
               </div>
@@ -743,8 +743,8 @@ export default function VoiceCsPage() {
                       onClick={() => setCallStatusFilter(s)}
                       className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
                         callStatusFilter === s
-                          ? 'bg-violet-600 text-white border-violet-600'
-                          : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:border-violet-300'
+                          ? 'bg-[#5E6AD2] text-white border-[#5E6AD2]'
+                          : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:border-[#5E6AD2]/40'
                       }`}
                     >
                       {s === '전체' ? '전체' : (CALL_STATUS[s]?.label ?? s)}
@@ -756,7 +756,7 @@ export default function VoiceCsPage() {
                 <select
                   value={callCategoryFilter}
                   onChange={e => setCallCategoryFilter(e.target.value)}
-                  className="px-3 py-1.5 text-xs border border-[#23252A] rounded-lg text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="px-3 py-1.5 text-xs border border-[#23252A] rounded-lg text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-[#7070FF]"
                 >
                   {CALL_CATEGORIES.map(c => <option key={c}>{c}</option>)}
                 </select>
@@ -767,7 +767,7 @@ export default function VoiceCsPage() {
                   value={callSearch}
                   onChange={e => setCallSearch(e.target.value)}
                   placeholder="전화번호, 고객명, 요약 검색..."
-                  className="flex-1 min-w-[180px] px-3 py-1.5 text-xs border border-[#23252A] rounded-lg text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="flex-1 min-w-[180px] px-3 py-1.5 text-xs border border-[#23252A] rounded-lg text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF]"
                 />
               </div>
             </div>
@@ -805,7 +805,7 @@ export default function VoiceCsPage() {
                               call.direction === 'inbound' ? 'bg-[#5E6AD2]/10' : 'bg-[#27A644]/10'
                             }`}>
                               <svg
-                                className={`w-4 h-4 ${call.direction === 'inbound' ? 'text-[#7070FF]' : 'text-emerald-500'}`}
+                                className={`w-4 h-4 ${call.direction === 'inbound' ? 'text-[#7070FF]' : 'text-[#27A644]'}`}
                                 fill="none" viewBox="0 0 24 24" stroke="currentColor"
                               >
                                 {call.direction === 'inbound' ? (
@@ -844,13 +844,13 @@ export default function VoiceCsPage() {
                                 )}
                                 {/* Category badge */}
                                 {call.category && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-[#5E6AD2]/10 text-[#828FFF] border border-[#5E6AD2]/30">
                                     {call.category}
                                   </span>
                                 )}
                                 {/* Resolved badge */}
                                 {call.resolved && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-[#27A644]/10 text-[#27A644] border border-emerald-200">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/25">
                                     해결됨
                                   </span>
                                 )}
@@ -866,7 +866,7 @@ export default function VoiceCsPage() {
                               {formatDuration(call.duration_seconds)}
                             </span>
                             {call.order_number && (
-                              <span className="text-xs text-violet-600 font-mono">#{call.order_number}</span>
+                              <span className="text-xs text-[#7070FF] font-mono">#{call.order_number}</span>
                             )}
                           </div>
                         </div>
@@ -907,7 +907,7 @@ export default function VoiceCsPage() {
                                       return next;
                                     })
                                   }
-                                  className="text-xs text-violet-600 hover:underline"
+                                  className="text-xs text-[#7070FF] hover:underline"
                                 >
                                   {isTranscriptExpanded ? '접기' : '펼치기'}
                                 </button>
@@ -930,7 +930,7 @@ export default function VoiceCsPage() {
                                 {Object.entries(call.order_info).map(([k, v]) => (
                                   <div key={k} className="flex gap-2">
                                     <span className="text-[#F0BF00] font-medium min-w-[60px]">{k}</span>
-                                    <span className="text-amber-900">{String(v)}</span>
+                                    <span className="text-[#F7F8F8]">{String(v)}</span>
                                   </div>
                                 ))}
                               </div>
@@ -947,7 +947,7 @@ export default function VoiceCsPage() {
                                     key={idx}
                                     className={`flex items-start gap-3 p-3 rounded-lg border ${
                                       item.status === 'done'
-                                        ? 'bg-[#27A644]/10 border-emerald-200'
+                                        ? 'bg-[#27A644]/10 border-[#27A644]/25'
                                         : item.priority === 'high'
                                         ? 'bg-[#EB5757]/10 border-[#EB5757]/30'
                                         : 'bg-[#0F1011] border-[#23252A]'
@@ -957,7 +957,7 @@ export default function VoiceCsPage() {
                                       type="checkbox"
                                       checked={item.status === 'done'}
                                       onChange={() => handleToggleActionItem(call, idx)}
-                                      className="mt-0.5 w-4 h-4 rounded border-[#23252A] text-[#27A644] focus:ring-emerald-500 cursor-pointer"
+                                      className="mt-0.5 w-4 h-4 rounded border-[#23252A] text-[#27A644] focus:ring-[#27A644] cursor-pointer"
                                     />
                                     <div className="min-w-0">
                                       <p className={`text-xs font-semibold ${item.status === 'done' ? 'line-through text-[#62666D]' : 'text-[#F7F8F8]'}`}>
@@ -1006,8 +1006,8 @@ export default function VoiceCsPage() {
                               onClick={() => handleToggleResolved(call)}
                               className={`px-4 py-2 text-xs font-medium rounded-lg border transition-colors ${
                                 call.resolved
-                                  ? 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-[#141516]/5'
-                                  : 'bg-[#27A644] text-white border-emerald-600 hover:bg-[#1E8A3A]'
+                                  ? 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-white/5/5'
+                                  : 'bg-[#27A644] text-white border-[#27A644] hover:bg-[#1E8A3A]'
                               }`}
                             >
                               {call.resolved ? '미해결로 변경' : '해결 완료'}
@@ -1036,8 +1036,8 @@ export default function VoiceCsPage() {
                     onClick={() => setManualCategoryFilter(cat)}
                     className={`px-4 py-2 text-sm font-medium rounded-lg border transition-all ${
                       manualCategoryFilter === cat
-                        ? 'bg-violet-600 text-white border-violet-600'
-                        : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:border-violet-300'
+                        ? 'bg-[#5E6AD2] text-white border-[#5E6AD2]'
+                        : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:border-[#5E6AD2]/40'
                     }`}
                   >
                     {cat}
@@ -1046,7 +1046,7 @@ export default function VoiceCsPage() {
               </div>
               <button
                 onClick={() => openManualModal()}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1076,7 +1076,7 @@ export default function VoiceCsPage() {
                           <div className="flex items-center gap-2 flex-wrap min-w-0">
                             <span className="font-semibold text-[#F7F8F8] text-sm">{manual.title}</span>
                             {manual.category && (
-                              <span className="px-2 py-0.5 text-xs rounded-md font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                              <span className="px-2 py-0.5 text-xs rounded-md font-medium bg-[#5E6AD2]/10 text-[#828FFF] border border-[#5E6AD2]/30">
                                 {manual.category}
                               </span>
                             )}
@@ -1096,7 +1096,7 @@ export default function VoiceCsPage() {
                             <button
                               onClick={() => handleToggleManualActive(manual)}
                               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                                manual.is_active ? 'bg-violet-600' : 'bg-[#232326]'
+                                manual.is_active ? 'bg-[#5E6AD2]' : 'bg-[#232326]'
                               }`}
                             >
                               <span
@@ -1107,7 +1107,7 @@ export default function VoiceCsPage() {
                             </button>
                             <button
                               onClick={() => openManualModal(manual)}
-                              className="p-1.5 text-[#62666D] hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                              className="p-1.5 text-[#62666D] hover:text-[#7070FF] hover:bg-[#5E6AD2]/10 rounded-lg transition-colors"
                             >
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -1143,7 +1143,7 @@ export default function VoiceCsPage() {
                                   return next;
                                 })
                               }
-                              className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 font-medium"
+                              className="flex items-center gap-1 text-xs text-[#7070FF] hover:text-[#828FFF] font-medium"
                             >
                               <svg
                                 className={`w-3.5 h-3.5 transition-transform ${isDialogueExpanded ? 'rotate-90' : ''}`}
@@ -1187,7 +1187,7 @@ export default function VoiceCsPage() {
               <h2 className="text-sm font-semibold text-[#D0D6E0]">등록된 전화번호 {phoneNumbers.length}개</h2>
               <button
                 onClick={() => setShowPhoneModal(true)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1216,7 +1216,7 @@ export default function VoiceCsPage() {
                         <div className="flex items-center gap-2 mt-2">
                           <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${
                             phone.provider === 'vapi'
-                              ? 'bg-violet-50 text-violet-700 border border-violet-200'
+                              ? 'bg-[#5E6AD2]/10 text-[#828FFF] border border-[#5E6AD2]/30'
                               : 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
                           }`}>
                             {phone.provider.toUpperCase()}
@@ -1232,7 +1232,7 @@ export default function VoiceCsPage() {
                         <button
                           onClick={() => handleTogglePhone(phone)}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            phone.is_active ? 'bg-violet-600' : 'bg-[#232326]'
+                            phone.is_active ? 'bg-[#5E6AD2]' : 'bg-[#232326]'
                           }`}
                         >
                           <span
@@ -1276,7 +1276,7 @@ export default function VoiceCsPage() {
                   value={config.vapi_api_key}
                   onChange={e => setConfig(prev => ({ ...prev, vapi_api_key: e.target.value }))}
                   placeholder="vapi_..."
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#D0D6E0] font-mono placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#D0D6E0] font-mono placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF]"
                 />
               </div>
 
@@ -1289,7 +1289,7 @@ export default function VoiceCsPage() {
                   value={config.elevenlabs_api_key}
                   onChange={e => setConfig(prev => ({ ...prev, elevenlabs_api_key: e.target.value }))}
                   placeholder="sk_..."
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#D0D6E0] font-mono placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#D0D6E0] font-mono placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF]"
                 />
               </div>
 
@@ -1302,7 +1302,7 @@ export default function VoiceCsPage() {
                     href="https://elevenlabs.io/voice-library"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-1 text-violet-600 hover:underline"
+                    className="ml-1 text-[#7070FF] hover:underline"
                   >
                     음성 라이브러리 보기
                   </a>
@@ -1312,7 +1312,7 @@ export default function VoiceCsPage() {
                   value={config.voice_id}
                   onChange={e => setConfig(prev => ({ ...prev, voice_id: e.target.value }))}
                   placeholder="예) 21m00Tcm4TlvDq8ikWAM"
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#D0D6E0] font-mono placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#D0D6E0] font-mono placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF]"
                 />
               </div>
 
@@ -1324,7 +1324,7 @@ export default function VoiceCsPage() {
                   value={config.greeting_message}
                   onChange={e => setConfig(prev => ({ ...prev, greeting_message: e.target.value }))}
                   rows={2}
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF] resize-none"
                 />
               </div>
 
@@ -1338,7 +1338,7 @@ export default function VoiceCsPage() {
                   value={config.system_prompt}
                   onChange={e => setConfig(prev => ({ ...prev, system_prompt: e.target.value }))}
                   rows={6}
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF] resize-y"
                 />
               </div>
 
@@ -1354,7 +1354,7 @@ export default function VoiceCsPage() {
                   <button
                     onClick={() => setConfig(prev => ({ ...prev, auto_order_lookup: !prev.auto_order_lookup }))}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-                      config.auto_order_lookup ? 'bg-violet-600' : 'bg-[#232326]'
+                      config.auto_order_lookup ? 'bg-[#5E6AD2]' : 'bg-[#232326]'
                     }`}
                   >
                     <span
@@ -1372,7 +1372,7 @@ export default function VoiceCsPage() {
               <button
                 onClick={handleSaveConfig}
                 disabled={savingConfig}
-                className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
               >
                 {savingConfig ? (
                   <>
@@ -1402,7 +1402,7 @@ export default function VoiceCsPage() {
                 </h2>
                 <button
                   onClick={() => setShowManualModal(false)}
-                  className="p-1.5 text-[#62666D] hover:text-[#D0D6E0] hover:bg-[#141516]/5 rounded-lg transition-colors"
+                  className="p-1.5 text-[#62666D] hover:text-[#D0D6E0] hover:bg-white/5/5 rounded-lg transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1420,7 +1420,7 @@ export default function VoiceCsPage() {
                   value={manualForm.title}
                   onChange={e => setManualForm(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="매뉴얼 제목"
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF]"
                 />
               </div>
 
@@ -1430,7 +1430,7 @@ export default function VoiceCsPage() {
                 <select
                   value={manualForm.category}
                   onChange={e => setManualForm(prev => ({ ...prev, category: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-[#7070FF]"
                 >
                   {MANUAL_CATEGORIES.filter(c => c !== '전체').map(c => (
                     <option key={c} value={c}>{c}</option>
@@ -1446,7 +1446,7 @@ export default function VoiceCsPage() {
                   onChange={e => setManualForm(prev => ({ ...prev, content: e.target.value }))}
                   placeholder="응대 매뉴얼 내용을 입력하세요."
                   rows={5}
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF] resize-y"
                 />
               </div>
 
@@ -1458,7 +1458,7 @@ export default function VoiceCsPage() {
                   value={manualForm.scenario_type}
                   onChange={e => setManualForm(prev => ({ ...prev, scenario_type: e.target.value }))}
                   placeholder="예) 인바운드_시작, 배송문의, 교환반품"
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF]"
                 />
               </div>
 
@@ -1470,7 +1470,7 @@ export default function VoiceCsPage() {
                   onChange={e => setManualForm(prev => ({ ...prev, sample_dialogue: e.target.value }))}
                   placeholder={'고객: ...\nAI: ...'}
                   rows={4}
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y font-mono"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF] resize-y font-mono"
                 />
               </div>
 
@@ -1482,7 +1482,7 @@ export default function VoiceCsPage() {
                   value={manualForm.priority_order}
                   onChange={e => setManualForm(prev => ({ ...prev, priority_order: Number(e.target.value) }))}
                   min={0}
-                  className="w-24 px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-24 px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] focus:outline-none focus:ring-2 focus:ring-[#7070FF]"
                 />
               </div>
             </div>
@@ -1490,14 +1490,14 @@ export default function VoiceCsPage() {
             <div className="sticky bottom-0 bg-[#0F1011] border-t border-[#23252A] px-6 py-4 rounded-b-2xl flex justify-end gap-3">
               <button
                 onClick={() => setShowManualModal(false)}
-                className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-[#141516]/7 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
               >
                 취소
               </button>
               <button
                 onClick={handleSaveManual}
                 disabled={savingManual}
-                className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 transition-colors"
               >
                 {savingManual ? (
                   <>
@@ -1525,7 +1525,7 @@ export default function VoiceCsPage() {
                 <h2 className="text-base font-bold text-[#F7F8F8]">전화번호 등록</h2>
                 <button
                   onClick={() => setShowPhoneModal(false)}
-                  className="p-1.5 text-[#62666D] hover:text-[#D0D6E0] hover:bg-[#141516]/5 rounded-lg transition-colors"
+                  className="p-1.5 text-[#62666D] hover:text-[#D0D6E0] hover:bg-white/5/5 rounded-lg transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1543,7 +1543,7 @@ export default function VoiceCsPage() {
                   value={phoneForm.phone_number}
                   onChange={e => setPhoneForm(prev => ({ ...prev, phone_number: e.target.value }))}
                   placeholder="02-1234-5678"
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF] font-mono"
                 />
               </div>
 
@@ -1555,7 +1555,7 @@ export default function VoiceCsPage() {
                   value={phoneForm.label}
                   onChange={e => setPhoneForm(prev => ({ ...prev, label: e.target.value }))}
                   placeholder="예) 대표 번호, 고객센터 전용"
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#7070FF]"
                 />
               </div>
 
@@ -1565,7 +1565,7 @@ export default function VoiceCsPage() {
                 <select
                   value={phoneForm.provider}
                   onChange={e => setPhoneForm(prev => ({ ...prev, provider: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg text-[#F7F8F8] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-[#7070FF]"
                 >
                   <option value="vapi">Vapi</option>
                   <option value="twilio">Twilio</option>
@@ -1576,14 +1576,14 @@ export default function VoiceCsPage() {
             <div className="border-t border-[#23252A] px-6 py-4 flex justify-end gap-3">
               <button
                 onClick={() => setShowPhoneModal(false)}
-                className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-[#141516]/7 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
               >
                 취소
               </button>
               <button
                 onClick={handleSavePhone}
                 disabled={savingPhone}
-                className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 transition-colors"
               >
                 {savingPhone ? (
                   <>

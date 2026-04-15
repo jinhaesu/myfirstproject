@@ -35,7 +35,7 @@ export function TableSelector({
           <select
             value={selectedTable}
             onChange={(e) => onSelectTable(e.target.value)}
-            className="w-full p-2 border border-[#23252A] rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full p-2 border border-[#23252A] rounded-md focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
           >
             {tables.tables.map((table) => (
               <option key={table} value={table}>

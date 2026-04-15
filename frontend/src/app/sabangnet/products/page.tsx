@@ -416,7 +416,7 @@ export default function ProductsPage() {
   // ── Loading / Unauth ──
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]/30 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]/30 flex items-center justify-center">
         <div className="text-[#8A8F98] text-sm">로딩 중...</div>
       </div>
     );
@@ -427,7 +427,7 @@ export default function ProductsPage() {
   // Render
   // ══════════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]/30">
+    <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]/30">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -449,7 +449,7 @@ export default function ProductsPage() {
               className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab.key
                   ? 'bg-[#5E6AD2] text-white shadow-[0px_1px_3px_rgba(0,0,0,0.2)]'
-                  : 'text-[#8A8F98] hover:bg-[#141516]/5'
+                  : 'text-[#8A8F98] hover:bg-white/5/5'
               }`}
             >
               {tab.label}
@@ -468,14 +468,14 @@ export default function ProductsPage() {
                 <button
                   onClick={handleSync}
                   disabled={syncing}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#0F1011] border border-[#23252A] rounded-lg text-sm font-medium text-[#D0D6E0] hover:bg-[#141516]/5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] transition-all disabled:opacity-60"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#0F1011] border border-[#23252A] rounded-lg text-sm font-medium text-[#D0D6E0] hover:bg-white/5/5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] transition-all disabled:opacity-60"
                 >
                   <span className={syncing ? 'animate-spin inline-block' : ''}>&#8635;</span>
                   {syncing ? '동기화 중...' : '사방넷 동기화'}
                 </button>
                 <button
                   onClick={handleInitSample}
-                  className="px-4 py-2 bg-[#0F1011] border border-[#23252A] rounded-lg text-sm font-medium text-[#8A8F98] hover:bg-[#141516]/5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] transition-all"
+                  className="px-4 py-2 bg-[#0F1011] border border-[#23252A] rounded-lg text-sm font-medium text-[#8A8F98] hover:bg-white/5/5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] transition-all"
                 >
                   샘플 초기화
                 </button>
@@ -512,12 +512,12 @@ export default function ProductsPage() {
                   placeholder="상품명 또는 코드 검색..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="flex-1 min-w-[200px] px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
+                  className="flex-1 min-w-[200px] px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/50"
                 />
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
+                  className="px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/50"
                 >
                   {PRODUCT_CATEGORIES.map((c) => (
                     <option key={c} value={c}>{c}</option>
@@ -554,7 +554,7 @@ export default function ProductsPage() {
                       <>
                         <tr
                           key={product.id}
-                          className="border-b border-[#23252A] hover:bg-[#141516]/5/50 transition-colors"
+                          className="border-b border-[#23252A] hover:bg-white/5/5/50 transition-colors"
                         >
                           <td className="px-4 py-3 font-mono text-xs text-[#8A8F98] whitespace-nowrap">
                             {product.sabangnet_product_code}
@@ -591,7 +591,7 @@ export default function ProductsPage() {
                             <span
                               className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                 product.mapped_count > 0
-                                  ? 'bg-[#27A644]/10 text-[#27A644] border border-emerald-200'
+                                  ? 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/25'
                                   : 'bg-[#08090A] text-[#62666D] border border-[#23252A]'
                               }`}
                             >
@@ -602,7 +602,7 @@ export default function ProductsPage() {
                             <span
                               className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                 product.is_active
-                                  ? 'bg-[#27A644]/10 text-[#27A644] border border-emerald-200'
+                                  ? 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/25'
                                   : 'bg-[#08090A] text-[#62666D] border border-[#23252A]'
                               }`}
                             >
@@ -679,7 +679,7 @@ export default function ProductsPage() {
                     setProductForm({ ...DEFAULT_FORM });
                     showToast('폼이 초기화되었습니다.');
                   }}
-                  className="px-4 py-2 border border-[#23252A] rounded-lg text-sm font-medium text-[#8A8F98] hover:bg-[#141516]/5 transition-all"
+                  className="px-4 py-2 border border-[#23252A] rounded-lg text-sm font-medium text-[#8A8F98] hover:bg-white/5/5 transition-all"
                 >
                   초기화
                 </button>
@@ -699,7 +699,7 @@ export default function ProductsPage() {
                 {products.map((p) => (
                   <div
                     key={p.id}
-                    className="flex items-center justify-between px-4 py-3 rounded-xl border border-[#23252A] hover:border-[#23252A] hover:bg-[#141516]/5/50 transition-all"
+                    className="flex items-center justify-between px-4 py-3 rounded-xl border border-[#23252A] hover:border-[#23252A] hover:bg-white/5/5/50 transition-all"
                   >
                     <div>
                       <span className="font-mono text-xs text-[#62666D] mr-2">{p.sabangnet_product_code}</span>
@@ -765,7 +765,7 @@ export default function ProductsPage() {
                   setShowProductModal(false);
                   setEditingProduct(null);
                 }}
-                className="px-4 py-2 border border-[#23252A] rounded-lg text-sm font-medium text-[#8A8F98] hover:bg-[#141516]/5 transition-all"
+                className="px-4 py-2 border border-[#23252A] rounded-lg text-sm font-medium text-[#8A8F98] hover:bg-white/5/5 transition-all"
               >
                 취소
               </button>
@@ -813,28 +813,28 @@ function ProductFormFields({
       {/* 상품코드 */}
       <div>
         <label className="block text-xs font-medium text-[#8A8F98] mb-1">
-          상품코드 <span className="text-red-400">*</span>
+          상품코드 <span className="text-[#EB5757]">*</span>
         </label>
         <input
           type="text"
           placeholder="예: ND-MAC-001"
           value={form.sabangnet_product_code}
           onChange={(e) => onChange((prev) => ({ ...prev, sabangnet_product_code: e.target.value }))}
-          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
+          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/50"
         />
       </div>
 
       {/* 상품명 */}
       <div>
         <label className="block text-xs font-medium text-[#8A8F98] mb-1">
-          상품명 <span className="text-red-400">*</span>
+          상품명 <span className="text-[#EB5757]">*</span>
         </label>
         <input
           type="text"
           placeholder="예: 널담 마카롱 복숭아 요거트 [50g]"
           value={form.product_name}
           onChange={(e) => onChange((prev) => ({ ...prev, product_name: e.target.value }))}
-          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
+          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/50"
         />
       </div>
 
@@ -844,7 +844,7 @@ function ProductFormFields({
         <select
           value={form.category}
           onChange={(e) => onChange((prev) => ({ ...prev, category: e.target.value }))}
-          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
+          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/50"
         >
           {FORM_CATEGORIES.map((c) => (
             <option key={c} value={c}>{c}</option>
@@ -917,7 +917,7 @@ function ProductFormFields({
                 placeholder="상품코드"
                 value={comp.product_code}
                 onChange={(e) => onUpdateComponent(idx, 'product_code', e.target.value)}
-                className="flex-1 px-3 py-1.5 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
+                className="flex-1 px-3 py-1.5 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/50"
               />
               <input
                 type="number"
@@ -925,7 +925,7 @@ function ProductFormFields({
                 placeholder="수량"
                 value={comp.qty}
                 onChange={(e) => onUpdateComponent(idx, 'qty', Number(e.target.value))}
-                className="w-20 px-3 py-1.5 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-[#5E6AD2]/50"
+                className="w-20 px-3 py-1.5 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/50"
               />
               <button
                 type="button"

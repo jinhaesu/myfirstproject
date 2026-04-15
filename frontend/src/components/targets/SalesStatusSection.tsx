@@ -544,7 +544,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               <select
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value))}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}년</option>
@@ -556,7 +556,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               <select
                 value={month}
                 onChange={(e) => setMonth(Number(e.target.value))}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
               >
                 {months.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
@@ -568,7 +568,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               <select
                 value={selectedManager}
                 onChange={(e) => setSelectedManager(e.target.value)}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
               >
                 <option value="all">전체</option>
                 {managers.map((m) => (
@@ -687,7 +687,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                     type="checkbox"
                     checked={showManagerChart}
                     onChange={(e) => setShowManagerChart(e.target.checked)}
-                    className="w-4 h-4 text-[#27A644] rounded border-[#23252A] focus:ring-emerald-500"
+                    className="w-4 h-4 text-[#27A644] rounded border-[#23252A] focus:ring-[#27A644]"
                   />
                   <span className="text-sm font-medium text-[#D0D6E0]">책임자별 현황 지표</span>
                 </label>
@@ -696,7 +696,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                     type="checkbox"
                     checked={showCriteriaChart}
                     onChange={(e) => setShowCriteriaChart(e.target.checked)}
-                    className="w-4 h-4 text-[#27A644] rounded border-[#23252A] focus:ring-emerald-500"
+                    className="w-4 h-4 text-[#27A644] rounded border-[#23252A] focus:ring-[#27A644]"
                   />
                   <span className="text-sm font-medium text-[#D0D6E0]">기준별 현황 지표</span>
                 </label>
@@ -735,8 +735,8 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       <Legend wrapperStyle={{ fontSize: '11px' }} />
                       <Bar dataKey="현황_매출" fill="#5E6AD2" name="현황 매출" />
                       <Bar dataKey="목표_매출" fill="#5E6AD2" name="목표 매출" />
-                      <Bar dataKey="현황_판매량" fill="#10b981" name="현황 판매량" />
-                      <Bar dataKey="목표_판매량" fill="#6ee7b7" name="목표 판매량" />
+                      <Bar dataKey="현황_판매량" fill="#27A644" name="현황 판매량" />
+                      <Bar dataKey="목표_판매량" fill="#27A644" name="목표 판매량" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -768,8 +768,8 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       <Legend wrapperStyle={{ fontSize: '11px' }} />
                       <Bar dataKey="현황_매출" fill="#5E6AD2" name="현황 매출" />
                       <Bar dataKey="목표_매출" fill="#5E6AD2" name="목표 매출" />
-                      <Bar dataKey="현황_판매량" fill="#10b981" name="현황 판매량" />
-                      <Bar dataKey="목표_판매량" fill="#6ee7b7" name="목표 판매량" />
+                      <Bar dataKey="현황_판매량" fill="#27A644" name="현황 판매량" />
+                      <Bar dataKey="목표_판매량" fill="#27A644" name="목표 판매량" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -780,7 +780,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
 
         {/* 실시간 지표 섹션 */}
         {realtime && (
-          <div className="px-6 py-4 bg-gradient-to-r from-[#08090A] to-indigo-50 border-b border-[#23252A]">
+          <div className="px-6 py-4 bg-gradient-to-r from-[#08090A] to-[#5E6AD2]/10 border-b border-[#23252A]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex flex-col">
                 <h3 className="text-md font-semibold text-[#F7F8F8] flex items-center gap-2">
@@ -799,7 +799,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               </div>
               <button
                 onClick={() => setShowRealtimeChart(!showRealtimeChart)}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#0F1011] border border-[#23252A] rounded-lg hover:bg-[#141516]/5 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#0F1011] border border-[#23252A] rounded-lg hover:bg-white/5/5 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -851,7 +851,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                         chartMode === 'daily'
                           ? 'bg-[#5E6AD2] text-white'
-                          : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                          : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                       }`}
                     >
                       일계
@@ -861,7 +861,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                         chartMode === 'cumulative'
                           ? 'bg-[#5E6AD2] text-white'
-                          : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                          : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                       }`}
                     >
                       누계
@@ -871,7 +871,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                         type="checkbox"
                         checked={showTargetLine}
                         onChange={(e) => setShowTargetLine(e.target.checked)}
-                        className="w-4 h-4 text-[#FC7840] rounded border-[#23252A] focus:ring-orange-500"
+                        className="w-4 h-4 text-[#FC7840] rounded border-[#23252A] focus:ring-[#FC7840]"
                       />
                       <span className="text-sm text-[#8A8F98]">목표 값 표시</span>
                     </label>
@@ -880,7 +880,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                         type="checkbox"
                         checked={showPreviousMonth}
                         onChange={(e) => setShowPreviousMonth(e.target.checked)}
-                        className="w-4 h-4 text-emerald-500 rounded border-[#23252A] focus:ring-emerald-500"
+                        className="w-4 h-4 text-[#27A644] rounded border-[#23252A] focus:ring-[#27A644]"
                       />
                       <span className="text-sm text-[#8A8F98]">전월 비교</span>
                     </label>
@@ -908,10 +908,10 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       <Legend />
                       <Line type="monotone" dataKey="매출" stroke="#5E6AD2" strokeWidth={2} dot={false} name={`${year}년 ${month}월`} />
                       {showTargetLine && (
-                        <Line type="monotone" dataKey="목표" stroke="#F97316" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                        <Line type="monotone" dataKey="목표" stroke="#FC7840" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                       )}
                       {showPreviousMonth && previousMonthChart && (
-                        <Line type="monotone" dataKey="전월" stroke="#10B981" strokeWidth={2} strokeDasharray="3 3" dot={false} name={previousMonthLabel} />
+                        <Line type="monotone" dataKey="전월" stroke="#27A644" strokeWidth={2} strokeDasharray="3 3" dot={false} name={previousMonthLabel} />
                       )}
                     </LineChart>
                   ) : (
@@ -928,10 +928,10 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       <Legend />
                       <Bar dataKey="매출" fill="#5E6AD2" name={`${year}년 ${month}월`} />
                       {showTargetLine && (
-                        <Bar dataKey="목표" fill="#F97316" />
+                        <Bar dataKey="목표" fill="#FC7840" />
                       )}
                       {showPreviousMonth && previousMonthChart && (
-                        <Bar dataKey="전월" fill="#10B981" name={previousMonthLabel} />
+                        <Bar dataKey="전월" fill="#27A644" name={previousMonthLabel} />
                       )}
                     </BarChart>
                   )}
@@ -945,7 +945,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
         <div className="divide-y divide-[#23252A]">
           {isLoading ? (
             <div className="px-6 py-8 text-center text-[#8A8F98]">
-              <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <div className="w-8 h-8 border-4 border-[#27A644] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
               로딩 중...
             </div>
           ) : sales.length === 0 ? (
@@ -954,7 +954,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
             </div>
           ) : (
             sales.map((sale) => (
-              <div key={sale.id} className="px-6 py-4 flex items-center justify-between hover:bg-[#141516]/5">
+              <div key={sale.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5/5">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="px-2 py-0.5 bg-[#27A644]/15 text-[#27A644] text-xs font-medium rounded">

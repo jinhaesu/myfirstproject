@@ -192,7 +192,7 @@ export function ExcelGrid({
           </thead>
           <tbody>
             {data.map((row, rowIndex) => (
-              <tr key={rowIndex} className="hover:bg-[#141516]/5 group">
+              <tr key={rowIndex} className="hover:bg-white/5/5 group">
                 {/* 행 관리 버튼들 */}
                 {allowAddRow && (
                   <td className="border-r border-b border-[#23252A] px-1 py-1 bg-[#08090A]">
@@ -235,7 +235,7 @@ export function ExcelGrid({
                 <td
                   className={`border-r border-b border-[#23252A] px-1 py-1 ${
                     selectedCell?.row === rowIndex && selectedCell?.col === 0
-                      ? 'ring-2 ring-blue-500 ring-inset'
+                      ? 'ring-2 ring-[#5E6AD2] ring-inset'
                       : ''
                   }`}
                   onClick={() => setSelectedCell({ row: rowIndex, col: 0 })}
@@ -266,7 +266,7 @@ export function ExcelGrid({
                     <td
                       key={colIndex}
                       className={`border-r border-b border-[#23252A] px-1 py-1 ${
-                        isSelected ? 'ring-2 ring-blue-500 ring-inset' : ''
+                        isSelected ? 'ring-2 ring-[#5E6AD2] ring-inset' : ''
                       }`}
                       onClick={() => setSelectedCell({ row: rowIndex, col: cellIndex })}
                       onDoubleClick={() => setEditingCell({ row: rowIndex, col: cellIndex })}
