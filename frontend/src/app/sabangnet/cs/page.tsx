@@ -159,32 +159,32 @@ interface ActionItem {
 // Constants
 // ─────────────────────────────────────────────
 const MALL_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  '스마트스토어': { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-  '쿠팡':       { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-  '11번가':     { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
-  '카카오선물하기': { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200' },
-  '옥션':       { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
-  '지마켓':     { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+  '스마트스토어': { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-[#27A644]/30' },
+  '쿠팡':       { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30' },
+  '11번가':     { bg: 'bg-[#EB5757]/10', text: 'text-[#EB5757]', border: 'border-[#EB5757]/30' },
+  '카카오선물하기': { bg: 'bg-[#F0BF00]/10', text: 'text-[#F0BF00]', border: 'border-[#F0BF00]/30' },
+  '옥션':       { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30' },
+  '지마켓':     { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30' },
 };
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  'new':        { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', label: '신규' },
-  'ai_drafted': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', label: 'AI 초안' },
-  'approved':   { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: '승인됨' },
-  'sent':       { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200', label: '발송완료' },
-  'failed':     { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', label: '실패' },
+  'new':        { bg: 'bg-[#08090A]', text: 'text-[#D0D6E0]', border: 'border-[#23252A]', label: '신규' },
+  'ai_drafted': { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30', label: 'AI 초안' },
+  'approved':   { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-emerald-200', label: '승인됨' },
+  'sent':       { bg: 'bg-[#08090A]', text: 'text-[#D0D6E0]', border: 'border-[#23252A]', label: '발송완료' },
+  'failed':     { bg: 'bg-[#EB5757]/10', text: 'text-[#EB5757]', border: 'border-[#EB5757]/30', label: '실패' },
   'answered_externally': { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', label: '외부답변' },
   'closed_externally':   { bg: 'bg-stone-50', text: 'text-stone-700', border: 'border-stone-200', label: '외부종료' },
 };
 
 const PRIORITY_COLORS: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  'low':    { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', label: '낮음' },
-  'normal': { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200', label: '보통' },
-  'high':   { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', label: '높음' },
-  'urgent': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', label: '긴급' },
+  'low':    { bg: 'bg-[#08090A]', text: 'text-[#8A8F98]', border: 'border-[#23252A]', label: '낮음' },
+  'normal': { bg: 'bg-[#5E6AD2]/10', text: 'text-[#7070FF]', border: 'border-[#5E6AD2]/30', label: '보통' },
+  'high':   { bg: 'bg-[#F0BF00]/10', text: 'text-[#F0BF00]', border: 'border-[#F0BF00]/30', label: '높음' },
+  'urgent': { bg: 'bg-[#EB5757]/10', text: 'text-[#EB5757]', border: 'border-[#EB5757]/30', label: '긴급' },
 };
 
-const DEFAULT_BADGE = { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
+const DEFAULT_BADGE = { bg: 'bg-[#08090A]', text: 'text-[#D0D6E0]', border: 'border-[#23252A]' };
 
 const MALL_OPTIONS = ['전체', '스마트스토어', '쿠팡', '11번가', '카카오선물하기', '옥션', '지마켓'];
 const STATUS_OPTIONS = ['전체', 'new', 'ai_drafted', 'approved', 'sent', 'failed', 'answered_externally', 'closed_externally'];
@@ -915,10 +915,10 @@ export default function CSPage() {
   // ── Auth loading guard ──
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[#08090A]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-gray-500">로딩 중...</span>
+          <span className="text-sm text-[#8A8F98]">로딩 중...</span>
         </div>
       </div>
     );
@@ -930,13 +930,13 @@ export default function CSPage() {
   // Render
   // ═══════════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#08090A]">
       <Navigation />
 
       {/* ── Toast ── */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-2">
-          <div className="bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm flex items-center gap-2">
+          <div className="bg-[#08090A] text-white px-4 py-3 rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm flex items-center gap-2">
             <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             {toast}
           </div>
@@ -947,22 +947,22 @@ export default function CSPage() {
         {/* ── Top Bar ── */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-gray-900">게시판 CS 대응</h1>
+            <h1 className="text-2xl font-bold text-[#F7F8F8]">게시판 CS 대응</h1>
 
             {/* Mode toggle */}
             <button
               onClick={handleModeToggle}
               className={`relative inline-flex h-8 w-[140px] items-center rounded-full transition-colors ${
-                operationMode === 'auto' ? 'bg-blue-600' : 'bg-gray-300'
+                operationMode === 'auto' ? 'bg-[#5E6AD2]' : 'bg-[#28282C]'
               }`}
             >
-              <span className={`absolute left-2 text-xs font-medium transition-opacity ${operationMode === 'semi_auto' ? 'text-gray-700 opacity-100' : 'text-white opacity-50'}`}>
+              <span className={`absolute left-2 text-xs font-medium transition-opacity ${operationMode === 'semi_auto' ? 'text-[#D0D6E0] opacity-100' : 'text-white opacity-50'}`}>
                 반자동 모드
               </span>
-              <span className={`absolute right-2 text-xs font-medium transition-opacity ${operationMode === 'auto' ? 'text-white opacity-100' : 'text-gray-500 opacity-50'}`}>
+              <span className={`absolute right-2 text-xs font-medium transition-opacity ${operationMode === 'auto' ? 'text-white opacity-100' : 'text-[#8A8F98] opacity-50'}`}>
                 자동 모드
               </span>
-              <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform ${
+              <span className={`inline-block h-6 w-6 transform rounded-full bg-[#0F1011] shadow transition-transform ${
                 operationMode === 'auto' ? 'translate-x-[108px]' : 'translate-x-1'
               }`} />
             </button>
@@ -970,16 +970,16 @@ export default function CSPage() {
 
           <div className="flex items-center gap-3 flex-wrap">
             {/* Stats badges */}
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
-              총 <span className="font-bold text-gray-900">{fmt(totalStats?.total || 0)}건</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#141516] text-[#D0D6E0] border border-[#23252A]">
+              총 <span className="font-bold text-[#F7F8F8]">{fmt(totalStats?.total || 0)}건</span>
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
-              미답변 <span className="font-bold text-gray-900">{fmt(totalStats?.new || 0)}건</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#141516] text-[#D0D6E0] border border-[#23252A]">
+              미답변 <span className="font-bold text-[#F7F8F8]">{fmt(totalStats?.new || 0)}건</span>
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#5E6AD2]/10 text-[#828FFF] border border-[#5E6AD2]/30">
               AI 답변 <span className="font-bold text-blue-900">{fmt(totalStats?.real_ai_responses || 0)}건</span>
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30">
               템플릿 <span className="font-bold text-red-900">{fmt(totalStats?.template_responses || 0)}건</span>
             </span>
 
@@ -987,7 +987,7 @@ export default function CSPage() {
             <button
               onClick={handleCollect}
               disabled={collecting}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#5E6AD2] text-white text-sm font-medium rounded-lg hover:bg-[#828FFF] disabled:opacity-50 transition-colors"
             >
               {collecting ? (
                 <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
@@ -1031,7 +1031,7 @@ export default function CSPage() {
               <button
                 onClick={handleBulkRegenerate}
                 disabled={bulkRegenRunning}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#FC7840] text-white text-sm font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
               >
                 {bulkRegenRunning ? (
                   <>
@@ -1050,7 +1050,7 @@ export default function CSPage() {
         </div>
 
         {/* ── Tab Navigation ── */}
-        <div className="border-b border-gray-200 mb-6">
+        <div className="border-b border-[#23252A] mb-6">
           <nav className="flex gap-6">
             {([
               { key: 'inquiries' as const, label: '문의 관리' },
@@ -1063,8 +1063,8 @@ export default function CSPage() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab.key
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'border-blue-600 text-[#7070FF]'
+                    : 'border-transparent text-[#8A8F98] hover:text-[#D0D6E0]'
                 }`}
               >
                 {tab.label}
@@ -1079,15 +1079,15 @@ export default function CSPage() {
         {activeTab === 'inquiries' && (
           <div>
             {/* Filter Bar */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 shadow-sm">
+            <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-4 mb-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
                 {/* Status filter */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">상태</label>
+                  <label className="block text-xs font-medium text-[#8A8F98] mb-1">상태</label>
                   <select
                     value={statusFilter}
                     onChange={e => setStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
                   >
                     {STATUS_OPTIONS.map(s => (
                       <option key={s} value={s}>{s === '전체' ? '전체' : getStatusColor(s).label}</option>
@@ -1097,11 +1097,11 @@ export default function CSPage() {
 
                 {/* Mall filter */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">쇼핑몰</label>
+                  <label className="block text-xs font-medium text-[#8A8F98] mb-1">쇼핑몰</label>
                   <select
                     value={mallFilter}
                     onChange={e => setMallFilter(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
                   >
                     {MALL_OPTIONS.map(m => (
                       <option key={m} value={m}>{m}</option>
@@ -1111,11 +1111,11 @@ export default function CSPage() {
 
                 {/* Category filter */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">카테고리</label>
+                  <label className="block text-xs font-medium text-[#8A8F98] mb-1">카테고리</label>
                   <select
                     value={categoryFilter}
                     onChange={e => setCategoryFilter(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
                   >
                     {CATEGORY_OPTIONS.map(c => (
                       <option key={c} value={c}>{c}</option>
@@ -1125,35 +1125,35 @@ export default function CSPage() {
 
                 {/* Date range */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">시작일</label>
+                  <label className="block text-xs font-medium text-[#8A8F98] mb-1">시작일</label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={e => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">종료일</label>
+                  <label className="block text-xs font-medium text-[#8A8F98] mb-1">종료일</label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 {/* Search */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">검색</label>
+                  <label className="block text-xs font-medium text-[#8A8F98] mb-1">검색</label>
                   <div className="relative">
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#62666D]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)}
                       placeholder="제목, 내용, 고객명"
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -1162,13 +1162,13 @@ export default function CSPage() {
 
             {/* Bulk Actions */}
             {selectedIds.size > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 flex items-center gap-3 flex-wrap">
-                <span className="text-sm font-medium text-blue-700">{selectedIds.size}건 선택됨</span>
+              <div className="bg-[#5E6AD2]/10 border border-[#5E6AD2]/30 rounded-xl p-3 mb-4 flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-medium text-[#828FFF]">{selectedIds.size}건 선택됨</span>
                 <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={handleBulkGenerateAI}
                     disabled={bulkGenerating}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 transition-colors"
                   >
                     {bulkGenerating ? (
                       <>
@@ -1186,7 +1186,7 @@ export default function CSPage() {
                   <button
                     onClick={handleBulkSend}
                     disabled={bulkSending}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-700 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#141516] text-white rounded-lg hover:bg-[#141516]/5 disabled:opacity-50 transition-colors"
                   >
                     {bulkSending ? (
                       <>
@@ -1198,7 +1198,7 @@ export default function CSPage() {
                 </div>
                 <button
                   onClick={() => setSelectedIds(new Set())}
-                  className="text-xs text-blue-600 hover:text-blue-800 ml-auto"
+                  className="text-xs text-[#7070FF] hover:text-[#828FFF] ml-auto"
                 >
                   선택 해제
                 </button>
@@ -1208,13 +1208,13 @@ export default function CSPage() {
             {/* Bulk progress bar */}
             {(bulkGenerating || bulkSending) && bulkProgress.total > 0 && (
               <div className="mb-4">
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-[#232326] rounded-full h-2">
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-[#5E6AD2] h-2 rounded-full transition-all duration-300"
                     style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1 text-center">
+                <p className="text-xs text-[#8A8F98] mt-1 text-center">
                   {bulkProgress.current} / {bulkProgress.total} 처리 중...
                 </p>
               </div>
@@ -1222,24 +1222,24 @@ export default function CSPage() {
 
             {/* Select all */}
             <div className="flex items-center gap-2 mb-3">
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-[#8A8F98] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={selectedIds.size > 0 && selectedIds.size === filteredInquiries.length}
                   onChange={toggleSelectAll}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-[#23252A] text-[#7070FF] focus:ring-blue-500"
                 />
                 전체 선택
               </label>
-              <span className="text-xs text-gray-400">({filteredInquiries.length}건)</span>
+              <span className="text-xs text-[#62666D]">({filteredInquiries.length}건)</span>
             </div>
 
             {/* Inquiry List */}
             <div className="space-y-3">
               {filteredInquiries.length === 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
-                  <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-                  <p className="text-gray-500 text-sm">조건에 맞는 문의가 없습니다.</p>
+                <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-12 text-center shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+                  <svg className="w-12 h-12 text-[#62666D] mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                  <p className="text-[#8A8F98] text-sm">조건에 맞는 문의가 없습니다.</p>
                 </div>
               )}
 
@@ -1251,7 +1251,7 @@ export default function CSPage() {
                 const isSending = sendingIds.has(inquiry.id);
 
                 return (
-                  <div key={inquiry.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                  <div key={inquiry.id} className="bg-[#0F1011] rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden">
                     {/* ── 상단: 배지 + 상태 + 삭제 ── */}
                     <div className="px-4 pt-4 pb-2">
                       <div className="flex items-start gap-3">
@@ -1259,7 +1259,7 @@ export default function CSPage() {
                           type="checkbox"
                           checked={selectedIds.has(inquiry.id)}
                           onChange={() => toggleSelect(inquiry.id)}
-                          className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="mt-1 rounded border-[#23252A] text-[#7070FF] focus:ring-blue-500"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
@@ -1267,7 +1267,7 @@ export default function CSPage() {
                               <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border ${mallColor.bg} ${mallColor.text} ${mallColor.border}`}>
                                 {inquiry.mall_name}
                               </span>
-                              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border bg-gray-50 text-gray-600 border-gray-200">
+                              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border bg-[#08090A] text-[#8A8F98] border-[#23252A]">
                                 {inquiry.board_type}
                               </span>
                               <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full border ${statusColor.bg} ${statusColor.text} ${statusColor.border}`}>
@@ -1280,18 +1280,18 @@ export default function CSPage() {
                               )}
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400 whitespace-nowrap">{formatDate(inquiry.inquiry_date)}</span>
+                              <span className="text-xs text-[#62666D] whitespace-nowrap">{formatDate(inquiry.inquiry_date)}</span>
                               <button
                                 onClick={() => handleDelete(inquiry.id)}
-                                className="inline-flex items-center p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                className="inline-flex items-center p-1 text-[#62666D] hover:text-[#EB5757] hover:bg-[#EB5757]/10 rounded transition-colors"
                                 title="삭제"
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                               </button>
                             </div>
                           </div>
-                          <h3 className="text-sm font-semibold text-gray-900 mb-0.5">{inquiry.title}</h3>
-                          <p className="text-xs text-gray-500">
+                          <h3 className="text-sm font-semibold text-[#F7F8F8] mb-0.5">{inquiry.title}</h3>
+                          <p className="text-xs text-[#8A8F98]">
                             고객: {inquiry.customer_name}
                             {inquiry.product_name && <> | 상품: {inquiry.product_name}</>}
                             {inquiry.order_number && <> | 주문: {inquiry.order_number}</>}
@@ -1305,9 +1305,9 @@ export default function CSPage() {
                       <div className="px-4 pb-2 flex items-center gap-1.5 flex-wrap">
                         {inquiry.auto_action?.actions?.map((action, idx) => (
                           <span key={`auto-${idx}`} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            action.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
-                            action.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                            'bg-gray-100 text-gray-600 border border-gray-200'
+                            action.priority === 'high' ? 'bg-[#EB5757]/15 text-[#EB5757] border border-[#EB5757]/30' :
+                            action.priority === 'medium' ? 'bg-[#F0BF00]/15 text-[#F0BF00] border border-[#F0BF00]/30' :
+                            'bg-[#141516] text-[#8A8F98] border border-[#23252A]'
                           }`}>
                             {action.type === 'refund' ? '💰' : action.type === 'exchange' ? '🔄' : action.type === 'damage' ? '📦' : action.type === 'delivery' ? '🚚' : '📋'}
                             {action.label}
@@ -1315,9 +1315,9 @@ export default function CSPage() {
                         ))}
                         {inquiry.followup_actions?.map(action => (
                           <span key={`fu-${action.id}`} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                            action.status === 'completed' ? 'bg-green-50 text-green-700 border border-green-200' :
-                            action.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                            'bg-purple-50 text-purple-700 border border-purple-200'
+                            action.status === 'completed' ? 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/30' :
+                            action.status === 'in_progress' ? 'bg-[#5E6AD2]/10 text-[#828FFF] border border-[#5E6AD2]/30' :
+                            'bg-[#5E6AD2]/10 text-[#828FFF] border border-[#5E6AD2]/30'
                           }`}>
                             {action.ai_suggested ? 'AI ' : ''}{action.action_label}
                             {action.status === 'pending' && (
@@ -1326,7 +1326,7 @@ export default function CSPage() {
                                   await fetchMutate(`/api/sabangnet/followup-actions/${action.id}`, 'PUT', { status: 'completed' });
                                   loadInquiries();
                                 }}
-                                className="ml-1 underline text-green-600 hover:text-green-800"
+                                className="ml-1 underline text-[#27A644] hover:text-[#27A644]"
                               >
                                 완료
                               </button>
@@ -1337,9 +1337,9 @@ export default function CSPage() {
                     )}
 
                     {/* ── 주문/문의 상세 정보 (항상 노출) ── */}
-                    <div className="mx-4 mb-2 bg-slate-50 rounded-lg border border-slate-200 p-3">
+                    <div className="mx-4 mb-2 bg-[#08090A] rounded-lg border border-[#23252A] p-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-slate-600">주문/문의 상세</span>
+                        <span className="text-xs font-semibold text-[#8A8F98]">주문/문의 상세</span>
                         {inquiry.order_number && (
                           <button
                             onClick={async () => {
@@ -1349,14 +1349,14 @@ export default function CSPage() {
                               loadInquiries();
                             }}
                             disabled={fetchingOrderIds.has(inquiry.id)}
-                            className="text-[11px] px-2 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                            className="text-[11px] px-2 py-0.5 bg-[#5E6AD2] text-white rounded hover:bg-[#828FFF] disabled:opacity-50 transition-colors"
                           >
                             {fetchingOrderIds.has(inquiry.id) ? '조회중...' : '사방넷 동기화'}
                           </button>
                         )}
                       </div>
                       {!inquiry.order_number ? (
-                        <p className="text-xs text-gray-400">주문번호 없음</p>
+                        <p className="text-xs text-[#62666D]">주문번호 없음</p>
                       ) : (
                         <div className="space-y-1.5">
                           {(() => {
@@ -1364,49 +1364,49 @@ export default function CSPage() {
                             const dt: Record<string, any> = inquiry.delivery_tracking || {};
                             return (
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
-                                <div><span className="text-gray-400">주문번호</span> <span className="font-medium text-gray-800">{od.ORDER_ID || inquiry.order_number}</span></div>
-                                <div><span className="text-gray-400">상품</span> <span className="font-medium text-gray-800">{od.PRODUCT_NM || od.PRODUCT_NAME || inquiry.product_name || '-'}</span></div>
-                                <div><span className="text-gray-400">쇼핑몰</span> <span className="font-medium text-gray-800">{od.MALL_ID || inquiry.mall_name}</span></div>
-                                <div><span className="text-gray-400">문의상태</span>{' '}
-                                  <span className={`font-bold ${od.CS_STATUS === '답변전송' ? 'text-green-600' : od.CS_STATUS === '신규접수' ? 'text-red-600' : 'text-gray-700'}`}>
+                                <div><span className="text-[#62666D]">주문번호</span> <span className="font-medium text-[#F7F8F8]">{od.ORDER_ID || inquiry.order_number}</span></div>
+                                <div><span className="text-[#62666D]">상품</span> <span className="font-medium text-[#F7F8F8]">{od.PRODUCT_NM || od.PRODUCT_NAME || inquiry.product_name || '-'}</span></div>
+                                <div><span className="text-[#62666D]">쇼핑몰</span> <span className="font-medium text-[#F7F8F8]">{od.MALL_ID || inquiry.mall_name}</span></div>
+                                <div><span className="text-[#62666D]">문의상태</span>{' '}
+                                  <span className={`font-bold ${od.CS_STATUS === '답변전송' ? 'text-[#27A644]' : od.CS_STATUS === '신규접수' ? 'text-[#EB5757]' : 'text-[#D0D6E0]'}`}>
                                     {od.CS_STATUS || '-'}
                                   </span>
                                 </div>
-                                <div><span className="text-gray-400">주문상태</span> <span className={`font-medium ${od.ORDER_STATUS ? 'text-blue-700 font-bold' : 'text-gray-400'}`}>{od.ORDER_STATUS || '미확인'}</span></div>
-                                <div><span className="text-gray-400">택배사</span> <span className={`font-medium ${dt.courier_name ? 'text-gray-800' : 'text-gray-400'}`}>{dt.courier_name || od.DELIVERY_COMPANY_NM || '미확인'}</span></div>
-                                <div><span className="text-gray-400">운송장</span> <span className={`font-medium ${dt.tracking_number ? 'text-gray-800' : 'text-gray-400'}`}>{dt.tracking_number || od.DELIVERY_NO || '미확인'}</span></div>
-                                <div><span className="text-gray-400">결제금액</span> <span className="font-medium text-gray-800">{od.ORDER_TOTAL_PRICE ? `${Number(od.ORDER_TOTAL_PRICE).toLocaleString()}원` : '미확인'}</span></div>
-                                {od.SALE_CNT && <div><span className="text-gray-400">수량</span> <span className="font-medium text-gray-800">{od.SALE_CNT}</span></div>}
-                                {od.COMPAYNY_GOODS_CD && <div><span className="text-gray-400">상품코드</span> <span className="font-medium text-gray-800">{od.COMPAYNY_GOODS_CD}</span></div>}
-                                {od.UPD_NM && <div><span className="text-gray-400">답변자</span> <span className="font-medium text-gray-800">{od.UPD_NM}</span></div>}
-                                {od.SEND_DM && <div><span className="text-gray-400">답변일</span> <span className="font-medium text-gray-800">{od.SEND_DM}</span></div>}
+                                <div><span className="text-[#62666D]">주문상태</span> <span className={`font-medium ${od.ORDER_STATUS ? 'text-[#828FFF] font-bold' : 'text-[#62666D]'}`}>{od.ORDER_STATUS || '미확인'}</span></div>
+                                <div><span className="text-[#62666D]">택배사</span> <span className={`font-medium ${dt.courier_name ? 'text-[#F7F8F8]' : 'text-[#62666D]'}`}>{dt.courier_name || od.DELIVERY_COMPANY_NM || '미확인'}</span></div>
+                                <div><span className="text-[#62666D]">운송장</span> <span className={`font-medium ${dt.tracking_number ? 'text-[#F7F8F8]' : 'text-[#62666D]'}`}>{dt.tracking_number || od.DELIVERY_NO || '미확인'}</span></div>
+                                <div><span className="text-[#62666D]">결제금액</span> <span className="font-medium text-[#F7F8F8]">{od.ORDER_TOTAL_PRICE ? `${Number(od.ORDER_TOTAL_PRICE).toLocaleString()}원` : '미확인'}</span></div>
+                                {od.SALE_CNT && <div><span className="text-[#62666D]">수량</span> <span className="font-medium text-[#F7F8F8]">{od.SALE_CNT}</span></div>}
+                                {od.COMPAYNY_GOODS_CD && <div><span className="text-[#62666D]">상품코드</span> <span className="font-medium text-[#F7F8F8]">{od.COMPAYNY_GOODS_CD}</span></div>}
+                                {od.UPD_NM && <div><span className="text-[#62666D]">답변자</span> <span className="font-medium text-[#F7F8F8]">{od.UPD_NM}</span></div>}
+                                {od.SEND_DM && <div><span className="text-[#62666D]">답변일</span> <span className="font-medium text-[#F7F8F8]">{od.SEND_DM}</span></div>}
                               </div>
                             );
                           })()}
                           {inquiry.delivery_tracking?.last_checked_at && (
-                            <p className="text-[10px] text-gray-400">조회: {new Date(inquiry.delivery_tracking.last_checked_at).toLocaleString('ko-KR')}</p>
+                            <p className="text-[10px] text-[#62666D]">조회: {new Date(inquiry.delivery_tracking.last_checked_at).toLocaleString('ko-KR')}</p>
                           )}
                         </div>
                       )}
                     </div>
 
                     {/* ── 문의 내용 (항상 노출) ── */}
-                    <div className="mx-4 mb-2 bg-gray-50 rounded-lg border border-gray-200 p-3">
-                      <span className="text-xs font-semibold text-gray-500 block mb-1">고객 문의</span>
-                      <p className="text-sm text-gray-800 whitespace-pre-wrap">{inquiry.content}</p>
+                    <div className="mx-4 mb-2 bg-[#08090A] rounded-lg border border-[#23252A] p-3">
+                      <span className="text-xs font-semibold text-[#8A8F98] block mb-1">고객 문의</span>
+                      <p className="text-sm text-[#F7F8F8] whitespace-pre-wrap">{inquiry.content}</p>
                     </div>
 
                     {/* ── AI 답변 (항상 노출) ── */}
                     <div className="mx-4 mb-2">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-gray-500">
+                        <span className="text-xs font-semibold text-[#8A8F98]">
                           {inquiry.ai_response ? 'AI 답변' : '답변 미생성'}
                         </span>
                         {inquiry.ai_response && inquiry.status !== 'sent' && (
                           <button
                             onClick={() => handleGenerateAI(inquiry.id)}
                             disabled={isGenerating}
-                            className="text-[11px] text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
+                            className="text-[11px] text-[#7070FF] hover:text-[#828FFF] font-medium disabled:opacity-50"
                           >
                             {isGenerating ? '재생성 중...' : 'AI 재생성'}
                           </button>
@@ -1418,16 +1418,16 @@ export default function CSPage() {
                           onChange={e => { setExpandedId(inquiry.id); setEditingResponse(e.target.value); }}
                           onFocus={() => { if (expandedId !== inquiry.id) { setExpandedId(inquiry.id); setEditingResponse(inquiry.final_response || inquiry.ai_response || ''); } }}
                           readOnly={inquiry.status === 'sent' || inquiry.status === 'answered_externally' || inquiry.status === 'closed_externally'}
-                          className={`w-full min-h-[120px] p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y ${
-                            inquiry.status === 'sent' ? 'bg-gray-100 text-gray-600' : 'bg-white text-gray-800'
+                          className={`w-full min-h-[120px] p-3 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y ${
+                            inquiry.status === 'sent' ? 'bg-[#141516] text-[#8A8F98]' : 'bg-[#0F1011] text-[#F7F8F8]'
                           }`}
                         />
                       ) : (
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                        <div className="bg-[#08090A] border border-[#23252A] rounded-lg p-3 text-center">
                           <button
                             onClick={() => handleGenerateAI(inquiry.id)}
                             disabled={isGenerating}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 transition-colors"
                           >
                             {isGenerating ? (
                               <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 생성 중...</>
@@ -1456,21 +1456,21 @@ export default function CSPage() {
                           </button>
                           <button
                             onClick={() => handleApproveAndSend(inquiry.id, expandedId === inquiry.id ? editingResponse : undefined)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#141516] text-white rounded-lg hover:bg-[#141516]/5 transition-colors"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 승인+발송
                           </button>
                         </>
                       )}
                       {inquiry.status === 'approved' && (
-                        <button onClick={() => handleSend(inquiry.id)} disabled={isSending} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-700 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors">
+                        <button onClick={() => handleSend(inquiry.id)} disabled={isSending} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#141516] text-white rounded-lg hover:bg-[#141516]/5 disabled:opacity-50 transition-colors">
                           {isSending ? <><svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 발송 중...</> : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 발송</>}
                         </button>
                       )}
                       {inquiry.status === 'sent' && inquiry.sent_at && (
-                        <span className="text-xs text-slate-500">발송완료 ({formatDate(inquiry.sent_at)})</span>
+                        <span className="text-xs text-[#8A8F98]">발송완료 ({formatDate(inquiry.sent_at)})</span>
                       )}
-                      {inquiry.status === 'failed' && <span className="text-xs text-red-600">발송 실패</span>}
+                      {inquiry.status === 'failed' && <span className="text-xs text-[#EB5757]">발송 실패</span>}
                       {inquiry.status === 'answered_externally' && <span className="text-xs text-cyan-600">사방넷에서 직접 답변됨</span>}
                       {inquiry.status === 'closed_externally' && <span className="text-xs text-stone-500">외부 종료</span>}
                     </div>
@@ -1483,15 +1483,15 @@ export default function CSPage() {
 
         {/* Pagination */}
         {activeTab === 'inquiries' && totalCount > PAGE_SIZE && (
-          <div className="flex items-center justify-between mt-4 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <span className="text-sm text-gray-500">
+          <div className="flex items-center justify-between mt-4 bg-[#0F1011] rounded-xl border border-[#23252A] p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <span className="text-sm text-[#8A8F98]">
               총 {totalCount.toLocaleString()}건 · {currentPage}/{Math.ceil(totalCount / PAGE_SIZE)} 페이지
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => loadInquiries(currentPage - 1)}
                 disabled={currentPage <= 1}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-[#23252A] text-[#8A8F98] hover:bg-[#141516]/5 disabled:opacity-40 transition-colors"
               >
                 이전
               </button>
@@ -1514,8 +1514,8 @@ export default function CSPage() {
                     onClick={() => loadInquiries(pageNum)}
                     className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
                       currentPage === pageNum
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
+                        ? 'bg-[#5E6AD2] text-white'
+                        : 'text-[#8A8F98] hover:bg-[#141516]/5'
                     }`}
                   >
                     {pageNum}
@@ -1525,7 +1525,7 @@ export default function CSPage() {
               <button
                 onClick={() => loadInquiries(currentPage + 1)}
                 disabled={currentPage >= Math.ceil(totalCount / PAGE_SIZE)}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-[#23252A] text-[#8A8F98] hover:bg-[#141516]/5 disabled:opacity-40 transition-colors"
               >
                 다음
               </button>
@@ -1539,14 +1539,14 @@ export default function CSPage() {
         {activeTab === 'analytics' && (
           <div className="space-y-6">
             {/* ── 문의 수량 통계 ── */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-gray-900">문의 수량 추이</h3>
-                <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+                <h3 className="text-base font-bold text-[#F7F8F8]">문의 수량 추이</h3>
+                <div className="flex gap-1 bg-[#141516] rounded-lg p-0.5">
                   {(['daily', 'monthly'] as const).map(p => (
                     <button key={p} onClick={() => setVolumePeriod(p)}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-                        volumePeriod === p ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                        volumePeriod === p ? 'bg-[#0F1011] text-[#7070FF] shadow-[0px_1px_3px_rgba(0,0,0,0.2)]' : 'text-[#8A8F98] hover:text-[#D0D6E0]'
                       }`}>
                       {p === 'daily' ? '일별' : '월별'}
                     </button>
@@ -1563,14 +1563,14 @@ export default function CSPage() {
                       const pct = (d.total / maxTotal) * 100;
                       return (
                         <div key={i} className="flex flex-col items-center gap-1 min-w-[32px] flex-1">
-                          <span className="text-[10px] font-bold text-gray-700">{d.total}</span>
-                          <div className="w-full bg-gray-100 rounded-t-md relative" style={{ height: '120px' }}>
+                          <span className="text-[10px] font-bold text-[#D0D6E0]">{d.total}</span>
+                          <div className="w-full bg-[#141516] rounded-t-md relative" style={{ height: '120px' }}>
                             <div
-                              className="absolute bottom-0 w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-md transition-all"
+                              className="absolute bottom-0 w-full bg-gradient-to-t from-[#5E6AD2] to-blue-400 rounded-t-md transition-all"
                               style={{ height: `${Math.max(pct, 4)}%` }}
                             />
                           </div>
-                          <span className="text-[9px] text-gray-500 font-mono whitespace-nowrap">
+                          <span className="text-[9px] text-[#8A8F98] font-mono whitespace-nowrap">
                             {volumePeriod === 'daily' ? d.date.slice(5) : d.date}
                           </span>
                         </div>
@@ -1579,9 +1579,9 @@ export default function CSPage() {
                   </div>
 
                   {/* 쇼핑몰별 + 카테고리별 가로 나열 */}
-                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100">
+                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-[#23252A]">
                     <div>
-                      <h4 className="text-xs font-semibold text-gray-500 mb-2">쇼핑몰별 (최근)</h4>
+                      <h4 className="text-xs font-semibold text-[#8A8F98] mb-2">쇼핑몰별 (최근)</h4>
                       <div className="space-y-1.5">
                         {Object.entries(volumeData[volumeData.length - 1].by_mall).map(([mall, count]) => {
                           const mc = MALL_COLORS[mall] || DEFAULT_BADGE;
@@ -1589,27 +1589,27 @@ export default function CSPage() {
                           return (
                             <div key={mall} className="flex items-center gap-2">
                               <span className={`text-[10px] font-semibold w-16 shrink-0 ${mc.text}`}>{mall}</span>
-                              <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="flex-1 h-4 bg-[#141516] rounded-full overflow-hidden">
                                 <div className={`h-full rounded-full ${mc.bg} border ${mc.border}`} style={{ width: `${(count / mallMax) * 100}%` }} />
                               </div>
-                              <span className="text-[10px] font-bold text-gray-700 w-6 text-right">{count}</span>
+                              <span className="text-[10px] font-bold text-[#D0D6E0] w-6 text-right">{count}</span>
                             </div>
                           );
                         })}
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-xs font-semibold text-gray-500 mb-2">카테고리별 (최근)</h4>
+                      <h4 className="text-xs font-semibold text-[#8A8F98] mb-2">카테고리별 (최근)</h4>
                       <div className="space-y-1.5">
                         {Object.entries(volumeData[volumeData.length - 1].by_category).map(([cat, count]) => {
                           const catMax = Math.max(...Object.values(volumeData[volumeData.length - 1].by_category), 1);
                           return (
                             <div key={cat} className="flex items-center gap-2">
-                              <span className="text-[10px] font-semibold w-16 shrink-0 text-slate-600">{cat}</span>
-                              <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full bg-slate-300" style={{ width: `${(count / catMax) * 100}%` }} />
+                              <span className="text-[10px] font-semibold w-16 shrink-0 text-[#8A8F98]">{cat}</span>
+                              <div className="flex-1 h-4 bg-[#141516] rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-[#28282C]" style={{ width: `${(count / catMax) * 100}%` }} />
                               </div>
-                              <span className="text-[10px] font-bold text-gray-700 w-6 text-right">{count}</span>
+                              <span className="text-[10px] font-bold text-[#D0D6E0] w-6 text-right">{count}</span>
                             </div>
                           );
                         })}
@@ -1618,16 +1618,16 @@ export default function CSPage() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-10 text-gray-400 text-sm">문의 데이터가 없습니다</div>
+                <div className="text-center py-10 text-[#62666D] text-sm">문의 데이터가 없습니다</div>
               )}
             </div>
 
             {/* ── 키워드 분석 ── */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-base font-bold text-gray-900">주요 키워드 분석</h3>
-                  {keywordsSample && <span className="text-[10px] px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full border border-amber-200">샘플 데이터 - 실제 문의가 수집되면 AI 분석됩니다</span>}
+                  <h3 className="text-base font-bold text-[#F7F8F8]">주요 키워드 분석</h3>
+                  {keywordsSample && <span className="text-[10px] px-2 py-0.5 bg-[#F0BF00]/10 text-[#F0BF00] rounded-full border border-[#F0BF00]/30">샘플 데이터 - 실제 문의가 수집되면 AI 분석됩니다</span>}
                 </div>
                 <button onClick={async () => {
                   setLoadingKeywords(true);
@@ -1637,7 +1637,7 @@ export default function CSPage() {
                   setLoadingKeywords(false);
                 }}
                   disabled={loadingKeywords}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-100 disabled:opacity-50 transition-colors">
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#5E6AD2]/10 text-[#7070FF] text-xs font-semibold rounded-lg hover:bg-[#5E6AD2]/15 disabled:opacity-50 transition-colors">
                   {loadingKeywords && <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
                   새로고침
                 </button>
@@ -1651,23 +1651,23 @@ export default function CSPage() {
                       const maxCount = Math.max(...keywords.map(k => k.count), 1);
                       const pct = (kw.count / maxCount) * 100;
                       return (
-                        <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 group hover:bg-gray-100 transition-colors relative">
+                        <div key={i} className="flex items-center gap-2 bg-[#08090A] rounded-lg px-3 py-2 group hover:bg-[#141516]/5 transition-colors relative">
                           <span className={`w-2 h-2 rounded-full shrink-0 ${
-                            kw.importance === 'high' ? 'bg-red-500' : kw.importance === 'medium' ? 'bg-amber-400' : 'bg-gray-300'
+                            kw.importance === 'high' ? 'bg-[#EB5757]' : kw.importance === 'medium' ? 'bg-amber-400' : 'bg-[#28282C]'
                           }`} />
-                          <span className="text-xs font-bold text-gray-900 shrink-0">{kw.keyword}</span>
-                          <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden mx-1">
+                          <span className="text-xs font-bold text-[#F7F8F8] shrink-0">{kw.keyword}</span>
+                          <div className="flex-1 h-3 bg-[#232326] rounded-full overflow-hidden mx-1">
                             <div className={`h-full rounded-full transition-all ${
-                              kw.importance === 'high' ? 'bg-red-400' : kw.importance === 'medium' ? 'bg-amber-300' : 'bg-gray-400'
+                              kw.importance === 'high' ? 'bg-red-400' : kw.importance === 'medium' ? 'bg-amber-300' : 'bg-[#28282C]'
                             }`} style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="text-xs font-bold text-gray-700 shrink-0 w-8 text-right">{kw.count}</span>
-                          <span className="text-[9px] text-gray-400 shrink-0 w-14">{kw.category}</span>
+                          <span className="text-xs font-bold text-[#D0D6E0] shrink-0 w-8 text-right">{kw.count}</span>
+                          <span className="text-[9px] text-[#62666D] shrink-0 w-14">{kw.category}</span>
                           {/* 호버 시 샘플 표시 */}
                           {kw.sample_inquiries?.length > 0 && (
-                            <div className="absolute left-0 top-full mt-1 z-10 hidden group-hover:block bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-full max-w-xs">
+                            <div className="absolute left-0 top-full mt-1 z-10 hidden group-hover:block bg-[#0F1011] border border-[#23252A] rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] p-2 w-full max-w-xs">
                               {kw.sample_inquiries.slice(0, 2).map((s, j) => (
-                                <p key={j} className="text-[10px] text-gray-500 truncate">&quot;{s}&quot;</p>
+                                <p key={j} className="text-[10px] text-[#8A8F98] truncate">&quot;{s}&quot;</p>
                               ))}
                             </div>
                           )}
@@ -1677,20 +1677,20 @@ export default function CSPage() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-10 text-gray-400 text-sm">키워드 데이터가 없습니다</div>
+                <div className="text-center py-10 text-[#62666D] text-sm">키워드 데이터가 없습니다</div>
               )}
             </div>
 
             {/* ── 액션 아이템 추천 ── */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">대응 액션 아이템</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">고객 문의 분석 기반 AI 추천</p>
+                  <h3 className="text-base font-bold text-[#F7F8F8]">대응 액션 아이템</h3>
+                  <p className="text-xs text-[#8A8F98] mt-0.5">고객 문의 분석 기반 AI 추천</p>
                 </div>
                 <button onClick={handleGenerateActions}
                   disabled={loadingActions}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#5E6AD2] text-white text-sm font-medium rounded-lg hover:bg-[#828FFF] disabled:opacity-50 transition-colors">
                   {loadingActions ? (
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                   ) : (
@@ -1703,38 +1703,38 @@ export default function CSPage() {
               {actionItems.length > 0 ? (
                 <div className="space-y-3">
                   {actionItems.map((item, i) => {
-                    const prioColor = item.priority === 'high' ? 'border-l-red-500 bg-red-50/30' :
-                      item.priority === 'medium' ? 'border-l-amber-500 bg-amber-50/30' :
-                      'border-l-gray-400 bg-gray-50/30';
-                    const prioBadge = item.priority === 'high' ? 'bg-red-100 text-red-700' :
-                      item.priority === 'medium' ? 'bg-amber-100 text-amber-700' :
-                      'bg-gray-100 text-gray-600';
+                    const prioColor = item.priority === 'high' ? 'border-l-red-500 bg-[#EB5757]/10/30' :
+                      item.priority === 'medium' ? 'border-l-amber-500 bg-[#F0BF00]/10/30' :
+                      'border-l-gray-400 bg-[#08090A]/30';
+                    const prioBadge = item.priority === 'high' ? 'bg-[#EB5757]/15 text-[#EB5757]' :
+                      item.priority === 'medium' ? 'bg-[#F0BF00]/15 text-[#F0BF00]' :
+                      'bg-[#141516] text-[#8A8F98]';
                     return (
-                      <div key={i} className={`border border-gray-100 border-l-4 ${prioColor} rounded-xl p-4`}>
+                      <div key={i} className={`border border-[#23252A] border-l-4 ${prioColor} rounded-xl p-4`}>
                         <div className="flex items-start gap-3">
-                          <span className="text-lg font-bold text-gray-300 mt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                          <span className="text-lg font-bold text-[#62666D] mt-0.5">{String(i + 1).padStart(2, '0')}</span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1.5">
-                              <h4 className="text-sm font-bold text-gray-900">{item.title}</h4>
+                              <h4 className="text-sm font-bold text-[#F7F8F8]">{item.title}</h4>
                               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${prioBadge}`}>
                                 {item.priority === 'high' ? '긴급' : item.priority === 'medium' ? '중요' : '참고'}
                               </span>
-                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600">{item.category}</span>
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#5E6AD2]/10 text-[#7070FF]">{item.category}</span>
                             </div>
-                            <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                            <p className="text-sm text-[#8A8F98] mb-2">{item.description}</p>
                             <div className="flex items-center gap-4 text-xs">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-gray-400">관련 키워드:</span>
+                                <span className="text-[#62666D]">관련 키워드:</span>
                                 <div className="flex gap-1">
                                   {item.related_keywords.map((k, j) => (
-                                    <span key={j} className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{k}</span>
+                                    <span key={j} className="bg-[#141516] text-[#8A8F98] px-1.5 py-0.5 rounded">{k}</span>
                                   ))}
                                 </div>
                               </div>
                             </div>
                             <div className="mt-2 flex items-center gap-1.5 text-xs">
                               <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                              <span className="text-emerald-600 font-medium">{item.estimated_impact}</span>
+                              <span className="text-[#27A644] font-medium">{item.estimated_impact}</span>
                             </div>
                           </div>
                         </div>
@@ -1744,8 +1744,8 @@ export default function CSPage() {
                 </div>
               ) : (
                 <div className="text-center py-10">
-                  <p className="text-gray-400 text-sm mb-3">아직 분석 결과가 없습니다</p>
-                  <p className="text-gray-400 text-xs">"AI 분석 실행" 버튼을 눌러 문의 데이터 기반 액션 아이템을 생성하세요</p>
+                  <p className="text-[#62666D] text-sm mb-3">아직 분석 결과가 없습니다</p>
+                  <p className="text-[#62666D] text-xs">"AI 분석 실행" 버튼을 눌러 문의 데이터 기반 액션 아이템을 생성하세요</p>
                 </div>
               )}
             </div>
@@ -1760,11 +1760,11 @@ export default function CSPage() {
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-gray-600">카테고리:</label>
+                <label className="text-sm font-medium text-[#8A8F98]">카테고리:</label>
                 <select
                   value={refCategoryFilter}
                   onChange={e => setRefCategoryFilter(e.target.value)}
-                  className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
                 >
                   <option value="전체">전체</option>
                   {REFERENCE_CATEGORIES.map(c => (
@@ -1775,7 +1775,7 @@ export default function CSPage() {
 
               <button
                 onClick={openAddRef}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                 참고 데이터 추가
@@ -1785,24 +1785,24 @@ export default function CSPage() {
             {/* Reference Data List */}
             <div className="space-y-3">
               {filteredRefData.length === 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
-                  <p className="text-gray-500 text-sm">참고 데이터가 없습니다.</p>
+                <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-12 text-center shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+                  <p className="text-[#8A8F98] text-sm">참고 데이터가 없습니다.</p>
                 </div>
               )}
 
               {filteredRefData.map(ref => {
                 const catColors: Record<string, { bg: string; text: string; border: string }> = {
-                  '배송정책': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-                  '교환/반품 정책': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
-                  'FAQ': { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
-                  '상품정보': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+                  '배송정책': { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30' },
+                  '교환/반품 정책': { bg: 'bg-[#FC7840]/10', text: 'text-[#FC7840]', border: 'border-[#FC7840]/30' },
+                  'FAQ': { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30' },
+                  '상품정보': { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-emerald-200' },
                   '인사말/맺음말': { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200' },
-                  '프로모션': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+                  '프로모션': { bg: 'bg-[#F0BF00]/10', text: 'text-[#F0BF00]', border: 'border-[#F0BF00]/30' },
                 };
                 const catColor = catColors[ref.category] || DEFAULT_BADGE;
 
                 return (
-                  <div key={ref.id} className={`bg-white rounded-xl border shadow-sm overflow-hidden ${ref.is_active ? 'border-gray-200' : 'border-gray-100 opacity-60'}`}>
+                  <div key={ref.id} className={`bg-[#0F1011] rounded-xl border shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden ${ref.is_active ? 'border-[#23252A]' : 'border-[#23252A] opacity-60'}`}>
                     <div className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -1810,44 +1810,44 @@ export default function CSPage() {
                             <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border ${catColor.bg} ${catColor.text} ${catColor.border}`}>
                               {ref.category}
                             </span>
-                            <h3 className="text-sm font-semibold text-gray-900">{ref.title}</h3>
+                            <h3 className="text-sm font-semibold text-[#F7F8F8]">{ref.title}</h3>
                             {!ref.is_active && (
-                              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500 border border-gray-200">
+                              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-[#141516] text-[#8A8F98] border border-[#23252A]">
                                 비활성
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-600 line-clamp-2 whitespace-pre-wrap">{ref.content}</p>
+                          <p className="text-sm text-[#8A8F98] line-clamp-2 whitespace-pre-wrap">{ref.content}</p>
 
                           {/* File attachment info */}
                           {ref.has_file && ref.file_name && (
                             <div className="flex items-center gap-2 mt-2">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-slate-100 text-slate-700 rounded-md border border-slate-200">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-[#141516] text-[#D0D6E0] rounded-md border border-[#23252A]">
                                 {ref.file_type === 'pdf' && (
-                                  <svg className="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
+                                  <svg className="w-3.5 h-3.5 text-[#EB5757]" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
                                 )}
                                 {(ref.file_type === 'xlsx' || ref.file_type === 'xls' || ref.file_type === 'csv') && (
-                                  <svg className="w-3.5 h-3.5 text-green-600" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
+                                  <svg className="w-3.5 h-3.5 text-[#27A644]" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
                                 )}
                                 {(ref.file_type === 'docx' || ref.file_type === 'doc') && (
-                                  <svg className="w-3.5 h-3.5 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
+                                  <svg className="w-3.5 h-3.5 text-[#7070FF]" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
                                 )}
                                 {ref.file_name}
                                 {ref.file_size && (
-                                  <span className="text-gray-400">
+                                  <span className="text-[#62666D]">
                                     ({ref.file_size < 1024 ? `${ref.file_size}B` : ref.file_size < 1024 * 1024 ? `${Math.round(ref.file_size / 1024)}KB` : `${(ref.file_size / (1024 * 1024)).toFixed(1)}MB`})
                                   </span>
                                 )}
                               </span>
                               {ref.has_extracted_text && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-[#27A644]/10 text-[#27A644] rounded-full border border-emerald-200">
                                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                   AI 학습됨
                                 </span>
                               )}
                               <button
                                 onClick={() => window.open(`${API_BASE}/api/sabangnet/reference-data/${ref.id}/download`, '_blank')}
-                                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                className="text-xs text-[#7070FF] hover:text-[#828FFF] font-medium"
                               >
                                 다운로드
                               </button>
@@ -1860,11 +1860,11 @@ export default function CSPage() {
                           <button
                             onClick={() => handleToggleRefActive(ref.id)}
                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                              ref.is_active ? 'bg-blue-600' : 'bg-gray-300'
+                              ref.is_active ? 'bg-[#5E6AD2]' : 'bg-[#28282C]'
                             }`}
                             title={ref.is_active ? '비활성화' : '활성화'}
                           >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-[#0F1011] shadow transition-transform ${
                               ref.is_active ? 'translate-x-[18px]' : 'translate-x-[3px]'
                             }`} />
                           </button>
@@ -1872,7 +1872,7 @@ export default function CSPage() {
                           {/* Edit */}
                           <button
                             onClick={() => openEditRef(ref)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors"
+                            className="p-1.5 text-[#62666D] hover:text-[#7070FF] transition-colors"
                             title="수정"
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -1881,7 +1881,7 @@ export default function CSPage() {
                           {/* Delete */}
                           <button
                             onClick={() => handleDeleteRef(ref.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                            className="p-1.5 text-[#62666D] hover:text-[#EB5757] transition-colors"
                             title="삭제"
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -1897,15 +1897,15 @@ export default function CSPage() {
             {/* Add/Edit Reference Data Modal */}
             {showRefModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+                <div className="bg-[#0F1011] rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-lg font-bold text-gray-900">
+                      <h3 className="text-lg font-bold text-[#F7F8F8]">
                         {editingRef ? '참고 데이터 수정' : '참고 데이터 추가'}
                       </h3>
                       <button
                         onClick={() => { setShowRefModal(false); setEditingRef(null); }}
-                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                        className="p-1 text-[#62666D] hover:text-[#D0D6E0] transition-colors"
                       >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
@@ -1914,23 +1914,23 @@ export default function CSPage() {
                     <div className="space-y-4">
                       {/* Title */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
+                        <label className="block text-sm font-medium text-[#D0D6E0] mb-1">제목</label>
                         <input
                           type="text"
                           value={refForm.title}
                           onChange={e => setRefForm(prev => ({ ...prev, title: e.target.value }))}
                           placeholder="참고 데이터 제목"
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
 
                       {/* Category */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+                        <label className="block text-sm font-medium text-[#D0D6E0] mb-1">카테고리</label>
                         <select
                           value={refForm.category}
                           onChange={e => setRefForm(prev => ({ ...prev, category: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
                         >
                           {REFERENCE_CATEGORIES.map(c => (
                             <option key={c} value={c}>{c}</option>
@@ -1940,34 +1940,34 @@ export default function CSPage() {
 
                       {/* Content */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">내용</label>
+                        <label className="block text-sm font-medium text-[#D0D6E0] mb-1">내용</label>
                         <textarea
                           value={refForm.content}
                           onChange={e => setRefForm(prev => ({ ...prev, content: e.target.value }))}
                           placeholder="AI가 참고할 내용을 입력하세요..."
                           rows={4}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                          className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
                         />
                       </div>
 
                       {/* File upload */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          파일 첨부 <span className="text-xs text-gray-400 font-normal">(PDF, Excel, Word, TXT)</span>
+                        <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
+                          파일 첨부 <span className="text-xs text-[#62666D] font-normal">(PDF, Excel, Word, TXT)</span>
                         </label>
 
                         {/* Existing file info */}
                         {editingRef?.has_file && editingRef.file_name && !removeFile && (
-                          <div className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                            <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                            <span className="text-xs text-gray-600 flex-1 truncate">{editingRef.file_name}</span>
+                          <div className="flex items-center gap-2 mb-2 p-2 bg-[#08090A] rounded-lg border border-[#23252A]">
+                            <svg className="w-4 h-4 text-[#8A8F98] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                            <span className="text-xs text-[#8A8F98] flex-1 truncate">{editingRef.file_name}</span>
                             {editingRef.has_extracted_text && (
-                              <span className="text-xs text-emerald-600 font-medium">AI 학습됨</span>
+                              <span className="text-xs text-[#27A644] font-medium">AI 학습됨</span>
                             )}
                             <button
                               type="button"
                               onClick={() => { setRemoveFile(true); setRefFile(null); }}
-                              className="text-xs text-red-500 hover:text-red-700 font-medium"
+                              className="text-xs text-[#EB5757] hover:text-[#EB5757] font-medium"
                             >
                               삭제
                             </button>
@@ -1976,16 +1976,16 @@ export default function CSPage() {
 
                         {/* New file selected */}
                         {refFile && (
-                          <div className="flex items-center gap-2 mb-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
-                            <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                            <span className="text-xs text-blue-700 flex-1 truncate">{refFile.name}</span>
-                            <span className="text-xs text-blue-500">
+                          <div className="flex items-center gap-2 mb-2 p-2 bg-[#5E6AD2]/10 rounded-lg border border-[#5E6AD2]/30">
+                            <svg className="w-4 h-4 text-[#7070FF] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                            <span className="text-xs text-[#828FFF] flex-1 truncate">{refFile.name}</span>
+                            <span className="text-xs text-[#7070FF]">
                               {refFile.size < 1024 ? `${refFile.size}B` : refFile.size < 1024 * 1024 ? `${Math.round(refFile.size / 1024)}KB` : `${(refFile.size / (1024 * 1024)).toFixed(1)}MB`}
                             </span>
                             <button
                               type="button"
                               onClick={() => setRefFile(null)}
-                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                              className="text-xs text-[#7070FF] hover:text-[#828FFF] font-medium"
                             >
                               취소
                             </button>
@@ -1994,11 +1994,11 @@ export default function CSPage() {
 
                         {/* Drop zone / file input */}
                         {!refFile && (
-                          <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors">
+                          <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-[#23252A] rounded-lg cursor-pointer hover:border-blue-400 hover:bg-[#5E6AD2]/10/50 transition-colors">
                             <div className="flex flex-col items-center">
-                              <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                              <span className="text-xs text-gray-500">클릭하여 파일 선택</span>
-                              <span className="text-xs text-gray-400 mt-0.5">PDF, XLSX, DOCX, TXT (최대 20MB)</span>
+                              <svg className="w-6 h-6 text-[#62666D] mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                              <span className="text-xs text-[#8A8F98]">클릭하여 파일 선택</span>
+                              <span className="text-xs text-[#62666D] mt-0.5">PDF, XLSX, DOCX, TXT (최대 20MB)</span>
                             </div>
                             <input
                               type="file"
@@ -2020,7 +2020,7 @@ export default function CSPage() {
                           </label>
                         )}
 
-                        <p className="text-xs text-gray-400 mt-1.5">
+                        <p className="text-xs text-[#62666D] mt-1.5">
                           첨부된 파일의 내용은 AI가 자동으로 학습하여 CS 답변 생성 시 참고합니다.
                         </p>
                       </div>
@@ -2031,29 +2031,29 @@ export default function CSPage() {
                           type="button"
                           onClick={() => setRefForm(prev => ({ ...prev, is_active: !prev.is_active }))}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            refForm.is_active ? 'bg-blue-600' : 'bg-gray-300'
+                            refForm.is_active ? 'bg-[#5E6AD2]' : 'bg-[#28282C]'
                           }`}
                         >
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-[#0F1011] shadow transition-transform ${
                             refForm.is_active ? 'translate-x-6' : 'translate-x-1'
                           }`} />
                         </button>
-                        <span className="text-sm text-gray-700">활성화</span>
+                        <span className="text-sm text-[#D0D6E0]">활성화</span>
                       </label>
                     </div>
 
                     {/* Modal actions */}
-                    <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+                    <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-[#23252A]">
                       <button
                         onClick={() => { setShowRefModal(false); setEditingRef(null); }}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        className="px-4 py-2 text-sm font-medium text-[#D0D6E0] bg-[#0F1011] border border-[#23252A] rounded-lg hover:bg-[#141516]/5 transition-colors"
                       >
                         취소
                       </button>
                       <button
                         onClick={handleSaveRef}
                         disabled={uploadingRef}
-                        className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors inline-flex items-center gap-2"
+                        className="px-4 py-2 text-sm font-medium bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 transition-colors inline-flex items-center gap-2"
                       >
                         {uploadingRef ? (
                           <>
@@ -2075,13 +2075,13 @@ export default function CSPage() {
         {/* ═══════════════════════════════════════════ */}
         {activeTab === 'settings' && (
           <div className="max-w-2xl">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-200">
+            <div className="bg-[#0F1011] rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] divide-y divide-[#23252A]">
               {/* Operation mode */}
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900">운영 모드</h3>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <h3 className="text-sm font-semibold text-[#F7F8F8]">운영 모드</h3>
+                    <p className="text-xs text-[#8A8F98] mt-1">
                       {config.operation_mode === 'semi_auto'
                         ? '반자동: AI가 초안을 생성하면 사용자가 검토 후 승인합니다.'
                         : '자동: 자주 묻는 카테고리는 자동 답변하고, 예외 건만 검토합니다.'}
@@ -2093,10 +2093,10 @@ export default function CSPage() {
                       operation_mode: prev.operation_mode === 'semi_auto' ? 'auto' : 'semi_auto',
                     }))}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      config.operation_mode === 'auto' ? 'bg-blue-600' : 'bg-gray-300'
+                      config.operation_mode === 'auto' ? 'bg-[#5E6AD2]' : 'bg-[#28282C]'
                     }`}
                   >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-[#0F1011] shadow transition-transform ${
                       config.operation_mode === 'auto' ? 'translate-x-6' : 'translate-x-1'
                     }`} />
                   </button>
@@ -2104,8 +2104,8 @@ export default function CSPage() {
                 <div className="mt-2 flex items-center gap-2">
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                     config.operation_mode === 'semi_auto'
-                      ? 'bg-gray-100 text-gray-700'
-                      : 'bg-blue-50 text-blue-700'
+                      ? 'bg-[#141516] text-[#D0D6E0]'
+                      : 'bg-[#5E6AD2]/10 text-[#828FFF]'
                   }`}>
                     {config.operation_mode === 'semi_auto' ? '반자동 모드' : '자동 모드'}
                   </span>
@@ -2114,8 +2114,8 @@ export default function CSPage() {
 
               {/* Auto-response categories */}
               <div className="p-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">자동 답변 카테고리</h3>
-                <p className="text-xs text-gray-500 mb-3">자동 모드에서 자동으로 답변할 카테고리를 선택합니다.</p>
+                <h3 className="text-sm font-semibold text-[#F7F8F8] mb-1">자동 답변 카테고리</h3>
+                <p className="text-xs text-[#8A8F98] mb-3">자동 모드에서 자동으로 답변할 카테고리를 선택합니다.</p>
                 <div className="flex flex-wrap gap-3">
                   {CATEGORY_OPTIONS.filter(c => c !== '전체').map(cat => (
                     <label key={cat} className="flex items-center gap-2 cursor-pointer">
@@ -2130,9 +2130,9 @@ export default function CSPage() {
                               : prev.auto_categories.filter(c => c !== cat),
                           }));
                         }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-[#23252A] text-[#7070FF] focus:ring-blue-500"
                       />
-                      <span className="text-sm text-gray-700">{cat}</span>
+                      <span className="text-sm text-[#D0D6E0]">{cat}</span>
                     </label>
                   ))}
                 </div>
@@ -2140,12 +2140,12 @@ export default function CSPage() {
 
               {/* Response tone */}
               <div className="p-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">답변 톤</h3>
-                <p className="text-xs text-gray-500 mb-3">AI가 생성하는 답변의 어조를 설정합니다.</p>
+                <h3 className="text-sm font-semibold text-[#F7F8F8] mb-1">답변 톤</h3>
+                <p className="text-xs text-[#8A8F98] mb-3">AI가 생성하는 답변의 어조를 설정합니다.</p>
                 <select
                   value={config.response_tone}
                   onChange={e => setConfig(prev => ({ ...prev, response_tone: e.target.value }))}
-                  className="w-full max-w-xs px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full max-w-xs px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
                 >
                   {TONE_OPTIONS.map(t => (
                     <option key={t} value={t}>{t}</option>
@@ -2155,23 +2155,23 @@ export default function CSPage() {
 
               {/* Sabangnet API key */}
               <div className="p-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">사방넷 API 키</h3>
-                <p className="text-xs text-gray-500 mb-3">사방넷 연동을 위한 API 키를 입력합니다.</p>
+                <h3 className="text-sm font-semibold text-[#F7F8F8] mb-1">사방넷 API 키</h3>
+                <p className="text-xs text-[#8A8F98] mb-3">사방넷 연동을 위한 API 키를 입력합니다.</p>
                 <input
                   type="password"
                   value={config.sabangnet_api_key}
                   onChange={e => setConfig(prev => ({ ...prev, sabangnet_api_key: e.target.value }))}
                   placeholder="API 키를 입력하세요"
-                  className="w-full max-w-md px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full max-w-md px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               {/* Save button */}
-              <div className="p-6 bg-gray-50">
+              <div className="p-6 bg-[#08090A]">
                 <button
                   onClick={handleSaveConfig}
                   disabled={savingConfig}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 transition-colors"
                 >
                   {savingConfig ? (
                     <>

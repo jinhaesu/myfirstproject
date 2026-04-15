@@ -243,10 +243,10 @@ const fmtPct = (n: number | null | undefined) => {
 };
 
 const pctColor = (n: number | null | undefined) => {
-  if (n == null) return 'text-slate-500';
-  if (n > 0) return 'text-emerald-600';
-  if (n < 0) return 'text-red-600';
-  return 'text-slate-500';
+  if (n == null) return 'text-[#8A8F98]';
+  if (n > 0) return 'text-[#27A644]';
+  if (n < 0) return 'text-[#EB5757]';
+  return 'text-[#8A8F98]';
 };
 
 // ─────────────────────────────────────────────
@@ -258,7 +258,7 @@ export default function SettlementPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
         </div>
       }
     >
@@ -293,7 +293,7 @@ function SettlementPageContent() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -315,8 +315,8 @@ function SettlementPageContent() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Page Title */}
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">월별 결산 매출 확인</h2>
-          <p className="text-slate-500 mt-1">월별 결산 데이터 관리, RPA 자동 수집, 리포트 생성</p>
+          <h2 className="text-2xl font-bold text-[#F7F8F8]">월별 결산 매출 확인</h2>
+          <p className="text-[#8A8F98] mt-1">월별 결산 데이터 관리, RPA 자동 수집, 리포트 생성</p>
         </div>
 
         {/* Toast Notification */}
@@ -324,8 +324,8 @@ function SettlementPageContent() {
           <div
             className={`mb-4 px-4 py-3 rounded-lg flex items-center justify-between ${
               toast.type === 'success'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : 'bg-red-50 text-red-700 border border-red-200'
+                ? 'bg-[#27A644]/10 text-[#27A644] border border-emerald-200'
+                : 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
             }`}
           >
             <span className="text-sm">{toast.message}</span>
@@ -334,16 +334,16 @@ function SettlementPageContent() {
         )}
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-6">
-          <div className="flex overflow-x-auto border-b border-slate-200">
+        <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] mb-6">
+          <div className="flex overflow-x-auto border-b border-[#23252A]">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
                   activeTab === tab.key
-                    ? 'border-blue-500 text-blue-600 bg-blue-50/50'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    ? 'border-[#5E6AD2] text-[#7070FF] bg-[#5E6AD2]/10/50'
+                    : 'border-transparent text-[#8A8F98] hover:text-[#D0D6E0] hover:bg-[#141516]/5'
                 }`}
               >
                 {tab.label}
@@ -533,14 +533,14 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
   return (
     <div className="space-y-6">
       {/* Year/Month selector + action buttons */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-slate-600">연도</label>
+            <label className="text-sm font-medium text-[#8A8F98]">연도</label>
             <select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
             >
               {years.map((y) => (
                 <option key={y} value={y}>{y}년</option>
@@ -548,11 +548,11 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-slate-600">월</label>
+            <label className="text-sm font-medium text-[#8A8F98]">월</label>
             <select
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
-              className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
             >
               {months.map((m) => (
                 <option key={m.value} value={m.value}>{m.label}</option>
@@ -562,7 +562,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           <div className="flex-1" />
           <button
             onClick={() => handleOpenManual()}
-            className="px-4 py-2 text-sm bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+            className="px-4 py-2 text-sm bg-[#27A644] text-white rounded-lg hover:bg-emerald-600 transition-colors"
           >
             + 수동 입력
           </button>
@@ -572,13 +572,13 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           </label>
           <button
             onClick={handleExcelDownload}
-            className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            className="px-4 py-2 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors"
           >
             엑셀 다운로드
           </button>
           <button
             onClick={handleFinalizeAll}
-            className="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+            className="px-4 py-2 text-sm bg-[#FC7840] text-white rounded-lg hover:bg-orange-600 transition-colors"
           >
             전체 확정
           </button>
@@ -587,7 +587,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
 
       {isLoading ? (
         <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-10 h-10 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <>
@@ -610,8 +610,8 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Monthly Trend Bar Chart */}
-            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-              <h3 className="text-lg font-semibold text-slate-800 mb-4">{year}년 월별 추이</h3>
+            <div className="lg:col-span-2 bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6">
+              <h3 className="text-lg font-semibold text-[#F7F8F8] mb-4">{year}년 월별 추이</h3>
               {monthlyTrend.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={monthlyTrend}>
@@ -625,13 +625,13 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[320px] flex items-center justify-center text-slate-400">데이터가 없습니다</div>
+                <div className="h-[320px] flex items-center justify-center text-[#62666D]">데이터가 없습니다</div>
               )}
             </div>
 
             {/* Category Pie Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-              <h3 className="text-lg font-semibold text-slate-800 mb-4">카테고리별 매출</h3>
+            <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6">
+              <h3 className="text-lg font-semibold text-[#F7F8F8] mb-4">카테고리별 매출</h3>
               {categoryData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
@@ -653,56 +653,56 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[320px] flex items-center justify-center text-slate-400">데이터가 없습니다</div>
+                <div className="h-[320px] flex items-center justify-center text-[#62666D]">데이터가 없습니다</div>
               )}
             </div>
           </div>
 
           {/* Data Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-800">
+          <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
+            <div className="p-4 border-b border-[#23252A] flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-[#F7F8F8]">
                 {year}년 {month}월 채널별 결산 내역
               </h3>
-              <span className="text-sm text-slate-500">{sortedRecords.length}개 채널</span>
+              <span className="text-sm text-[#8A8F98]">{sortedRecords.length}개 채널</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-[#08090A] border-b border-[#23252A]">
                   <tr>
-                    <th className="text-left px-4 py-3 font-medium text-slate-600">카테고리</th>
-                    <th className="text-left px-4 py-3 font-medium text-slate-600">채널명</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort('gross_sales')}>
+                    <th className="text-left px-4 py-3 font-medium text-[#8A8F98]">카테고리</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#8A8F98]">채널명</th>
+                    <th className="text-right px-4 py-3 font-medium text-[#8A8F98] cursor-pointer select-none" onClick={() => toggleSort('gross_sales')}>
                       총매출{sortIcon('gross_sales')}
                     </th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort('net_sales')}>
+                    <th className="text-right px-4 py-3 font-medium text-[#8A8F98] cursor-pointer select-none" onClick={() => toggleSort('net_sales')}>
                       순매출{sortIcon('net_sales')}
                     </th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort('settlement_amount')}>
+                    <th className="text-right px-4 py-3 font-medium text-[#8A8F98] cursor-pointer select-none" onClick={() => toggleSort('settlement_amount')}>
                       정산금액{sortIcon('settlement_amount')}
                     </th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort('commission')}>
+                    <th className="text-right px-4 py-3 font-medium text-[#8A8F98] cursor-pointer select-none" onClick={() => toggleSort('commission')}>
                       수수료{sortIcon('commission')}
                     </th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort('order_count')}>
+                    <th className="text-right px-4 py-3 font-medium text-[#8A8F98] cursor-pointer select-none" onClick={() => toggleSort('order_count')}>
                       주문건수{sortIcon('order_count')}
                     </th>
-                    <th className="text-center px-4 py-3 font-medium text-slate-600">전월 대비</th>
-                    <th className="text-center px-4 py-3 font-medium text-slate-600">상태</th>
-                    <th className="text-center px-4 py-3 font-medium text-slate-600">소스</th>
-                    <th className="text-center px-4 py-3 font-medium text-slate-600">작업</th>
+                    <th className="text-center px-4 py-3 font-medium text-[#8A8F98]">전월 대비</th>
+                    <th className="text-center px-4 py-3 font-medium text-[#8A8F98]">상태</th>
+                    <th className="text-center px-4 py-3 font-medium text-[#8A8F98]">소스</th>
+                    <th className="text-center px-4 py-3 font-medium text-[#8A8F98]">작업</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-[#23252A]">
                   {sortedRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="text-center py-12 text-slate-400">
+                      <td colSpan={11} className="text-center py-12 text-[#62666D]">
                         {year}년 {month}월 결산 데이터가 없습니다. 수동 입력 또는 RPA 수집을 진행하세요.
                       </td>
                     </tr>
                   ) : (
                     sortedRecords.map((r) => (
-                      <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={r.id} className="hover:bg-[#141516]/5 transition-colors">
                         <td className="px-4 py-3">
                           <span
                             className="inline-block px-2 py-0.5 text-xs rounded-full font-medium"
@@ -714,12 +714,12 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                             {r.category || '기타'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 font-medium text-slate-800">{r.channel_name}</td>
-                        <td className="px-4 py-3 text-right font-mono text-slate-700">{fmt(r.gross_sales)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-slate-700">{fmt(r.net_sales)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-slate-700">{fmt(r.settlement_amount)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-slate-700">{fmt(r.commission)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-slate-700">{fmt(r.order_count)}</td>
+                        <td className="px-4 py-3 font-medium text-[#F7F8F8]">{r.channel_name}</td>
+                        <td className="px-4 py-3 text-right font-mono text-[#D0D6E0]">{fmt(r.gross_sales)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-[#D0D6E0]">{fmt(r.net_sales)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-[#D0D6E0]">{fmt(r.settlement_amount)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-[#D0D6E0]">{fmt(r.commission)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-[#D0D6E0]">{fmt(r.order_count)}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`text-xs font-medium ${pctColor(r.gross_change_pct)}`}>
                             {fmtPct(r.gross_change_pct)}
@@ -727,13 +727,13 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                         </td>
                         <td className="px-4 py-3 text-center">
                           {r.is_confirmed ? (
-                            <span className="inline-block px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full font-medium">확정</span>
+                            <span className="inline-block px-2 py-0.5 text-xs bg-[#27A644]/15 text-[#27A644] rounded-full font-medium">확정</span>
                           ) : (
-                            <span className="inline-block px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">미확정</span>
+                            <span className="inline-block px-2 py-0.5 text-xs bg-[#F0BF00]/15 text-[#F0BF00] rounded-full font-medium">미확정</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className="inline-block px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full">
+                          <span className="inline-block px-2 py-0.5 text-xs bg-[#141516] text-[#8A8F98] rounded-full">
                             {r.source || '-'}
                           </span>
                         </td>
@@ -741,7 +741,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                           <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => handleOpenManual(r)}
-                              className="p-1 text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                              className="p-1 text-[#7070FF] hover:bg-[#5E6AD2]/10 rounded transition-colors"
                               title="수정"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -749,7 +749,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                             {!r.is_confirmed && (
                               <button
                                 onClick={() => handleConfirm(r.id)}
-                                className="p-1 text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
+                                className="p-1 text-emerald-500 hover:bg-[#27A644]/10 rounded transition-colors"
                                 title="확정"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -765,12 +765,12 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
             </div>
             {/* Table Footer with totals */}
             {sortedRecords.length > 0 && (
-              <div className="bg-slate-50 border-t border-slate-200 px-4 py-3">
+              <div className="bg-[#08090A] border-t border-[#23252A] px-4 py-3">
                 <div className="flex flex-wrap gap-6 text-sm">
-                  <span className="text-slate-600">합계:</span>
-                  <span className="font-medium text-slate-800">총매출 {fmtWon(summary.totalGross)}</span>
-                  <span className="font-medium text-slate-800">정산금액 {fmtWon(summary.totalSettlement)}</span>
-                  <span className="font-medium text-slate-800">수수료 {fmtWon(summary.totalCommission)}</span>
+                  <span className="text-[#8A8F98]">합계:</span>
+                  <span className="font-medium text-[#F7F8F8]">총매출 {fmtWon(summary.totalGross)}</span>
+                  <span className="font-medium text-[#F7F8F8]">정산금액 {fmtWon(summary.totalSettlement)}</span>
+                  <span className="font-medium text-[#F7F8F8]">수수료 {fmtWon(summary.totalCommission)}</span>
                 </div>
               </div>
             )}
@@ -802,30 +802,30 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
 
 function SummaryCard({ label, value, color, icon }: { label: string; value: string; color: string; icon: React.ReactNode }) {
   const colorMap: Record<string, string> = {
-    blue: 'from-blue-500 to-blue-600',
+    blue: 'from-[#5E6AD2] to-[#5E6AD2]',
     emerald: 'from-emerald-500 to-emerald-600',
     amber: 'from-amber-500 to-amber-600',
     violet: 'from-violet-500 to-violet-600',
   };
   const bgMap: Record<string, string> = {
-    blue: 'bg-blue-50',
-    emerald: 'bg-emerald-50',
-    amber: 'bg-amber-50',
+    blue: 'bg-[#5E6AD2]/10',
+    emerald: 'bg-[#27A644]/10',
+    amber: 'bg-[#F0BF00]/10',
     violet: 'bg-violet-50',
   };
   const textMap: Record<string, string> = {
-    blue: 'text-blue-600',
-    emerald: 'text-emerald-600',
-    amber: 'text-amber-600',
+    blue: 'text-[#7070FF]',
+    emerald: 'text-[#27A644]',
+    amber: 'text-[#F0BF00]',
     violet: 'text-violet-600',
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+    <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-slate-500 mb-1">{label}</p>
-          <p className="text-xl font-bold text-slate-800">{value}</p>
+          <p className="text-sm text-[#8A8F98] mb-1">{label}</p>
+          <p className="text-xl font-bold text-[#F7F8F8]">{value}</p>
         </div>
         <div className={`w-12 h-12 rounded-xl ${bgMap[color]} flex items-center justify-center ${textMap[color]}`}>
           {icon}
@@ -892,43 +892,43 @@ function ManualInputModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6 border-b border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-800">
+      <div className="bg-[#0F1011] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b border-[#23252A]">
+          <h3 className="text-lg font-semibold text-[#F7F8F8]">
             {record ? '결산 데이터 수정' : '결산 데이터 수동 입력'}
           </h3>
-          <p className="text-sm text-slate-500 mt-1">{year}년 {month}월</p>
+          <p className="text-sm text-[#8A8F98] mt-1">{year}년 {month}월</p>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">채널 ID</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">채널 ID</label>
               <input
                 type="text"
                 value={form.channel_id}
                 onChange={(e) => updateField('channel_id', e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                 required
                 disabled={!!record}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">채널명</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">채널명</label>
               <input
                 type="text"
                 value={form.channel_name}
                 onChange={(e) => updateField('channel_name', e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                 required
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">카테고리</label>
+            <label className="block text-sm font-medium text-[#D0D6E0] mb-1">카테고리</label>
             <select
               value={form.category}
               onChange={(e) => updateField('category', e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
             >
               <option value="">선택</option>
               {Object.keys(CATEGORY_COLORS).map((cat) => (
@@ -938,65 +938,65 @@ function ManualInputModal({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">총매출</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">총매출</label>
               <input
                 type="number"
                 value={form.gross_sales}
                 onChange={(e) => updateField('gross_sales', Number(e.target.value))}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">순매출</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">순매출</label>
               <input
                 type="number"
                 value={form.net_sales}
                 onChange={(e) => updateField('net_sales', Number(e.target.value))}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">정산금액</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">정산금액</label>
               <input
                 type="number"
                 value={form.settlement_amount}
                 onChange={(e) => updateField('settlement_amount', Number(e.target.value))}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">수수료</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">수수료</label>
               <input
                 type="number"
                 value={form.commission}
                 onChange={(e) => updateField('commission', Number(e.target.value))}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">주문건수</label>
+            <label className="block text-sm font-medium text-[#D0D6E0] mb-1">주문건수</label>
             <input
               type="number"
               value={form.order_count}
               onChange={(e) => updateField('order_count', Number(e.target.value))}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
             />
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+          <div className="flex justify-end gap-3 pt-4 border-t border-[#23252A]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              className="px-4 py-2 text-sm text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-[#141516]/7 transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors disabled:opacity-50"
             >
               {saving ? '저장 중...' : '저장'}
             </button>
@@ -1101,17 +1101,17 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
     switch (status) {
       case 'success':
       case 'completed':
-        return <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full font-medium">성공</span>;
+        return <span className="px-2 py-0.5 text-xs bg-[#27A644]/15 text-[#27A644] rounded-full font-medium">성공</span>;
       case 'running':
       case 'in_progress':
-        return <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium animate-pulse">수집 중</span>;
+        return <span className="px-2 py-0.5 text-xs bg-[#5E6AD2]/15 text-[#828FFF] rounded-full font-medium animate-pulse">수집 중</span>;
       case 'failed':
       case 'error':
-        return <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-medium">실패</span>;
+        return <span className="px-2 py-0.5 text-xs bg-[#EB5757]/15 text-[#EB5757] rounded-full font-medium">실패</span>;
       case 'pending':
-        return <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">대기</span>;
+        return <span className="px-2 py-0.5 text-xs bg-[#F0BF00]/15 text-[#F0BF00] rounded-full font-medium">대기</span>;
       default:
-        return <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full">{status}</span>;
+        return <span className="px-2 py-0.5 text-xs bg-[#141516] text-[#8A8F98] rounded-full">{status}</span>;
     }
   };
 
@@ -1129,7 +1129,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
   if (isLoading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -1140,15 +1140,15 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-800">RPA 자동 수집</h3>
-          <p className="text-sm text-slate-500">{year}년 {month}월 결산 데이터를 자동으로 수집합니다</p>
+          <h3 className="text-lg font-semibold text-[#F7F8F8]">RPA 자동 수집</h3>
+          <p className="text-sm text-[#8A8F98]">{year}년 {month}월 결산 데이터를 자동으로 수집합니다</p>
         </div>
         <button
           onClick={handleCollectAll}
           disabled={collectingAll || configuredChannels.length === 0}
-          className="px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+          className="px-5 py-2.5 bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors disabled:opacity-50 flex items-center gap-2"
         >
           {collectingAll ? (
             <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 수집 중...</>
@@ -1172,17 +1172,17 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
 
       {/* Progress */}
       {(collectingChannel || collectingAll) && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
-          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-blue-700">데이터 수집이 진행 중입니다...</span>
+        <div className="bg-[#5E6AD2]/10 border border-[#5E6AD2]/30 rounded-xl p-4 flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-[#828FFF]">데이터 수집이 진행 중입니다...</span>
         </div>
       )}
 
       {/* 수집 가능 채널 */}
       <div>
-        <h4 className="text-md font-semibold text-slate-700 mb-3">수집 가능 ({configuredChannels.length}개 채널 — 로그인 정보 설정됨)</h4>
+        <h4 className="text-md font-semibold text-[#D0D6E0] mb-3">수집 가능 ({configuredChannels.length}개 채널 — 로그인 정보 설정됨)</h4>
         {configuredChannels.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-400">
+          <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-8 text-center text-[#62666D]">
             <p>설정된 채널이 없습니다.</p>
             <p className="text-sm mt-1">&quot;RPA 설정&quot; 탭에서 채널별 로그인 정보를 먼저 입력하세요.</p>
           </div>
@@ -1192,31 +1192,31 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
               const latestLog = latestLogByChannel[ch.name];
               const isCollecting = collectingChannel === ch.name;
               return (
-                <div key={ch.name} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                <div key={ch.name} className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <span className="inline-block px-2 py-0.5 text-xs rounded-full font-medium mb-1" style={{ backgroundColor: `${CATEGORY_COLORS[ch.category] || '#6B7280'}20`, color: CATEGORY_COLORS[ch.category] || '#6B7280' }}>
                         {ch.category}
                       </span>
-                      <h5 className="font-semibold text-slate-800">{ch.name}</h5>
+                      <h5 className="font-semibold text-[#F7F8F8]">{ch.name}</h5>
                     </div>
                     {latestLog && getStatusBadge(latestLog.status)}
                   </div>
-                  <div className="text-xs text-slate-500 space-y-1 mb-3">
+                  <div className="text-xs text-[#8A8F98] space-y-1 mb-3">
                     <p>ID: {savedConfigs[ch.name]?.login_id}</p>
                     {latestLog?.settlement_amount != null && (
-                      <p className="text-emerald-600 font-medium">수집 금액: {fmtWon(latestLog.settlement_amount)}</p>
+                      <p className="text-[#27A644] font-medium">수집 금액: {fmtWon(latestLog.settlement_amount)}</p>
                     )}
                     {latestLog?.error_message && (
-                      <p className="text-red-500 truncate" title={latestLog.error_message}>오류: {latestLog.error_message}</p>
+                      <p className="text-[#EB5757] truncate" title={latestLog.error_message}>오류: {latestLog.error_message}</p>
                     )}
                   </div>
                   <button
                     onClick={() => handleCollect(ch.name)}
                     disabled={isCollecting}
-                    className="w-full px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full px-3 py-2 text-sm bg-[#5E6AD2]/10 text-[#7070FF] rounded-lg hover:bg-[#5E6AD2]/15 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {isCollecting ? (<><div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /> 수집 중...</>) : '수집 실행'}
+                    {isCollecting ? (<><div className="w-3 h-3 border-2 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" /> 수집 중...</>) : '수집 실행'}
                   </button>
                 </div>
               );
@@ -1228,12 +1228,12 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
       {/* 미설정 채널 */}
       {unconfiguredChannels.length > 0 && (
         <div>
-          <h4 className="text-md font-semibold text-slate-400 mb-3">미설정 ({unconfiguredChannels.length}개 — RPA 설정 탭에서 로그인 정보 입력 필요)</h4>
+          <h4 className="text-md font-semibold text-[#62666D] mb-3">미설정 ({unconfiguredChannels.length}개 — RPA 설정 탭에서 로그인 정보 입력 필요)</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {unconfiguredChannels.map((ch) => (
-              <div key={ch.name} className="bg-white rounded-lg border border-slate-200 p-3 opacity-50">
-                <span className="text-xs text-slate-400">{ch.category}</span>
-                <p className="font-medium text-slate-500 text-sm">{ch.name}</p>
+              <div key={ch.name} className="bg-[#0F1011] rounded-lg border border-[#23252A] p-3 opacity-50">
+                <span className="text-xs text-[#62666D]">{ch.category}</span>
+                <p className="font-medium text-[#8A8F98] text-sm">{ch.name}</p>
               </div>
             ))}
           </div>
@@ -1241,34 +1241,34 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
       )}
 
       {/* Recent Logs */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-200">
-          <h4 className="text-md font-semibold text-slate-800">최근 수집 로그</h4>
+      <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
+        <div className="p-4 border-b border-[#23252A]">
+          <h4 className="text-md font-semibold text-[#F7F8F8]">최근 수집 로그</h4>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-[#08090A] border-b border-[#23252A]">
               <tr>
-                <th className="text-left px-4 py-2 font-medium text-slate-600">채널</th>
-                <th className="text-left px-4 py-2 font-medium text-slate-600">연월</th>
-                <th className="text-center px-4 py-2 font-medium text-slate-600">상태</th>
-                <th className="text-left px-4 py-2 font-medium text-slate-600">시작 시간</th>
-                <th className="text-right px-4 py-2 font-medium text-slate-600">정산금액</th>
-                <th className="text-left px-4 py-2 font-medium text-slate-600">오류</th>
+                <th className="text-left px-4 py-2 font-medium text-[#8A8F98]">채널</th>
+                <th className="text-left px-4 py-2 font-medium text-[#8A8F98]">연월</th>
+                <th className="text-center px-4 py-2 font-medium text-[#8A8F98]">상태</th>
+                <th className="text-left px-4 py-2 font-medium text-[#8A8F98]">시작 시간</th>
+                <th className="text-right px-4 py-2 font-medium text-[#8A8F98]">정산금액</th>
+                <th className="text-left px-4 py-2 font-medium text-[#8A8F98]">오류</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[#23252A]">
               {logs.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-slate-400">수집 로그가 없습니다</td></tr>
+                <tr><td colSpan={6} className="text-center py-8 text-[#62666D]">수집 로그가 없습니다</td></tr>
               ) : (
                 logs.slice(0, 10).map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 font-medium text-slate-700">{log.channel_name}</td>
-                    <td className="px-4 py-2 text-slate-600">{log.year}년 {log.month}월</td>
+                  <tr key={log.id} className="hover:bg-[#141516]/5">
+                    <td className="px-4 py-2 font-medium text-[#D0D6E0]">{log.channel_name}</td>
+                    <td className="px-4 py-2 text-[#8A8F98]">{log.year}년 {log.month}월</td>
                     <td className="px-4 py-2 text-center">{getStatusBadge(log.status)}</td>
-                    <td className="px-4 py-2 text-slate-600">{log.started_at ? new Date(log.started_at).toLocaleString('ko-KR') : '-'}</td>
-                    <td className="px-4 py-2 text-right font-mono text-slate-700">{log.settlement_amount != null ? fmtWon(log.settlement_amount) : '-'}</td>
-                    <td className="px-4 py-2 text-red-500 text-xs max-w-[200px] truncate" title={log.error_message || ''}>{log.error_message || '-'}</td>
+                    <td className="px-4 py-2 text-[#8A8F98]">{log.started_at ? new Date(log.started_at).toLocaleString('ko-KR') : '-'}</td>
+                    <td className="px-4 py-2 text-right font-mono text-[#D0D6E0]">{log.settlement_amount != null ? fmtWon(log.settlement_amount) : '-'}</td>
+                    <td className="px-4 py-2 text-[#EB5757] text-xs max-w-[200px] truncate" title={log.error_message || ''}>{log.error_message || '-'}</td>
                   </tr>
                 ))
               )}
@@ -1463,7 +1463,7 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
   if (isLoading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -1471,13 +1471,13 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
   return (
     <div className="space-y-6">
       {/* 로컬 에이전트 상태 */}
-      <div className={`rounded-xl shadow-sm border p-5 ${agentStatus?.connected ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+      <div className={`rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border p-5 ${agentStatus?.connected ? 'bg-[#27A644]/10 border-emerald-200' : 'bg-[#08090A] border-[#23252A]'}`}>
         <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
           <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${agentStatus?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+            <div className={`w-3 h-3 rounded-full ${agentStatus?.connected ? 'bg-[#27A644] animate-pulse' : 'bg-[#28282C]'}`} />
             <div>
-              <h3 className="text-lg font-semibold text-slate-800">로컬 RPA 에이전트</h3>
-              <p className="text-sm text-slate-500">
+              <h3 className="text-lg font-semibold text-[#F7F8F8]">로컬 RPA 에이전트</h3>
+              <p className="text-sm text-[#8A8F98]">
                 {agentStatus?.connected
                   ? `연결됨 — ${agentStatus.hostname || '사무실 PC'} (${agentStatus.status === 'collecting' ? `${agentStatus.current_channel} 수집 중 ${agentStatus.channels_completed}/${agentStatus.channels_total}` : '대기 중'})`
                   : agentStatus?.status === 'never_connected' ? '에이전트가 아직 연결된 적 없습니다' : `연결 끊김 (마지막: ${agentStatus?.last_heartbeat ? new Date(agentStatus.last_heartbeat).toLocaleString('ko-KR') : '-'})`}
@@ -1485,51 +1485,51 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={fetchAgentStatus} className="px-3 py-1.5 text-xs bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+            <button onClick={fetchAgentStatus} className="px-3 py-1.5 text-xs bg-[#0F1011] border border-[#23252A] text-[#8A8F98] rounded-lg hover:bg-[#141516]/5 transition-colors">
               새로고침
             </button>
-            <button onClick={() => setShowAgentGuide(!showAgentGuide)} className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium">
+            <button onClick={() => setShowAgentGuide(!showAgentGuide)} className="px-3 py-1.5 text-xs bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors font-medium">
               {showAgentGuide ? '가이드 닫기' : '설치 가이드'}
             </button>
           </div>
         </div>
 
         {agentStatus?.last_collection_at && (
-          <p className="text-xs text-slate-500">마지막 수집: {new Date(agentStatus.last_collection_at).toLocaleString('ko-KR')}</p>
+          <p className="text-xs text-[#8A8F98]">마지막 수집: {new Date(agentStatus.last_collection_at).toLocaleString('ko-KR')}</p>
         )}
 
         {/* 설치 가이드 */}
         {showAgentGuide && (
-          <div className="mt-4 bg-white rounded-lg border border-slate-200 p-4">
-            <h4 className="text-sm font-bold text-slate-800 mb-3">로컬 에이전트 설치 방법</h4>
-            <div className="text-xs text-slate-600 space-y-2">
+          <div className="mt-4 bg-[#0F1011] rounded-lg border border-[#23252A] p-4">
+            <h4 className="text-sm font-bold text-[#F7F8F8] mb-3">로컬 에이전트 설치 방법</h4>
+            <div className="text-xs text-[#8A8F98] space-y-2">
               <div className="flex gap-3 items-start">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">1</span>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#5E6AD2]/15 text-[#7070FF] flex items-center justify-center text-[10px] font-bold">1</span>
                 <p>사무실 PC에 <strong>Python 3.10+</strong> 설치 (python.org에서 다운로드)</p>
               </div>
               <div className="flex gap-3 items-start">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">2</span>
-                <p>프로젝트의 <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">local-agent</code> 폴더를 사무실 PC에 복사</p>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#5E6AD2]/15 text-[#7070FF] flex items-center justify-center text-[10px] font-bold">2</span>
+                <p>프로젝트의 <code className="bg-[#141516] px-1.5 py-0.5 rounded text-[11px]">local-agent</code> 폴더를 사무실 PC에 복사</p>
               </div>
               <div className="flex gap-3 items-start">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">3</span>
-                <p><code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">setup.bat</code> 실행 (가상환경 + 패키지 + 브라우저 자동 설치)</p>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#5E6AD2]/15 text-[#7070FF] flex items-center justify-center text-[10px] font-bold">3</span>
+                <p><code className="bg-[#141516] px-1.5 py-0.5 rounded text-[11px]">setup.bat</code> 실행 (가상환경 + 패키지 + 브라우저 자동 설치)</p>
               </div>
               <div className="flex gap-3 items-start">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">4</span>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#5E6AD2]/15 text-[#7070FF] flex items-center justify-center text-[10px] font-bold">4</span>
                 <div>
-                  <p><code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">.env</code> 파일에 서버 URL과 API 키 입력:</p>
-                  <pre className="bg-slate-800 text-green-400 rounded p-2 mt-1 text-[10px] overflow-x-auto">
+                  <p><code className="bg-[#141516] px-1.5 py-0.5 rounded text-[11px]">.env</code> 파일에 서버 URL과 API 키 입력:</p>
+                  <pre className="bg-[#0F1011] text-green-400 rounded p-2 mt-1 text-[10px] overflow-x-auto">
 {`BACKEND_URL=https://your-railway-app.railway.app
 AGENT_API_KEY=your-api-key`}
                   </pre>
                 </div>
               </div>
               <div className="flex gap-3 items-start">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">5</span>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#5E6AD2]/15 text-[#7070FF] flex items-center justify-center text-[10px] font-bold">5</span>
                 <div>
-                  <p><code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">run.bat</code> 실행하면 브라우저가 열리며 각 채널에 자동 로그인 시작</p>
-                  <p className="text-slate-400 mt-1">CAPTCHA나 2단계 인증이 나오면 브라우저에서 직접 처리하면 됩니다</p>
+                  <p><code className="bg-[#141516] px-1.5 py-0.5 rounded text-[11px]">run.bat</code> 실행하면 브라우저가 열리며 각 채널에 자동 로그인 시작</p>
+                  <p className="text-[#62666D] mt-1">CAPTCHA나 2단계 인증이 나오면 브라우저에서 직접 처리하면 됩니다</p>
                 </div>
               </div>
             </div>
@@ -1542,9 +1542,9 @@ AGENT_API_KEY=your-api-key`}
       </div>
 
       {/* 사용 가이드 */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+      <div className="bg-[#F0BF00]/10 border border-[#F0BF00]/30 rounded-xl p-5">
         <h4 className="text-sm font-bold text-amber-800 mb-2">RPA 설정 가이드</h4>
-        <div className="text-xs text-amber-700 space-y-1.5">
+        <div className="text-xs text-[#F0BF00] space-y-1.5">
           <p>각 채널마다 아래 정보를 입력하면, 로컬 에이전트가 자동으로 로그인하여 결산 데이터를 수집합니다:</p>
           <ol className="list-decimal ml-4 space-y-1">
             <li><strong>로그인 URL</strong> — 각 채널 셀러 어드민(파트너센터) 로그인 페이지 주소</li>
@@ -1552,22 +1552,22 @@ AGENT_API_KEY=your-api-key`}
             <li><strong>정산 페이지 URL</strong> — 로그인 후 정산/결산 내역을 확인하는 페이지 주소</li>
             <li><strong>다운로드 방식</strong> — 해당 채널에서 정산 데이터를 가져오는 방법 (웹 스크래핑 / 엑셀 다운로드)</li>
           </ol>
-          <p className="mt-2 text-amber-600">각 채널의 <strong>&quot;편집&quot;</strong> 버튼을 눌러 설정하세요. 수집은 사무실 PC의 <strong>로컬 에이전트</strong>에서 실행됩니다.</p>
+          <p className="mt-2 text-[#F0BF00]">각 채널의 <strong>&quot;편집&quot;</strong> 버튼을 눌러 설정하세요. 수집은 사무실 PC의 <strong>로컬 에이전트</strong>에서 실행됩니다.</p>
         </div>
       </div>
 
       {/* 전체 36개 채널 — 카테고리별 그룹 */}
       {Object.entries(CHANNELS_BY_CATEGORY).map(([category, channels]) => (
-        <div key={category} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div key={category} className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
           <div
-            className="px-4 py-3 border-b border-slate-200 flex items-center gap-2"
+            className="px-4 py-3 border-b border-[#23252A] flex items-center gap-2"
             style={{ backgroundColor: `${CATEGORY_COLORS[category] || '#6B7280'}10` }}
           >
             <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[category] || '#6B7280' }} />
-            <h4 className="font-semibold text-slate-800">{category}</h4>
-            <span className="text-sm text-slate-500">({channels.length}개 채널)</span>
+            <h4 className="font-semibold text-[#F7F8F8]">{category}</h4>
+            <span className="text-sm text-[#8A8F98]">({channels.length}개 채널)</span>
           </div>
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-[#23252A]">
             {channels.map((ch) => {
               const saved = savedConfigs[ch.name];
               const isConfigured = !!(saved?.login_id);
@@ -1578,25 +1578,25 @@ AGENT_API_KEY=your-api-key`}
                   {/* 채널 정보 */}
                   <div className="flex-1 min-w-[250px]">
                     <div className="flex items-center gap-2">
-                      <h5 className="font-medium text-slate-800">{ch.name}</h5>
+                      <h5 className="font-medium text-[#F7F8F8]">{ch.name}</h5>
                       {isConfigured ? (
-                        <span className="px-2 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 rounded-full">설정완료</span>
+                        <span className="px-2 py-0.5 text-[10px] font-medium bg-[#27A644]/15 text-[#27A644] rounded-full">설정완료</span>
                       ) : (
-                        <span className="px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-600 rounded-full">미설정</span>
+                        <span className="px-2 py-0.5 text-[10px] font-medium bg-[#EB5757]/15 text-[#EB5757] rounded-full">미설정</span>
                       )}
-                      <span className="px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-600 rounded-full">{ch.type.toUpperCase()}</span>
+                      <span className="px-2 py-0.5 text-[10px] font-medium bg-[#5E6AD2]/10 text-[#7070FF] rounded-full">{ch.type.toUpperCase()}</span>
                       {collectTestResults[ch.name] && (
-                        <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${collectTestResults[ch.name].success ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
+                        <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${collectTestResults[ch.name].success ? 'bg-[#27A644]/15 text-[#27A644]' : 'bg-[#EB5757]/15 text-[#EB5757]'}`}>
                           {collectTestResults[ch.name].success ? '수집OK' : '수집실패'}
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-[#8A8F98] mt-1">
                       <p>로그인: {saved?.login_url || ch.loginUrl || <span className="text-red-400">URL 미설정</span>}
-                        {saved?.login_id && <span className="text-emerald-600 ml-1">(ID: {saved.login_id})</span>}
+                        {saved?.login_id && <span className="text-[#27A644] ml-1">(ID: {saved.login_id})</span>}
                       </p>
                       <p>정산: {saved?.settlement_url || ch.settlementUrl || <span className="text-red-400">URL 미설정</span>}</p>
-                      <p className="text-slate-400">{ch.note}</p>
+                      <p className="text-[#62666D]">{ch.note}</p>
                     </div>
                   </div>
 
@@ -1605,7 +1605,7 @@ AGENT_API_KEY=your-api-key`}
                     <button
                       onClick={() => handleTest(ch.name)}
                       disabled={isTesting || !isConfigured}
-                      className="px-3 py-1.5 text-xs bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 text-xs bg-[#F0BF00]/10 text-[#F0BF00] rounded-lg hover:bg-[#F0BF00]/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       title={!isConfigured ? '먼저 편집에서 로그인 정보를 설정하세요' : ''}
                     >
                       {isTesting ? '테스트 중...' : '연결 테스트'}
@@ -1615,9 +1615,9 @@ AGENT_API_KEY=your-api-key`}
                       disabled={collectTestingChannel === ch.name || !isConfigured || collectTestingAll}
                       className={`px-3 py-1.5 text-xs rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed font-medium ${
                         collectTestResults[ch.name]?.success
-                          ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                          ? 'bg-[#27A644]/10 text-[#27A644] hover:bg-[#27A644]/15'
                           : collectTestResults[ch.name] && !collectTestResults[ch.name].success
-                          ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                          ? 'bg-[#EB5757]/10 text-[#EB5757] hover:bg-[#EB5757]/15'
                           : 'bg-violet-50 text-violet-600 hover:bg-violet-100'
                       }`}
                       title={!isConfigured ? '먼저 편집에서 로그인 정보를 설정하세요' : collectTestResults[ch.name]?.message || ''}
@@ -1626,7 +1626,7 @@ AGENT_API_KEY=your-api-key`}
                     </button>
                     <button
                       onClick={() => handleEdit(ch)}
-                      className="px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+                      className="px-3 py-1.5 text-xs bg-[#5E6AD2]/10 text-[#7070FF] rounded-lg hover:bg-[#5E6AD2]/15 transition-colors font-medium"
                     >
                       편집
                     </button>
@@ -1641,14 +1641,14 @@ AGENT_API_KEY=your-api-key`}
       {/* 편집 모달 */}
       {editingChannel && editForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setEditingChannel(null); setEditForm(null); }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-800">{editingChannel.name} RPA 설정</h3>
-              <p className="text-xs text-slate-500 mt-1">{editingChannel.note}</p>
+          <div className="bg-[#0F1011] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-[#23252A]">
+              <h3 className="text-lg font-semibold text-[#F7F8F8]">{editingChannel.name} RPA 설정</h3>
+              <p className="text-xs text-[#8A8F98] mt-1">{editingChannel.note}</p>
             </div>
             <div className="p-6 space-y-4">
               {/* 설정 안내 */}
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1">
+              <div className="bg-[#5E6AD2]/10 border border-blue-100 rounded-lg p-3 text-xs text-[#828FFF] space-y-1">
                 <p className="font-semibold">설정 방법:</p>
                 <p>1. 해당 채널의 셀러 어드민에 웹브라우저로 직접 로그인해 보세요.</p>
                 <p>2. 로그인 페이지 URL을 아래 &quot;로그인 URL&quot;에 붙여넣으세요.</p>
@@ -1658,84 +1658,84 @@ AGENT_API_KEY=your-api-key`}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">로그인 URL <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">로그인 URL <span className="text-[#EB5757]">*</span></label>
                 <input
                   type="url"
                   value={editForm.login_url || ''}
                   onChange={(e) => setEditForm({ ...editForm, login_url: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                   placeholder={editingChannel.loginUrl || 'https://...'}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">로그인 ID <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-[#D0D6E0] mb-1">로그인 ID <span className="text-[#EB5757]">*</span></label>
                   <input
                     type="text"
                     value={editForm.login_id || ''}
                     onChange={(e) => setEditForm({ ...editForm, login_id: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                     placeholder="셀러 계정 ID"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">로그인 비밀번호 <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-[#D0D6E0] mb-1">로그인 비밀번호 <span className="text-[#EB5757]">*</span></label>
                   <input
                     type="password"
                     value={editForm.login_password || ''}
                     onChange={(e) => setEditForm({ ...editForm, login_password: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                     placeholder={savedConfigs[editingChannel.name]?.has_password ? '(저장됨 — 변경 시 입력)' : '비밀번호'}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">정산 페이지 URL <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">정산 페이지 URL <span className="text-[#EB5757]">*</span></label>
                 <input
                   type="url"
                   value={editForm.settlement_url || ''}
                   onChange={(e) => setEditForm({ ...editForm, settlement_url: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                   placeholder={editingChannel.settlementUrl || '정산 내역 페이지 URL'}
                 />
-                <p className="text-xs text-slate-400 mt-1">로그인 후 정산/결산 내역을 확인하는 페이지의 URL</p>
+                <p className="text-xs text-[#62666D] mt-1">로그인 후 정산/결산 내역을 확인하는 페이지의 URL</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">다운로드 방식</label>
+                  <label className="block text-sm font-medium text-[#D0D6E0] mb-1">다운로드 방식</label>
                   <select
                     value={editForm.download_type || 'scrape'}
                     onChange={(e) => setEditForm({ ...editForm, download_type: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                   >
                     <option value="scrape">웹 스크래핑 (테이블 읽기)</option>
                     <option value="excel_download">엑셀 다운로드</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">자동 수집일 (매월)</label>
+                  <label className="block text-sm font-medium text-[#D0D6E0] mb-1">자동 수집일 (매월)</label>
                   <input
                     type="number"
                     min={1}
                     max={28}
                     value={editForm.auto_collect_day || 5}
                     onChange={(e) => setEditForm({ ...editForm, auto_collect_day: Number(e.target.value) })}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+              <div className="flex justify-end gap-3 pt-4 border-t border-[#23252A]">
                 <button
                   onClick={() => { setEditingChannel(null); setEditForm(null); }}
-                  className="px-4 py-2 text-sm text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                  className="px-4 py-2 text-sm text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-[#141516]/7 transition-colors"
                 >
                   취소
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={savingChannel === editingChannel.name}
-                  className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors disabled:opacity-50"
                 >
                   {savingChannel === editingChannel.name ? '저장 중...' : '저장'}
                 </button>
@@ -1830,7 +1830,7 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
   if (isLoading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -1838,14 +1838,14 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-800">결산 리포트 관리</h3>
-          <p className="text-sm text-slate-500">자동/수동 결산 리포트를 설정하고 발송합니다</p>
+          <h3 className="text-lg font-semibold text-[#F7F8F8]">결산 리포트 관리</h3>
+          <p className="text-sm text-[#8A8F98]">자동/수동 결산 리포트를 설정하고 발송합니다</p>
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="px-4 py-2 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors"
         >
           {showCreateForm ? '취소' : '+ 새 리포트'}
         </button>
@@ -1853,50 +1853,50 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
 
       {/* Create Form */}
       {showCreateForm && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h4 className="text-md font-semibold text-slate-800 mb-4">새 리포트 만들기</h4>
+        <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6">
+          <h4 className="text-md font-semibold text-[#F7F8F8] mb-4">새 리포트 만들기</h4>
           <form onSubmit={handleCreateReport} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">리포트 이름</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">리포트 이름</label>
               <input
                 type="text"
                 value={newReport.name}
                 onChange={(e) => setNewReport((p) => ({ ...p, name: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                 placeholder="예: 월간 결산 리포트"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">수신자 이메일 (쉼표로 구분)</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">수신자 이메일 (쉼표로 구분)</label>
               <input
                 type="text"
                 value={newReport.recipients}
                 onChange={(e) => setNewReport((p) => ({ ...p, recipients: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                 placeholder="user1@example.com, user2@example.com"
                 required
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">발송일 (매월)</label>
+                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">발송일 (매월)</label>
                 <input
                   type="number"
                   min={1}
                   max={28}
                   value={newReport.schedule_day}
                   onChange={(e) => setNewReport((p) => ({ ...p, schedule_day: Number(e.target.value) }))}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">발송 시간</label>
+                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">발송 시간</label>
                 <input
                   type="time"
                   value={newReport.schedule_time}
                   onChange={(e) => setNewReport((p) => ({ ...p, schedule_time: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
                 />
               </div>
             </div>
@@ -1906,14 +1906,14 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
                 id="auto_send"
                 checked={newReport.auto_send}
                 onChange={(e) => setNewReport((p) => ({ ...p, auto_send: e.target.checked }))}
-                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-[#7070FF] border-[#23252A] rounded focus:ring-blue-500"
               />
-              <label htmlFor="auto_send" className="text-sm text-slate-700">자동 발송 활성화</label>
+              <label htmlFor="auto_send" className="text-sm text-[#D0D6E0]">자동 발송 활성화</label>
             </div>
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-5 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className="px-5 py-2 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors"
               >
                 리포트 생성
               </button>
@@ -1924,39 +1924,39 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
 
       {/* Reports List */}
       {reports.length === 0 && !showCreateForm ? (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center text-slate-400">
+        <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-12 text-center text-[#62666D]">
           등록된 리포트가 없습니다. 새 리포트를 만들어보세요.
         </div>
       ) : (
         <div className="space-y-4">
           {reports.map((report) => (
-            <div key={report.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <div key={report.id} className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex-1 min-w-[200px]">
                   <div className="flex items-center gap-2 mb-2">
-                    <h4 className="font-semibold text-slate-800">{report.name}</h4>
+                    <h4 className="font-semibold text-[#F7F8F8]">{report.name}</h4>
                     {report.auto_send ? (
-                      <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full font-medium">자동</span>
+                      <span className="px-2 py-0.5 text-xs bg-[#27A644]/15 text-[#27A644] rounded-full font-medium">자동</span>
                     ) : (
-                      <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-500 rounded-full">수동</span>
+                      <span className="px-2 py-0.5 text-xs bg-[#141516] text-[#8A8F98] rounded-full">수동</span>
                     )}
                   </div>
-                  <div className="text-sm text-slate-500 space-y-1">
+                  <div className="text-sm text-[#8A8F98] space-y-1">
                     <p>
-                      <span className="font-medium text-slate-600">수신자:</span>{' '}
+                      <span className="font-medium text-[#8A8F98]">수신자:</span>{' '}
                       {report.recipients.join(', ')}
                     </p>
                     <p>
-                      <span className="font-medium text-slate-600">발송 일정:</span>{' '}
+                      <span className="font-medium text-[#8A8F98]">발송 일정:</span>{' '}
                       매월 {report.schedule_day}일 {report.schedule_time}
                     </p>
                     {report.last_sent_at && (
                       <p>
-                        <span className="font-medium text-slate-600">마지막 발송:</span>{' '}
+                        <span className="font-medium text-[#8A8F98]">마지막 발송:</span>{' '}
                         {new Date(report.last_sent_at).toLocaleString('ko-KR')}
                       </p>
                     )}
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-[#62666D]">
                       생성일: {new Date(report.created_at).toLocaleDateString('ko-KR')}
                     </p>
                   </div>
@@ -1965,14 +1965,14 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
                   <button
                     onClick={() => handleSendNow(report.id)}
                     disabled={sendingReportId === report.id}
-                    className="px-4 py-2 text-sm bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 text-sm bg-[#27A644] text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50"
                   >
                     {sendingReportId === report.id ? '발송 중...' : '즉시 발송'}
                   </button>
                   <button
                     onClick={() => handleDelete(report.id)}
                     disabled={deletingReportId === report.id}
-                    className="px-4 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 text-sm bg-[#EB5757]/10 text-[#EB5757] rounded-lg hover:bg-[#EB5757]/15 transition-colors disabled:opacity-50"
                   >
                     {deletingReportId === report.id ? '삭제 중...' : '삭제'}
                   </button>
@@ -2030,31 +2030,31 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
     switch (status) {
       case 'success':
       case 'completed':
-        return <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full font-medium">성공</span>;
+        return <span className="px-2 py-0.5 text-xs bg-[#27A644]/15 text-[#27A644] rounded-full font-medium">성공</span>;
       case 'running':
       case 'in_progress':
-        return <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium animate-pulse">수집 중</span>;
+        return <span className="px-2 py-0.5 text-xs bg-[#5E6AD2]/15 text-[#828FFF] rounded-full font-medium animate-pulse">수집 중</span>;
       case 'failed':
       case 'error':
-        return <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-medium">실패</span>;
+        return <span className="px-2 py-0.5 text-xs bg-[#EB5757]/15 text-[#EB5757] rounded-full font-medium">실패</span>;
       case 'pending':
-        return <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">대기</span>;
+        return <span className="px-2 py-0.5 text-xs bg-[#F0BF00]/15 text-[#F0BF00] rounded-full font-medium">대기</span>;
       default:
-        return <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full">{status}</span>;
+        return <span className="px-2 py-0.5 text-xs bg-[#141516] text-[#8A8F98] rounded-full">{status}</span>;
     }
   };
 
   return (
     <div className="space-y-6">
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-slate-600">채널</label>
+            <label className="text-sm font-medium text-[#8A8F98]">채널</label>
             <select
               value={filterChannel}
               onChange={(e) => setFilterChannel(e.target.value)}
-              className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
             >
               <option value="">전체</option>
               {channelNames.map((name) => (
@@ -2063,11 +2063,11 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-slate-600">상태</label>
+            <label className="text-sm font-medium text-[#8A8F98]">상태</label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
             >
               <option value="">전체</option>
               <option value="success">성공</option>
@@ -2077,13 +2077,13 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
             </select>
           </div>
           <div className="flex-1" />
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+          <div className="flex items-center gap-2 text-xs text-[#8A8F98]">
+            <div className="w-2 h-2 bg-[#27A644] rounded-full animate-pulse" />
             10초마다 자동 갱신
           </div>
           <button
             onClick={() => { setIsLoading(true); fetchLogs(); }}
-            className="px-3 py-2 text-sm bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+            className="px-3 py-2 text-sm bg-[#141516] text-[#8A8F98] rounded-lg hover:bg-[#141516]/7 transition-colors"
           >
             새로고침
           </button>
@@ -2091,63 +2091,63 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
       </div>
 
       {/* Logs Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
         {isLoading ? (
           <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-[#08090A] border-b border-[#23252A]">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">채널</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">연월</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-600">수집 방식</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-600">상태</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">시작 시간</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">완료 시간</th>
-                  <th className="text-right px-4 py-3 font-medium text-slate-600">정산금액</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">에러 메시지</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#8A8F98]">채널</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#8A8F98]">연월</th>
+                  <th className="text-center px-4 py-3 font-medium text-[#8A8F98]">수집 방식</th>
+                  <th className="text-center px-4 py-3 font-medium text-[#8A8F98]">상태</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#8A8F98]">시작 시간</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#8A8F98]">완료 시간</th>
+                  <th className="text-right px-4 py-3 font-medium text-[#8A8F98]">정산금액</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#8A8F98]">에러 메시지</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[#23252A]">
                 {logs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-12 text-slate-400">
+                    <td colSpan={8} className="text-center py-12 text-[#62666D]">
                       수집 로그가 없습니다
                     </td>
                   </tr>
                 ) : (
                   logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-slate-700">{log.channel_name}</td>
-                      <td className="px-4 py-3 text-slate-600">{log.year}년 {log.month}월</td>
+                    <tr key={log.id} className="hover:bg-[#141516]/5 transition-colors">
+                      <td className="px-4 py-3 font-medium text-[#D0D6E0]">{log.channel_name}</td>
+                      <td className="px-4 py-3 text-[#8A8F98]">{log.year}년 {log.month}월</td>
                       <td className="px-4 py-3 text-center">
-                        <span className="inline-block px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full">
+                        <span className="inline-block px-2 py-0.5 text-xs bg-[#141516] text-[#8A8F98] rounded-full">
                           {log.collection_method || '-'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">{getStatusBadge(log.status)}</td>
-                      <td className="px-4 py-3 text-slate-600 text-xs">
+                      <td className="px-4 py-3 text-[#8A8F98] text-xs">
                         {new Date(log.started_at).toLocaleString('ko-KR')}
                       </td>
-                      <td className="px-4 py-3 text-slate-600 text-xs">
+                      <td className="px-4 py-3 text-[#8A8F98] text-xs">
                         {log.completed_at ? new Date(log.completed_at).toLocaleString('ko-KR') : '-'}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-700">
+                      <td className="px-4 py-3 text-right font-mono text-[#D0D6E0]">
                         {log.settlement_amount != null ? fmtWon(log.settlement_amount) : '-'}
                       </td>
                       <td className="px-4 py-3">
                         {log.error_message ? (
                           <span
-                            className="text-xs text-red-500 block max-w-[250px] truncate cursor-help"
+                            className="text-xs text-[#EB5757] block max-w-[250px] truncate cursor-help"
                             title={log.error_message}
                           >
                             {log.error_message}
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-400">-</span>
+                          <span className="text-xs text-[#62666D]">-</span>
                         )}
                       </td>
                     </tr>
@@ -2159,7 +2159,7 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
         )}
         {/* Footer */}
         {logs.length > 0 && (
-          <div className="bg-slate-50 border-t border-slate-200 px-4 py-2 text-xs text-slate-500">
+          <div className="bg-[#08090A] border-t border-[#23252A] px-4 py-2 text-xs text-[#8A8F98]">
             총 {logs.length}건의 로그
           </div>
         )}

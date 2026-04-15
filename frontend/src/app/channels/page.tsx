@@ -89,7 +89,7 @@ export default function ChannelsPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <ChannelsPageContent />
@@ -635,8 +635,8 @@ function ChannelsPageContent() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-600">로딩 중...</p>
+          <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[#8A8F98]">로딩 중...</p>
         </div>
       </div>
     );
@@ -654,14 +654,14 @@ function ChannelsPageContent() {
         {/* 헤더 */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">채널별 매출 취합</h1>
-            <p className="text-slate-500 mt-1">모든 판매 채널의 매출을 한눈에 확인하세요</p>
+            <h1 className="text-2xl font-bold text-[#F7F8F8]">채널별 매출 취합</h1>
+            <p className="text-[#8A8F98] mt-1">모든 판매 채널의 매출을 한눈에 확인하세요</p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={syncAll}
               disabled={isSyncing}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-[#27A644] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               {isSyncing ? (
                 <>
@@ -675,7 +675,7 @@ function ChannelsPageContent() {
             {channels.length === 0 && (
               <button
                 onClick={initializeChannels}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className="px-4 py-2 bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors"
               >
                 채널 초기화
               </button>
@@ -687,8 +687,8 @@ function ChannelsPageContent() {
         {syncResult && (
           <div className={`mb-4 p-4 rounded-xl flex items-center justify-between ${
             syncResult.type === 'success'
-              ? 'bg-green-50 border border-green-200 text-green-700'
-              : 'bg-red-50 border border-red-200 text-red-700'
+              ? 'bg-[#27A644]/10 border border-[#27A644]/30 text-[#27A644]'
+              : 'bg-[#EB5757]/10 border border-[#EB5757]/30 text-[#EB5757]'
           }`}>
             <span>{syncResult.message}</span>
             <div className="flex items-center gap-2">
@@ -696,7 +696,7 @@ function ChannelsPageContent() {
                 <button
                   onClick={() => retrySync(playwrightRetryChannel)}
                   disabled={isRetrying}
-                  className="px-3 py-1 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                  className="px-3 py-1 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50"
                 >
                   {isRetrying ? '재시도 중...' : '재시도'}
                 </button>
@@ -711,15 +711,15 @@ function ChannelsPageContent() {
         )}
 
         {/* 필터 & 총합계 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6 mb-6">
           <div className="flex flex-wrap items-center gap-4 mb-6">
             {/* 대시보드 조회 기간 */}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-slate-600">조회:</label>
+              <label className="text-sm font-medium text-[#8A8F98]">조회:</label>
               <select
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value))}
-                className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}년</option>
@@ -728,7 +728,7 @@ function ChannelsPageContent() {
               <select
                 value={month}
                 onChange={(e) => setMonth(Number(e.target.value))}
-                className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {months.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
@@ -736,79 +736,79 @@ function ChannelsPageContent() {
               </select>
             </div>
 
-            <div className="w-px h-8 bg-slate-200" />
+            <div className="w-px h-8 bg-[#232326]" />
 
             {/* 동기화 기간 */}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-slate-600">동기화 기간:</label>
+              <label className="text-sm font-medium text-[#8A8F98]">동기화 기간:</label>
               <input
                 type="date"
                 value={syncStartDate}
                 onChange={(e) => setSyncStartDate(e.target.value)}
-                className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
-              <span className="text-slate-400">~</span>
+              <span className="text-[#62666D]">~</span>
               <input
                 type="date"
                 value={syncEndDate}
                 onChange={(e) => setSyncEndDate(e.target.value)}
-                className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
           </div>
 
           {/* 연동 채널 필터 + 목표 지표 체크박스 */}
-          <div className="flex flex-wrap items-center gap-4 mb-6 pt-2 border-t border-slate-100">
-            <span className="text-sm font-medium text-slate-600">연동 채널:</span>
+          <div className="flex flex-wrap items-center gap-4 mb-6 pt-2 border-t border-[#23252A]">
+            <span className="text-sm font-medium text-[#8A8F98]">연동 채널:</span>
             {syncChannelNames.map(name => (
               <label key={name} className="flex items-center gap-1.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={selectedSyncChannels.has(name)}
                   onChange={() => toggleSyncChannel(name)}
-                  className="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500"
+                  className="w-4 h-4 rounded border-[#23252A] text-[#7070FF] focus:ring-blue-500"
                 />
-                <span className="text-sm text-slate-700">{name}</span>
+                <span className="text-sm text-[#D0D6E0]">{name}</span>
               </label>
             ))}
 
-            <div className="w-px h-6 bg-slate-200" />
+            <div className="w-px h-6 bg-[#232326]" />
 
             <label className="flex items-center gap-1.5 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={showTarget}
                 onChange={() => setShowTarget(prev => !prev)}
-                className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                className="w-4 h-4 rounded border-[#23252A] text-amber-500 focus:ring-amber-500"
               />
-              <span className="text-sm text-slate-700">목표 지표</span>
+              <span className="text-sm text-[#D0D6E0]">목표 지표</span>
             </label>
           </div>
 
           {/* 총합계 카드 (선택된 채널 기준) */}
           {dailySummary && (
             <div className={`grid grid-cols-2 gap-4 ${showTarget && monthlyTarget ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
-                <p className="text-sm text-blue-600 mb-1">총 매출</p>
-                <p className="text-2xl font-bold text-blue-700">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-[#5E6AD2]/30">
+                <p className="text-sm text-[#7070FF] mb-1">총 매출</p>
+                <p className="text-2xl font-bold text-[#828FFF]">
                   {formatCurrency(filteredTotal.gross_sales)}원
                 </p>
               </div>
               <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 rounded-xl border border-emerald-200">
-                <p className="text-sm text-emerald-600 mb-1">총 주문</p>
-                <p className="text-2xl font-bold text-emerald-700">
+                <p className="text-sm text-[#27A644] mb-1">총 주문</p>
+                <p className="text-2xl font-bold text-[#27A644]">
                   {formatNumber(filteredTotal.order_count)}건
                 </p>
               </div>
-              <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-xl border border-amber-200">
-                <p className="text-sm text-amber-600 mb-1">총 판매수량</p>
-                <p className="text-2xl font-bold text-amber-700">
+              <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-xl border border-[#F0BF00]/30">
+                <p className="text-sm text-[#F0BF00] mb-1">총 판매수량</p>
+                <p className="text-2xl font-bold text-[#F0BF00]">
                   {formatNumber(filteredTotal.quantity)}개
                 </p>
               </div>
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
-                <p className="text-sm text-purple-600 mb-1">활성 채널</p>
-                <p className="text-2xl font-bold text-purple-700">
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-[#5E6AD2]/30">
+                <p className="text-sm text-[#7070FF] mb-1">활성 채널</p>
+                <p className="text-2xl font-bold text-[#828FFF]">
                   {filteredChannelSummary.length}개
                 </p>
               </div>
@@ -832,16 +832,16 @@ function ChannelsPageContent() {
         {/* 차트 영역 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* 일별 매출 추이 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-800">일별 매출 추이</h3>
+              <h3 className="text-lg font-semibold text-[#F7F8F8]">일별 매출 추이</h3>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setChartMode('daily')}
                   className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                     chartMode === 'daily'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      ? 'bg-[#5E6AD2] text-white'
+                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
                   }`}
                 >
                   일계
@@ -850,19 +850,19 @@ function ChannelsPageContent() {
                   onClick={() => setChartMode('cumulative')}
                   className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                     chartMode === 'cumulative'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      ? 'bg-[#5E6AD2] text-white'
+                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
                   }`}
                 >
                   누계
                 </button>
-                <div className="w-px h-6 bg-slate-200" />
+                <div className="w-px h-6 bg-[#232326]" />
                 <button
                   onClick={() => setChartType('bar')}
                   className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                     chartType === 'bar'
-                      ? 'bg-indigo-500 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      ? 'bg-[#5E6AD2] text-white'
+                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
                   }`}
                 >
                   막대
@@ -871,8 +871,8 @@ function ChannelsPageContent() {
                   onClick={() => setChartType('line')}
                   className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                     chartType === 'line'
-                      ? 'bg-indigo-500 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      ? 'bg-[#5E6AD2] text-white'
+                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
                   }`}
                 >
                   선형
@@ -881,7 +881,7 @@ function ChannelsPageContent() {
             </div>
             {isLoading ? (
               <div className="h-64 flex items-center justify-center">
-                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : dailyChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
@@ -912,15 +912,15 @@ function ChannelsPageContent() {
                 )}
               </ResponsiveContainer>
             ) : (
-              <div className="h-64 flex items-center justify-center text-slate-400">
+              <div className="h-64 flex items-center justify-center text-[#62666D]">
                 데이터가 없습니다
               </div>
             )}
           </div>
 
           {/* 채널별 매출 비중 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">채널별 매출 비중</h3>
+          <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6">
+            <h3 className="text-lg font-semibold text-[#F7F8F8] mb-4">채널별 매출 비중</h3>
             {pieChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
@@ -943,7 +943,7 @@ function ChannelsPageContent() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-64 flex items-center justify-center text-slate-400">
+              <div className="h-64 flex items-center justify-center text-[#62666D]">
                 데이터가 없습니다
               </div>
             )}
@@ -952,8 +952,8 @@ function ChannelsPageContent() {
 
         {/* 카테고리별 매출 */}
         {categoryChartData.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">카테고리별 매출</h3>
+          <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6 mb-6">
+            <h3 className="text-lg font-semibold text-[#F7F8F8] mb-4">카테고리별 매출</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={categoryChartData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
@@ -971,16 +971,16 @@ function ChannelsPageContent() {
         )}
 
         {/* 채널 목록 & 데이터 입력 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-800">채널별 상세</h3>
+        <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
+          <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-[#F7F8F8]">채널별 상세</h3>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setViewMode('chart')}
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   viewMode === 'chart'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    ? 'bg-[#5E6AD2] text-white'
+                    : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
                 }`}
               >
                 카드뷰
@@ -989,8 +989,8 @@ function ChannelsPageContent() {
                 onClick={() => setViewMode('table')}
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   viewMode === 'table'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    ? 'bg-[#5E6AD2] text-white'
+                    : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
                 }`}
               >
                 테이블
@@ -1005,10 +1005,10 @@ function ChannelsPageContent() {
                 return (
                   <div
                     key={channel.id}
-                    className="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow"
+                    className="border border-[#23252A] rounded-xl p-4 hover:shadow-[0px_3px_12px_rgba(0,0,0,0.2)] transition-shadow"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-slate-800">{channel.name}</h4>
+                      <h4 className="font-medium text-[#F7F8F8]">{channel.name}</h4>
                       <span
                         className="px-2 py-0.5 text-xs rounded-full"
                         style={{
@@ -1019,48 +1019,48 @@ function ChannelsPageContent() {
                         {channel.category}
                       </span>
                     </div>
-                    <div className="text-sm text-slate-500 mb-3">
+                    <div className="text-sm text-[#8A8F98] mb-3">
                       {channel.integration_type === 'api' && '🔗 API 연동'}
                       {channel.integration_type === 'rpa' && '🤖 RPA 자동화'}
                       {channel.integration_type === 'manual' && '📤 수동 업로드'}
                       {SYNC_ENDPOINTS[channel.name] && (
-                        <span className="ml-2 text-green-500 text-xs font-medium">연동완료</span>
+                        <span className="ml-2 text-[#27A644] text-xs font-medium">연동완료</span>
                       )}
                     </div>
                     {summary ? (
                       <div className="space-y-1">
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-500">매출</span>
-                          <span className="font-medium text-blue-600">{formatCurrency(summary.gross_sales)}원</span>
+                          <span className="text-[#8A8F98]">매출</span>
+                          <span className="font-medium text-[#7070FF]">{formatCurrency(summary.gross_sales)}원</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-500">주문</span>
-                          <span className="font-medium text-emerald-600">{formatNumber(summary.order_count)}건</span>
+                          <span className="text-[#8A8F98]">주문</span>
+                          <span className="font-medium text-[#27A644]">{formatNumber(summary.order_count)}건</span>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-slate-400 text-center py-2">
+                      <div className="text-sm text-[#62666D] text-center py-2">
                         데이터 없음
                       </div>
                     )}
-                    <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
+                    <div className="flex gap-2 mt-3 pt-3 border-t border-[#23252A]">
                       {channel.name === '카페24' && !SYNC_ENDPOINTS[channel.name] ? null : channel.name === '카페24' ? (
                         <>
                           <button
                             onClick={connectCafe24}
                             disabled={cafe24Connecting}
-                            className="flex-1 px-3 py-1.5 text-xs bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="flex-1 px-3 py-1.5 text-xs bg-[#FC7840]/10 text-[#FC7840] rounded-lg hover:bg-[#FC7840]/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             {cafe24Connecting ? 'OAuth 연동 중...' : 'OAuth 연동'}
                           </button>
                           <button
                             onClick={() => syncChannel(channel)}
                             disabled={syncingChannelId === channel.id || isSyncing}
-                            className="flex-1 px-3 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
+                            className="flex-1 px-3 py-1.5 text-xs bg-[#27A644]/10 text-[#27A644] rounded-lg hover:bg-[#27A644]/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
                           >
                             {syncingChannelId === channel.id ? (
                               <>
-                                <div className="w-3 h-3 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                                <div className="w-3 h-3 border-2 border-[#27A644] border-t-transparent rounded-full animate-spin" />
                                 동기화 중
                               </>
                             ) : (
@@ -1072,11 +1072,11 @@ function ChannelsPageContent() {
                         <button
                           onClick={() => syncChannel(channel)}
                           disabled={syncingChannelId === channel.id || isSyncing}
-                          className="flex-1 px-3 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
+                          className="flex-1 px-3 py-1.5 text-xs bg-[#27A644]/10 text-[#27A644] rounded-lg hover:bg-[#27A644]/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
                         >
                           {syncingChannelId === channel.id ? (
                             <>
-                              <div className="w-3 h-3 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                              <div className="w-3 h-3 border-2 border-[#27A644] border-t-transparent rounded-full animate-spin" />
                               동기화 중
                             </>
                           ) : (
@@ -1087,7 +1087,7 @@ function ChannelsPageContent() {
                       {(channel.name === '쿠팡 WING' || channel.name === '쿠팡 로켓') && (
                         <button
                           onClick={() => setShowCoupangSettings(true)}
-                          className="flex-1 px-3 py-1.5 text-xs bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors"
+                          className="flex-1 px-3 py-1.5 text-xs bg-[#F0BF00]/10 text-[#F0BF00] rounded-lg hover:bg-[#F0BF00]/15 transition-colors"
                         >
                           설정
                         </button>
@@ -1097,7 +1097,7 @@ function ChannelsPageContent() {
                           setSelectedChannel(channel);
                           setShowUploadModal(true);
                         }}
-                        className="flex-1 px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                        className="flex-1 px-3 py-1.5 text-xs bg-[#5E6AD2]/10 text-[#828FFF] rounded-lg hover:bg-[#5E6AD2]/15 transition-colors"
                       >
                         수동입력
                       </button>
@@ -1109,23 +1109,23 @@ function ChannelsPageContent() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50">
+                <thead className="bg-[#08090A]">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">채널</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-slate-600">카테고리</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">매출</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">주문수</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-slate-600">판매수량</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-slate-600">연동</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-slate-600">작업</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-[#8A8F98]">채널</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-[#8A8F98]">카테고리</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-[#8A8F98]">매출</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-[#8A8F98]">주문수</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-[#8A8F98]">판매수량</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-[#8A8F98]">연동</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-[#8A8F98]">작업</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-[#23252A]">
                   {channels.map((channel) => {
                     const summary = channelSummary.find(s => s.channel_id === channel.id);
                     return (
-                      <tr key={channel.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 text-sm font-medium text-slate-800">{channel.name}</td>
+                      <tr key={channel.id} className="hover:bg-[#141516]/5">
+                        <td className="px-4 py-3 text-sm font-medium text-[#F7F8F8]">{channel.name}</td>
                         <td className="px-4 py-3">
                           <span
                             className="px-2 py-0.5 text-xs rounded-full"
@@ -1137,13 +1137,13 @@ function ChannelsPageContent() {
                             {channel.category}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-blue-600">
+                        <td className="px-4 py-3 text-sm text-right font-medium text-[#7070FF]">
                           {summary ? `${formatNumber(summary.gross_sales)}원` : '-'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-right text-slate-600">
+                        <td className="px-4 py-3 text-sm text-right text-[#8A8F98]">
                           {summary ? formatNumber(summary.order_count) : '-'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-right text-slate-600">
+                        <td className="px-4 py-3 text-sm text-right text-[#8A8F98]">
                           {summary ? formatNumber(summary.quantity) : '-'}
                         </td>
                         <td className="px-4 py-3 text-center text-sm">
@@ -1156,14 +1156,14 @@ function ChannelsPageContent() {
                             <button
                               onClick={() => syncChannel(channel)}
                               disabled={syncingChannelId === channel.id || isSyncing}
-                              className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              className="px-3 py-1 text-sm bg-[#27A644]/15 text-[#27A644] rounded-lg hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                               {syncingChannelId === channel.id ? '...' : '동기화'}
                             </button>
                             {(channel.name === '쿠팡 WING' || channel.name === '쿠팡 로켓') && (
                               <button
                                 onClick={() => setShowCoupangSettings(true)}
-                                className="px-3 py-1 text-sm bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors"
+                                className="px-3 py-1 text-sm bg-[#F0BF00]/15 text-[#F0BF00] rounded-lg hover:bg-amber-200 transition-colors"
                               >
                                 설정
                               </button>
@@ -1173,7 +1173,7 @@ function ChannelsPageContent() {
                                 setSelectedChannel(channel);
                                 setShowUploadModal(true);
                               }}
-                              className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                              className="px-3 py-1 text-sm bg-[#5E6AD2]/15 text-[#828FFF] rounded-lg hover:bg-blue-200 transition-colors"
                             >
                               수동입력
                             </button>
@@ -1377,11 +1377,11 @@ function CoupangSettingsModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+      <div className="bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg max-h-[90vh] overflow-hidden">
         {/* 헤더 */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-800">쿠팡 채널 설정</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-[#F7F8F8]">쿠팡 채널 설정</h3>
+          <button onClick={onClose} className="text-[#62666D] hover:text-[#D0D6E0]">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -1395,8 +1395,8 @@ function CoupangSettingsModal({
               onClick={() => setActiveTab('wing')}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'wing'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'bg-[#5E6AD2] text-white'
+                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
               }`}
             >
               쿠팡 WING
@@ -1405,8 +1405,8 @@ function CoupangSettingsModal({
               onClick={() => setActiveTab('rocket')}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'rocket'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'bg-[#5E6AD2] text-white'
+                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
               }`}
             >
               쿠팡 로켓
@@ -1419,7 +1419,7 @@ function CoupangSettingsModal({
           {activeTab === 'wing' ? (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
                   업체코드 (Vendor ID)
                 </label>
                 <input
@@ -1427,11 +1427,11 @@ function CoupangSettingsModal({
                   value={wingVendorId}
                   onChange={(e) => setWingVendorId(e.target.value)}
                   placeholder="업체코드를 입력하세요"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
                   Access Key
                 </label>
                 <input
@@ -1439,11 +1439,11 @@ function CoupangSettingsModal({
                   value={wingAccessKey}
                   onChange={(e) => setWingAccessKey(e.target.value)}
                   placeholder="Access Key를 입력하세요"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
                   Secret Key
                 </label>
                 <input
@@ -1451,7 +1451,7 @@ function CoupangSettingsModal({
                   value={wingSecretKey}
                   onChange={(e) => setWingSecretKey(e.target.value)}
                   placeholder="Secret Key를 입력하세요"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -1460,24 +1460,24 @@ function CoupangSettingsModal({
                 {wingStatus ? (
                   wingStatus.connected ? (
                     <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
-                      <span className="text-green-700">연결됨</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#27A644]" />
+                      <span className="text-[#27A644]">연결됨</span>
                     </>
                   ) : wingStatus.configured ? (
                     <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                      <span className="text-amber-700">설정됨 (미연결)</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#F0BF00]/100" />
+                      <span className="text-[#F0BF00]">설정됨 (미연결)</span>
                     </>
                   ) : (
                     <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-                      <span className="text-slate-500">미설정</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#28282C]" />
+                      <span className="text-[#8A8F98]">미설정</span>
                     </>
                   )
                 ) : (
                   <>
-                    <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-                    <span className="text-slate-500">상태 확인 중...</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#28282C]" />
+                    <span className="text-[#8A8F98]">상태 확인 중...</span>
                   </>
                 )}
               </div>
@@ -1486,8 +1486,8 @@ function CoupangSettingsModal({
               {wingMessage && (
                 <div className={`p-3 text-sm rounded-lg ${
                   wingMessage.type === 'success'
-                    ? 'bg-green-50 text-green-700 border border-green-200'
-                    : 'bg-red-50 text-red-700 border border-red-200'
+                    ? 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/30'
+                    : 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
                 }`}>
                   {wingMessage.text}
                 </div>
@@ -1498,11 +1498,11 @@ function CoupangSettingsModal({
                 <button
                   onClick={testWingConnection}
                   disabled={wingTesting}
-                  className="flex-1 px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 text-sm bg-[#141516] text-[#D0D6E0] rounded-lg hover:bg-[#141516]/7 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   {wingTesting ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                      <div className="w-4 h-4 border-2 border-[#34343A] border-t-transparent rounded-full animate-spin" />
                       테스트 중...
                     </>
                   ) : (
@@ -1512,7 +1512,7 @@ function CoupangSettingsModal({
                 <button
                   onClick={saveWingCredentials}
                   disabled={wingSaving}
-                  className="flex-1 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   {wingSaving ? (
                     <>
@@ -1528,7 +1528,7 @@ function CoupangSettingsModal({
           ) : (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
                   로그인 ID
                 </label>
                 <input
@@ -1536,11 +1536,11 @@ function CoupangSettingsModal({
                   value={rocketLoginId}
                   onChange={(e) => setRocketLoginId(e.target.value)}
                   placeholder="쿠팡 로그인 ID를 입력하세요"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
                   로그인 비밀번호
                 </label>
                 <input
@@ -1548,7 +1548,7 @@ function CoupangSettingsModal({
                   value={rocketLoginPassword}
                   onChange={(e) => setRocketLoginPassword(e.target.value)}
                   placeholder="로그인 비밀번호를 입력하세요"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -1557,28 +1557,28 @@ function CoupangSettingsModal({
                 {rocketStatus ? (
                   rocketStatus.connected ? (
                     <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
-                      <span className="text-green-700">연결됨</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#27A644]" />
+                      <span className="text-[#27A644]">연결됨</span>
                     </>
                   ) : rocketStatus.configured ? (
                     <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                      <span className="text-amber-700">설정됨 (미연결)</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#F0BF00]/100" />
+                      <span className="text-[#F0BF00]">설정됨 (미연결)</span>
                     </>
                   ) : (
                     <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-                      <span className="text-slate-500">미설정</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#28282C]" />
+                      <span className="text-[#8A8F98]">미설정</span>
                     </>
                   )
                 ) : (
                   <>
-                    <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-                    <span className="text-slate-500">상태 확인 중...</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#28282C]" />
+                    <span className="text-[#8A8F98]">상태 확인 중...</span>
                   </>
                 )}
                 {rocketStatus && rocketStatus.playwright_installed === false && (
-                  <span className="ml-2 text-xs text-amber-600">서버에서 브라우저 엔진을 준비 중입니다. 1-2분 후 새로고침해주세요.</span>
+                  <span className="ml-2 text-xs text-[#F0BF00]">서버에서 브라우저 엔진을 준비 중입니다. 1-2분 후 새로고침해주세요.</span>
                 )}
               </div>
 
@@ -1586,8 +1586,8 @@ function CoupangSettingsModal({
               {rocketMessage && (
                 <div className={`p-3 text-sm rounded-lg ${
                   rocketMessage.type === 'success'
-                    ? 'bg-green-50 text-green-700 border border-green-200'
-                    : 'bg-red-50 text-red-700 border border-red-200'
+                    ? 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/30'
+                    : 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
                 }`}>
                   {rocketMessage.text}
                 </div>
@@ -1598,11 +1598,11 @@ function CoupangSettingsModal({
                 <button
                   onClick={testRocketConnection}
                   disabled={rocketTesting}
-                  className="flex-1 px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 text-sm bg-[#141516] text-[#D0D6E0] rounded-lg hover:bg-[#141516]/7 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   {rocketTesting ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                      <div className="w-4 h-4 border-2 border-[#34343A] border-t-transparent rounded-full animate-spin" />
                       테스트 중...
                     </>
                   ) : (
@@ -1612,7 +1612,7 @@ function CoupangSettingsModal({
                 <button
                   onClick={saveRocketCredentials}
                   disabled={rocketSaving}
-                  className="flex-1 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   {rocketSaving ? (
                     <>
@@ -1748,13 +1748,13 @@ function UploadModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <div className="bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-2xl max-h-[90vh] overflow-hidden">
+        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-800">{channel.name} 매출 데이터 입력</h3>
-            <p className="text-sm text-slate-500">{year}년 {month}월</p>
+            <h3 className="text-lg font-semibold text-[#F7F8F8]">{channel.name} 매출 데이터 입력</h3>
+            <p className="text-sm text-[#8A8F98]">{year}년 {month}월</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="text-[#62666D] hover:text-[#D0D6E0]">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -1768,8 +1768,8 @@ function UploadModal({
               onClick={() => setMode('file')}
               className={`flex-1 py-2 rounded-lg transition-colors ${
                 mode === 'file'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'bg-[#5E6AD2] text-white'
+                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
               }`}
             >
               파일 업로드
@@ -1778,8 +1778,8 @@ function UploadModal({
               onClick={() => setMode('manual')}
               className={`flex-1 py-2 rounded-lg transition-colors ${
                 mode === 'manual'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'bg-[#5E6AD2] text-white'
+                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
               }`}
             >
               수동 입력
@@ -1788,7 +1788,7 @@ function UploadModal({
 
           {mode === 'file' ? (
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center">
+              <div className="border-2 border-dashed border-[#23252A] rounded-xl p-8 text-center">
                 <input
                   type="file"
                   accept=".xlsx,.xls,.csv"
@@ -1797,29 +1797,29 @@ function UploadModal({
                   id="file-upload"
                 />
                 <label htmlFor="file-upload" className="cursor-pointer">
-                  <div className="text-slate-400 mb-2">
+                  <div className="text-[#62666D] mb-2">
                     <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                   </div>
-                  <p className="text-slate-600 mb-1">Excel 또는 CSV 파일을 선택하세요</p>
-                  <p className="text-sm text-slate-400">xlsx, xls, csv 지원</p>
+                  <p className="text-[#8A8F98] mb-1">Excel 또는 CSV 파일을 선택하세요</p>
+                  <p className="text-sm text-[#62666D]">xlsx, xls, csv 지원</p>
                 </label>
               </div>
               {file && (
-                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
-                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-center gap-2 p-3 bg-[#5E6AD2]/10 rounded-lg">
+                  <svg className="w-5 h-5 text-[#7070FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <span className="text-sm text-blue-700 flex-1">{file.name}</span>
-                  <button onClick={() => setFile(null)} className="text-blue-500 hover:text-blue-700">
+                  <span className="text-sm text-[#828FFF] flex-1">{file.name}</span>
+                  <button onClick={() => setFile(null)} className="text-[#7070FF] hover:text-[#828FFF]">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
               )}
-              <div className="text-sm text-slate-500 bg-slate-50 p-4 rounded-lg">
+              <div className="text-sm text-[#8A8F98] bg-[#08090A] p-4 rounded-lg">
                 <p className="font-medium mb-2">파일 형식 안내</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>필수 컬럼: 날짜(또는 일), 매출</li>
@@ -1830,7 +1830,7 @@ function UploadModal({
           ) : (
             <div className="max-h-96 overflow-y-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 sticky top-0">
+                <thead className="bg-[#08090A] sticky top-0">
                   <tr>
                     <th className="px-3 py-2 text-left">일</th>
                     <th className="px-3 py-2 text-left">매출</th>
@@ -1839,7 +1839,7 @@ function UploadModal({
                 </thead>
                 <tbody>
                   {manualData.map((row, idx) => (
-                    <tr key={row.day} className="border-b border-slate-100">
+                    <tr key={row.day} className="border-b border-[#23252A]">
                       <td className="px-3 py-2 font-medium">{row.day}일</td>
                       <td className="px-3 py-1">
                         <input
@@ -1851,7 +1851,7 @@ function UploadModal({
                             setManualData(newData);
                           }}
                           placeholder="0"
-                          className="w-full px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-2 py-1 border border-[#23252A] rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </td>
                       <td className="px-3 py-1">
@@ -1864,7 +1864,7 @@ function UploadModal({
                             setManualData(newData);
                           }}
                           placeholder="0"
-                          className="w-full px-2 py-1 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-2 py-1 border border-[#23252A] rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </td>
                     </tr>
@@ -1875,23 +1875,23 @@ function UploadModal({
           )}
 
           {error && (
-            <div className="mt-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg">
+            <div className="mt-4 p-3 bg-[#EB5757]/10 text-[#EB5757] text-sm rounded-lg">
               {error}
             </div>
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-[#23252A] flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-slate-600 hover:text-slate-800"
+            className="px-4 py-2 text-[#8A8F98] hover:text-[#F7F8F8]"
           >
             취소
           </button>
           <button
             onClick={mode === 'file' ? handleFileUpload : handleManualSubmit}
             disabled={isUploading || (mode === 'file' && !file)}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-2 bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isUploading ? '처리 중...' : mode === 'file' ? '업로드' : '저장'}
           </button>

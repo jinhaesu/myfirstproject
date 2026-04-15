@@ -180,8 +180,8 @@ const downloadExcel = (rows: ProductionResult[]) => {
 // Shift colors
 // ─────────────────────────────────────────────
 const SHIFT_COLORS: Record<Shift, { bg: string; text: string }> = {
-  '주간': { bg: 'bg-amber-100', text: 'text-amber-700' },
-  '야간': { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+  '주간': { bg: 'bg-[#F0BF00]/15', text: 'text-[#F0BF00]' },
+  '야간': { bg: 'bg-[#5E6AD2]/15', text: 'text-[#828FFF]' },
 };
 
 // ═══════════════════════════════════════════════
@@ -199,7 +199,7 @@ function MiniBarChart({ data, labelKey, valueKey, color = '#3b82f6' }: { data: {
             style={{ height: `${(d[valueKey] / max) * 100}%`, backgroundColor: color }}
             title={`${d[labelKey]}: ${formatNumber(d[valueKey])}`}
           />
-          <span className="text-[10px] text-slate-500 mt-1 truncate w-full text-center">{d[labelKey]}</span>
+          <span className="text-[10px] text-[#8A8F98] mt-1 truncate w-full text-center">{d[labelKey]}</span>
         </div>
       ))}
     </div>
@@ -228,7 +228,7 @@ function MiniLineChart({ data, labelKey, valueKey, color = '#3b82f6' }: { data: 
           </circle>
         ))}
       </svg>
-      <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+      <div className="flex justify-between text-[10px] text-[#8A8F98] mt-1">
         {data.length <= 8 ? data.map((d, i) => <span key={i}>{d[labelKey]}</span>) : (
           <>
             <span>{data[0][labelKey]}</span>
@@ -271,8 +271,8 @@ function MiniPieChart({ data }: { data: { name: string; value: number; color: st
         {data.map((d, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
-            <span className="text-slate-600">{d.name}</span>
-            <span className="font-semibold text-slate-800">{formatNumber(d.value)}</span>
+            <span className="text-[#8A8F98]">{d.name}</span>
+            <span className="font-semibold text-[#F7F8F8]">{formatNumber(d.value)}</span>
           </div>
         ))}
       </div>
@@ -518,10 +518,10 @@ export default function ProductionResultsPage() {
   // Category badge colors
   const CATEGORY_BADGE: Record<string, { bg: string; text: string }> = {
     '마카롱': { bg: 'bg-pink-100', text: 'text-pink-700' },
-    '케이크': { bg: 'bg-amber-100', text: 'text-amber-700' },
-    '쿠키':   { bg: 'bg-orange-100', text: 'text-orange-700' },
-    '비누':   { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-    '캔들':   { bg: 'bg-purple-100', text: 'text-purple-700' },
+    '케이크': { bg: 'bg-[#F0BF00]/15', text: 'text-[#F0BF00]' },
+    '쿠키':   { bg: 'bg-[#FC7840]/15', text: 'text-[#FC7840]' },
+    '비누':   { bg: 'bg-[#27A644]/15', text: 'text-[#27A644]' },
+    '캔들':   { bg: 'bg-[#5E6AD2]/15', text: 'text-[#828FFF]' },
   };
 
   // ── Handlers ──
@@ -761,8 +761,8 @@ export default function ProductionResultsPage() {
   // ── Render guard ──
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
+      <div className="min-h-screen flex items-center justify-center bg-[#08090A]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#5E6AD2]" />
       </div>
     );
   }
@@ -772,59 +772,59 @@ export default function ProductionResultsPage() {
   // JSX
   // ═══════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#08090A]">
       <Navigation />
 
       <main className="max-w-[1800px] mx-auto px-4 sm:px-6 py-6">
         {/* ── Page Header ── */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800">생산 결과 (Production Results)</h1>
-          <p className="text-sm text-slate-500 mt-1">생산일보 RAW-DATA 관리 및 분석</p>
+          <h1 className="text-2xl font-bold text-[#F7F8F8]">생산 결과 (Production Results)</h1>
+          <p className="text-sm text-[#8A8F98] mt-1">생산일보 RAW-DATA 관리 및 분석</p>
         </div>
 
         {/* ── Filters Bar ── */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
+        <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4 mb-6">
           <div className="flex flex-wrap items-end gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">시작일</label>
+              <label className="block text-xs font-medium text-[#8A8F98] mb-1">시작일</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">종료일</label>
+              <label className="block text-xs font-medium text-[#8A8F98] mb-1">종료일</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">담당자</label>
+              <label className="block text-xs font-medium text-[#8A8F98] mb-1">담당자</label>
               <select
                 value={managerFilter}
                 onChange={e => setManagerFilter(e.target.value)}
-                className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[100px]"
+                className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2] min-w-[100px]"
               >
                 {allManagers.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs font-medium text-slate-600 mb-1">품목명 / 품목류 검색</label>
+              <label className="block text-xs font-medium text-[#8A8F98] mb-1">품목명 / 품목류 검색</label>
               <input
                 type="text"
                 value={productFilter}
                 onChange={e => setProductFilter(e.target.value)}
                 placeholder="품목명 또는 품목류로 검색..."
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
               />
             </div>
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <span className="bg-slate-100 px-3 py-2 rounded-lg font-medium">
+            <div className="flex items-center gap-2 text-sm text-[#8A8F98]">
+              <span className="bg-[#141516] px-3 py-2 rounded-lg font-medium">
                 {filteredRows.length}건 / {rows.length}건
               </span>
             </div>
@@ -833,77 +833,77 @@ export default function ProductionResultsPage() {
 
         {/* ── Summary Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="text-xs text-slate-500 mb-1">총 생산량</div>
-            <div className="text-2xl font-bold text-slate-800">{formatNumber(summary.totalQuantity)}</div>
-            <div className="text-xs text-emerald-600 mt-1">{summary.totalRows}건 기록</div>
+          <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
+            <div className="text-xs text-[#8A8F98] mb-1">총 생산량</div>
+            <div className="text-2xl font-bold text-[#F7F8F8]">{formatNumber(summary.totalQuantity)}</div>
+            <div className="text-xs text-[#27A644] mt-1">{summary.totalRows}건 기록</div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="text-xs text-slate-500 mb-1">총 생산액</div>
-            <div className="text-2xl font-bold text-blue-600">{formatNumber(summary.totalValue)}</div>
-            <div className="text-xs text-slate-400 mt-1">원</div>
+          <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
+            <div className="text-xs text-[#8A8F98] mb-1">총 생산액</div>
+            <div className="text-2xl font-bold text-[#7070FF]">{formatNumber(summary.totalValue)}</div>
+            <div className="text-xs text-[#62666D] mt-1">원</div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="text-xs text-slate-500 mb-1">총 투여 시간</div>
-            <div className="text-2xl font-bold text-emerald-600">{summary.totalHours.toLocaleString('ko-KR', { minimumFractionDigits: 1 })}h</div>
-            <div className="text-xs text-slate-400 mt-1">생산 투여 총 시간 합계</div>
+          <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
+            <div className="text-xs text-[#8A8F98] mb-1">총 투여 시간</div>
+            <div className="text-2xl font-bold text-[#27A644]">{summary.totalHours.toLocaleString('ko-KR', { minimumFractionDigits: 1 })}h</div>
+            <div className="text-xs text-[#62666D] mt-1">생산 투여 총 시간 합계</div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="text-xs text-slate-500 mb-1">평균 원가율</div>
-            <div className="text-2xl font-bold text-amber-600">{summary.avgCostRate.toFixed(1)}%</div>
-            <div className="text-xs text-slate-400 mt-1">원가 총액 / 총 생산액</div>
+          <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
+            <div className="text-xs text-[#8A8F98] mb-1">평균 원가율</div>
+            <div className="text-2xl font-bold text-[#F0BF00]">{summary.avgCostRate.toFixed(1)}%</div>
+            <div className="text-xs text-[#62666D] mt-1">원가 총액 / 총 생산액</div>
           </div>
         </div>
 
         {/* ── Charts Section ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           {/* Daily production value trend */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">일별 총 생산액 추이</h3>
+          <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
+            <h3 className="text-sm font-semibold text-[#D0D6E0] mb-3">일별 총 생산액 추이</h3>
             <MiniLineChart data={dailyTrendData} labelKey="label" valueKey="value" color="#3b82f6" />
           </div>
           {/* Production value by category */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">품목류별 총 생산액</h3>
+          <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
+            <h3 className="text-sm font-semibold text-[#D0D6E0] mb-3">품목류별 총 생산액</h3>
             <MiniBarChart data={categoryChartData} labelKey="label" valueKey="value" color="#10b981" />
           </div>
           {/* Category quantity distribution */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">품목류별 생산량 분포</h3>
+          <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
+            <h3 className="text-sm font-semibold text-[#D0D6E0] mb-3">품목류별 생산량 분포</h3>
             <MiniPieChart data={categoryPieData} />
           </div>
         </div>
 
         {/* ── 품목별 시간당 생산량 Section ── */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
+        <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] mb-6 overflow-hidden">
           {/* Collapsible header */}
           <button
             onClick={() => setProductStatsOpen(prev => !prev)}
-            className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition"
+            className="w-full flex items-center justify-between px-5 py-3 hover:bg-[#141516]/5 transition"
           >
             <div className="flex items-center gap-2">
               <svg
-                className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${productStatsOpen ? 'rotate-90' : ''}`}
+                className={`w-4 h-4 text-[#8A8F98] transition-transform duration-200 ${productStatsOpen ? 'rotate-90' : ''}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-              <h3 className="text-sm font-semibold text-slate-700">품목별 시간당 생산량</h3>
-              <span className="text-xs text-slate-400 ml-1">품목별 생산 효율 분석</span>
+              <h3 className="text-sm font-semibold text-[#D0D6E0]">품목별 시간당 생산량</h3>
+              <span className="text-xs text-[#62666D] ml-1">품목별 생산 효율 분석</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{productStats.length}개 품목</span>
+              <span className="text-xs text-[#8A8F98] bg-[#141516] px-2 py-0.5 rounded-full">{productStats.length}개 품목</span>
             </div>
           </button>
 
           {productStatsOpen && (
-            <div className="border-t border-slate-200">
+            <div className="border-t border-[#23252A]">
               {/* Sync button bar */}
-              <div className="px-5 py-2 border-b border-slate-100 flex items-center justify-end">
+              <div className="px-5 py-2 border-b border-[#23252A] flex items-center justify-end">
                 <button
                   onClick={syncRatesToProducts}
                   disabled={syncingRates || productStats.length === 0}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#5E6AD2] text-white text-xs font-medium rounded-lg hover:bg-[#828FFF] transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {syncingRates ? (
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -918,7 +918,7 @@ export default function ProductionResultsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
-                    <tr className="bg-slate-50">
+                    <tr className="bg-[#08090A]">
                       {([
                         { field: 'category' as const, label: '품목류', align: 'center' },
                         { field: 'productName' as const, label: '품목명', align: 'left' },
@@ -929,19 +929,19 @@ export default function ProductionResultsPage() {
                       ]).map(col => (
                         <th
                           key={col.field}
-                          className="border-b border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 select-none whitespace-nowrap"
+                          className="border-b border-[#23252A] px-3 py-2 text-xs font-semibold text-[#D0D6E0] cursor-pointer hover:bg-[#141516]/5 select-none whitespace-nowrap"
                           style={{ textAlign: col.align as any }}
                           onClick={() => handlePsSort(col.field)}
                         >
                           <div className="flex items-center justify-between gap-1">
                             <span>{col.label}</span>
-                            <span className="text-slate-400">
+                            <span className="text-[#62666D]">
                               {psSortField === col.field ? (psSortDir === 'asc' ? '\u25B2' : '\u25BC') : '\u25B4'}
                             </span>
                           </div>
                         </th>
                       ))}
-                      <th className="border-b border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 text-left" style={{ minWidth: '120px' }}>
+                      <th className="border-b border-[#23252A] px-3 py-2 text-xs font-semibold text-[#D0D6E0] text-left" style={{ minWidth: '120px' }}>
                         효율 비교
                       </th>
                     </tr>
@@ -949,7 +949,7 @@ export default function ProductionResultsPage() {
                   <tbody>
                     {productStats.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center text-slate-400 py-8 text-sm">
+                        <td colSpan={7} className="text-center text-[#62666D] py-8 text-sm">
                           해당 기간에 데이터가 없습니다.
                         </td>
                       </tr>
@@ -965,47 +965,47 @@ export default function ProductionResultsPage() {
                         );
 
                         return productStats.map((ps, idx) => {
-                          const badge = CATEGORY_BADGE[ps.category] || { bg: 'bg-slate-100', text: 'text-slate-700' };
+                          const badge = CATEGORY_BADGE[ps.category] || { bg: 'bg-[#141516]', text: 'text-[#D0D6E0]' };
                           const isTop = topNames.has(ps.productName);
                           const isBottom = effectiveBottom.has(ps.productName);
-                          const rateColor = isTop ? 'text-emerald-600 font-semibold' : isBottom ? 'text-orange-600 font-semibold' : 'text-slate-800';
-                          const rowBg = isTop ? 'bg-emerald-50/40' : isBottom ? 'bg-orange-50/40' : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50');
+                          const rateColor = isTop ? 'text-[#27A644] font-semibold' : isBottom ? 'text-[#FC7840] font-semibold' : 'text-[#F7F8F8]';
+                          const rowBg = isTop ? 'bg-[#27A644]/10/40' : isBottom ? 'bg-[#FC7840]/10/40' : (idx % 2 === 0 ? 'bg-[#0F1011]' : 'bg-[#08090A]/50');
                           const barPct = maxHourlyRate > 0 ? (ps.hourlyRate / maxHourlyRate) * 100 : 0;
                           const barColor = isTop ? '#10b981' : isBottom ? '#f97316' : '#3b82f6';
 
                           return (
-                            <tr key={ps.productName} className={`${rowBg} hover:bg-blue-50/50 transition-colors`}>
-                              <td className="border-b border-slate-100 px-3 py-2 text-center whitespace-nowrap">
+                            <tr key={ps.productName} className={`${rowBg} hover:bg-[#5E6AD2]/10/50 transition-colors`}>
+                              <td className="border-b border-[#23252A] px-3 py-2 text-center whitespace-nowrap">
                                 <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${badge.bg} ${badge.text}`}>
                                   {ps.category}
                                 </span>
                               </td>
-                              <td className="border-b border-slate-100 px-3 py-2 text-left whitespace-nowrap text-slate-800">
+                              <td className="border-b border-[#23252A] px-3 py-2 text-left whitespace-nowrap text-[#F7F8F8]">
                                 {ps.productName}
                               </td>
-                              <td className="border-b border-slate-100 px-3 py-2 text-right whitespace-nowrap text-slate-800">
+                              <td className="border-b border-[#23252A] px-3 py-2 text-right whitespace-nowrap text-[#F7F8F8]">
                                 {formatNumber(ps.totalQty)}
                               </td>
-                              <td className="border-b border-slate-100 px-3 py-2 text-right whitespace-nowrap text-slate-800">
+                              <td className="border-b border-[#23252A] px-3 py-2 text-right whitespace-nowrap text-[#F7F8F8]">
                                 {ps.totalHours.toLocaleString('ko-KR', { minimumFractionDigits: 1 })}시간
                               </td>
-                              <td className={`border-b border-slate-100 px-3 py-2 text-right whitespace-nowrap ${rateColor}`}>
+                              <td className={`border-b border-[#23252A] px-3 py-2 text-right whitespace-nowrap ${rateColor}`}>
                                 {ps.hourlyRate.toFixed(1)}개/시
                                 {isTop && <span className="ml-1 text-emerald-500 text-xs align-top">{'\u25B2'}</span>}
-                                {isBottom && <span className="ml-1 text-orange-500 text-xs align-top">{'\u25BC'}</span>}
+                                {isBottom && <span className="ml-1 text-[#FC7840] text-xs align-top">{'\u25BC'}</span>}
                               </td>
-                              <td className="border-b border-slate-100 px-3 py-2 text-center whitespace-nowrap text-slate-600">
+                              <td className="border-b border-[#23252A] px-3 py-2 text-center whitespace-nowrap text-[#8A8F98]">
                                 {ps.count}건
                               </td>
-                              <td className="border-b border-slate-100 px-3 py-2">
+                              <td className="border-b border-[#23252A] px-3 py-2">
                                 <div className="flex items-center gap-2">
-                                  <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden" style={{ minWidth: '80px' }}>
+                                  <div className="flex-1 h-3 bg-[#141516] rounded-full overflow-hidden" style={{ minWidth: '80px' }}>
                                     <div
                                       className="h-full rounded-full transition-all duration-500"
                                       style={{ width: `${barPct}%`, backgroundColor: barColor }}
                                     />
                                   </div>
-                                  <span className="text-[10px] text-slate-400 whitespace-nowrap w-8 text-right">{barPct.toFixed(0)}%</span>
+                                  <span className="text-[10px] text-[#62666D] whitespace-nowrap w-8 text-right">{barPct.toFixed(0)}%</span>
                                 </div>
                               </td>
                             </tr>
@@ -1021,10 +1021,10 @@ export default function ProductionResultsPage() {
         </div>
 
         {/* ── Toolbar ── */}
-        <div className="bg-white rounded-t-xl shadow-sm border border-slate-200 border-b-0 px-4 py-3 flex flex-wrap items-center gap-2">
+        <div className="bg-[#0F1011] rounded-t-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] border-b-0 px-4 py-3 flex flex-wrap items-center gap-2">
           <button
             onClick={addRow}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#5E6AD2] text-white text-sm font-medium rounded-lg hover:bg-[#828FFF] transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             행 추가
@@ -1032,14 +1032,14 @@ export default function ProductionResultsPage() {
           <button
             onClick={deleteSelectedRows}
             disabled={selectedRows.size === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#EB5757]/10 text-[#EB5757] text-sm font-medium rounded-lg hover:bg-[#EB5757]/15 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             선택 삭제{selectedRows.size > 0 && ` (${selectedRows.size})`}
           </button>
           <div className="flex-1" />
           {modifiedIds.size > 0 && (
-            <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-1 rounded">
+            <span className="text-xs text-[#F0BF00] font-medium bg-[#F0BF00]/10 px-2 py-1 rounded">
               {modifiedIds.size}건 수정됨
             </span>
           )}
@@ -1052,7 +1052,7 @@ export default function ProductionResultsPage() {
           </button>
           <button
             onClick={() => downloadExcel(filteredRows)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#141516] text-[#D0D6E0] text-sm font-medium rounded-lg hover:bg-[#141516]/7 transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             Excel 내보내기
@@ -1062,7 +1062,7 @@ export default function ProductionResultsPage() {
         {/* ── Data Grid ── */}
         <div
           ref={tableRef}
-          className="bg-white shadow-sm border border-slate-200 rounded-b-xl overflow-auto max-h-[70vh]"
+          className="bg-[#0F1011] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] rounded-b-xl overflow-auto max-h-[70vh]"
           onCopy={handleCopy}
           onPaste={handlePaste}
           tabIndex={0}
@@ -1071,49 +1071,49 @@ export default function ProductionResultsPage() {
           <table className="w-full border-collapse text-sm" style={{ minWidth: '1600px' }}>
             {/* Header */}
             <thead className="sticky top-0 z-20">
-              <tr className="bg-slate-50">
-                <th className="sticky left-0 z-30 bg-slate-50 border border-slate-200 px-2 py-2 w-10">
+              <tr className="bg-[#08090A]">
+                <th className="sticky left-0 z-30 bg-[#08090A] border border-[#23252A] px-2 py-2 w-10">
                   <input
                     type="checkbox"
                     checked={sortedRows.length > 0 && selectedRows.size === sortedRows.length}
                     onChange={toggleSelectAll}
-                    className="rounded border-slate-300"
+                    className="rounded border-[#23252A]"
                   />
                 </th>
-                <th className="border border-slate-200 px-1 py-2 w-10 text-xs text-slate-500">#</th>
+                <th className="border border-[#23252A] px-1 py-2 w-10 text-xs text-[#8A8F98]">#</th>
                 {COLUMNS.map(col => (
                   <th
                     key={col.key}
-                    className="border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 select-none whitespace-nowrap"
+                    className="border border-[#23252A] px-2 py-2 text-xs font-semibold text-[#D0D6E0] cursor-pointer hover:bg-[#141516]/5 select-none whitespace-nowrap"
                     style={{ width: col.width, textAlign: col.align }}
                     onClick={() => handleSort(col.key)}
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span>{col.label}</span>
-                      <span className="text-slate-400">
+                      <span className="text-[#62666D]">
                         {sortField === col.key ? (sortDir === 'asc' ? '\u25B2' : '\u25BC') : '\u25B4'}
                       </span>
                     </div>
                   </th>
                 ))}
-                <th className="border border-slate-200 px-2 py-2 w-20 text-xs font-semibold text-slate-700">작업</th>
+                <th className="border border-[#23252A] px-2 py-2 w-20 text-xs font-semibold text-[#D0D6E0]">작업</th>
               </tr>
               {/* Column filter row */}
-              <tr className="bg-slate-50/50">
-                <th className="sticky left-0 z-30 bg-slate-50 border border-slate-200" />
-                <th className="border border-slate-200" />
+              <tr className="bg-[#08090A]/50">
+                <th className="sticky left-0 z-30 bg-[#08090A] border border-[#23252A]" />
+                <th className="border border-[#23252A]" />
                 {COLUMNS.map(col => (
-                  <th key={col.key} className="border border-slate-200 px-1 py-1">
+                  <th key={col.key} className="border border-[#23252A] px-1 py-1">
                     <input
                       type="text"
                       placeholder="..."
                       value={columnFilters[col.key] || ''}
                       onChange={e => setColumnFilters(prev => ({ ...prev, [col.key]: e.target.value }))}
-                      className="w-full text-xs px-1 py-0.5 border border-slate-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      className="w-full text-xs px-1 py-0.5 border border-[#23252A] rounded bg-[#0F1011] focus:outline-none focus:ring-1 focus:ring-blue-400"
                     />
                   </th>
                 ))}
-                <th className="border border-slate-200" />
+                <th className="border border-[#23252A]" />
               </tr>
             </thead>
 
@@ -1121,7 +1121,7 @@ export default function ProductionResultsPage() {
             <tbody>
               {sortedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={COLUMNS.length + 3} className="text-center text-slate-400 py-16 text-sm">
+                  <td colSpan={COLUMNS.length + 3} className="text-center text-[#62666D] py-16 text-sm">
                     데이터가 없습니다. 행을 추가하거나 Excel에서 붙여넣기 (Ctrl+V) 하세요.
                   </td>
                 </tr>
@@ -1134,25 +1134,25 @@ export default function ProductionResultsPage() {
                     <tr
                       key={row.id}
                       className={`
-                        ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}
-                        ${isSelected ? '!bg-blue-50' : ''}
+                        ${rowIdx % 2 === 0 ? 'bg-[#0F1011]' : 'bg-[#08090A]/50'}
+                        ${isSelected ? '!bg-[#5E6AD2]/10' : ''}
                         ${isModified ? 'border-l-2 border-l-amber-400' : ''}
-                        hover:bg-blue-50/50 transition-colors
+                        hover:bg-[#5E6AD2]/10/50 transition-colors
                       `}
                     >
                       {/* Checkbox */}
-                      <td className="sticky left-0 z-10 bg-inherit border border-slate-200 px-2 py-1 text-center">
+                      <td className="sticky left-0 z-10 bg-inherit border border-[#23252A] px-2 py-1 text-center">
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleSelectRow(row.id)}
-                          className="rounded border-slate-300"
+                          className="rounded border-[#23252A]"
                         />
                       </td>
                       {/* Row number */}
-                      <td className="border border-slate-200 px-1 py-1 text-center text-xs text-slate-400">
+                      <td className="border border-[#23252A] px-1 py-1 text-center text-xs text-[#62666D]">
                         {rowIdx + 1}
-                        {isNewRow && <span className="ml-0.5 text-blue-500">*</span>}
+                        {isNewRow && <span className="ml-0.5 text-[#7070FF]">*</span>}
                       </td>
                       {/* Data cells */}
                       {COLUMNS.map(col => {
@@ -1162,14 +1162,14 @@ export default function ProductionResultsPage() {
                         if (isEditing) {
                           if (col.type === 'select') {
                             return (
-                              <td key={col.key} className="border border-blue-400 p-0 bg-blue-50" style={{ width: col.width }}>
+                              <td key={col.key} className="border border-blue-400 p-0 bg-[#5E6AD2]/10" style={{ width: col.width }}>
                                 <select
                                   ref={editInputRef as any}
                                   value={editValue}
                                   onChange={e => { setEditValue(e.target.value); }}
                                   onBlur={commitEdit}
                                   onKeyDown={handleCellKeyDown}
-                                  className="w-full px-1 py-1 text-sm bg-blue-50 focus:outline-none"
+                                  className="w-full px-1 py-1 text-sm bg-[#5E6AD2]/10 focus:outline-none"
                                 >
                                   {col.options?.map(o => <option key={o} value={o}>{o}</option>)}
                                 </select>
@@ -1177,7 +1177,7 @@ export default function ProductionResultsPage() {
                             );
                           }
                           return (
-                            <td key={col.key} className="border border-blue-400 p-0 bg-blue-50" style={{ width: col.width }}>
+                            <td key={col.key} className="border border-blue-400 p-0 bg-[#5E6AD2]/10" style={{ width: col.width }}>
                               <input
                                 ref={editInputRef}
                                 type={col.type === 'date' ? 'date' : 'text'}
@@ -1185,7 +1185,7 @@ export default function ProductionResultsPage() {
                                 onChange={e => setEditValue(e.target.value)}
                                 onBlur={commitEdit}
                                 onKeyDown={handleCellKeyDown}
-                                className="w-full px-1 py-1 text-sm bg-blue-50 focus:outline-none"
+                                className="w-full px-1 py-1 text-sm bg-[#5E6AD2]/10 focus:outline-none"
                                 style={{ textAlign: col.align }}
                               />
                             </td>
@@ -1210,7 +1210,7 @@ export default function ProductionResultsPage() {
                         return (
                           <td
                             key={col.key}
-                            className="border border-slate-200 px-2 py-1 cursor-cell hover:bg-blue-50 whitespace-nowrap"
+                            className="border border-[#23252A] px-2 py-1 cursor-cell hover:bg-[#5E6AD2]/10 whitespace-nowrap"
                             style={{ textAlign: col.align, width: col.width }}
                             onDoubleClick={() => startEditing(rowIdx, col.key)}
                           >
@@ -1219,18 +1219,18 @@ export default function ProductionResultsPage() {
                         );
                       })}
                       {/* Actions */}
-                      <td className="border border-slate-200 px-1 py-1 text-center whitespace-nowrap">
+                      <td className="border border-[#23252A] px-1 py-1 text-center whitespace-nowrap">
                         <button
                           onClick={() => duplicateRow(row.id)}
                           title="복제"
-                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-slate-100 text-slate-500 hover:text-blue-600 transition"
+                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[#141516]/5 text-[#8A8F98] hover:text-[#7070FF] transition"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeWidth="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2" /></svg>
                         </button>
                         <button
                           onClick={() => deleteRow(row.id)}
                           title="삭제"
-                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-red-50 text-slate-500 hover:text-red-600 transition"
+                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[#EB5757]/10 text-[#8A8F98] hover:text-[#EB5757] transition"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
@@ -1244,7 +1244,7 @@ export default function ProductionResultsPage() {
         </div>
 
         {/* ── Footer info ── */}
-        <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-slate-500 px-1">
+        <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-[#8A8F98] px-1">
           <div className="flex items-center gap-4">
             <span>더블클릭하여 셀 편집</span>
             <span>Tab으로 다음 셀 이동</span>
@@ -1253,7 +1253,7 @@ export default function ProductionResultsPage() {
           </div>
           <div>
             {modifiedIds.size > 0 && (
-              <span className="text-amber-600 font-medium">미저장 변경사항 {modifiedIds.size}건</span>
+              <span className="text-[#F0BF00] font-medium">미저장 변경사항 {modifiedIds.size}건</span>
             )}
           </div>
         </div>
@@ -1262,7 +1262,7 @@ export default function ProductionResultsPage() {
       {/* ── Toast notification ── */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className="bg-slate-800 text-white px-5 py-3 rounded-xl shadow-xl text-sm font-medium flex items-center gap-2">
+          <div className="bg-[#0F1011] text-white px-5 py-3 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm font-medium flex items-center gap-2">
             <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             {toast}
           </div>
