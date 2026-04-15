@@ -359,7 +359,7 @@ export function TargetListSection({
                       }} />
                       <Tooltip formatter={(value: number) => formatNumber(value)} />
                       <Legend />
-                      <Bar dataKey="매출" fill="#3b82f6" />
+                      <Bar dataKey="매출" fill="#5E6AD2" />
                       <Bar dataKey="판매량" fill="#10b981" />
                       <Bar dataKey="공헌이익" fill="#8b5cf6" />
                       <Bar dataKey="광고선전비" fill="#f97316" />
@@ -383,7 +383,7 @@ export function TargetListSection({
                       }} />
                       <Tooltip formatter={(value: number) => formatNumber(value)} />
                       <Legend />
-                      <Bar dataKey="매출" fill="#3b82f6" />
+                      <Bar dataKey="매출" fill="#5E6AD2" />
                       <Bar dataKey="판매량" fill="#10b981" />
                       <Bar dataKey="공헌이익" fill="#8b5cf6" />
                       <Bar dataKey="광고선전비" fill="#f97316" />

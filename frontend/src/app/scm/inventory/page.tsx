@@ -675,20 +675,20 @@ export default function InventoryPage() {
                     layout="vertical"
                     margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis type="number" tick={{ fontSize: 12, fill: '#64748b' }} />
-                    <YAxis dataKey="category" type="category" tick={{ fontSize: 12, fill: '#64748b' }} width={70} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1C1C1F" />
+                    <XAxis type="number" tick={{ fontSize: 12, fill: '#8A8F98' }} />
+                    <YAxis dataKey="category" type="category" tick={{ fontSize: 12, fill: '#8A8F98' }} width={70} />
                     <Tooltip
                       contentStyle={{
                         borderRadius: '12px',
-                        border: '1px solid #e2e8f0',
+                        border: '1px solid #34343A',
                         boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                       }}
                       formatter={(value: number) => fmt(value)}
                     />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
                     <Bar dataKey="현재재고" fill="#6366f1" radius={[0, 4, 4, 0]} />
-                    <Bar dataKey="안전재고" fill="#e2e8f0" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="안전재고" fill="#232326" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -817,13 +817,13 @@ export default function InventoryPage() {
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={outboundTrendData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} />
-                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1C1C1F" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#8A8F98' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#8A8F98' }} />
                     <Tooltip
                       contentStyle={{
                         borderRadius: '12px',
-                        border: '1px solid #e2e8f0',
+                        border: '1px solid #34343A',
                         boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                       }}
                       formatter={(value: number) => [fmt(value) + '개', '출고수량']}

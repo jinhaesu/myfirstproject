@@ -733,8 +733,8 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       }} />
                       <Tooltip formatter={(value: number, name: string) => [new Intl.NumberFormat('ko-KR').format(applyVat(value)), name]} />
                       <Legend wrapperStyle={{ fontSize: '11px' }} />
-                      <Bar dataKey="현황_매출" fill="#3b82f6" name="현황 매출" />
-                      <Bar dataKey="목표_매출" fill="#93c5fd" name="목표 매출" />
+                      <Bar dataKey="현황_매출" fill="#5E6AD2" name="현황 매출" />
+                      <Bar dataKey="목표_매출" fill="#5E6AD2" name="목표 매출" />
                       <Bar dataKey="현황_판매량" fill="#10b981" name="현황 판매량" />
                       <Bar dataKey="목표_판매량" fill="#6ee7b7" name="목표 판매량" />
                     </BarChart>
@@ -766,8 +766,8 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       }} />
                       <Tooltip formatter={(value: number, name: string) => [new Intl.NumberFormat('ko-KR').format(applyVat(value)), name]} />
                       <Legend wrapperStyle={{ fontSize: '11px' }} />
-                      <Bar dataKey="현황_매출" fill="#3b82f6" name="현황 매출" />
-                      <Bar dataKey="목표_매출" fill="#93c5fd" name="목표 매출" />
+                      <Bar dataKey="현황_매출" fill="#5E6AD2" name="현황 매출" />
+                      <Bar dataKey="목표_매출" fill="#5E6AD2" name="목표 매출" />
                       <Bar dataKey="현황_판매량" fill="#10b981" name="현황 판매량" />
                       <Bar dataKey="목표_판매량" fill="#6ee7b7" name="목표 판매량" />
                     </BarChart>
@@ -906,7 +906,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                         formatter={(value: number, name: string) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, name]}
                       />
                       <Legend />
-                      <Line type="monotone" dataKey="매출" stroke="#3B82F6" strokeWidth={2} dot={false} name={`${year}년 ${month}월`} />
+                      <Line type="monotone" dataKey="매출" stroke="#5E6AD2" strokeWidth={2} dot={false} name={`${year}년 ${month}월`} />
                       {showTargetLine && (
                         <Line type="monotone" dataKey="목표" stroke="#F97316" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                       )}
@@ -926,7 +926,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                         formatter={(value: number, name: string) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, name]}
                       />
                       <Legend />
-                      <Bar dataKey="매출" fill="#3B82F6" name={`${year}년 ${month}월`} />
+                      <Bar dataKey="매출" fill="#5E6AD2" name={`${year}년 ${month}월`} />
                       {showTargetLine && (
                         <Bar dataKey="목표" fill="#F97316" />
                       )}

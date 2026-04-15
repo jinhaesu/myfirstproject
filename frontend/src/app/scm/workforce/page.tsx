@@ -999,23 +999,23 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#1C1C1F" />
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 12, fill: '#64748b' }}
-                  axisLine={{ stroke: '#e2e8f0' }}
+                  tick={{ fontSize: 12, fill: '#8A8F98' }}
+                  axisLine={{ stroke: '#23252A' }}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 12, fill: '#64748b' }}
-                  axisLine={{ stroke: '#e2e8f0' }}
+                  tick={{ fontSize: 12, fill: '#8A8F98' }}
+                  axisLine={{ stroke: '#23252A' }}
                   tickLine={false}
                   unit="h"
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e2e8f0',
+                    backgroundColor: '#1C1C1F',
+                    border: '1px solid #34343A',
                     borderRadius: '12px',
                     boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                     fontSize: '13px',
@@ -1053,8 +1053,8 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e2e8f0',
+                    backgroundColor: '#1C1C1F',
+                    border: '1px solid #34343A',
                     borderRadius: '12px',
                     boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                     fontSize: '13px',
@@ -1118,7 +1118,7 @@ function UtilizationChart({ tasks, staffList }: { tasks: Task[]; staffList: Staf
               <circle
                 cx="18" cy="18" r="14"
                 fill="none"
-                stroke="#e2e8f0"
+                stroke="#1C1C1F"
                 strokeWidth="3"
               />
               <circle

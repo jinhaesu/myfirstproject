@@ -64,20 +64,20 @@ const CHANNELS_BY_CATEGORY = ALL_CHANNELS.reduce((acc, ch) => {
 }, {} as Record<string, typeof ALL_CHANNELS>);
 
 const COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899',
-  '#06B6D4', '#84CC16', '#F97316', '#6366F1', '#14B8A6', '#A855F7',
+  '#5E6AD2', '#27A644', '#F0BF00', '#EB5757', '#7070FF', '#EB5757',
+  '#06B6D4', '#68CC58', '#FC7840', '#828FFF', '#00B8CC', '#A855F7',
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  '오픈마켓': '#3B82F6',
-  '소셜커머스': '#10B981',
-  '버티컬': '#F59E0B',
-  '홈쇼핑': '#EF4444',
-  '백화점': '#8B5CF6',
-  '복지몰': '#EC4899',
+  '오픈마켓': '#5E6AD2',
+  '소셜커머스': '#27A644',
+  '버티컬': '#F0BF00',
+  '홈쇼핑': '#EB5757',
+  '백화점': '#7070FF',
+  '복지몰': '#EB5757',
   '대형마트': '#06B6D4',
-  '편의점': '#84CC16',
-  'B2B': '#F97316',
+  '편의점': '#68CC58',
+  'B2B': '#FC7840',
   '기타': '#6B7280',
 };
 
@@ -615,12 +615,12 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
               {monthlyTrend.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={monthlyTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1C1C1F" />
                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`} />
                     <Tooltip formatter={(value: number) => fmtWon(value)} />
                     <Legend />
-                    <Bar dataKey="총매출" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="총매출" fill="#5E6AD2" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="정산금액" fill="#10B981" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

@@ -188,7 +188,7 @@ const SHIFT_COLORS: Record<Shift, { bg: string; text: string }> = {
 // Simple CSS Chart Components
 // ═══════════════════════════════════════════════
 
-function MiniBarChart({ data, labelKey, valueKey, color = '#3b82f6' }: { data: { [k: string]: any }[]; labelKey: string; valueKey: string; color?: string }) {
+function MiniBarChart({ data, labelKey, valueKey, color = '#5E6AD2' }: { data: { [k: string]: any }[]; labelKey: string; valueKey: string; color?: string }) {
   const max = Math.max(...data.map(d => d[valueKey]), 1);
   return (
     <div className="flex items-end gap-1 h-32">
@@ -206,7 +206,7 @@ function MiniBarChart({ data, labelKey, valueKey, color = '#3b82f6' }: { data: {
   );
 }
 
-function MiniLineChart({ data, labelKey, valueKey, color = '#3b82f6' }: { data: { [k: string]: any }[]; labelKey: string; valueKey: string; color?: string }) {
+function MiniLineChart({ data, labelKey, valueKey, color = '#5E6AD2' }: { data: { [k: string]: any }[]; labelKey: string; valueKey: string; color?: string }) {
   if (data.length === 0) return null;
   const max = Math.max(...data.map(d => d[valueKey]), 1);
   const min = Math.min(...data.map(d => d[valueKey]));
@@ -860,7 +860,7 @@ export default function ProductionResultsPage() {
           {/* Daily production value trend */}
           <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
             <h3 className="text-sm font-semibold text-[#D0D6E0] mb-3">일별 총 생산액 추이</h3>
-            <MiniLineChart data={dailyTrendData} labelKey="label" valueKey="value" color="#3b82f6" />
+            <MiniLineChart data={dailyTrendData} labelKey="label" valueKey="value" color="#5E6AD2" />
           </div>
           {/* Production value by category */}
           <div className="bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-4">
@@ -971,7 +971,7 @@ export default function ProductionResultsPage() {
                           const rateColor = isTop ? 'text-[#27A644] font-semibold' : isBottom ? 'text-[#FC7840] font-semibold' : 'text-[#F7F8F8]';
                           const rowBg = isTop ? 'bg-[#27A644]/10/40' : isBottom ? 'bg-[#FC7840]/10/40' : (idx % 2 === 0 ? 'bg-[#0F1011]' : 'bg-[#08090A]/50');
                           const barPct = maxHourlyRate > 0 ? (ps.hourlyRate / maxHourlyRate) * 100 : 0;
-                          const barColor = isTop ? '#10b981' : isBottom ? '#f97316' : '#3b82f6';
+                          const barColor = isTop ? '#10b981' : isBottom ? '#f97316' : '#5E6AD2';
 
                           return (
                             <tr key={ps.productName} className={`${rowBg} hover:bg-[#5E6AD2]/10/50 transition-colors`}>
