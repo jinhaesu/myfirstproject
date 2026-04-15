@@ -3,42 +3,65 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-rgb: 249, 250, 251;
+  --color-bg-level-0: #08090A;
+  --color-bg-level-1: #0F1011;
+  --color-bg-level-2: #141516;
+  --color-bg-secondary: #1C1C1F;
+  --color-bg-tertiary: #232326;
+  --color-bg-quaternary: #28282C;
+  --color-text-primary: #F7F8F8;
+  --color-text-secondary: #D0D6E0;
+  --color-text-tertiary: #8A8F98;
+  --color-text-quaternary: #62666D;
+  --color-border-primary: #23252A;
+  --color-border-secondary: #34343A;
+  --color-brand-bg: #5E6AD2;
+  --color-link-primary: #7070FF;
+  --color-accent-hover: #828FFF;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-rgb));
+  color: #F7F8F8;
+  background: #08090A;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* 스크롤바 스타일링 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+::selection {
+  background: rgba(94, 106, 210, 0.35);
 }
 
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
+input, textarea, select {
+  background-color: #141516;
+  color: #F7F8F8;
+  border-color: #23252A;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+input::placeholder, textarea::placeholder {
+  color: #62666D;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+:focus-visible {
+  outline: 2px solid var(--color-brand-bg);
+  outline-offset: 2px;
 }
 
-/* 코드 블록 스타일 */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0F1011; }
+::-webkit-scrollbar-thumb { background: #34343A; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3E3E44; }
+
 .code-block {
-  background-color: #1e1e1e;
-  color: #d4d4d4;
+  background-color: #141516;
+  color: #D0D6E0;
   padding: 1rem;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   overflow-x: auto;
-  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+  font-family: 'Berkeley Mono', 'Fira Code', 'Monaco', monospace;
   font-size: 0.875rem;
   line-height: 1.5;
+  border: 1px solid #23252A;
 }

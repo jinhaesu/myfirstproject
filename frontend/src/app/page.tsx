@@ -32,8 +32,8 @@ export default function Home() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-600">로딩 중...</p>
+          <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[#8A8F98]">로딩 중...</p>
         </div>
       </div>
     );
@@ -51,7 +51,7 @@ export default function Home() {
       {/* 메인 콘텐츠 */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 shadow-sm">
+          <div className="mb-4 p-4 bg-[#EB5757]/10 border border-[#EB5757]/30 rounded-xl text-[#EB5757] shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

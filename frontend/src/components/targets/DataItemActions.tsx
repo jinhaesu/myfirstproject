@@ -47,7 +47,7 @@ export function DataItemActions({ data, type, onEdit, onDelete }: DataItemAction
         {/* 그래프 */}
         <button
           onClick={() => setShowChart(true)}
-          className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+          className="p-2 text-[#62666D] hover:text-[#7070FF] hover:bg-[#5E6AD2]/10 rounded-lg transition-colors"
           title="그래프 보기"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,7 +58,7 @@ export function DataItemActions({ data, type, onEdit, onDelete }: DataItemAction
         {/* AI 요약 */}
         <button
           onClick={() => setShowAISummary(true)}
-          className="p-2 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded-lg transition-colors"
+          className="p-2 text-[#62666D] hover:text-purple-500 hover:bg-[#5E6AD2]/10 rounded-lg transition-colors"
           title="AI 요약"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,7 +69,7 @@ export function DataItemActions({ data, type, onEdit, onDelete }: DataItemAction
         {/* AI 조언 */}
         <button
           onClick={() => setShowAIAdvice(true)}
-          className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+          className="p-2 text-[#62666D] hover:text-emerald-500 hover:bg-[#27A644]/10 rounded-lg transition-colors"
           title="AI 조언"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,7 +80,7 @@ export function DataItemActions({ data, type, onEdit, onDelete }: DataItemAction
         {/* CSV 다운로드 */}
         <button
           onClick={handleDownloadCSV}
-          className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"
+          className="p-2 text-[#62666D] hover:text-[#FC7840] hover:bg-[#FC7840]/10 rounded-lg transition-colors"
           title="CSV 다운로드"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,7 +91,7 @@ export function DataItemActions({ data, type, onEdit, onDelete }: DataItemAction
         {/* 수정 */}
         <button
           onClick={onEdit}
-          className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          className="p-2 text-[#62666D] hover:text-[#D0D6E0] hover:bg-[#141516]/5 rounded-lg transition-colors"
           title="수정"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,7 +102,7 @@ export function DataItemActions({ data, type, onEdit, onDelete }: DataItemAction
         {/* 삭제 */}
         <button
           onClick={onDelete}
-          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          className="p-2 text-[#62666D] hover:text-[#EB5757] hover:bg-[#EB5757]/10 rounded-lg transition-colors"
           title="삭제"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

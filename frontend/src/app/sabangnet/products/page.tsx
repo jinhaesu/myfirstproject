@@ -417,7 +417,7 @@ export default function ProductsPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center">
-        <div className="text-slate-500 text-sm">로딩 중...</div>
+        <div className="text-[#8A8F98] text-sm">로딩 중...</div>
       </div>
     );
   }
@@ -433,12 +433,12 @@ export default function ProductsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* ── Page Header ── */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800">제품 관리</h1>
-          <p className="text-sm text-slate-500 mt-1">사방넷에 등록된 자사 제품을 조회하고 관리합니다.</p>
+          <h1 className="text-2xl font-bold text-[#F7F8F8]">제품 관리</h1>
+          <p className="text-sm text-[#8A8F98] mt-1">사방넷에 등록된 자사 제품을 조회하고 관리합니다.</p>
         </div>
 
         {/* ── Tab Bar ── */}
-        <div className="flex gap-1 mb-6 bg-white rounded-xl border border-slate-200 shadow-sm p-1 w-fit">
+        <div className="flex gap-1 mb-6 bg-[#0F1011] rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-1 w-fit">
           {([
             { key: 'list', label: '제품 목록' },
             { key: 'register', label: '제품 등록/수정' },
@@ -448,8 +448,8 @@ export default function ProductsPage() {
               onClick={() => setActiveTab(tab.key)}
               className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab.key
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-50'
+                  ? 'bg-[#5E6AD2] text-white shadow-[0px_1px_3px_rgba(0,0,0,0.2)]'
+                  : 'text-[#8A8F98] hover:bg-[#141516]/5'
               }`}
             >
               {tab.label}
@@ -468,21 +468,21 @@ export default function ProductsPage() {
                 <button
                   onClick={handleSync}
                   disabled={syncing}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm transition-all disabled:opacity-60"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#0F1011] border border-[#23252A] rounded-lg text-sm font-medium text-[#D0D6E0] hover:bg-[#141516]/5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] transition-all disabled:opacity-60"
                 >
                   <span className={syncing ? 'animate-spin inline-block' : ''}>&#8635;</span>
                   {syncing ? '동기화 중...' : '사방넷 동기화'}
                 </button>
                 <button
                   onClick={handleInitSample}
-                  className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 shadow-sm transition-all"
+                  className="px-4 py-2 bg-[#0F1011] border border-[#23252A] rounded-lg text-sm font-medium text-[#8A8F98] hover:bg-[#141516]/5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] transition-all"
                 >
                   샘플 초기화
                 </button>
               </div>
               <button
                 onClick={openRegisterModal}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm transition-all"
+                className="px-4 py-2 bg-[#5E6AD2] text-white rounded-lg text-sm font-medium hover:bg-[#828FFF] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] transition-all"
               >
                 + 제품 등록
               </button>
@@ -490,34 +490,34 @@ export default function ProductsPage() {
 
             {/* ── Stats Cards ── */}
             <div className="grid grid-cols-3 gap-4">
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-                <p className="text-xs font-medium text-slate-500 mb-1">총 제품수</p>
-                <p className="text-3xl font-bold text-slate-800">{stats.total}</p>
+              <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-5">
+                <p className="text-xs font-medium text-[#8A8F98] mb-1">총 제품수</p>
+                <p className="text-3xl font-bold text-[#F7F8F8]">{stats.total}</p>
               </div>
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-                <p className="text-xs font-medium text-slate-500 mb-1">세트 상품수</p>
-                <p className="text-3xl font-bold text-blue-600">{stats.setCount}</p>
+              <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-5">
+                <p className="text-xs font-medium text-[#8A8F98] mb-1">세트 상품수</p>
+                <p className="text-3xl font-bold text-[#7070FF]">{stats.setCount}</p>
               </div>
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-                <p className="text-xs font-medium text-slate-500 mb-1">매핑 완료</p>
-                <p className="text-3xl font-bold text-emerald-600">{stats.mappedCount}</p>
+              <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-5">
+                <p className="text-xs font-medium text-[#8A8F98] mb-1">매핑 완료</p>
+                <p className="text-3xl font-bold text-[#27A644]">{stats.mappedCount}</p>
               </div>
             </div>
 
             {/* ── Filters ── */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-5">
               <div className="flex flex-wrap gap-3">
                 <input
                   type="text"
                   placeholder="상품명 또는 코드 검색..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="flex-1 min-w-[200px] px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  className="flex-1 min-w-[200px] px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
                 />
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  className="px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
                 >
                   {PRODUCT_CATEGORIES.map((c) => (
                     <option key={c} value={c}>{c}</option>
@@ -527,25 +527,25 @@ export default function ProductsPage() {
             </div>
 
             {/* ── Table ── */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="text-left px-4 py-3 font-medium text-slate-600 whitespace-nowrap">상품코드</th>
-                      <th className="text-left px-4 py-3 font-medium text-slate-600">상품명</th>
-                      <th className="text-left px-4 py-3 font-medium text-slate-600 whitespace-nowrap">카테고리</th>
-                      <th className="text-center px-4 py-3 font-medium text-slate-600 whitespace-nowrap">세트</th>
-                      <th className="text-center px-4 py-3 font-medium text-slate-600 whitespace-nowrap">매핑수</th>
-                      <th className="text-center px-4 py-3 font-medium text-slate-600 whitespace-nowrap">상태</th>
-                      <th className="text-left px-4 py-3 font-medium text-slate-600 whitespace-nowrap">등록일</th>
-                      <th className="text-center px-4 py-3 font-medium text-slate-600 whitespace-nowrap">액션</th>
+                    <tr className="bg-[#08090A] border-b border-[#23252A]">
+                      <th className="text-left px-4 py-3 font-medium text-[#8A8F98] whitespace-nowrap">상품코드</th>
+                      <th className="text-left px-4 py-3 font-medium text-[#8A8F98]">상품명</th>
+                      <th className="text-left px-4 py-3 font-medium text-[#8A8F98] whitespace-nowrap">카테고리</th>
+                      <th className="text-center px-4 py-3 font-medium text-[#8A8F98] whitespace-nowrap">세트</th>
+                      <th className="text-center px-4 py-3 font-medium text-[#8A8F98] whitespace-nowrap">매핑수</th>
+                      <th className="text-center px-4 py-3 font-medium text-[#8A8F98] whitespace-nowrap">상태</th>
+                      <th className="text-left px-4 py-3 font-medium text-[#8A8F98] whitespace-nowrap">등록일</th>
+                      <th className="text-center px-4 py-3 font-medium text-[#8A8F98] whitespace-nowrap">액션</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredProducts.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="text-center py-12 text-slate-400">
+                        <td colSpan={8} className="text-center py-12 text-[#62666D]">
                           검색 조건에 맞는 제품이 없습니다.
                         </td>
                       </tr>
@@ -554,18 +554,18 @@ export default function ProductsPage() {
                       <>
                         <tr
                           key={product.id}
-                          className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
+                          className="border-b border-[#23252A] hover:bg-[#141516]/5/50 transition-colors"
                         >
-                          <td className="px-4 py-3 font-mono text-xs text-slate-600 whitespace-nowrap">
+                          <td className="px-4 py-3 font-mono text-xs text-[#8A8F98] whitespace-nowrap">
                             {product.sabangnet_product_code}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <span className="text-slate-800 font-medium">{product.product_name}</span>
+                              <span className="text-[#F7F8F8] font-medium">{product.product_name}</span>
                               {product.is_set && product.set_components && product.set_components.length > 0 && (
                                 <button
                                   onClick={() => toggleRowExpand(product.id)}
-                                  className="text-xs text-blue-500 hover:text-blue-700"
+                                  className="text-xs text-[#7070FF] hover:text-[#828FFF]"
                                   title="구성 보기"
                                 >
                                   {expandedRows.has(product.id) ? '▲' : '▼'}
@@ -574,25 +574,25 @@ export default function ProductsPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#141516] text-[#8A8F98] border border-[#23252A]">
                               {product.category ?? '-'}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
                             {product.is_set ? (
-                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#5E6AD2]/10 text-[#828FFF] border border-[#5E6AD2]/30">
                                 세트
                               </span>
                             ) : (
-                              <span className="text-slate-300">-</span>
+                              <span className="text-[#62666D]">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                 product.mapped_count > 0
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-slate-50 text-slate-400 border border-slate-200'
+                                  ? 'bg-[#27A644]/10 text-[#27A644] border border-emerald-200'
+                                  : 'bg-[#08090A] text-[#62666D] border border-[#23252A]'
                               }`}
                             >
                               {product.mapped_count}
@@ -602,20 +602,20 @@ export default function ProductsPage() {
                             <span
                               className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                 product.is_active
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-slate-50 text-slate-400 border border-slate-200'
+                                  ? 'bg-[#27A644]/10 text-[#27A644] border border-emerald-200'
+                                  : 'bg-[#08090A] text-[#62666D] border border-[#23252A]'
                               }`}
                             >
                               {product.is_active ? '활성' : '비활성'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                          <td className="px-4 py-3 text-[#8A8F98] text-xs whitespace-nowrap">
                             {formatDate(product.created_at)}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <button
                               onClick={() => openEditModal(product)}
-                              className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors border border-blue-100"
+                              className="px-3 py-1 text-xs font-medium text-[#7070FF] hover:text-[#828FFF] hover:bg-[#5E6AD2]/10 rounded-lg transition-colors border border-blue-100"
                             >
                               수정
                             </button>
@@ -623,14 +623,14 @@ export default function ProductsPage() {
                         </tr>
                         {/* ── Set Components Row ── */}
                         {product.is_set && expandedRows.has(product.id) && product.set_components && (
-                          <tr key={`${product.id}-components`} className="bg-blue-50/30 border-b border-slate-100">
+                          <tr key={`${product.id}-components`} className="bg-[#5E6AD2]/10/30 border-b border-[#23252A]">
                             <td colSpan={8} className="px-8 py-3">
-                              <p className="text-xs font-medium text-slate-500 mb-2">구성 상품</p>
+                              <p className="text-xs font-medium text-[#8A8F98] mb-2">구성 상품</p>
                               <div className="flex flex-wrap gap-2">
                                 {product.set_components.map((comp, idx) => (
                                   <span
                                     key={idx}
-                                    className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-blue-200 rounded-full text-xs text-blue-700"
+                                    className="inline-flex items-center gap-1 px-3 py-1 bg-[#0F1011] border border-[#5E6AD2]/30 rounded-full text-xs text-[#828FFF]"
                                   >
                                     <span className="font-mono">{comp.product_code}</span>
                                     <span className="text-blue-400">x{comp.qty}</span>
@@ -646,8 +646,8 @@ export default function ProductsPage() {
                 </table>
               </div>
               {/* Footer count */}
-              <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50">
-                <p className="text-xs text-slate-400">
+              <div className="px-4 py-3 border-t border-[#23252A] bg-[#08090A]/50">
+                <p className="text-xs text-[#62666D]">
                   총 {filteredProducts.length}개 제품
                   {categoryFilter !== '전체' || searchTerm ? ` (전체 ${products.length}개 중 필터됨)` : ''}
                 </p>
@@ -661,8 +661,8 @@ export default function ProductsPage() {
         ══════════════════════════════════════ */}
         {activeTab === 'register' && (
           <div className="space-y-5">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h2 className="text-base font-semibold text-slate-700 mb-5">
+            <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6">
+              <h2 className="text-base font-semibold text-[#D0D6E0] mb-5">
                 {editingProduct ? '제품 수정' : '신규 제품 등록'}
               </h2>
               <ProductFormFields
@@ -672,20 +672,20 @@ export default function ProductsPage() {
                 onUpdateComponent={updateSetComponent}
                 onRemoveComponent={removeSetComponent}
               />
-              <div className="flex gap-3 mt-6 pt-5 border-t border-slate-100">
+              <div className="flex gap-3 mt-6 pt-5 border-t border-[#23252A]">
                 <button
                   onClick={() => {
                     setEditingProduct(null);
                     setProductForm({ ...DEFAULT_FORM });
                     showToast('폼이 초기화되었습니다.');
                   }}
-                  className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all"
+                  className="px-4 py-2 border border-[#23252A] rounded-lg text-sm font-medium text-[#8A8F98] hover:bg-[#141516]/5 transition-all"
                 >
                   초기화
                 </button>
                 <button
                   onClick={handleSaveProduct}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm transition-all"
+                  className="px-6 py-2 bg-[#5E6AD2] text-white rounded-lg text-sm font-medium hover:bg-[#828FFF] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] transition-all"
                 >
                   {editingProduct ? '수정 저장' : '등록'}
                 </button>
@@ -693,19 +693,19 @@ export default function ProductsPage() {
             </div>
 
             {/* ── Registered Products List (compact) ── */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-              <h3 className="text-sm font-semibold text-slate-700 mb-4">등록된 제품 ({products.length}개)</h3>
+            <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-5">
+              <h3 className="text-sm font-semibold text-[#D0D6E0] mb-4">등록된 제품 ({products.length}개)</h3>
               <div className="space-y-2 max-h-[400px] overflow-y-auto">
                 {products.map((p) => (
                   <div
                     key={p.id}
-                    className="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/50 transition-all"
+                    className="flex items-center justify-between px-4 py-3 rounded-xl border border-[#23252A] hover:border-[#23252A] hover:bg-[#141516]/5/50 transition-all"
                   >
                     <div>
-                      <span className="font-mono text-xs text-slate-400 mr-2">{p.sabangnet_product_code}</span>
-                      <span className="text-sm text-slate-700 font-medium">{p.product_name}</span>
+                      <span className="font-mono text-xs text-[#62666D] mr-2">{p.sabangnet_product_code}</span>
+                      <span className="text-sm text-[#D0D6E0] font-medium">{p.product_name}</span>
                       {p.is_set && (
-                        <span className="ml-2 text-xs px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded border border-blue-100">
+                        <span className="ml-2 text-xs px-1.5 py-0.5 bg-[#5E6AD2]/10 text-[#7070FF] rounded border border-blue-100">
                           세트
                         </span>
                       )}
@@ -716,7 +716,7 @@ export default function ProductsPage() {
                         // Switch to inline form for tab-based editing
                         setActiveTab('register');
                       }}
-                      className="text-xs text-blue-500 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                      className="text-xs text-[#7070FF] hover:text-[#828FFF] font-medium px-2 py-1 rounded hover:bg-[#5E6AD2]/10 transition-colors"
                     >
                       수정
                     </button>
@@ -733,9 +733,9 @@ export default function ProductsPage() {
       ══════════════════════════════════════ */}
       {showProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-slate-800">
+          <div className="bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] border border-[#23252A] w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
+              <h2 className="text-base font-semibold text-[#F7F8F8]">
                 {editingProduct ? '제품 수정' : '신규 제품 등록'}
               </h2>
               <button
@@ -743,7 +743,7 @@ export default function ProductsPage() {
                   setShowProductModal(false);
                   setEditingProduct(null);
                 }}
-                className="text-slate-400 hover:text-slate-600 text-xl leading-none"
+                className="text-[#62666D] hover:text-[#D0D6E0] text-xl leading-none"
               >
                 &times;
               </button>
@@ -759,19 +759,19 @@ export default function ProductsPage() {
               />
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-[#23252A] flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowProductModal(false);
                   setEditingProduct(null);
                 }}
-                className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all"
+                className="px-4 py-2 border border-[#23252A] rounded-lg text-sm font-medium text-[#8A8F98] hover:bg-[#141516]/5 transition-all"
               >
                 취소
               </button>
               <button
                 onClick={handleSaveProduct}
-                className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm transition-all"
+                className="px-5 py-2 bg-[#5E6AD2] text-white rounded-lg text-sm font-medium hover:bg-[#828FFF] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] transition-all"
               >
                 {editingProduct ? '수정 저장' : '등록'}
               </button>
@@ -782,7 +782,7 @@ export default function ProductsPage() {
 
       {/* ── Toast ── */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 px-5 py-3 bg-slate-800 text-white text-sm rounded-xl shadow-lg animate-fade-in">
+        <div className="fixed bottom-6 right-6 z-50 px-5 py-3 bg-[#0F1011] text-white text-sm rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] animate-fade-in">
           {toast}
         </div>
       )}
@@ -812,7 +812,7 @@ function ProductFormFields({
     <div className="space-y-4">
       {/* 상품코드 */}
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">
+        <label className="block text-xs font-medium text-[#8A8F98] mb-1">
           상품코드 <span className="text-red-400">*</span>
         </label>
         <input
@@ -820,13 +820,13 @@ function ProductFormFields({
           placeholder="예: ND-MAC-001"
           value={form.sabangnet_product_code}
           onChange={(e) => onChange((prev) => ({ ...prev, sabangnet_product_code: e.target.value }))}
-          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
         />
       </div>
 
       {/* 상품명 */}
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">
+        <label className="block text-xs font-medium text-[#8A8F98] mb-1">
           상품명 <span className="text-red-400">*</span>
         </label>
         <input
@@ -834,17 +834,17 @@ function ProductFormFields({
           placeholder="예: 널담 마카롱 복숭아 요거트 [50g]"
           value={form.product_name}
           onChange={(e) => onChange((prev) => ({ ...prev, product_name: e.target.value }))}
-          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
         />
       </div>
 
       {/* 카테고리 */}
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">카테고리</label>
+        <label className="block text-xs font-medium text-[#8A8F98] mb-1">카테고리</label>
         <select
           value={form.category}
           onChange={(e) => onChange((prev) => ({ ...prev, category: e.target.value }))}
-          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+          className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
         >
           {FORM_CATEGORIES.map((c) => (
             <option key={c} value={c}>{c}</option>
@@ -854,16 +854,16 @@ function ProductFormFields({
 
       {/* 상태 */}
       <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-slate-600">활성 상태</label>
+        <label className="text-xs font-medium text-[#8A8F98]">활성 상태</label>
         <button
           type="button"
           onClick={() => onChange((prev) => ({ ...prev, is_active: !prev.is_active }))}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            form.is_active ? 'bg-blue-600' : 'bg-slate-200'
+            form.is_active ? 'bg-[#5E6AD2]' : 'bg-[#232326]'
           }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            className={`inline-block h-4 w-4 transform rounded-full bg-[#0F1011] shadow transition-transform ${
               form.is_active ? 'translate-x-6' : 'translate-x-1'
             }`}
           />
@@ -872,7 +872,7 @@ function ProductFormFields({
 
       {/* 세트 여부 토글 */}
       <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-slate-600">세트 상품 여부</label>
+        <label className="text-xs font-medium text-[#8A8F98]">세트 상품 여부</label>
         <button
           type="button"
           onClick={() =>
@@ -883,11 +883,11 @@ function ProductFormFields({
             }))
           }
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            form.is_set ? 'bg-blue-600' : 'bg-slate-200'
+            form.is_set ? 'bg-[#5E6AD2]' : 'bg-[#232326]'
           }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            className={`inline-block h-4 w-4 transform rounded-full bg-[#0F1011] shadow transition-transform ${
               form.is_set ? 'translate-x-6' : 'translate-x-1'
             }`}
           />
@@ -896,19 +896,19 @@ function ProductFormFields({
 
       {/* 세트 구성 상품 */}
       {form.is_set && (
-        <div className="bg-blue-50/50 rounded-xl border border-blue-100 p-4 space-y-3">
+        <div className="bg-[#5E6AD2]/10/50 rounded-xl border border-blue-100 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-blue-700">구성 상품</p>
+            <p className="text-xs font-semibold text-[#828FFF]">구성 상품</p>
             <button
               type="button"
               onClick={onAddComponent}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+              className="text-xs text-[#7070FF] hover:text-[#828FFF] font-medium px-2 py-1 bg-[#0F1011] border border-[#5E6AD2]/30 rounded-lg hover:bg-[#5E6AD2]/10 transition-colors"
             >
               + 추가
             </button>
           </div>
           {form.set_components.length === 0 && (
-            <p className="text-xs text-slate-400 text-center py-2">구성 상품을 추가하세요.</p>
+            <p className="text-xs text-[#62666D] text-center py-2">구성 상품을 추가하세요.</p>
           )}
           {form.set_components.map((comp, idx) => (
             <div key={idx} className="flex gap-2 items-center">
@@ -917,7 +917,7 @@ function ProductFormFields({
                 placeholder="상품코드"
                 value={comp.product_code}
                 onChange={(e) => onUpdateComponent(idx, 'product_code', e.target.value)}
-                className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                className="flex-1 px-3 py-1.5 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] placeholder-[#62666D] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
               />
               <input
                 type="number"
@@ -925,12 +925,12 @@ function ProductFormFields({
                 placeholder="수량"
                 value={comp.qty}
                 onChange={(e) => onUpdateComponent(idx, 'qty', Number(e.target.value))}
-                className="w-20 px-3 py-1.5 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                className="w-20 px-3 py-1.5 border border-[#23252A] rounded-lg text-sm text-[#D0D6E0] bg-[#0F1011] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
               />
               <button
                 type="button"
                 onClick={() => onRemoveComponent(idx)}
-                className="text-slate-400 hover:text-red-500 text-lg leading-none px-1 transition-colors"
+                className="text-[#62666D] hover:text-[#EB5757] text-lg leading-none px-1 transition-colors"
               >
                 &times;
               </button>
