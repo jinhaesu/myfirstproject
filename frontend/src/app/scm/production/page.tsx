@@ -277,7 +277,7 @@ const generateSampleAlerts = (): AlertItem[] => [
 // SVG Icons (inline for zero-dependency)
 // ─────────────────────────────────────────────────────────────────────────────
 const SparkleIcon = () => (
-  <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 24 24">
+  <svg className="w-4 h-4 text-[#7070FF]" fill="currentColor" viewBox="0 0 24 24">
     <path d="M12 2L13.09 8.26L18 6L15.74 10.91L22 12L15.74 13.09L18 18L13.09 15.74L12 22L10.91 15.74L6 18L8.26 13.09L2 12L8.26 10.91L6 6L10.91 8.26L12 2Z" />
   </svg>
 );
@@ -1051,7 +1051,7 @@ export default function ProductionPlanPage() {
             <button
               onClick={bulkAiRecommend}
               disabled={bulkAiLoading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:from-violet-600 hover:to-purple-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:from-[#5E6AD2] hover:to-[#828FFF] disabled:opacity-60 disabled:cursor-not-allowed transition-all"
             >
               {bulkAiLoading ? (
                 <>
@@ -1088,7 +1088,7 @@ export default function ProductionPlanPage() {
             {/* Export CSV */}
             <button
               onClick={exportCsv}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#23252A] bg-[#0F1011] text-[#D0D6E0] text-sm font-medium hover:bg-[#141516]/5 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#23252A] bg-[#0F1011] text-[#D0D6E0] text-sm font-medium hover:bg-white/5/5 transition-colors"
             >
               <DownloadIcon />
               <span>CSV</span>
@@ -1097,7 +1097,7 @@ export default function ProductionPlanPage() {
             {/* 공유 */}
             <button
               onClick={() => setShowShareModal(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#23252A] bg-[#0F1011] text-[#D0D6E0] text-sm font-medium hover:bg-[#141516]/5 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#23252A] bg-[#0F1011] text-[#D0D6E0] text-sm font-medium hover:bg-white/5/5 transition-colors"
             >
               <ShareIcon />
               <span>공유</span>
@@ -1129,11 +1129,11 @@ export default function ProductionPlanPage() {
                         : 'bg-[#F0BF00]/10 border-[#F0BF00]/30'
                     }`}
                   >
-                    <div className={`mt-0.5 ${alert.level === 'urgent' ? 'text-[#EB5757]' : 'text-amber-500'}`}>
+                    <div className={`mt-0.5 ${alert.level === 'urgent' ? 'text-[#EB5757]' : 'text-[#F0BF00]'}`}>
                       <ExclamationIcon />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold ${alert.level === 'urgent' ? 'text-[#EB5757]' : 'text-amber-800'}`}>
+                      <p className={`text-sm font-semibold ${alert.level === 'urgent' ? 'text-[#EB5757]' : 'text-[#F0BF00]'}`}>
                         {alert.title}
                       </p>
                       <p className={`text-xs mt-0.5 ${alert.level === 'urgent' ? 'text-[#EB5757]' : 'text-[#F0BF00]'}`}>
@@ -1169,7 +1169,7 @@ export default function ProductionPlanPage() {
           </div>
           <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
             <p className="text-xs text-[#8A8F98] font-medium uppercase tracking-wide">AI 추천 대기</p>
-            <p className="text-2xl font-bold text-violet-600 mt-1">{summary.aiPending}</p>
+            <p className="text-2xl font-bold text-[#7070FF] mt-1">{summary.aiPending}</p>
             <p className="text-xs text-[#62666D] mt-1">품목</p>
           </div>
         </div>
@@ -1180,7 +1180,7 @@ export default function ProductionPlanPage() {
             <CalendarIcon />
             <button
               onClick={() => navigateDate(-1)}
-              className="p-1 rounded hover:bg-[#141516]/5 text-[#8A8F98]"
+              className="p-1 rounded hover:bg-white/5/5 text-[#8A8F98]"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1191,7 +1191,7 @@ export default function ProductionPlanPage() {
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="text-sm border border-[#23252A] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2] outline-none"
+                className="text-sm border border-[#23252A] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2] outline-none"
               />
               {viewMode === 'weekly' && (
                 <>
@@ -1200,14 +1200,14 @@ export default function ProductionPlanPage() {
                     type="date"
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
-                    className="text-sm border border-[#23252A] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2] outline-none"
+                    className="text-sm border border-[#23252A] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2] outline-none"
                   />
                 </>
               )}
             </div>
             <button
               onClick={() => navigateDate(1)}
-              className="p-1 rounded hover:bg-[#141516]/5 text-[#8A8F98]"
+              className="p-1 rounded hover:bg-white/5/5 text-[#8A8F98]"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1249,7 +1249,7 @@ export default function ProductionPlanPage() {
         <div
           ref={tableContainerRef}
           tabIndex={0}
-          className="bg-[#0F1011] rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-auto focus:outline-none focus:ring-2 focus:ring-blue-300"
+          className="bg-[#0F1011] rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-auto focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/50"
           style={{ maxHeight: 'calc(100vh - 420px)' }}
         >
           {loading ? (
@@ -1420,30 +1420,30 @@ export default function ProductionPlanPage() {
 
         {/* ── AI Recommendation Explanations ─────────────────────────────── */}
         {aiRecommendations.length > 0 && (
-          <div className="mt-4 bg-[#0F1011] rounded-xl border border-violet-200 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden">
+          <div className="mt-4 bg-[#0F1011] rounded-xl border border-[#5E6AD2]/30 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden">
             <button
               onClick={() => setAiExplanationsExpanded(!aiExplanationsExpanded)}
-              className="w-full flex items-center justify-between px-5 py-3 bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 transition-colors"
+              className="w-full flex items-center justify-between px-5 py-3 bg-gradient-to-r from-[#5E6AD2]/10 to-[#5E6AD2]/10 hover:from-[#5E6AD2]/15 hover:to-[#5E6AD2]/15 transition-colors"
             >
               <div className="flex items-center gap-2">
                 <SparkleIcon />
-                <span className="text-sm font-semibold text-violet-800">AI 추천 분석 결과</span>
-                <span className="text-xs text-violet-500 bg-violet-100 px-2 py-0.5 rounded-full">{aiRecommendations.length}건</span>
+                <span className="text-sm font-semibold text-[#828FFF]">AI 추천 분석 결과</span>
+                <span className="text-xs text-[#7070FF] bg-[#5E6AD2]/15 px-2 py-0.5 rounded-full">{aiRecommendations.length}건</span>
               </div>
-              <svg className={`w-4 h-4 text-violet-500 transition-transform ${aiExplanationsExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-4 h-4 text-[#7070FF] transition-transform ${aiExplanationsExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
             {aiExplanationsExpanded && (
               <div className="divide-y divide-[#23252A] max-h-[400px] overflow-y-auto">
                 {aiRecommendations.map((rec, idx) => (
-                  <div key={rec.plan_id} className="px-5 py-3 hover:bg-[#141516]/5/50 transition-colors">
+                  <div key={rec.plan_id} className="px-5 py-3 hover:bg-white/5/5/50 transition-colors">
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-[#62666D]">{idx + 1}.</span>
                         <span className="text-sm font-semibold text-[#F7F8F8]">{rec.product_name}</span>
                       </div>
-                      <span className="text-sm font-bold text-violet-600">추천: {fmtNum(rec.recommended_qty)}개</span>
+                      <span className="text-sm font-bold text-[#7070FF]">추천: {fmtNum(rec.recommended_qty)}개</span>
                     </div>
                     <pre className="text-xs text-[#8A8F98] whitespace-pre-wrap bg-[#08090A] rounded-lg p-3 font-mono leading-relaxed border border-[#23252A]">
                       {rec.explanation}
@@ -1488,7 +1488,7 @@ export default function ProductionPlanPage() {
                         className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
                           shareMethod === method
                             ? 'border-[#5E6AD2] bg-[#5E6AD2]/10 text-[#828FFF]'
-                            : 'border-[#23252A] text-[#8A8F98] hover:bg-[#141516]/5'
+                            : 'border-[#23252A] text-[#8A8F98] hover:bg-white/5/5'
                         }`}
                       >
                         {method === 'email' ? '이메일' : method === 'sms' ? 'SMS' : '카카오톡'}
@@ -1505,7 +1505,7 @@ export default function ProductionPlanPage() {
                     value={shareEmail}
                     onChange={e => setShareEmail(e.target.value)}
                     placeholder={shareMethod === 'email' ? 'example@company.com' : shareMethod === 'sms' ? '010-1234-5678' : '카카오톡 ID'}
-                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2] outline-none"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2] outline-none"
                   />
                 </div>
                 <button

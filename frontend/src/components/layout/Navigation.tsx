@@ -203,7 +203,7 @@ export function Navigation() {
                       className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
                         active
                           ? 'bg-[#5E6AD2]/10 text-[#828FFF]'
-                          : 'text-[#8A8F98] hover:bg-[#141516]/5 hover:text-[#F7F8F8]'
+                          : 'text-[#8A8F98] hover:bg-white/5/5 hover:text-[#F7F8F8]'
                       }`}
                     >
                       {iconMap[group.icon]}
@@ -237,7 +237,7 @@ export function Navigation() {
                                 className={`flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
                                   itemActive
                                     ? 'bg-[#5E6AD2]/10 text-[#828FFF] font-semibold'
-                                    : 'text-[#8A8F98] hover:bg-[#141516]/5 hover:text-[#F7F8F8]'
+                                    : 'text-[#8A8F98] hover:bg-white/5/5 hover:text-[#F7F8F8]'
                                 }`}
                               >
                                 {iconMap[item.icon]}
@@ -279,7 +279,7 @@ export function Navigation() {
             {/* 모바일 햄버거 */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden p-2 text-[#8A8F98] hover:bg-[#141516]/5 rounded-lg"
+              className="md:hidden p-2 text-[#8A8F98] hover:bg-white/5/5 rounded-lg"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {mobileOpen ? (
@@ -318,7 +318,7 @@ export function Navigation() {
                         className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                           itemActive
                             ? 'bg-[#5E6AD2]/10 text-[#828FFF] font-semibold'
-                            : 'text-[#8A8F98] hover:bg-[#141516]/5'
+                            : 'text-[#8A8F98] hover:bg-white/5/5'
                         }`}
                       >
                         {iconMap[item.icon]}

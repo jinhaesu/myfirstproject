@@ -37,13 +37,13 @@ export function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
             placeholder={placeholder || '데이터에 대해 질문하세요...'}
             disabled={disabled}
             rows={2}
-            className="w-full p-4 pr-12 border border-[#23252A] rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-[#08090A] disabled:text-[#62666D] transition-all shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+            className="w-full p-4 pr-12 border border-[#23252A] rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent disabled:bg-[#08090A] disabled:text-[#62666D] transition-all shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
           />
         </div>
         <button
           type="submit"
           disabled={disabled || !input.trim()}
-          className="px-6 py-4 bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] text-white rounded-xl font-semibold hover:from-[#5E6AD2] hover:to-indigo-700 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed transition-all shadow-[0px_3px_12px_rgba(0,0,0,0.2)] hover:shadow-[0px_7px_32px_rgba(0,0,0,0.35)] disabled:shadow-none flex items-center gap-2"
+          className="px-6 py-4 bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] text-white rounded-xl font-semibold hover:from-[#5E6AD2] hover:to-[#4B55A5] disabled:from-[#1C1C1F] disabled:to-[#232326] disabled:cursor-not-allowed transition-all shadow-[0px_3px_12px_rgba(0,0,0,0.2)] hover:shadow-[0px_7px_32px_rgba(0,0,0,0.35)] disabled:shadow-none flex items-center gap-2"
         >
           {disabled ? (
             <>

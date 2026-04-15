@@ -191,7 +191,7 @@ function rateColorClass(rate: number): string {
 }
 
 function rateBgClass(rate: number): string {
-  if (rate >= 100) return 'bg-[#27A644]/10 text-[#27A644] border-emerald-200';
+  if (rate >= 100) return 'bg-[#27A644]/10 text-[#27A644] border-[#27A644]/25';
   if (rate >= 80) return 'bg-[#FC7840]/10 text-[#FC7840] border-[#FC7840]/30';
   return 'bg-[#EB5757]/10 text-[#EB5757] border-[#EB5757]/30';
 }
@@ -603,7 +603,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
   // Build standalone HTML for PDF / email
   // -----------------------------------------------------------------------
   const buildReportHTML = useCallback(() => {
-    const rc = (rate: number) => (rate >= 100 ? '#10b981' : rate >= 80 ? '#f59e0b' : '#ef4444');
+    const rc = (rate: number) => (rate >= 100 ? '#27A644' : rate >= 80 ? '#F0BF00' : '#EB5757');
     const rbg = (rate: number) => (rate >= 100 ? '#27A644/15' : rate >= 80 ? '#F0BF00/15' : '#EB5757/15');
     const rbd = (rate: number) => (rate >= 100 ? '#27A644/40' : rate >= 80 ? '#F0BF00/40' : '#EB5757/40');
 
@@ -660,7 +660,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
       let chRows = '';
       for (const ch of (channels as ChannelAchievement[]).sort((a, b) => a.rate - b.rate)) {
         const stBg = ch.rate >= 100 ? '#27A644/15' : '#EB5757/15';
-        const stC = ch.rate >= 100 ? '#059669' : '#dc2626';
+        const stC = ch.rate >= 100 ? '#27A644' : '#dc2626';
         const stT = ch.rate >= 100 ? '달성' : '미달성';
         chRows += `<tr>
           <td style="padding:8px 12px;border:1px solid #23252A;color:#334155">${ch.channel}</td>
@@ -693,13 +693,13 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
     let entryRows = '';
     for (const st of managerEntryStatuses) {
       const stBg = st.isNormal ? '#27A644/15' : '#EB5757/15';
-      const stC = st.isNormal ? '#059669' : '#dc2626';
+      const stC = st.isNormal ? '#27A644' : '#dc2626';
       const stT = st.isNormal ? '정상' : '미입력';
       entryRows += `<tr>
         <td style="padding:8px 12px;border:1px solid #23252A;font-weight:600;color:#1e293b">${st.manager}</td>
         <td style="padding:8px 12px;border:1px solid #23252A;text-align:center;color:#475569">${st.lastEntryDay > 0 ? st.lastEntryDay + '일' : '입력 없음'}</td>
         <td style="padding:8px 12px;border:1px solid #23252A;text-align:center;color:#475569">${st.requiredDay}일</td>
-        <td style="padding:8px 12px;border:1px solid #23252A;text-align:center;font-weight:700;color:${st.missingDays > 0 ? '#ef4444' : '#94a3b8'}">${st.missingDays > 0 ? st.missingDays + '일' : '-'}</td>
+        <td style="padding:8px 12px;border:1px solid #23252A;text-align:center;font-weight:700;color:${st.missingDays > 0 ? '#EB5757' : '#94a3b8'}">${st.missingDays > 0 ? st.missingDays + '일' : '-'}</td>
         <td style="padding:8px 12px;border:1px solid #23252A;text-align:center">
           <span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:${stBg};color:${stC}">${stT}</span>
         </td>
@@ -1017,7 +1017,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
       <span
         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
           achieved
-            ? 'bg-[#27A644]/10 text-[#27A644] border-emerald-200'
+            ? 'bg-[#27A644]/10 text-[#27A644] border-[#27A644]/25'
             : 'bg-[#EB5757]/10 text-[#EB5757] border-[#EB5757]/30'
         }`}
       >
@@ -1031,7 +1031,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
       <span
         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
           isNormal
-            ? 'bg-[#27A644]/10 text-[#27A644] border-emerald-200'
+            ? 'bg-[#27A644]/10 text-[#27A644] border-[#27A644]/25'
             : 'bg-[#EB5757]/10 text-[#EB5757] border-[#EB5757]/30'
         }`}
       >
@@ -1042,9 +1042,9 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
 
   // Bar chart color function
   const getBarColor = (value: number) => {
-    if (value >= 100) return '#10b981';
-    if (value >= 80) return '#f59e0b';
-    return '#ef4444';
+    if (value >= 100) return '#27A644';
+    if (value >= 80) return '#F0BF00';
+    return '#EB5757';
   };
 
   // -----------------------------------------------------------------------
@@ -1077,10 +1077,10 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
           {/* Collapsible Header */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full px-6 py-4 border-b border-[#23252A] flex items-center justify-between bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-colors no-print"
+            className="w-full px-6 py-4 border-b border-[#23252A] flex items-center justify-between bg-gradient-to-r from-[#5E6AD2]/10 to-[#5E6AD2]/10 hover:from-[#5E6AD2]/15 hover:to-[#5E6AD2]/15 transition-colors no-print"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#5E6AD2] to-[#5E6AD2] flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -1116,7 +1116,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   <button
                     onClick={handleGenerateReport}
                     disabled={isGenerating}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-[#5E6AD2] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] text-white rounded-lg hover:from-[#5E6AD2] hover:to-[#5E6AD2] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
                   >
                     {isGenerating ? (
                       <>
@@ -1138,7 +1138,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       <button
                         onClick={handlePrintReport}
                         disabled={isDownloadingPdf}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-[#0F1011] border border-[#23252A] text-[#D0D6E0] rounded-lg hover:bg-[#141516]/5 transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)] disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-[#0F1011] border border-[#23252A] text-[#D0D6E0] rounded-lg hover:bg-white/5/5 transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)] disabled:opacity-50"
                       >
                         {isDownloadingPdf ? (
                           <>
@@ -1187,7 +1187,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                         value={emailRecipients}
                         onChange={(e) => setEmailRecipients(e.target.value)}
                         placeholder="이메일을 쉼표로 구분하여 입력 (예: user1@example.com, user2@example.com)"
-                        className="flex-1 px-4 py-2 border border-[#5E6AD2]/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="flex-1 px-4 py-2 border border-[#5E6AD2]/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
                         onKeyDown={(e) => { if (e.key === 'Enter' && emailRecipients.trim()) handleSendEmail(); }}
                       />
                       <button
@@ -1199,7 +1199,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       </button>
                       <button
                         onClick={() => setShowEmailInput(false)}
-                        className="px-3 py-2 bg-[#0F1011] border border-[#23252A] text-[#8A8F98] rounded-lg hover:bg-[#141516]/5 transition-colors text-sm"
+                        className="px-3 py-2 bg-[#0F1011] border border-[#23252A] text-[#8A8F98] rounded-lg hover:bg-white/5/5 transition-colors text-sm"
                       >
                         취소
                       </button>
@@ -1211,7 +1211,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   <div className={`mt-3 px-4 py-2 rounded-lg text-sm ${
                     emailSendResult.includes('실패') || emailSendResult.includes('오류')
                       ? 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
-                      : 'bg-[#27A644]/10 text-[#27A644] border border-emerald-200'
+                      : 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/25'
                   }`}>
                     {emailSendResult}
                   </div>
@@ -1245,7 +1245,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   {/* ======================================================== */}
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-purple-500 to-indigo-500" />
+                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#5E6AD2] to-[#5E6AD2]" />
                       <h3 className="text-lg font-bold text-[#F7F8F8]">담당자별 목표 vs 실적 현황</h3>
                     </div>
 
@@ -1257,7 +1257,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm border-collapse">
                           <thead>
-                            <tr className="bg-gradient-to-r from-purple-50 to-indigo-50">
+                            <tr className="bg-gradient-to-r from-[#5E6AD2]/10 to-[#5E6AD2]/10">
                               <th className="text-left px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">담당자</th>
                               <th className="text-right px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">목표매출</th>
                               <th className="text-right px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">실적매출</th>
@@ -1272,7 +1272,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           </thead>
                           <tbody>
                             {managerComparisons.map((mc) => (
-                              <tr key={mc.manager} className="border-b border-[#23252A] hover:bg-[#141516]/5">
+                              <tr key={mc.manager} className="border-b border-[#23252A] hover:bg-white/5/5">
                                 <td className="px-4 py-3 font-medium text-[#F7F8F8]">{mc.manager}</td>
                                 <td className="px-4 py-3 text-right text-[#8A8F98]">{formatKRW(applyVat(mc.targetSales))}</td>
                                 <td className="px-4 py-3 text-right text-[#8A8F98]">{formatKRW(applyVat(mc.actualSales))}</td>
@@ -1292,7 +1292,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                               </tr>
                             ))}
                             {/* Summary row */}
-                            <tr className="bg-gradient-to-r from-purple-50 to-indigo-50 font-bold border-t-2 border-[#23252A]">
+                            <tr className="bg-gradient-to-r from-[#5E6AD2]/10 to-[#5E6AD2]/10 font-bold border-t-2 border-[#23252A]">
                               <td className="px-4 py-3 text-[#F7F8F8]">합계</td>
                               <td className="px-4 py-3 text-right text-[#D0D6E0]">{formatKRW(applyVat(summaryTotals.targetSales))}</td>
                               <td className="px-4 py-3 text-right text-[#D0D6E0]">{formatKRW(applyVat(summaryTotals.actualSales))}</td>
@@ -1368,7 +1368,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   {/* ======================================================== */}
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#5E6AD2] to-cyan-500" />
+                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#5E6AD2] to-[#00B8CC]" />
                       <h3 className="text-lg font-bold text-[#F7F8F8]">채널별 달성/미달성 현황</h3>
                     </div>
 
@@ -1380,7 +1380,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       <div className="space-y-4">
                         {Object.entries(channelsByManager).sort(([a], [b]) => a.localeCompare(b)).map(([manager, channels]) => (
                           <div key={manager} className="bg-[#0F1011] rounded-xl border border-[#23252A] overflow-hidden">
-                            <div className="px-4 py-3 bg-gradient-to-r from-[#08090A] to-cyan-50 border-b border-[#23252A]">
+                            <div className="px-4 py-3 bg-gradient-to-r from-[#08090A] to-[#00B8CC]/10 border-b border-[#23252A]">
                               <h4 className="font-semibold text-[#D0D6E0]">{manager}</h4>
                             </div>
                             <div className="overflow-x-auto">
@@ -1396,7 +1396,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                 </thead>
                                 <tbody>
                                   {channels.sort((a, b) => a.rate - b.rate).map((ch, idx) => (
-                                    <tr key={idx} className="border-b border-[#23252A] hover:bg-[#141516]/5">
+                                    <tr key={idx} className="border-b border-[#23252A] hover:bg-white/5/5">
                                       <td className="px-4 py-2.5 text-[#D0D6E0]">{ch.channel}</td>
                                       <td className="px-4 py-2.5 text-right text-[#8A8F98]">
                                         {formatKRW(applyVat(ch.targetValue))}
@@ -1426,7 +1426,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   {/* ======================================================== */}
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-amber-500 to-orange-500" />
+                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#F0BF00] to-[#FC7840]" />
                       <h3 className="text-lg font-bold text-[#F7F8F8]">담당자별 데이터 입력 현황</h3>
                     </div>
 
@@ -1442,7 +1442,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm border-collapse">
                           <thead>
-                            <tr className="bg-gradient-to-r from-amber-50 to-orange-50">
+                            <tr className="bg-gradient-to-r from-[#F0BF00]/10 to-[#FC7840]/10">
                               <th className="text-left px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">담당자</th>
                               <th className="text-center px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">마지막 입력일</th>
                               <th className="text-center px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">요구 입력일</th>
@@ -1452,7 +1452,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           </thead>
                           <tbody>
                             {managerEntryStatuses.map((status) => (
-                              <tr key={status.manager} className="border-b border-[#23252A] hover:bg-[#141516]/5">
+                              <tr key={status.manager} className="border-b border-[#23252A] hover:bg-white/5/5">
                                 <td className="px-4 py-3 font-medium text-[#F7F8F8]">{status.manager}</td>
                                 <td className="px-4 py-3 text-center text-[#8A8F98]">
                                   {status.lastEntryDay > 0 ? `${status.lastEntryDay}일` : '입력 없음'}
@@ -1481,7 +1481,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   {/* ======================================================== */}
                   {missingEntryManagers.length > 0 && (
                     <div className="print-section">
-                      <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-[#EB5757]/30 rounded-xl overflow-hidden">
+                      <div className="bg-gradient-to-r from-[#EB5757]/10 to-[#FC7840]/10 border border-[#EB5757]/30 rounded-xl overflow-hidden">
                         <div className="px-5 py-4 border-b border-[#EB5757]/30 flex items-center gap-3">
                           <svg className="w-6 h-6 text-[#EB5757]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -1496,7 +1496,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                             {missingEntryManagers.map((status) => (
                               <div
                                 key={status.manager}
-                                className="bg-[#0F1011] rounded-lg border border-red-100 p-4 flex items-start gap-3"
+                                className="bg-[#0F1011] rounded-lg border border-[#EB5757]/15 p-4 flex items-start gap-3"
                               >
                                 <div className="w-10 h-10 rounded-full bg-[#EB5757]/15 flex items-center justify-center flex-shrink-0">
                                   <span className="text-[#EB5757] font-bold text-sm">
@@ -1542,7 +1542,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           >
                             <div className="flex-shrink-0 mt-0.5">
                               {cs.rate >= 100 ? (
-                                <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-[#27A644]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                               ) : cs.rate >= 80 ? (
@@ -1583,7 +1583,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
               {/* ============================================================ */}
               <div className="px-6 py-6 bg-[#08090A] no-print">
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#5E6AD2] to-purple-500" />
+                  <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#5E6AD2] to-[#5E6AD2]" />
                   <h3 className="text-lg font-bold text-[#F7F8F8]">이메일 자동 발송 스케줄</h3>
                 </div>
 
@@ -1600,7 +1600,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                         value={scheduleForm.recipients}
                         onChange={(e) => setScheduleForm((prev) => ({ ...prev, recipients: e.target.value }))}
                         placeholder="이메일 주소를 쉼표로 구분하여 입력 (예: user1@example.com, user2@example.com)"
-                        className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
                       />
                     </div>
 
@@ -1618,7 +1618,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                             className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
                               scheduleForm.days.includes(idx)
                                 ? 'bg-[#5E6AD2] text-white'
-                                : 'bg-[#141516] text-[#8A8F98] hover:bg-[#141516]/7'
+                                : 'bg-[#141516] text-[#8A8F98] hover:bg-white/5/7'
                             }`}
                           >
                             {label}
@@ -1636,7 +1636,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                         type="time"
                         value={scheduleForm.time}
                         onChange={(e) => setScheduleForm((prev) => ({ ...prev, time: e.target.value }))}
-                        className="px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
                       />
                     </div>
 
@@ -1696,7 +1696,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                             setEditingScheduleIdx(null);
                             setScheduleForm({ recipients: '', days: [1], time: '09:00', enabled: true });
                           }}
-                          className="ml-2 px-4 py-2.5 text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-[#141516]/7 transition-colors text-sm"
+                          className="ml-2 px-4 py-2.5 text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors text-sm"
                         >
                           취소
                         </button>

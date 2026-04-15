@@ -76,7 +76,7 @@ export function DataTable({ columns, rows }: DataTableProps) {
         </thead>
         <tbody className="bg-[#0F1011] divide-y divide-[#23252A]">
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="hover:bg-[#141516]/5">
+            <tr key={row.id} className="hover:bg-white/5/5">
               {row.getVisibleCells().map((cell) => (
                 <td
                   key={cell.id}
@@ -104,14 +104,14 @@ export function DataTable({ columns, rows }: DataTableProps) {
           <button
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
-            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#141516]/5"
+            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/5/5"
           >
             이전
           </button>
           <button
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
-            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#141516]/5"
+            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/5/5"
           >
             다음
           </button>

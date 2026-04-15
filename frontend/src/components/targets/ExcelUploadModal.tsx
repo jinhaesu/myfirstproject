@@ -251,7 +251,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
           {successCount !== null ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="w-16 h-16 bg-[#27A644]/15 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-[#27A644]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
@@ -278,7 +278,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                   isDragOver
                     ? 'border-[#5E6AD2]/50 bg-[#5E6AD2]/10'
                     : file
-                    ? 'border-emerald-300 bg-[#27A644]/10'
+                    ? 'border-[#27A644]/40 bg-[#27A644]/10'
                     : 'border-[#23252A] bg-[#08090A] hover:border-[#5E6AD2]/50 hover:bg-[#5E6AD2]/10'
                 }`}
               >
@@ -334,7 +334,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                     type="text"
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                     placeholder="영업부"
                   />
                 </div>
@@ -343,7 +343,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                   <select
                     value={year}
                     onChange={(e) => setYear(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                   >
                     {years.map((y) => (
                       <option key={y} value={y}>{y}년</option>
@@ -359,7 +359,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                         className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
                           kpiType === type
                             ? 'bg-[#5E6AD2] text-white'
-                            : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                            : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                         }`}
                       >
                         <input
@@ -429,7 +429,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-4 py-2 text-[#8A8F98] hover:bg-[#141516]/5 rounded-lg transition-colors text-sm"
+                  className="px-4 py-2 text-[#8A8F98] hover:bg-white/5/5 rounded-lg transition-colors text-sm"
                 >
                   ← 파일 다시 선택
                 </button>
@@ -439,7 +439,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 text-[#8A8F98] hover:bg-[#141516]/5 rounded-lg transition-colors"
+                className="px-4 py-2 text-[#8A8F98] hover:bg-white/5/5 rounded-lg transition-colors"
               >
                 취소
               </button>
@@ -497,7 +497,7 @@ function ManagerGroup({
   return (
     <>
       {rows.map((row, idx) => (
-        <tr key={`${manager}-${idx}`} className="border-b border-[#23252A] hover:bg-[#141516]/5">
+        <tr key={`${manager}-${idx}`} className="border-b border-[#23252A] hover:bg-white/5/5">
           {idx === 0 ? (
             <td
               className="px-3 py-2 font-medium text-[#F7F8F8] whitespace-nowrap sticky left-0 bg-[#0F1011] z-10"

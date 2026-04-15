@@ -421,7 +421,7 @@ export default function ProductionResultsPage() {
     '케이크': '#fb923c',
     '쿠키': '#a78bfa',
     '비누': '#34d399',
-    '캔들': '#60a5fa',
+    '캔들': '#4EA7FC',
   };
 
   const categoryPieData = useMemo(() => {
@@ -517,7 +517,7 @@ export default function ProductionResultsPage() {
 
   // Category badge colors
   const CATEGORY_BADGE: Record<string, { bg: string; text: string }> = {
-    '마카롱': { bg: 'bg-pink-100', text: 'text-pink-700' },
+    '마카롱': { bg: 'bg-[#EB5757]/15', text: 'text-[#D04040]' },
     '케이크': { bg: 'bg-[#F0BF00]/15', text: 'text-[#F0BF00]' },
     '쿠키':   { bg: 'bg-[#FC7840]/15', text: 'text-[#FC7840]' },
     '비누':   { bg: 'bg-[#27A644]/15', text: 'text-[#27A644]' },
@@ -791,7 +791,7 @@ export default function ProductionResultsPage() {
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
               />
             </div>
             <div>
@@ -800,7 +800,7 @@ export default function ProductionResultsPage() {
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
               />
             </div>
             <div>
@@ -808,7 +808,7 @@ export default function ProductionResultsPage() {
               <select
                 value={managerFilter}
                 onChange={e => setManagerFilter(e.target.value)}
-                className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2] min-w-[100px]"
+                className="border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2] min-w-[100px]"
               >
                 {allManagers.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -820,7 +820,7 @@ export default function ProductionResultsPage() {
                 value={productFilter}
                 onChange={e => setProductFilter(e.target.value)}
                 placeholder="품목명 또는 품목류로 검색..."
-                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-[#5E6AD2]"
+                className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2]"
               />
             </div>
             <div className="flex items-center gap-2 text-sm text-[#8A8F98]">
@@ -879,7 +879,7 @@ export default function ProductionResultsPage() {
           {/* Collapsible header */}
           <button
             onClick={() => setProductStatsOpen(prev => !prev)}
-            className="w-full flex items-center justify-between px-5 py-3 hover:bg-[#141516]/5 transition"
+            className="w-full flex items-center justify-between px-5 py-3 hover:bg-white/5/5 transition"
           >
             <div className="flex items-center gap-2">
               <svg
@@ -929,7 +929,7 @@ export default function ProductionResultsPage() {
                       ]).map(col => (
                         <th
                           key={col.field}
-                          className="border-b border-[#23252A] px-3 py-2 text-xs font-semibold text-[#D0D6E0] cursor-pointer hover:bg-[#141516]/5 select-none whitespace-nowrap"
+                          className="border-b border-[#23252A] px-3 py-2 text-xs font-semibold text-[#D0D6E0] cursor-pointer hover:bg-white/5/5 select-none whitespace-nowrap"
                           style={{ textAlign: col.align as any }}
                           onClick={() => handlePsSort(col.field)}
                         >
@@ -971,7 +971,7 @@ export default function ProductionResultsPage() {
                           const rateColor = isTop ? 'text-[#27A644] font-semibold' : isBottom ? 'text-[#FC7840] font-semibold' : 'text-[#F7F8F8]';
                           const rowBg = isTop ? 'bg-[#27A644]/10/40' : isBottom ? 'bg-[#FC7840]/10/40' : (idx % 2 === 0 ? 'bg-[#0F1011]' : 'bg-[#08090A]/50');
                           const barPct = maxHourlyRate > 0 ? (ps.hourlyRate / maxHourlyRate) * 100 : 0;
-                          const barColor = isTop ? '#10b981' : isBottom ? '#f97316' : '#5E6AD2';
+                          const barColor = isTop ? '#27A644' : isBottom ? '#FC7840' : '#5E6AD2';
 
                           return (
                             <tr key={ps.productName} className={`${rowBg} hover:bg-[#5E6AD2]/10/50 transition-colors`}>
@@ -991,7 +991,7 @@ export default function ProductionResultsPage() {
                               </td>
                               <td className={`border-b border-[#23252A] px-3 py-2 text-right whitespace-nowrap ${rateColor}`}>
                                 {ps.hourlyRate.toFixed(1)}개/시
-                                {isTop && <span className="ml-1 text-emerald-500 text-xs align-top">{'\u25B2'}</span>}
+                                {isTop && <span className="ml-1 text-[#27A644] text-xs align-top">{'\u25B2'}</span>}
                                 {isBottom && <span className="ml-1 text-[#FC7840] text-xs align-top">{'\u25BC'}</span>}
                               </td>
                               <td className="border-b border-[#23252A] px-3 py-2 text-center whitespace-nowrap text-[#8A8F98]">
@@ -1052,7 +1052,7 @@ export default function ProductionResultsPage() {
           </button>
           <button
             onClick={() => downloadExcel(filteredRows)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#141516] text-[#D0D6E0] text-sm font-medium rounded-lg hover:bg-[#141516]/7 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#141516] text-[#D0D6E0] text-sm font-medium rounded-lg hover:bg-white/5/7 transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             Excel 내보내기
@@ -1084,7 +1084,7 @@ export default function ProductionResultsPage() {
                 {COLUMNS.map(col => (
                   <th
                     key={col.key}
-                    className="border border-[#23252A] px-2 py-2 text-xs font-semibold text-[#D0D6E0] cursor-pointer hover:bg-[#141516]/5 select-none whitespace-nowrap"
+                    className="border border-[#23252A] px-2 py-2 text-xs font-semibold text-[#D0D6E0] cursor-pointer hover:bg-white/5/5 select-none whitespace-nowrap"
                     style={{ width: col.width, textAlign: col.align }}
                     onClick={() => handleSort(col.key)}
                   >
@@ -1109,7 +1109,7 @@ export default function ProductionResultsPage() {
                       placeholder="..."
                       value={columnFilters[col.key] || ''}
                       onChange={e => setColumnFilters(prev => ({ ...prev, [col.key]: e.target.value }))}
-                      className="w-full text-xs px-1 py-0.5 border border-[#23252A] rounded bg-[#0F1011] focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      className="w-full text-xs px-1 py-0.5 border border-[#23252A] rounded bg-[#0F1011] focus:outline-none focus:ring-1 focus:ring-[#5E6AD2]"
                     />
                   </th>
                 ))}
@@ -1223,7 +1223,7 @@ export default function ProductionResultsPage() {
                         <button
                           onClick={() => duplicateRow(row.id)}
                           title="복제"
-                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[#141516]/5 text-[#8A8F98] hover:text-[#7070FF] transition"
+                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-white/5/5 text-[#8A8F98] hover:text-[#7070FF] transition"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeWidth="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2" /></svg>
                         </button>
@@ -1263,7 +1263,7 @@ export default function ProductionResultsPage() {
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
           <div className="bg-[#0F1011] text-white px-5 py-3 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm font-medium flex items-center gap-2">
-            <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            <svg className="w-4 h-4 text-[#68CC58]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             {toast}
           </div>
         </div>

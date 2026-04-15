@@ -170,10 +170,10 @@ const MALL_COLORS: Record<string, { bg: string; text: string; border: string }> 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string; label: string }> = {
   'new':        { bg: 'bg-[#08090A]', text: 'text-[#D0D6E0]', border: 'border-[#23252A]', label: '신규' },
   'ai_drafted': { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30', label: 'AI 초안' },
-  'approved':   { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-emerald-200', label: '승인됨' },
+  'approved':   { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-[#27A644]/25', label: '승인됨' },
   'sent':       { bg: 'bg-[#08090A]', text: 'text-[#D0D6E0]', border: 'border-[#23252A]', label: '발송완료' },
   'failed':     { bg: 'bg-[#EB5757]/10', text: 'text-[#EB5757]', border: 'border-[#EB5757]/30', label: '실패' },
-  'answered_externally': { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', label: '외부답변' },
+  'answered_externally': { bg: 'bg-[#00B8CC]/10', text: 'text-[#00B8CC]', border: 'border-[#00B8CC]/30', label: '외부답변' },
   'closed_externally':   { bg: 'bg-stone-50', text: 'text-stone-700', border: 'border-stone-200', label: '외부종료' },
 };
 
@@ -937,7 +937,7 @@ export default function CSPage() {
       {toast && (
         <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-2">
           <div className="bg-[#08090A] text-white px-4 py-3 rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm flex items-center gap-2">
-            <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            <svg className="w-4 h-4 text-[#68CC58] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             {toast}
           </div>
         </div>
@@ -980,7 +980,7 @@ export default function CSPage() {
               AI 답변 <span className="font-bold text-[#F7F8F8]">{fmt(totalStats?.real_ai_responses || 0)}건</span>
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30">
-              템플릿 <span className="font-bold text-red-900">{fmt(totalStats?.template_responses || 0)}건</span>
+              템플릿 <span className="font-bold text-[#F7F8F8]">{fmt(totalStats?.template_responses || 0)}건</span>
             </span>
 
             {/* Collect button */}
@@ -1000,7 +1000,7 @@ export default function CSPage() {
             {/* Sync Status button */}
             <button
               onClick={handleSyncStatus}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#00B8CC] text-white rounded-lg hover:bg-[#00B8CC] transition-colors"
             >
               상태 동기화
             </button>
@@ -1010,7 +1010,7 @@ export default function CSPage() {
               <button
                 onClick={handleBulkAiAll}
                 disabled={bulkAiAllRunning}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#5E6AD2] text-white text-sm font-medium rounded-lg hover:bg-[#828FFF] disabled:opacity-50 transition-colors"
               >
                 {bulkAiAllRunning ? (
                   <>
@@ -1087,7 +1087,7 @@ export default function CSPage() {
                   <select
                     value={statusFilter}
                     onChange={e => setStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                   >
                     {STATUS_OPTIONS.map(s => (
                       <option key={s} value={s}>{s === '전체' ? '전체' : getStatusColor(s).label}</option>
@@ -1101,7 +1101,7 @@ export default function CSPage() {
                   <select
                     value={mallFilter}
                     onChange={e => setMallFilter(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                   >
                     {MALL_OPTIONS.map(m => (
                       <option key={m} value={m}>{m}</option>
@@ -1115,7 +1115,7 @@ export default function CSPage() {
                   <select
                     value={categoryFilter}
                     onChange={e => setCategoryFilter(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                   >
                     {CATEGORY_OPTIONS.map(c => (
                       <option key={c} value={c}>{c}</option>
@@ -1130,7 +1130,7 @@ export default function CSPage() {
                     type="date"
                     value={startDate}
                     onChange={e => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                   />
                 </div>
                 <div>
@@ -1139,7 +1139,7 @@ export default function CSPage() {
                     type="date"
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                   />
                 </div>
 
@@ -1153,7 +1153,7 @@ export default function CSPage() {
                       value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)}
                       placeholder="제목, 내용, 고객명"
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                     />
                   </div>
                 </div>
@@ -1186,7 +1186,7 @@ export default function CSPage() {
                   <button
                     onClick={handleBulkSend}
                     disabled={bulkSending}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#141516] text-white rounded-lg hover:bg-[#141516]/5 disabled:opacity-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#141516] text-white rounded-lg hover:bg-white/5/5 disabled:opacity-50 transition-colors"
                   >
                     {bulkSending ? (
                       <>
@@ -1227,7 +1227,7 @@ export default function CSPage() {
                   type="checkbox"
                   checked={selectedIds.size > 0 && selectedIds.size === filteredInquiries.length}
                   onChange={toggleSelectAll}
-                  className="rounded border-[#23252A] text-[#7070FF] focus:ring-blue-500"
+                  className="rounded border-[#23252A] text-[#7070FF] focus:ring-[#5E6AD2]"
                 />
                 전체 선택
               </label>
@@ -1259,7 +1259,7 @@ export default function CSPage() {
                           type="checkbox"
                           checked={selectedIds.has(inquiry.id)}
                           onChange={() => toggleSelect(inquiry.id)}
-                          className="mt-1 rounded border-[#23252A] text-[#7070FF] focus:ring-blue-500"
+                          className="mt-1 rounded border-[#23252A] text-[#7070FF] focus:ring-[#5E6AD2]"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
@@ -1418,7 +1418,7 @@ export default function CSPage() {
                           onChange={e => { setExpandedId(inquiry.id); setEditingResponse(e.target.value); }}
                           onFocus={() => { if (expandedId !== inquiry.id) { setExpandedId(inquiry.id); setEditingResponse(inquiry.final_response || inquiry.ai_response || ''); } }}
                           readOnly={inquiry.status === 'sent' || inquiry.status === 'answered_externally' || inquiry.status === 'closed_externally'}
-                          className={`w-full min-h-[120px] p-3 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y ${
+                          className={`w-full min-h-[120px] p-3 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] resize-y ${
                             inquiry.status === 'sent' ? 'bg-[#141516] text-[#8A8F98]' : 'bg-[#0F1011] text-[#F7F8F8]'
                           }`}
                         />
@@ -1456,14 +1456,14 @@ export default function CSPage() {
                           </button>
                           <button
                             onClick={() => handleApproveAndSend(inquiry.id, expandedId === inquiry.id ? editingResponse : undefined)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#141516] text-white rounded-lg hover:bg-[#141516]/5 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#141516] text-white rounded-lg hover:bg-white/5/5 transition-colors"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 승인+발송
                           </button>
                         </>
                       )}
                       {inquiry.status === 'approved' && (
-                        <button onClick={() => handleSend(inquiry.id)} disabled={isSending} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#141516] text-white rounded-lg hover:bg-[#141516]/5 disabled:opacity-50 transition-colors">
+                        <button onClick={() => handleSend(inquiry.id)} disabled={isSending} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#141516] text-white rounded-lg hover:bg-white/5/5 disabled:opacity-50 transition-colors">
                           {isSending ? <><svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 발송 중...</> : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 발송</>}
                         </button>
                       )}
@@ -1471,7 +1471,7 @@ export default function CSPage() {
                         <span className="text-xs text-[#8A8F98]">발송완료 ({formatDate(inquiry.sent_at)})</span>
                       )}
                       {inquiry.status === 'failed' && <span className="text-xs text-[#EB5757]">발송 실패</span>}
-                      {inquiry.status === 'answered_externally' && <span className="text-xs text-cyan-600">사방넷에서 직접 답변됨</span>}
+                      {inquiry.status === 'answered_externally' && <span className="text-xs text-[#00B8CC]">사방넷에서 직접 답변됨</span>}
                       {inquiry.status === 'closed_externally' && <span className="text-xs text-stone-500">외부 종료</span>}
                     </div>
                   </div>
@@ -1491,7 +1491,7 @@ export default function CSPage() {
               <button
                 onClick={() => loadInquiries(currentPage - 1)}
                 disabled={currentPage <= 1}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-[#23252A] text-[#8A8F98] hover:bg-[#141516]/5 disabled:opacity-40 transition-colors"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-[#23252A] text-[#8A8F98] hover:bg-white/5/5 disabled:opacity-40 transition-colors"
               >
                 이전
               </button>
@@ -1515,7 +1515,7 @@ export default function CSPage() {
                     className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
                       currentPage === pageNum
                         ? 'bg-[#5E6AD2] text-white'
-                        : 'text-[#8A8F98] hover:bg-[#141516]/5'
+                        : 'text-[#8A8F98] hover:bg-white/5/5'
                     }`}
                   >
                     {pageNum}
@@ -1525,7 +1525,7 @@ export default function CSPage() {
               <button
                 onClick={() => loadInquiries(currentPage + 1)}
                 disabled={currentPage >= Math.ceil(totalCount / PAGE_SIZE)}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-[#23252A] text-[#8A8F98] hover:bg-[#141516]/5 disabled:opacity-40 transition-colors"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-[#23252A] text-[#8A8F98] hover:bg-white/5/5 disabled:opacity-40 transition-colors"
               >
                 다음
               </button>
@@ -1651,7 +1651,7 @@ export default function CSPage() {
                       const maxCount = Math.max(...keywords.map(k => k.count), 1);
                       const pct = (kw.count / maxCount) * 100;
                       return (
-                        <div key={i} className="flex items-center gap-2 bg-[#08090A] rounded-lg px-3 py-2 group hover:bg-[#141516]/5 transition-colors relative">
+                        <div key={i} className="flex items-center gap-2 bg-[#08090A] rounded-lg px-3 py-2 group hover:bg-white/5/5 transition-colors relative">
                           <span className={`w-2 h-2 rounded-full shrink-0 ${
                             kw.importance === 'high' ? 'bg-[#EB5757]' : kw.importance === 'medium' ? 'bg-[#F0BF00]/80' : 'bg-[#28282C]'
                           }`} />
@@ -1733,7 +1733,7 @@ export default function CSPage() {
                               </div>
                             </div>
                             <div className="mt-2 flex items-center gap-1.5 text-xs">
-                              <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                              <svg className="w-3.5 h-3.5 text-[#27A644]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                               <span className="text-[#27A644] font-medium">{item.estimated_impact}</span>
                             </div>
                           </div>
@@ -1764,7 +1764,7 @@ export default function CSPage() {
                 <select
                   value={refCategoryFilter}
                   onChange={e => setRefCategoryFilter(e.target.value)}
-                  className="px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                  className="px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                 >
                   <option value="전체">전체</option>
                   {REFERENCE_CATEGORIES.map(c => (
@@ -1795,8 +1795,8 @@ export default function CSPage() {
                   '배송정책': { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30' },
                   '교환/반품 정책': { bg: 'bg-[#FC7840]/10', text: 'text-[#FC7840]', border: 'border-[#FC7840]/30' },
                   'FAQ': { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30' },
-                  '상품정보': { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-emerald-200' },
-                  '인사말/맺음말': { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200' },
+                  '상품정보': { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-[#27A644]/25' },
+                  '인사말/맺음말': { bg: 'bg-[#EB5757]/10', text: 'text-[#D04040]', border: 'border-[#EB5757]/25' },
                   '프로모션': { bg: 'bg-[#F0BF00]/10', text: 'text-[#F0BF00]', border: 'border-[#F0BF00]/30' },
                 };
                 const catColor = catColors[ref.category] || DEFAULT_BADGE;
@@ -1840,7 +1840,7 @@ export default function CSPage() {
                                 )}
                               </span>
                               {ref.has_extracted_text && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-[#27A644]/10 text-[#27A644] rounded-full border border-emerald-200">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-[#27A644]/10 text-[#27A644] rounded-full border border-[#27A644]/25">
                                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                   AI 학습됨
                                 </span>
@@ -1920,7 +1920,7 @@ export default function CSPage() {
                           value={refForm.title}
                           onChange={e => setRefForm(prev => ({ ...prev, title: e.target.value }))}
                           placeholder="참고 데이터 제목"
-                          className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                         />
                       </div>
 
@@ -1930,7 +1930,7 @@ export default function CSPage() {
                         <select
                           value={refForm.category}
                           onChange={e => setRefForm(prev => ({ ...prev, category: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                          className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                         >
                           {REFERENCE_CATEGORIES.map(c => (
                             <option key={c} value={c}>{c}</option>
@@ -1946,7 +1946,7 @@ export default function CSPage() {
                           onChange={e => setRefForm(prev => ({ ...prev, content: e.target.value }))}
                           placeholder="AI가 참고할 내용을 입력하세요..."
                           rows={4}
-                          className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                          className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] resize-y"
                         />
                       </div>
 
@@ -2046,7 +2046,7 @@ export default function CSPage() {
                     <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-[#23252A]">
                       <button
                         onClick={() => { setShowRefModal(false); setEditingRef(null); }}
-                        className="px-4 py-2 text-sm font-medium text-[#D0D6E0] bg-[#0F1011] border border-[#23252A] rounded-lg hover:bg-[#141516]/5 transition-colors"
+                        className="px-4 py-2 text-sm font-medium text-[#D0D6E0] bg-[#0F1011] border border-[#23252A] rounded-lg hover:bg-white/5/5 transition-colors"
                       >
                         취소
                       </button>
@@ -2130,7 +2130,7 @@ export default function CSPage() {
                               : prev.auto_categories.filter(c => c !== cat),
                           }));
                         }}
-                        className="rounded border-[#23252A] text-[#7070FF] focus:ring-blue-500"
+                        className="rounded border-[#23252A] text-[#7070FF] focus:ring-[#5E6AD2]"
                       />
                       <span className="text-sm text-[#D0D6E0]">{cat}</span>
                     </label>
@@ -2145,7 +2145,7 @@ export default function CSPage() {
                 <select
                   value={config.response_tone}
                   onChange={e => setConfig(prev => ({ ...prev, response_tone: e.target.value }))}
-                  className="w-full max-w-xs px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                  className="w-full max-w-xs px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                 >
                   {TONE_OPTIONS.map(t => (
                     <option key={t} value={t}>{t}</option>
@@ -2162,7 +2162,7 @@ export default function CSPage() {
                   value={config.sabangnet_api_key}
                   onChange={e => setConfig(prev => ({ ...prev, sabangnet_api_key: e.target.value }))}
                   placeholder="API 키를 입력하세요"
-                  className="w-full max-w-md px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full max-w-md px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                 />
               </div>
 

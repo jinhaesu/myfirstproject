@@ -88,7 +88,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function ChannelsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
       </div>
     }>
@@ -633,7 +633,7 @@ function ChannelsPageContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
           <p className="text-[#8A8F98]">로딩 중...</p>
@@ -647,7 +647,7 @@ function ChannelsPageContent() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]">
+    <main className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -719,7 +719,7 @@ function ChannelsPageContent() {
               <select
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value))}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}년</option>
@@ -728,7 +728,7 @@ function ChannelsPageContent() {
               <select
                 value={month}
                 onChange={(e) => setMonth(Number(e.target.value))}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
               >
                 {months.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
@@ -745,14 +745,14 @@ function ChannelsPageContent() {
                 type="date"
                 value={syncStartDate}
                 onChange={(e) => setSyncStartDate(e.target.value)}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
               />
               <span className="text-[#62666D]">~</span>
               <input
                 type="date"
                 value={syncEndDate}
                 onChange={(e) => setSyncEndDate(e.target.value)}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
               />
             </div>
           </div>
@@ -766,7 +766,7 @@ function ChannelsPageContent() {
                   type="checkbox"
                   checked={selectedSyncChannels.has(name)}
                   onChange={() => toggleSyncChannel(name)}
-                  className="w-4 h-4 rounded border-[#23252A] text-[#7070FF] focus:ring-blue-500"
+                  className="w-4 h-4 rounded border-[#23252A] text-[#7070FF] focus:ring-[#5E6AD2]"
                 />
                 <span className="text-sm text-[#D0D6E0]">{name}</span>
               </label>
@@ -779,7 +779,7 @@ function ChannelsPageContent() {
                 type="checkbox"
                 checked={showTarget}
                 onChange={() => setShowTarget(prev => !prev)}
-                className="w-4 h-4 rounded border-[#23252A] text-amber-500 focus:ring-amber-500"
+                className="w-4 h-4 rounded border-[#23252A] text-[#F0BF00] focus:ring-[#F0BF00]"
               />
               <span className="text-sm text-[#D0D6E0]">목표 지표</span>
             </label>
@@ -794,31 +794,31 @@ function ChannelsPageContent() {
                   {formatCurrency(filteredTotal.gross_sales)}원
                 </p>
               </div>
-              <div className="bg-gradient-to-br from-[#27A644]/10 to-emerald-100 p-4 rounded-xl border border-emerald-200">
+              <div className="bg-gradient-to-br from-[#27A644]/10 to-[#27A644]/15 p-4 rounded-xl border border-[#27A644]/25">
                 <p className="text-sm text-[#27A644] mb-1">총 주문</p>
                 <p className="text-2xl font-bold text-[#27A644]">
                   {formatNumber(filteredTotal.order_count)}건
                 </p>
               </div>
-              <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-xl border border-[#F0BF00]/30">
+              <div className="bg-gradient-to-br from-[#F0BF00]/10 to-[#F0BF00]/15 p-4 rounded-xl border border-[#F0BF00]/30">
                 <p className="text-sm text-[#F0BF00] mb-1">총 판매수량</p>
                 <p className="text-2xl font-bold text-[#F0BF00]">
                   {formatNumber(filteredTotal.quantity)}개
                 </p>
               </div>
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-[#5E6AD2]/30">
+              <div className="bg-gradient-to-br from-[#5E6AD2]/10 to-[#5E6AD2]/15 p-4 rounded-xl border border-[#5E6AD2]/30">
                 <p className="text-sm text-[#7070FF] mb-1">활성 채널</p>
                 <p className="text-2xl font-bold text-[#828FFF]">
                   {filteredChannelSummary.length}개
                 </p>
               </div>
               {showTarget && monthlyTarget !== null && (
-                <div className="bg-gradient-to-br from-rose-50 to-rose-100 p-4 rounded-xl border border-rose-200">
-                  <p className="text-sm text-rose-600 mb-1">월 목표 / 달성률</p>
-                  <p className="text-2xl font-bold text-rose-700">
+                <div className="bg-gradient-to-br from-[#EB5757]/10 to-[#EB5757]/15 p-4 rounded-xl border border-[#EB5757]/25">
+                  <p className="text-sm text-[#EB5757] mb-1">월 목표 / 달성률</p>
+                  <p className="text-2xl font-bold text-[#D04040]">
                     {formatCurrency(monthlyTarget)}원
                   </p>
-                  <p className="text-sm text-rose-500 mt-1">
+                  <p className="text-sm text-[#EB5757] mt-1">
                     {filteredTotal.gross_sales > 0
                       ? `${((filteredTotal.gross_sales / monthlyTarget) * 100).toFixed(1)}%`
                       : '0%'}
@@ -841,7 +841,7 @@ function ChannelsPageContent() {
                   className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                     chartMode === 'daily'
                       ? 'bg-[#5E6AD2] text-white'
-                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                   }`}
                 >
                   일계
@@ -851,7 +851,7 @@ function ChannelsPageContent() {
                   className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                     chartMode === 'cumulative'
                       ? 'bg-[#5E6AD2] text-white'
-                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                   }`}
                 >
                   누계
@@ -862,7 +862,7 @@ function ChannelsPageContent() {
                   className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                     chartType === 'bar'
                       ? 'bg-[#5E6AD2] text-white'
-                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                   }`}
                 >
                   막대
@@ -872,7 +872,7 @@ function ChannelsPageContent() {
                   className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                     chartType === 'line'
                       ? 'bg-[#5E6AD2] text-white'
-                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                   }`}
                 >
                   선형
@@ -894,7 +894,7 @@ function ChannelsPageContent() {
                     <Legend />
                     <Line type="monotone" dataKey="매출" stroke="#5E6AD2" strokeWidth={2} dot={false} />
                     {showTarget && monthlyTarget && (
-                      <Line type="monotone" dataKey="목표" stroke="#F43F5E" strokeWidth={2} strokeDasharray="6 3" dot={false} />
+                      <Line type="monotone" dataKey="목표" stroke="#EB5757" strokeWidth={2} strokeDasharray="6 3" dot={false} />
                     )}
                   </LineChart>
                 ) : (
@@ -906,7 +906,7 @@ function ChannelsPageContent() {
                     <Legend />
                     <Bar dataKey="매출" fill="#5E6AD2" />
                     {showTarget && monthlyTarget && (
-                      <Line type="monotone" dataKey="목표" stroke="#F43F5E" strokeWidth={2} strokeDasharray="6 3" dot={false} />
+                      <Line type="monotone" dataKey="목표" stroke="#EB5757" strokeWidth={2} strokeDasharray="6 3" dot={false} />
                     )}
                   </ComposedChart>
                 )}
@@ -980,7 +980,7 @@ function ChannelsPageContent() {
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   viewMode === 'chart'
                     ? 'bg-[#5E6AD2] text-white'
-                    : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                    : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                 }`}
               >
                 카드뷰
@@ -990,7 +990,7 @@ function ChannelsPageContent() {
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   viewMode === 'table'
                     ? 'bg-[#5E6AD2] text-white'
-                    : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                    : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                 }`}
               >
                 테이블
@@ -1124,7 +1124,7 @@ function ChannelsPageContent() {
                   {channels.map((channel) => {
                     const summary = channelSummary.find(s => s.channel_id === channel.id);
                     return (
-                      <tr key={channel.id} className="hover:bg-[#141516]/5">
+                      <tr key={channel.id} className="hover:bg-white/5/5">
                         <td className="px-4 py-3 text-sm font-medium text-[#F7F8F8]">{channel.name}</td>
                         <td className="px-4 py-3">
                           <span
@@ -1396,7 +1396,7 @@ function CoupangSettingsModal({
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'wing'
                   ? 'bg-[#5E6AD2] text-white'
-                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
               }`}
             >
               쿠팡 WING
@@ -1406,7 +1406,7 @@ function CoupangSettingsModal({
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'rocket'
                   ? 'bg-[#5E6AD2] text-white'
-                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
               }`}
             >
               쿠팡 로켓
@@ -1427,7 +1427,7 @@ function CoupangSettingsModal({
                   value={wingVendorId}
                   onChange={(e) => setWingVendorId(e.target.value)}
                   placeholder="업체코드를 입력하세요"
-                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                 />
               </div>
               <div>
@@ -1439,7 +1439,7 @@ function CoupangSettingsModal({
                   value={wingAccessKey}
                   onChange={(e) => setWingAccessKey(e.target.value)}
                   placeholder="Access Key를 입력하세요"
-                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                 />
               </div>
               <div>
@@ -1451,7 +1451,7 @@ function CoupangSettingsModal({
                   value={wingSecretKey}
                   onChange={(e) => setWingSecretKey(e.target.value)}
                   placeholder="Secret Key를 입력하세요"
-                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                 />
               </div>
 
@@ -1498,7 +1498,7 @@ function CoupangSettingsModal({
                 <button
                   onClick={testWingConnection}
                   disabled={wingTesting}
-                  className="flex-1 px-4 py-2 text-sm bg-[#141516] text-[#D0D6E0] rounded-lg hover:bg-[#141516]/7 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 text-sm bg-[#141516] text-[#D0D6E0] rounded-lg hover:bg-white/5/7 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   {wingTesting ? (
                     <>
@@ -1536,7 +1536,7 @@ function CoupangSettingsModal({
                   value={rocketLoginId}
                   onChange={(e) => setRocketLoginId(e.target.value)}
                   placeholder="쿠팡 로그인 ID를 입력하세요"
-                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                 />
               </div>
               <div>
@@ -1548,7 +1548,7 @@ function CoupangSettingsModal({
                   value={rocketLoginPassword}
                   onChange={(e) => setRocketLoginPassword(e.target.value)}
                   placeholder="로그인 비밀번호를 입력하세요"
-                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                 />
               </div>
 
@@ -1598,7 +1598,7 @@ function CoupangSettingsModal({
                 <button
                   onClick={testRocketConnection}
                   disabled={rocketTesting}
-                  className="flex-1 px-4 py-2 text-sm bg-[#141516] text-[#D0D6E0] rounded-lg hover:bg-[#141516]/7 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 text-sm bg-[#141516] text-[#D0D6E0] rounded-lg hover:bg-white/5/7 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   {rocketTesting ? (
                     <>
@@ -1769,7 +1769,7 @@ function UploadModal({
               className={`flex-1 py-2 rounded-lg transition-colors ${
                 mode === 'file'
                   ? 'bg-[#5E6AD2] text-white'
-                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
               }`}
             >
               파일 업로드
@@ -1779,7 +1779,7 @@ function UploadModal({
               className={`flex-1 py-2 rounded-lg transition-colors ${
                 mode === 'manual'
                   ? 'bg-[#5E6AD2] text-white'
-                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
               }`}
             >
               수동 입력
@@ -1851,7 +1851,7 @@ function UploadModal({
                             setManualData(newData);
                           }}
                           placeholder="0"
-                          className="w-full px-2 py-1 border border-[#23252A] rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-2 py-1 border border-[#23252A] rounded focus:outline-none focus:ring-1 focus:ring-[#5E6AD2]"
                         />
                       </td>
                       <td className="px-3 py-1">
@@ -1864,7 +1864,7 @@ function UploadModal({
                             setManualData(newData);
                           }}
                           placeholder="0"
-                          className="w-full px-2 py-1 border border-[#23252A] rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-2 py-1 border border-[#23252A] rounded focus:outline-none focus:ring-1 focus:ring-[#5E6AD2]"
                         />
                       </td>
                     </tr>

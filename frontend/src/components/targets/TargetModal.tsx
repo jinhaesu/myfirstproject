@@ -109,7 +109,7 @@ export function TargetModal({ isOpen, onClose, onSave, initialData }: TargetModa
                 type="text"
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                 placeholder="영업부"
                 required
               />
@@ -119,7 +119,7 @@ export function TargetModal({ isOpen, onClose, onSave, initialData }: TargetModa
               <select
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}년</option>
@@ -132,7 +132,7 @@ export function TargetModal({ isOpen, onClose, onSave, initialData }: TargetModa
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                 placeholder="2024년 매출 목표"
                 required
               />
@@ -143,7 +143,7 @@ export function TargetModal({ isOpen, onClose, onSave, initialData }: TargetModa
                 type="text"
                 value={manager}
                 onChange={(e) => setManager(e.target.value)}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                 placeholder="홍길동"
                 required
               />
@@ -161,7 +161,7 @@ export function TargetModal({ isOpen, onClose, onSave, initialData }: TargetModa
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     kpiType === type
                       ? 'bg-[#5E6AD2] text-white'
-                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                   }`}
                 >
                   {type}
@@ -189,7 +189,7 @@ export function TargetModal({ isOpen, onClose, onSave, initialData }: TargetModa
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-[#8A8F98] hover:bg-[#141516]/5 rounded-lg transition-colors"
+            className="px-4 py-2 text-[#8A8F98] hover:bg-white/5/5 rounded-lg transition-colors"
           >
             취소
           </button>

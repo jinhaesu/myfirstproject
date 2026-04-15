@@ -58,7 +58,7 @@ export function DataItemActions({ data, type, onEdit, onDelete }: DataItemAction
         {/* AI 요약 */}
         <button
           onClick={() => setShowAISummary(true)}
-          className="p-2 text-[#62666D] hover:text-purple-500 hover:bg-[#5E6AD2]/10 rounded-lg transition-colors"
+          className="p-2 text-[#62666D] hover:text-[#5E6AD2] hover:bg-[#5E6AD2]/10 rounded-lg transition-colors"
           title="AI 요약"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,7 +69,7 @@ export function DataItemActions({ data, type, onEdit, onDelete }: DataItemAction
         {/* AI 조언 */}
         <button
           onClick={() => setShowAIAdvice(true)}
-          className="p-2 text-[#62666D] hover:text-emerald-500 hover:bg-[#27A644]/10 rounded-lg transition-colors"
+          className="p-2 text-[#62666D] hover:text-[#27A644] hover:bg-[#27A644]/10 rounded-lg transition-colors"
           title="AI 조언"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,7 +91,7 @@ export function DataItemActions({ data, type, onEdit, onDelete }: DataItemAction
         {/* 수정 */}
         <button
           onClick={onEdit}
-          className="p-2 text-[#62666D] hover:text-[#D0D6E0] hover:bg-[#141516]/5 rounded-lg transition-colors"
+          className="p-2 text-[#62666D] hover:text-[#D0D6E0] hover:bg-white/5/5 rounded-lg transition-colors"
           title="수정"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

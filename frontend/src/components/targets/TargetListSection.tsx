@@ -258,7 +258,7 @@ export function TargetListSection({
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}년</option>
@@ -270,7 +270,7 @@ export function TargetListSection({
               <select
                 value={selectedMonth ?? ''}
                 onChange={(e) => setSelectedMonth(e.target.value ? Number(e.target.value) : null)}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
               >
                 {months.map((m) => (
                   <option key={m.value ?? 'null'} value={m.value ?? ''}>{m.label}</option>
@@ -324,7 +324,7 @@ export function TargetListSection({
                   type="checkbox"
                   checked={showManagerChart}
                   onChange={(e) => setShowManagerChart(e.target.checked)}
-                  className="w-4 h-4 text-[#7070FF] rounded border-[#23252A] focus:ring-blue-500"
+                  className="w-4 h-4 text-[#7070FF] rounded border-[#23252A] focus:ring-[#5E6AD2]"
                 />
                 <span className="text-sm font-medium text-[#D0D6E0]">책임자별 목표 지표</span>
               </label>
@@ -333,7 +333,7 @@ export function TargetListSection({
                   type="checkbox"
                   checked={showCriteriaChart}
                   onChange={(e) => setShowCriteriaChart(e.target.checked)}
-                  className="w-4 h-4 text-[#7070FF] rounded border-[#23252A] focus:ring-blue-500"
+                  className="w-4 h-4 text-[#7070FF] rounded border-[#23252A] focus:ring-[#5E6AD2]"
                 />
                 <span className="text-sm font-medium text-[#D0D6E0]">기준별 목표 지표</span>
               </label>
@@ -360,9 +360,9 @@ export function TargetListSection({
                       <Tooltip formatter={(value: number) => formatNumber(value)} />
                       <Legend />
                       <Bar dataKey="매출" fill="#5E6AD2" />
-                      <Bar dataKey="판매량" fill="#10b981" />
-                      <Bar dataKey="공헌이익" fill="#8b5cf6" />
-                      <Bar dataKey="광고선전비" fill="#f97316" />
+                      <Bar dataKey="판매량" fill="#27A644" />
+                      <Bar dataKey="공헌이익" fill="#7070FF" />
+                      <Bar dataKey="광고선전비" fill="#FC7840" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -384,9 +384,9 @@ export function TargetListSection({
                       <Tooltip formatter={(value: number) => formatNumber(value)} />
                       <Legend />
                       <Bar dataKey="매출" fill="#5E6AD2" />
-                      <Bar dataKey="판매량" fill="#10b981" />
-                      <Bar dataKey="공헌이익" fill="#8b5cf6" />
-                      <Bar dataKey="광고선전비" fill="#f97316" />
+                      <Bar dataKey="판매량" fill="#27A644" />
+                      <Bar dataKey="공헌이익" fill="#7070FF" />
+                      <Bar dataKey="광고선전비" fill="#FC7840" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -408,7 +408,7 @@ export function TargetListSection({
             </div>
           ) : (
             targets.map((target) => (
-              <div key={target.id} className="px-6 py-4 flex items-center justify-between hover:bg-[#141516]/5">
+              <div key={target.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5/5">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="px-2 py-0.5 bg-[#5E6AD2]/15 text-[#828FFF] text-xs font-medium rounded">

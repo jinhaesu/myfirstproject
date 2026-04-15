@@ -92,7 +92,7 @@ const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
   '대기': 'bg-[#141516] text-[#8A8F98]',
 };
 
-const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+const PIE_COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#EB5757', '#7070FF', '#ec4899'];
 
 // ---------------------------------------------------------------------------
 // Sample Data
@@ -314,7 +314,7 @@ export default function WorkforcePage() {
   // ---------------------------------------------------------------------------
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
           <p className="text-[#8A8F98]">로딩 중...</p>
@@ -340,7 +340,7 @@ export default function WorkforcePage() {
   // JSX
   // ---------------------------------------------------------------------------
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]">
+    <main className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -368,7 +368,7 @@ export default function WorkforcePage() {
             value={formatNum(summaryCards.working)}
             unit="명"
             icon={
-              <svg className="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-[#27A644]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             }
@@ -390,7 +390,7 @@ export default function WorkforcePage() {
             value={formatNum(summaryCards.utilization)}
             unit="%"
             icon={
-              <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-[#F0BF00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             }
@@ -407,7 +407,7 @@ export default function WorkforcePage() {
               className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab
                   ? 'bg-[#5E6AD2] text-white shadow-[0px_3px_12px_rgba(0,0,0,0.2)]'
-                  : 'text-[#8A8F98] hover:bg-[#141516]/5'
+                  : 'text-[#8A8F98] hover:bg-white/5/5'
               }`}
             >
               {tab}
@@ -521,7 +521,7 @@ function StaffTab({ staff, departmentFilter, onFilterChange, onAdd, onEdit, onDe
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 departmentFilter === dep
                   ? 'bg-[#5E6AD2] text-white'
-                  : 'bg-[#141516] text-[#8A8F98] hover:bg-[#141516]/7'
+                  : 'bg-[#141516] text-[#8A8F98] hover:bg-white/5/7'
               }`}
             >
               {dep}
@@ -560,7 +560,7 @@ function StaffTab({ staff, departmentFilter, onFilterChange, onAdd, onEdit, onDe
               </tr>
             )}
             {staff.map(s => (
-              <tr key={s.id} className="border-t border-[#23252A] hover:bg-[#141516]/5/60 transition-colors">
+              <tr key={s.id} className="border-t border-[#23252A] hover:bg-white/5/5/60 transition-colors">
                 <td className="px-4 py-3 font-medium text-[#F7F8F8]">{s.name}</td>
                 <td className="px-4 py-3">
                   <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#5E6AD2]/10 text-[#828FFF]">
@@ -645,7 +645,7 @@ function StaffModal({ staff, onSave, onClose }: {
       <div className="bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
           <h3 className="text-lg font-bold text-[#F7F8F8]">{isEdit ? '인력 수정' : '인력 추가'}</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-[#141516]/5 text-[#62666D] hover:text-[#D0D6E0] transition-colors">
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5/5 text-[#62666D] hover:text-[#D0D6E0] transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -659,7 +659,7 @@ function StaffModal({ staff, onSave, onClose }: {
               type="text"
               value={form.name}
               onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
               placeholder="홍길동"
               required
             />
@@ -671,7 +671,7 @@ function StaffModal({ staff, onSave, onClose }: {
               <select
                 value={form.department}
                 onChange={e => setForm(p => ({ ...p, department: e.target.value as Department }))}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
               >
                 {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
@@ -681,7 +681,7 @@ function StaffModal({ staff, onSave, onClose }: {
               <select
                 value={form.position}
                 onChange={e => setForm(p => ({ ...p, position: e.target.value }))}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
               >
                 {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -699,7 +699,7 @@ function StaffModal({ staff, onSave, onClose }: {
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                     form.status === st
                       ? `${STATUS_COLORS[st]} border-current`
-                      : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-[#141516]/5'
+                      : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-white/5/5'
                   }`}
                 >
                   {st}
@@ -714,7 +714,7 @@ function StaffModal({ staff, onSave, onClose }: {
               type="text"
               value={form.task}
               onChange={e => setForm(p => ({ ...p, task: e.target.value }))}
-              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
               placeholder="업무 내용"
             />
           </div>
@@ -725,7 +725,7 @@ function StaffModal({ staff, onSave, onClose }: {
               type="text"
               value={form.phone}
               onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
-              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
               placeholder="010-0000-0000"
             />
           </div>
@@ -734,7 +734,7 @@ function StaffModal({ staff, onSave, onClose }: {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-[#141516]/7 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
             >
               취소
             </button>
@@ -774,7 +774,7 @@ function ScheduleTab({ staff, schedule, weekDates, weekLabel, onShiftChange, onW
       <div className="p-4 border-b border-[#23252A] flex items-center justify-between">
         <button
           onClick={() => onWeekNav(-1)}
-          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-[#141516]/7 transition-colors"
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -784,7 +784,7 @@ function ScheduleTab({ staff, schedule, weekDates, weekLabel, onShiftChange, onW
         <h3 className="text-sm font-bold text-[#D0D6E0]">{weekLabel}</h3>
         <button
           onClick={() => onWeekNav(1)}
-          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-[#141516]/7 transition-colors"
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
         >
           다음 주
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -832,7 +832,7 @@ function ScheduleTab({ staff, schedule, weekDates, weekLabel, onShiftChange, onW
           </thead>
           <tbody>
             {staff.map(s => (
-              <tr key={s.id} className="border-t border-[#23252A] hover:bg-[#141516]/5/40 transition-colors">
+              <tr key={s.id} className="border-t border-[#23252A] hover:bg-white/5/5/40 transition-colors">
                 <td className="px-4 py-2 font-medium text-[#F7F8F8] sticky left-0 bg-[#0F1011] z-10">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-[#5E6AD2]/15 text-[#7070FF] flex items-center justify-center text-xs font-bold shrink-0">
@@ -930,7 +930,7 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
                 </tr>
               )}
               {tasks.map(t => (
-                <tr key={t.id} className="border-t border-[#23252A] hover:bg-[#141516]/5/60 transition-colors">
+                <tr key={t.id} className="border-t border-[#23252A] hover:bg-white/5/5/60 transition-colors">
                   <td className="px-4 py-3 font-medium text-[#F7F8F8]">{t.name}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5">
@@ -1023,8 +1023,8 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
                   formatter={(value: number, name: string) => [`${value}h`, name]}
                 />
                 <Legend wrapperStyle={{ fontSize: '12px' }} />
-                <ReferenceLine y={40} stroke="#ef4444" strokeDasharray="4 4" label={{ value: '기준 40h', position: 'right', fontSize: 11, fill: '#ef4444' }} />
-                <Bar dataKey="투입시간" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={32} />
+                <ReferenceLine y={40} stroke="#EB5757" strokeDasharray="4 4" label={{ value: '기준 40h', position: 'right', fontSize: 11, fill: '#EB5757' }} />
+                <Bar dataKey="투입시간" fill="#5E6AD2" radius={[6, 6, 0, 0]} barSize={32} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -1124,7 +1124,7 @@ function UtilizationChart({ tasks, staffList }: { tasks: Task[]; staffList: Staf
               <circle
                 cx="18" cy="18" r="14"
                 fill="none"
-                stroke={d.value >= 80 ? '#10b981' : d.value >= 50 ? '#6366f1' : '#f59e0b'}
+                stroke={d.value >= 80 ? '#27A644' : d.value >= 50 ? '#5E6AD2' : '#F0BF00'}
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeDasharray={`${(d.value / 100) * 87.96} 87.96`}
@@ -1170,7 +1170,7 @@ function TaskModal({ staffList, onSave, onClose }: {
       <div className="bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
           <h3 className="text-lg font-bold text-[#F7F8F8]">업무 추가</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-[#141516]/5 text-[#62666D] hover:text-[#D0D6E0] transition-colors">
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5/5 text-[#62666D] hover:text-[#D0D6E0] transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -1184,7 +1184,7 @@ function TaskModal({ staffList, onSave, onClose }: {
               type="text"
               value={form.name}
               onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
               placeholder="업무 이름을 입력하세요"
               required
             />
@@ -1195,7 +1195,7 @@ function TaskModal({ staffList, onSave, onClose }: {
             <select
               value={form.assigneeId}
               onChange={e => setForm(p => ({ ...p, assigneeId: e.target.value }))}
-              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
             >
               {staffList.map(s => (
                 <option key={s.id} value={s.id}>{s.name} ({s.department})</option>
@@ -1211,7 +1211,7 @@ function TaskModal({ staffList, onSave, onClose }: {
                 min={0}
                 value={form.inputHours}
                 onChange={e => setForm(p => ({ ...p, inputHours: Number(e.target.value) }))}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
               />
             </div>
             <div>
@@ -1221,7 +1221,7 @@ function TaskModal({ staffList, onSave, onClose }: {
                 min={0}
                 value={form.estimatedHours}
                 onChange={e => setForm(p => ({ ...p, estimatedHours: Number(e.target.value) }))}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
               />
             </div>
           </div>
@@ -1257,7 +1257,7 @@ function TaskModal({ staffList, onSave, onClose }: {
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                     form.status === st
                       ? `${TASK_STATUS_COLORS[st]} border-current`
-                      : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-[#141516]/5'
+                      : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-white/5/5'
                   }`}
                 >
                   {st}
@@ -1270,7 +1270,7 @@ function TaskModal({ staffList, onSave, onClose }: {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-[#141516]/7 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
             >
               취소
             </button>

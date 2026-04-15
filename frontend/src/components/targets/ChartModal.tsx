@@ -396,7 +396,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
         }
         if (showTargetComparison && targetData && type === 'sales') {
           elements.push(
-            <Bar key="target" dataKey={targetLabel} fill="#F97316" name={targetLabel} />
+            <Bar key="target" dataKey={targetLabel} fill="#FC7840" name={targetLabel} />
           );
         }
       } else if (chartType === 'line') {
@@ -410,7 +410,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
         }
         if (showTargetComparison && targetData && type === 'sales') {
           elements.push(
-            <Line key="target" type="monotone" dataKey={targetLabel} stroke="#F97316" strokeWidth={2} strokeDasharray="3 3" name={targetLabel} />
+            <Line key="target" type="monotone" dataKey={targetLabel} stroke="#FC7840" strokeWidth={2} strokeDasharray="3 3" name={targetLabel} />
           );
         }
       } else {
@@ -424,7 +424,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
         }
         if (showTargetComparison && targetData && type === 'sales') {
           elements.push(
-            <Area key="target" type="monotone" dataKey={targetLabel} stroke="#F97316" fill="#F97316" fillOpacity={0.15} name={targetLabel} />
+            <Area key="target" type="monotone" dataKey={targetLabel} stroke="#FC7840" fill="#FC7840" fillOpacity={0.15} name={targetLabel} />
           );
         }
       }
@@ -488,7 +488,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                       chartType === option.value
                         ? 'bg-[#5E6AD2] text-white'
-                        : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                        : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                     }`}
                   >
                     {option.label}
@@ -505,7 +505,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                   type="checkbox"
                   checked={showCumulative}
                   onChange={(e) => setShowCumulative(e.target.checked)}
-                  className="w-4 h-4 text-[#FC7840] rounded border-[#23252A] focus:ring-orange-500"
+                  className="w-4 h-4 text-[#FC7840] rounded border-[#23252A] focus:ring-[#FC7840]"
                 />
                 <span className="text-sm font-medium text-[#8A8F98]">누계</span>
               </label>
@@ -516,7 +516,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                   type="checkbox"
                   checked={showComparison}
                   onChange={(e) => setShowComparison(e.target.checked)}
-                  className="w-4 h-4 text-[#7070FF] rounded border-[#23252A] focus:ring-blue-500"
+                  className="w-4 h-4 text-[#7070FF] rounded border-[#23252A] focus:ring-[#5E6AD2]"
                 />
                 <span className="text-sm font-medium text-[#8A8F98]">
                   {type === 'target' ? '전년도 비교' : '전월 비교'}
@@ -536,7 +536,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                     type="checkbox"
                     checked={showTargetComparison}
                     onChange={(e) => setShowTargetComparison(e.target.checked)}
-                    className="w-4 h-4 text-[#FC7840] rounded border-[#23252A] focus:ring-orange-500"
+                    className="w-4 h-4 text-[#FC7840] rounded border-[#23252A] focus:ring-[#FC7840]"
                   />
                   <span className="text-sm font-medium text-[#8A8F98]">목표 값 보기</span>
                   {loadingTarget && (
@@ -623,7 +623,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     selectedRows.includes(row.index)
                       ? 'bg-[#5E6AD2] text-white'
-                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-[#141516]/7'
+                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
                   }`}
                 >
                   {row.name}

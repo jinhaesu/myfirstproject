@@ -142,9 +142,9 @@ const outboundStatusColor: Record<OutboundStatus, string> = {
 };
 
 const priorityColor: Record<AlertPriority, string> = {
-  긴급: 'bg-[#EB5757]/15 text-[#EB5757] border-red-300',
-  주의: 'bg-[#FC7840]/15 text-[#FC7840] border-orange-300',
-  참고: 'bg-[#F0BF00]/15 text-[#F0BF00] border-yellow-300',
+  긴급: 'bg-[#EB5757]/15 text-[#EB5757] border-[#EB5757]/40',
+  주의: 'bg-[#FC7840]/15 text-[#FC7840] border-[#FC7840]/40',
+  참고: 'bg-[#F0BF00]/15 text-[#F0BF00] border-[#F0BF00]/40',
 };
 
 const deriveStatus = (current: number, safety: number, reorder: number): InventoryStatus => {
@@ -419,7 +419,7 @@ export default function InventoryPage() {
   // ---------------------------------------------------------------------------
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
           <p className="text-[#8A8F98]">로딩 중...</p>
@@ -438,7 +438,7 @@ export default function InventoryPage() {
   const tabs: TabKey[] = ['재고현황', '출고현황', '재고알림'];
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]">
+    <main className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -522,7 +522,7 @@ export default function InventoryPage() {
               className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 activeTab === tab
                   ? 'bg-[#5E6AD2] text-white shadow-[0px_1px_3px_rgba(0,0,0,0.2)]'
-                  : 'text-[#8A8F98] hover:bg-[#141516]/5'
+                  : 'text-[#8A8F98] hover:bg-white/5/5'
               }`}
             >
               {tab}
@@ -555,7 +555,7 @@ export default function InventoryPage() {
                     placeholder="상품명 검색..."
                     value={invSearch}
                     onChange={(e) => setInvSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
                   />
                 </div>
 
@@ -563,7 +563,7 @@ export default function InventoryPage() {
                 <select
                   value={invCategoryFilter}
                   onChange={(e) => setInvCategoryFilter(e.target.value)}
-                  className="px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                  className="px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                 >
                   {categories.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -574,7 +574,7 @@ export default function InventoryPage() {
                 <select
                   value={invStatusFilter}
                   onChange={(e) => setInvStatusFilter(e.target.value as typeof invStatusFilter)}
-                  className="px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                  className="px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                 >
                   <option value="전체">상태: 전체</option>
                   <option value="정상">정상</option>
@@ -587,7 +587,7 @@ export default function InventoryPage() {
                 <div className="flex items-center gap-2 ml-auto">
                   <button
                     onClick={downloadInventoryExcel}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-[#27A644]/10 text-[#27A644] rounded-lg text-sm font-medium hover:bg-[#27A644]/15 transition-colors border border-emerald-200"
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-[#27A644]/10 text-[#27A644] rounded-lg text-sm font-medium hover:bg-[#27A644]/15 transition-colors border border-[#27A644]/25"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -633,7 +633,7 @@ export default function InventoryPage() {
                       </tr>
                     ) : (
                       filteredInventory.map((item) => (
-                        <tr key={item.id} className="hover:bg-[#141516]/5/50 transition-colors">
+                        <tr key={item.id} className="hover:bg-white/5/5/50 transition-colors">
                           <td className="px-5 py-3.5 font-mono text-xs text-[#8A8F98]">{item.skuCode}</td>
                           <td className="px-5 py-3.5 font-medium text-[#F7F8F8]">{item.productName}</td>
                           <td className="px-5 py-3.5 text-[#8A8F98]">{item.category}</td>
@@ -687,7 +687,7 @@ export default function InventoryPage() {
                       formatter={(value: number) => fmt(value)}
                     />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    <Bar dataKey="현재재고" fill="#6366f1" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="현재재고" fill="#5E6AD2" radius={[0, 4, 4, 0]} />
                     <Bar dataKey="안전재고" fill="#232326" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -711,7 +711,7 @@ export default function InventoryPage() {
                     type="date"
                     value={obDateFilter}
                     onChange={(e) => setObDateFilter(e.target.value)}
-                    className="px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                    className="px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                   />
                   {obDateFilter && (
                     <button
@@ -727,7 +727,7 @@ export default function InventoryPage() {
                 <select
                   value={obStatusFilter}
                   onChange={(e) => setObStatusFilter(e.target.value as typeof obStatusFilter)}
-                  className="px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                  className="px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                 >
                   <option value="전체">상태: 전체</option>
                   <option value="준비중">준비중</option>
@@ -740,7 +740,7 @@ export default function InventoryPage() {
                 <div className="flex items-center gap-2 ml-auto">
                   <button
                     onClick={downloadOutboundExcel}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-[#27A644]/10 text-[#27A644] rounded-lg text-sm font-medium hover:bg-[#27A644]/15 transition-colors border border-emerald-200"
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-[#27A644]/10 text-[#27A644] rounded-lg text-sm font-medium hover:bg-[#27A644]/15 transition-colors border border-[#27A644]/25"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -786,7 +786,7 @@ export default function InventoryPage() {
                       </tr>
                     ) : (
                       filteredOutbound.map((item) => (
-                        <tr key={item.id} className="hover:bg-[#141516]/5/50 transition-colors">
+                        <tr key={item.id} className="hover:bg-white/5/5/50 transition-colors">
                           <td className="px-5 py-3.5 font-mono text-xs text-[#8A8F98]">{item.outboundNo}</td>
                           <td className="px-5 py-3.5 text-[#8A8F98]">{item.outboundDate}</td>
                           <td className="px-5 py-3.5 font-medium text-[#F7F8F8]">{item.productName}</td>
@@ -832,10 +832,10 @@ export default function InventoryPage() {
                     <Line
                       type="monotone"
                       dataKey="출고수량"
-                      stroke="#6366f1"
+                      stroke="#5E6AD2"
                       strokeWidth={2.5}
-                      dot={{ r: 5, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }}
-                      activeDot={{ r: 7, fill: '#4f46e5', strokeWidth: 2, stroke: '#fff' }}
+                      dot={{ r: 5, fill: '#5E6AD2', strokeWidth: 2, stroke: '#23252A' }}
+                      activeDot={{ r: 7, fill: '#4f46e5', strokeWidth: 2, stroke: '#23252A' }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -852,7 +852,7 @@ export default function InventoryPage() {
             {alertItems.length === 0 ? (
               <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-12 text-center">
                 <div className="w-16 h-16 bg-[#27A644]/15 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-8 h-8 text-[#27A644]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
@@ -977,7 +977,7 @@ export default function InventoryPage() {
                 </h2>
                 <button
                   onClick={() => setShowInvModal(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#141516]/5 text-[#62666D] hover:text-[#D0D6E0] transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5/5 text-[#62666D] hover:text-[#D0D6E0] transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -993,7 +993,7 @@ export default function InventoryPage() {
                     value={invForm.skuCode}
                     onChange={(e) => setInvForm((f) => ({ ...f, skuCode: e.target.value }))}
                     placeholder="예: SK-1006"
-                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -1003,7 +1003,7 @@ export default function InventoryPage() {
                     value={invForm.productName}
                     onChange={(e) => setInvForm((f) => ({ ...f, productName: e.target.value }))}
                     placeholder="상품명을 입력하세요"
-                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -1011,7 +1011,7 @@ export default function InventoryPage() {
                   <select
                     value={invForm.category}
                     onChange={(e) => setInvForm((f) => ({ ...f, category: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                   >
                     <option value="스킨케어">스킨케어</option>
                     <option value="메이크업">메이크업</option>
@@ -1028,7 +1028,7 @@ export default function InventoryPage() {
                       min={0}
                       value={invForm.currentStock}
                       onChange={(e) => setInvForm((f) => ({ ...f, currentStock: Number(e.target.value) }))}
-                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                     />
                   </div>
                   <div>
@@ -1038,7 +1038,7 @@ export default function InventoryPage() {
                       min={0}
                       value={invForm.safetyStock}
                       onChange={(e) => setInvForm((f) => ({ ...f, safetyStock: Number(e.target.value) }))}
-                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                     />
                   </div>
                   <div>
@@ -1048,7 +1048,7 @@ export default function InventoryPage() {
                       min={0}
                       value={invForm.reorderPoint}
                       onChange={(e) => setInvForm((f) => ({ ...f, reorderPoint: Number(e.target.value) }))}
-                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                     />
                   </div>
                 </div>
@@ -1058,7 +1058,7 @@ export default function InventoryPage() {
                     type="date"
                     value={invForm.lastInboundDate}
                     onChange={(e) => setInvForm((f) => ({ ...f, lastInboundDate: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                   />
                 </div>
               </div>
@@ -1066,7 +1066,7 @@ export default function InventoryPage() {
               <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-[#23252A]">
                 <button
                   onClick={() => setShowInvModal(false)}
-                  className="px-5 py-2.5 text-sm font-medium text-[#8A8F98] hover:bg-[#141516]/5 rounded-lg transition-colors"
+                  className="px-5 py-2.5 text-sm font-medium text-[#8A8F98] hover:bg-white/5/5 rounded-lg transition-colors"
                 >
                   취소
                 </button>
@@ -1097,7 +1097,7 @@ export default function InventoryPage() {
                 <h2 className="text-lg font-bold text-[#F7F8F8]">출고 등록</h2>
                 <button
                   onClick={() => setShowObModal(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#141516]/5 text-[#62666D] hover:text-[#D0D6E0] transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5/5 text-[#62666D] hover:text-[#D0D6E0] transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1113,7 +1113,7 @@ export default function InventoryPage() {
                     value={obForm.productName}
                     onChange={(e) => setObForm((f) => ({ ...f, productName: e.target.value }))}
                     placeholder="상품명을 입력하세요"
-                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1124,7 +1124,7 @@ export default function InventoryPage() {
                       value={obForm.sku}
                       onChange={(e) => setObForm((f) => ({ ...f, sku: e.target.value }))}
                       placeholder="예: SK-1001"
-                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -1134,7 +1134,7 @@ export default function InventoryPage() {
                       min={1}
                       value={obForm.quantity}
                       onChange={(e) => setObForm((f) => ({ ...f, quantity: Number(e.target.value) }))}
-                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
                     />
                   </div>
                 </div>
@@ -1145,7 +1145,7 @@ export default function InventoryPage() {
                     value={obForm.region}
                     onChange={(e) => setObForm((f) => ({ ...f, region: e.target.value }))}
                     placeholder="예: 서울 강남구"
-                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1154,7 +1154,7 @@ export default function InventoryPage() {
                     <select
                       value={obForm.courier}
                       onChange={(e) => setObForm((f) => ({ ...f, courier: e.target.value }))}
-                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                     >
                       <option value="CJ대한통운">CJ대한통운</option>
                       <option value="한진택배">한진택배</option>
@@ -1170,7 +1170,7 @@ export default function InventoryPage() {
                       value={obForm.trackingNo}
                       onChange={(e) => setObForm((f) => ({ ...f, trackingNo: e.target.value }))}
                       placeholder="운송장번호"
-                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -1179,7 +1179,7 @@ export default function InventoryPage() {
                   <select
                     value={obForm.status}
                     onChange={(e) => setObForm((f) => ({ ...f, status: e.target.value as OutboundStatus }))}
-                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-[#0F1011]"
+                    className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] bg-[#0F1011]"
                   >
                     <option value="준비중">준비중</option>
                     <option value="출고완료">출고완료</option>
@@ -1192,7 +1192,7 @@ export default function InventoryPage() {
               <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-[#23252A]">
                 <button
                   onClick={() => setShowObModal(false)}
-                  className="px-5 py-2.5 text-sm font-medium text-[#8A8F98] hover:bg-[#141516]/5 rounded-lg transition-colors"
+                  className="px-5 py-2.5 text-sm font-medium text-[#8A8F98] hover:bg-white/5/5 rounded-lg transition-colors"
                 >
                   취소
                 </button>

@@ -136,7 +136,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* 로고 */}
         <div className="text-center mb-8">
@@ -175,14 +175,14 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com"
                   required
-                  className="w-full px-4 py-3 border border-[#23252A] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border border-[#23252A] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent transition-all"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] text-white rounded-xl font-semibold hover:from-[#5E6AD2] hover:to-indigo-700 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed transition-all shadow-[0px_3px_12px_rgba(0,0,0,0.2)] hover:shadow-[0px_7px_32px_rgba(0,0,0,0.35)] flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] text-white rounded-xl font-semibold hover:from-[#5E6AD2] hover:to-[#4B55A5] disabled:from-[#1C1C1F] disabled:to-[#232326] disabled:cursor-not-allowed transition-all shadow-[0px_3px_12px_rgba(0,0,0,0.2)] hover:shadow-[0px_7px_32px_rgba(0,0,0,0.35)] flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>
@@ -246,7 +246,7 @@ export default function LoginPage() {
                       value={digit}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                      className="w-12 h-14 text-center text-2xl font-bold border border-[#23252A] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-12 h-14 text-center text-2xl font-bold border border-[#23252A] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent transition-all"
                     />
                   ))}
                 </div>
@@ -261,7 +261,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoading || otp.some(d => !d)}
-                className="w-full py-3 bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] text-white rounded-xl font-semibold hover:from-[#5E6AD2] hover:to-indigo-700 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed transition-all shadow-[0px_3px_12px_rgba(0,0,0,0.2)] hover:shadow-[0px_7px_32px_rgba(0,0,0,0.35)] flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] text-white rounded-xl font-semibold hover:from-[#5E6AD2] hover:to-[#4B55A5] disabled:from-[#1C1C1F] disabled:to-[#232326] disabled:cursor-not-allowed transition-all shadow-[0px_3px_12px_rgba(0,0,0,0.2)] hover:shadow-[0px_7px_32px_rgba(0,0,0,0.35)] flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>
