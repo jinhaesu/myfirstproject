@@ -604,36 +604,36 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
   // -----------------------------------------------------------------------
   const buildReportHTML = useCallback(() => {
     const rc = (rate: number) => (rate >= 100 ? '#10b981' : rate >= 80 ? '#f59e0b' : '#ef4444');
-    const rbg = (rate: number) => (rate >= 100 ? '#ecfdf5' : rate >= 80 ? '#fffbeb' : '#fef2f2');
-    const rbd = (rate: number) => (rate >= 100 ? '#a7f3d0' : rate >= 80 ? '#fde68a' : '#fecaca');
+    const rbg = (rate: number) => (rate >= 100 ? '#27A644/15' : rate >= 80 ? '#F0BF00/15' : '#EB5757/15');
+    const rbd = (rate: number) => (rate >= 100 ? '#27A644/40' : rate >= 80 ? '#F0BF00/40' : '#EB5757/40');
 
     // --- Manager comparison rows ---
     let mgrRows = '';
     for (const mc of managerComparisons) {
       mgrRows += `<tr>
-        <td style="padding:10px 12px;border:1px solid #e2e8f0;font-weight:600;color:#1e293b">${mc.manager}</td>
-        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(mc.targetSales))}</td>
-        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(mc.actualSales))}</td>
-        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:${rc(mc.salesRate)}">${mc.salesRate.toFixed(1)}%</td>
-        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(mc.targetQuantity)}</td>
-        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(mc.actualQuantity)}</td>
-        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:${rc(mc.quantityRate)}">${mc.quantityRate.toFixed(1)}%</td>
-        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(mc.targetContribution))}</td>
-        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(mc.actualContribution))}</td>
-        <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:${rc(mc.contributionRate)}">${mc.contributionRate.toFixed(1)}%</td>
+        <td style="padding:10px 12px;border:1px solid #23252A;font-weight:600;color:#1e293b">${mc.manager}</td>
+        <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;color:#475569">${formatKRW(applyVat(mc.targetSales))}</td>
+        <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;color:#475569">${formatKRW(applyVat(mc.actualSales))}</td>
+        <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;font-weight:700;color:${rc(mc.salesRate)}">${mc.salesRate.toFixed(1)}%</td>
+        <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;color:#475569">${formatKRW(mc.targetQuantity)}</td>
+        <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;color:#475569">${formatKRW(mc.actualQuantity)}</td>
+        <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;font-weight:700;color:${rc(mc.quantityRate)}">${mc.quantityRate.toFixed(1)}%</td>
+        <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;color:#475569">${formatKRW(applyVat(mc.targetContribution))}</td>
+        <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;color:#475569">${formatKRW(applyVat(mc.actualContribution))}</td>
+        <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;font-weight:700;color:${rc(mc.contributionRate)}">${mc.contributionRate.toFixed(1)}%</td>
       </tr>`;
     }
     const sumRow = `<tr style="background:#f5f3ff;font-weight:700;border-top:2px solid #94a3b8">
-      <td style="padding:10px 12px;border:1px solid #e2e8f0;color:#1e293b">합계</td>
-      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(applyVat(summaryTotals.targetSales))}</td>
-      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(applyVat(summaryTotals.actualSales))}</td>
-      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:${rc(summaryTotals.salesRate)}">${summaryTotals.salesRate.toFixed(1)}%</td>
-      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(summaryTotals.targetQuantity)}</td>
-      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(summaryTotals.actualQuantity)}</td>
-      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:${rc(summaryTotals.quantityRate)}">${summaryTotals.quantityRate.toFixed(1)}%</td>
-      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(applyVat(summaryTotals.targetContribution))}</td>
-      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right">${formatKRW(applyVat(summaryTotals.actualContribution))}</td>
-      <td style="padding:10px 12px;border:1px solid #e2e8f0;text-align:right;color:${rc(summaryTotals.contributionRate)}">${summaryTotals.contributionRate.toFixed(1)}%</td>
+      <td style="padding:10px 12px;border:1px solid #23252A;color:#1e293b">합계</td>
+      <td style="padding:10px 12px;border:1px solid #23252A;text-align:right">${formatKRW(applyVat(summaryTotals.targetSales))}</td>
+      <td style="padding:10px 12px;border:1px solid #23252A;text-align:right">${formatKRW(applyVat(summaryTotals.actualSales))}</td>
+      <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;color:${rc(summaryTotals.salesRate)}">${summaryTotals.salesRate.toFixed(1)}%</td>
+      <td style="padding:10px 12px;border:1px solid #23252A;text-align:right">${formatKRW(summaryTotals.targetQuantity)}</td>
+      <td style="padding:10px 12px;border:1px solid #23252A;text-align:right">${formatKRW(summaryTotals.actualQuantity)}</td>
+      <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;color:${rc(summaryTotals.quantityRate)}">${summaryTotals.quantityRate.toFixed(1)}%</td>
+      <td style="padding:10px 12px;border:1px solid #23252A;text-align:right">${formatKRW(applyVat(summaryTotals.targetContribution))}</td>
+      <td style="padding:10px 12px;border:1px solid #23252A;text-align:right">${formatKRW(applyVat(summaryTotals.actualContribution))}</td>
+      <td style="padding:10px 12px;border:1px solid #23252A;text-align:right;color:${rc(summaryTotals.contributionRate)}">${summaryTotals.contributionRate.toFixed(1)}%</td>
     </tr>`;
 
     // --- CSS bar chart ---
@@ -659,30 +659,30 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
     for (const [manager, channels] of Object.entries(groupedCh).sort(([a], [b]) => a.localeCompare(b))) {
       let chRows = '';
       for (const ch of (channels as ChannelAchievement[]).sort((a, b) => a.rate - b.rate)) {
-        const stBg = ch.rate >= 100 ? '#ecfdf5' : '#fef2f2';
+        const stBg = ch.rate >= 100 ? '#27A644/15' : '#EB5757/15';
         const stC = ch.rate >= 100 ? '#059669' : '#dc2626';
         const stT = ch.rate >= 100 ? '달성' : '미달성';
         chRows += `<tr>
-          <td style="padding:8px 12px;border:1px solid #e2e8f0;color:#334155">${ch.channel}</td>
-          <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(ch.targetValue))}</td>
-          <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:right;color:#475569">${formatKRW(applyVat(ch.actualValue))}</td>
-          <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;color:${rc(ch.rate)}">${ch.rate > 900 ? '-' : ch.rate.toFixed(1) + '%'}</td>
-          <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center">
+          <td style="padding:8px 12px;border:1px solid #23252A;color:#334155">${ch.channel}</td>
+          <td style="padding:8px 12px;border:1px solid #23252A;text-align:right;color:#475569">${formatKRW(applyVat(ch.targetValue))}</td>
+          <td style="padding:8px 12px;border:1px solid #23252A;text-align:right;color:#475569">${formatKRW(applyVat(ch.actualValue))}</td>
+          <td style="padding:8px 12px;border:1px solid #23252A;text-align:right;font-weight:700;color:${rc(ch.rate)}">${ch.rate > 900 ? '-' : ch.rate.toFixed(1) + '%'}</td>
+          <td style="padding:8px 12px;border:1px solid #23252A;text-align:center">
             <span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:${stBg};color:${stC}">${stT}</span>
           </td>
         </tr>`;
       }
-      chSections += `<div style="margin-bottom:16px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
-        <div style="padding:10px 14px;background:#eff6ff;border-bottom:1px solid #e2e8f0">
+      chSections += `<div style="margin-bottom:16px;border:1px solid #23252A;border-radius:8px;overflow:hidden">
+        <div style="padding:10px 14px;background:#141516;border-bottom:1px solid #23252A">
           <strong style="color:#334155;font-size:14px">${manager}</strong>
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead><tr style="background:#f8fafc">
-            <th style="text-align:left;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">채널</th>
-            <th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">목표</th>
-            <th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">실적</th>
-            <th style="text-align:right;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">달성률</th>
-            <th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#64748b;font-weight:600">상태</th>
+            <th style="text-align:left;padding:8px 12px;border:1px solid #23252A;color:#8A8F98;font-weight:600">채널</th>
+            <th style="text-align:right;padding:8px 12px;border:1px solid #23252A;color:#8A8F98;font-weight:600">목표</th>
+            <th style="text-align:right;padding:8px 12px;border:1px solid #23252A;color:#8A8F98;font-weight:600">실적</th>
+            <th style="text-align:right;padding:8px 12px;border:1px solid #23252A;color:#8A8F98;font-weight:600">달성률</th>
+            <th style="text-align:center;padding:8px 12px;border:1px solid #23252A;color:#8A8F98;font-weight:600">상태</th>
           </tr></thead>
           <tbody>${chRows}</tbody>
         </table>
@@ -692,15 +692,15 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
     // --- Entry status ---
     let entryRows = '';
     for (const st of managerEntryStatuses) {
-      const stBg = st.isNormal ? '#ecfdf5' : '#fef2f2';
+      const stBg = st.isNormal ? '#27A644/15' : '#EB5757/15';
       const stC = st.isNormal ? '#059669' : '#dc2626';
       const stT = st.isNormal ? '정상' : '미입력';
       entryRows += `<tr>
-        <td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:600;color:#1e293b">${st.manager}</td>
-        <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;color:#475569">${st.lastEntryDay > 0 ? st.lastEntryDay + '일' : '입력 없음'}</td>
-        <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;color:#475569">${st.requiredDay}일</td>
-        <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center;font-weight:700;color:${st.missingDays > 0 ? '#ef4444' : '#94a3b8'}">${st.missingDays > 0 ? st.missingDays + '일' : '-'}</td>
-        <td style="padding:8px 12px;border:1px solid #e2e8f0;text-align:center">
+        <td style="padding:8px 12px;border:1px solid #23252A;font-weight:600;color:#1e293b">${st.manager}</td>
+        <td style="padding:8px 12px;border:1px solid #23252A;text-align:center;color:#475569">${st.lastEntryDay > 0 ? st.lastEntryDay + '일' : '입력 없음'}</td>
+        <td style="padding:8px 12px;border:1px solid #23252A;text-align:center;color:#475569">${st.requiredDay}일</td>
+        <td style="padding:8px 12px;border:1px solid #23252A;text-align:center;font-weight:700;color:${st.missingDays > 0 ? '#ef4444' : '#94a3b8'}">${st.missingDays > 0 ? st.missingDays + '일' : '-'}</td>
+        <td style="padding:8px 12px;border:1px solid #23252A;text-align:center">
           <span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:${stBg};color:${stC}">${stT}</span>
         </td>
       </tr>`;
@@ -709,14 +709,14 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
     // --- Missing entry warnings ---
     let warnCards = '';
     for (const st of missingEntryManagers) {
-      warnCards += `<div style="display:inline-block;width:calc(33% - 12px);min-width:200px;margin:4px;padding:14px;border:1px solid #fecaca;border-radius:8px;background:#fff;vertical-align:top">
+      warnCards += `<div style="display:inline-block;width:calc(33% - 12px);min-width:200px;margin:4px;padding:14px;border:1px solid #EB5757;border-radius:8px;background:#1C1C1F;vertical-align:top">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="width:36px;height:36px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0">
             <span style="font-weight:700;color:#dc2626;font-size:14px">${st.manager.charAt(0)}</span>
           </div>
           <div>
             <div style="font-weight:600;color:#1e293b;font-size:14px">${st.manager}</div>
-            <div style="font-size:12px;color:#64748b;margin-top:2px">마지막 입력일: ${st.lastEntryDay > 0 ? effectiveMonth + '월 ' + st.lastEntryDay + '일' : '입력 없음'}</div>
+            <div style="font-size:12px;color:#8A8F98;margin-top:2px">마지막 입력일: ${st.lastEntryDay > 0 ? effectiveMonth + '월 ' + st.lastEntryDay + '일' : '입력 없음'}</div>
             <div style="font-size:12px;color:#dc2626;font-weight:600;margin-top:2px">미입력 일수: ${st.missingDays}일</div>
           </div>
         </div>
@@ -738,14 +738,14 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
 
     const now = new Date().toLocaleString('ko-KR');
     const vatNote = excludeVat ? ' | 부가세 별도 기준' : '';
-    const thStyle = 'text-align:right;padding:10px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700';
+    const thStyle = 'text-align:right;padding:10px 12px;border:1px solid #23252A;color:#475569;font-weight:700';
 
     return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1e293b;max-width:100%;padding:24px;font-size:13px;line-height:1.6">
       <!-- PAGE 1 -->
       <div style="page-break-after:always">
         <div style="text-align:center;padding-bottom:20px;border-bottom:3px solid #6366f1;margin-bottom:24px">
           <h1 style="font-size:22px;font-weight:800;color:#1e1b4b;margin:0 0 6px 0">${selectedYear}년 ${effectiveMonth}월 목표 달성 현황 리포트</h1>
-          <p style="font-size:13px;color:#64748b;margin:0">생성일시: ${now}${vatNote}</p>
+          <p style="font-size:13px;color:#8A8F98;margin:0">생성일시: ${now}${vatNote}</p>
         </div>
         <div style="margin-bottom:20px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
@@ -754,7 +754,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
           </div>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead><tr style="background:#f5f3ff">
-              <th style="text-align:left;padding:10px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">담당자</th>
+              <th style="text-align:left;padding:10px 12px;border:1px solid #23252A;color:#475569;font-weight:700">담당자</th>
               <th style="${thStyle}">목표매출</th><th style="${thStyle}">실적매출</th><th style="${thStyle}">매출달성률</th>
               <th style="${thStyle}">목표판매량</th><th style="${thStyle}">실적판매량</th><th style="${thStyle}">판매량달성률</th>
               <th style="${thStyle}">목표공헌이익</th><th style="${thStyle}">실적공헌이익</th><th style="${thStyle}">공헌이익달성률</th>
@@ -762,10 +762,10 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
             <tbody>${mgrRows}${sumRow}</tbody>
           </table>
         </div>
-        <div style="margin-top:20px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
+        <div style="margin-top:20px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #23252A">
           <h3 style="font-size:14px;font-weight:700;color:#334155;margin:0 0 12px 0">매출 달성률 차트</h3>
           ${bars}
-          <div style="display:flex;gap:16px;margin-top:10px;font-size:11px;color:#64748b">
+          <div style="display:flex;gap:16px;margin-top:10px;font-size:11px;color:#8A8F98">
             <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#10b981;margin-right:4px"></span>100% 이상</span>
             <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f59e0b;margin-right:4px"></span>80~99%</span>
             <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ef4444;margin-right:4px"></span>80% 미만</span>
@@ -777,7 +777,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
       <div style="page-break-after:always">
         <div style="margin-bottom:24px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-            <div style="width:4px;height:20px;border-radius:2px;background:#3b82f6"></div>
+            <div style="width:4px;height:20px;border-radius:2px;background:#5E6AD2"></div>
             <h2 style="font-size:16px;font-weight:700;color:#1e293b;margin:0">2. 채널별 달성/미달성 현황</h2>
           </div>
           ${chSections || '<div style="padding:20px;text-align:center;color:#94a3b8;background:#f8fafc;border-radius:8px">데이터 없음</div>'}
@@ -787,14 +787,14 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
             <div style="width:4px;height:20px;border-radius:2px;background:#f59e0b"></div>
             <h2 style="font-size:16px;font-weight:700;color:#1e293b;margin:0">3. 담당자별 데이터 입력 현황</h2>
           </div>
-          <p style="font-size:12px;color:#64748b;margin:0 0 10px 0">기준일: ${selectedYear}년 ${effectiveMonth}월 ${yesterday}일까지 입력 필요</p>
+          <p style="font-size:12px;color:#8A8F98;margin:0 0 10px 0">기준일: ${selectedYear}년 ${effectiveMonth}월 ${yesterday}일까지 입력 필요</p>
           <table style="width:100%;border-collapse:collapse;font-size:13px">
-            <thead><tr style="background:#fffbeb">
-              <th style="text-align:left;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">담당자</th>
-              <th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">마지막 입력일</th>
-              <th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">요구 입력일</th>
-              <th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">미입력 일수</th>
-              <th style="text-align:center;padding:8px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:700">상태</th>
+            <thead><tr style="background:#141516">
+              <th style="text-align:left;padding:8px 12px;border:1px solid #23252A;color:#475569;font-weight:700">담당자</th>
+              <th style="text-align:center;padding:8px 12px;border:1px solid #23252A;color:#475569;font-weight:700">마지막 입력일</th>
+              <th style="text-align:center;padding:8px 12px;border:1px solid #23252A;color:#475569;font-weight:700">요구 입력일</th>
+              <th style="text-align:center;padding:8px 12px;border:1px solid #23252A;color:#475569;font-weight:700">미입력 일수</th>
+              <th style="text-align:center;padding:8px 12px;border:1px solid #23252A;color:#475569;font-weight:700">상태</th>
             </tr></thead>
             <tbody>${entryRows}</tbody>
           </table>
@@ -804,8 +804,8 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
       <!-- PAGE 3 -->
       <div>
         ${missingEntryManagers.length > 0 ? `<div style="margin-bottom:24px">
-          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;overflow:hidden">
-            <div style="padding:14px 16px;border-bottom:1px solid #fecaca;display:flex;align-items:center;gap:8px">
+          <div style="background:#EB5757/15;border:1px solid #EB5757;border-radius:8px;overflow:hidden">
+            <div style="padding:14px 16px;border-bottom:1px solid #EB5757;display:flex;align-items:center;gap:8px">
               <span style="font-size:18px;color:#dc2626">&#9888;</span>
               <h2 style="font-size:16px;font-weight:700;color:#991b1b;margin:0">4. 미입력자 경고</h2>
               <span style="padding:2px 10px;background:#fee2e2;color:#dc2626;border-radius:999px;font-size:12px;font-weight:700">${missingEntryManagers.length}명</span>
@@ -820,7 +820,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
           </div>
           ${sugCards || '<div style="padding:20px;text-align:center;color:#94a3b8;background:#f8fafc;border-radius:8px">데이터 없음</div>'}
         </div>
-        <div style="margin-top:30px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center">
+        <div style="margin-top:30px;padding-top:16px;border-top:1px solid #23252A;text-align:center">
           <p style="font-size:11px;color:#94a3b8;margin:0">이 리포트는 Nuldam Analytics에서 자동 생성되었습니다.</p>
         </div>
       </div>
@@ -1067,7 +1067,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
             print-color-adjust: exact;
           }
           .bg-[#0F1011] {
-            background-color: #fff !important;
+            background-color: #0F1011 !important;
           }
         }
       `}</style>
@@ -1162,7 +1162,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       >
                         {isSendingEmail ? (
                           <>
-                            <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                            <div className="w-4 h-4 border-2 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
                             발송 중...
                           </>
                         ) : (
@@ -1180,7 +1180,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
 
                 {showEmailInput && (
                   <div className="mt-3 p-4 bg-[#5E6AD2]/10 border border-[#5E6AD2]/30 rounded-lg">
-                    <label className="block text-sm font-medium text-indigo-800 mb-2">수신자 이메일</label>
+                    <label className="block text-sm font-medium text-[#828FFF] mb-2">수신자 이메일</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -1380,7 +1380,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       <div className="space-y-4">
                         {Object.entries(channelsByManager).sort(([a], [b]) => a.localeCompare(b)).map(([manager, channels]) => (
                           <div key={manager} className="bg-[#0F1011] rounded-xl border border-[#23252A] overflow-hidden">
-                            <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-[#23252A]">
+                            <div className="px-4 py-3 bg-gradient-to-r from-[#08090A] to-cyan-50 border-b border-[#23252A]">
                               <h4 className="font-semibold text-[#D0D6E0]">{manager}</h4>
                             </div>
                             <div className="overflow-x-auto">
@@ -1396,7 +1396,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                 </thead>
                                 <tbody>
                                   {channels.sort((a, b) => a.rate - b.rate).map((ch, idx) => (
-                                    <tr key={idx} className="border-b border-slate-50 hover:bg-[#141516]/5">
+                                    <tr key={idx} className="border-b border-[#23252A] hover:bg-[#141516]/5">
                                       <td className="px-4 py-2.5 text-[#D0D6E0]">{ch.channel}</td>
                                       <td className="px-4 py-2.5 text-right text-[#8A8F98]">
                                         {formatKRW(applyVat(ch.targetValue))}
@@ -1525,7 +1525,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   {/* ======================================================== */}
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-emerald-500 to-[#00B8CC]" />
+                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#27A644] to-[#00B8CC]" />
                       <h3 className="text-lg font-bold text-[#F7F8F8]">채널별 개선 아이디어</h3>
                     </div>
 
@@ -1583,7 +1583,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
               {/* ============================================================ */}
               <div className="px-6 py-6 bg-[#08090A] no-print">
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-indigo-500 to-purple-500" />
+                  <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#5E6AD2] to-purple-500" />
                   <h3 className="text-lg font-bold text-[#F7F8F8]">이메일 자동 발송 스케줄</h3>
                 </div>
 
@@ -1737,7 +1737,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           <div className="flex items-center gap-1 ml-3">
                             <button
                               onClick={() => handleEditSchedule(idx)}
-                              className="p-2 text-[#62666D] hover:text-indigo-500 hover:bg-[#5E6AD2]/10 rounded-lg transition-colors"
+                              className="p-2 text-[#62666D] hover:text-[#7070FF] hover:bg-[#5E6AD2]/10 rounded-lg transition-colors"
                               title="수정"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

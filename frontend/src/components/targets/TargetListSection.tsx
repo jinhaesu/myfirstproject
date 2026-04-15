@@ -240,7 +240,7 @@ export function TargetListSection({
             </button>
             <button
               onClick={() => setIsUploadModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-emerald-600 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-[#27A644] transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -359,7 +359,7 @@ export function TargetListSection({
                       }} />
                       <Tooltip formatter={(value: number) => formatNumber(value)} />
                       <Legend />
-                      <Bar dataKey="매출" fill="#3b82f6" />
+                      <Bar dataKey="매출" fill="#5E6AD2" />
                       <Bar dataKey="판매량" fill="#10b981" />
                       <Bar dataKey="공헌이익" fill="#8b5cf6" />
                       <Bar dataKey="광고선전비" fill="#f97316" />
@@ -383,7 +383,7 @@ export function TargetListSection({
                       }} />
                       <Tooltip formatter={(value: number) => formatNumber(value)} />
                       <Legend />
-                      <Bar dataKey="매출" fill="#3b82f6" />
+                      <Bar dataKey="매출" fill="#5E6AD2" />
                       <Bar dataKey="판매량" fill="#10b981" />
                       <Bar dataKey="공헌이익" fill="#8b5cf6" />
                       <Bar dataKey="광고선전비" fill="#f97316" />

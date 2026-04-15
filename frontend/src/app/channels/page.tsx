@@ -68,27 +68,27 @@ const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 
 const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` }));
 
 const COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899',
-  '#06B6D4', '#84CC16', '#F97316', '#6366F1', '#14B8A6', '#A855F7',
+  '#5E6AD2', '#27A644', '#F0BF00', '#EB5757', '#7070FF', '#EB5757',
+  '#06B6D4', '#68CC58', '#FC7840', '#828FFF', '#00B8CC', '#A855F7',
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  '오픈마켓': '#3B82F6',
-  '소셜커머스': '#10B981',
-  '버티컬': '#F59E0B',
-  '홈쇼핑': '#EF4444',
-  '백화점': '#8B5CF6',
-  '복지몰': '#EC4899',
+  '오픈마켓': '#5E6AD2',
+  '소셜커머스': '#27A644',
+  '버티컬': '#F0BF00',
+  '홈쇼핑': '#EB5757',
+  '백화점': '#7070FF',
+  '복지몰': '#EB5757',
   '대형마트': '#06B6D4',
-  '편의점': '#84CC16',
-  'B2B': '#F97316',
+  '편의점': '#68CC58',
+  'B2B': '#FC7840',
   '기타': '#6B7280',
 };
 
 export default function ChannelsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
       </div>
     }>
@@ -633,7 +633,7 @@ function ChannelsPageContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
           <p className="text-[#8A8F98]">로딩 중...</p>
@@ -647,7 +647,7 @@ function ChannelsPageContent() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -788,13 +788,13 @@ function ChannelsPageContent() {
           {/* 총합계 카드 (선택된 채널 기준) */}
           {dailySummary && (
             <div className={`grid grid-cols-2 gap-4 ${showTarget && monthlyTarget ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-[#5E6AD2]/30">
+              <div className="bg-gradient-to-br from-[#08090A] to-[#5E6AD2]/15 p-4 rounded-xl border border-[#5E6AD2]/30">
                 <p className="text-sm text-[#7070FF] mb-1">총 매출</p>
                 <p className="text-2xl font-bold text-[#828FFF]">
                   {formatCurrency(filteredTotal.gross_sales)}원
                 </p>
               </div>
-              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 rounded-xl border border-emerald-200">
+              <div className="bg-gradient-to-br from-[#27A644]/10 to-emerald-100 p-4 rounded-xl border border-emerald-200">
                 <p className="text-sm text-[#27A644] mb-1">총 주문</p>
                 <p className="text-2xl font-bold text-[#27A644]">
                   {formatNumber(filteredTotal.order_count)}건
@@ -892,7 +892,7 @@ function ChannelsPageContent() {
                     <YAxis tickFormatter={(value) => formatCurrency(value)} tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(value: number, name: string) => [`${formatNumber(value)}원`, name]} />
                     <Legend />
-                    <Line type="monotone" dataKey="매출" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="매출" stroke="#5E6AD2" strokeWidth={2} dot={false} />
                     {showTarget && monthlyTarget && (
                       <Line type="monotone" dataKey="목표" stroke="#F43F5E" strokeWidth={2} strokeDasharray="6 3" dot={false} />
                     )}
@@ -904,7 +904,7 @@ function ChannelsPageContent() {
                     <YAxis tickFormatter={(value) => formatCurrency(value)} tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(value: number, name: string) => [`${formatNumber(value)}원`, name]} />
                     <Legend />
-                    <Bar dataKey="매출" fill="#3B82F6" />
+                    <Bar dataKey="매출" fill="#5E6AD2" />
                     {showTarget && monthlyTarget && (
                       <Line type="monotone" dataKey="목표" stroke="#F43F5E" strokeWidth={2} strokeDasharray="6 3" dot={false} />
                     )}
@@ -960,7 +960,7 @@ function ChannelsPageContent() {
                 <XAxis type="number" tickFormatter={(value) => formatCurrency(value)} tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 12 }} />
                 <Tooltip formatter={(value: number) => [`${formatNumber(value)}원`, '매출']} />
-                <Bar dataKey="매출" fill="#3B82F6">
+                <Bar dataKey="매출" fill="#5E6AD2">
                   {categoryChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
@@ -1156,14 +1156,14 @@ function ChannelsPageContent() {
                             <button
                               onClick={() => syncChannel(channel)}
                               disabled={syncingChannelId === channel.id || isSyncing}
-                              className="px-3 py-1 text-sm bg-[#27A644]/15 text-[#27A644] rounded-lg hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              className="px-3 py-1 text-sm bg-[#27A644]/15 text-[#27A644] rounded-lg hover:bg-[#27A644]/25 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                               {syncingChannelId === channel.id ? '...' : '동기화'}
                             </button>
                             {(channel.name === '쿠팡 WING' || channel.name === '쿠팡 로켓') && (
                               <button
                                 onClick={() => setShowCoupangSettings(true)}
-                                className="px-3 py-1 text-sm bg-[#F0BF00]/15 text-[#F0BF00] rounded-lg hover:bg-amber-200 transition-colors"
+                                className="px-3 py-1 text-sm bg-[#F0BF00]/15 text-[#F0BF00] rounded-lg hover:bg-[#F0BF00]/25 transition-colors"
                               >
                                 설정
                               </button>
@@ -1173,7 +1173,7 @@ function ChannelsPageContent() {
                                 setSelectedChannel(channel);
                                 setShowUploadModal(true);
                               }}
-                              className="px-3 py-1 text-sm bg-[#5E6AD2]/15 text-[#828FFF] rounded-lg hover:bg-blue-200 transition-colors"
+                              className="px-3 py-1 text-sm bg-[#5E6AD2]/15 text-[#828FFF] rounded-lg hover:bg-[#5E6AD2]/25 transition-colors"
                             >
                               수동입력
                             </button>

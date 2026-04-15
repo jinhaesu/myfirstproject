@@ -464,7 +464,7 @@ export default function ProductsPage() {
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               placeholder="품목명 또는 품목코드 검색..."
-              className="w-full pl-10 pr-4 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50"
             />
           </div>
 
@@ -702,7 +702,7 @@ export default function ProductsPage() {
                       value={formData.product_name}
                       onChange={e => handleFormChange('product_name', e.target.value)}
                       placeholder="예: 널담 마카롱 복숭아 요거트 [50g]"
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50"
                     />
                   </div>
                   <div>
@@ -712,7 +712,7 @@ export default function ProductsPage() {
                       value={formData.product_code}
                       onChange={e => handleFormChange('product_code', e.target.value)}
                       placeholder="예: MK-001"
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 font-mono"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 font-mono"
                     />
                   </div>
                 </div>
@@ -724,7 +724,7 @@ export default function ProductsPage() {
                     <select
                       value={formData.product_category}
                       onChange={e => handleFormChange('product_category', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 bg-[#0F1011]"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 bg-[#0F1011]"
                     >
                       {CATEGORIES.map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
@@ -736,7 +736,7 @@ export default function ProductsPage() {
                     <select
                       value={formData.default_location}
                       onChange={e => handleFormChange('default_location', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 bg-[#0F1011]"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 bg-[#0F1011]"
                     >
                       {LOCATIONS.map(loc => (
                         <option key={loc} value={loc}>{loc}</option>
@@ -754,7 +754,7 @@ export default function ProductsPage() {
                       value={formData.default_unit_price || ''}
                       onChange={e => handleFormChange('default_unit_price', Number(e.target.value))}
                       placeholder="0"
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 tabular-nums"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 tabular-nums"
                     />
                   </div>
                   <div>
@@ -764,7 +764,7 @@ export default function ProductsPage() {
                       value={formData.default_cost || ''}
                       onChange={e => handleFormChange('default_cost', Number(e.target.value))}
                       placeholder="0"
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 tabular-nums"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 tabular-nums"
                     />
                   </div>
                 </div>
@@ -778,7 +778,7 @@ export default function ProductsPage() {
                       value={formData.safety_stock || ''}
                       onChange={e => handleFormChange('safety_stock', Number(e.target.value))}
                       placeholder="0"
-                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 tabular-nums"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 tabular-nums"
                     />
                   </div>
                   <div>
@@ -803,7 +803,7 @@ export default function ProductsPage() {
                     onChange={e => handleFormChange('notes', e.target.value)}
                     rows={2}
                     placeholder="메모 입력..."
-                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none"
+                    className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#5E6AD2]/50 resize-none"
                   />
                 </div>
 

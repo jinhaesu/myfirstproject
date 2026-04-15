@@ -228,7 +228,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         )}
 
         {/* 타임스탬프 */}
-        <p className={`text-[10px] mt-2 flex items-center gap-1 ${isUser ? 'text-blue-200' : 'text-[#62666D]'}`}>
+        <p className={`text-[10px] mt-2 flex items-center gap-1 ${isUser ? 'text-[#7070FF]/60' : 'text-[#62666D]'}`}>
           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>

@@ -419,7 +419,7 @@ export default function InventoryPage() {
   // ---------------------------------------------------------------------------
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
           <p className="text-[#8A8F98]">로딩 중...</p>
@@ -438,7 +438,7 @@ export default function InventoryPage() {
   const tabs: TabKey[] = ['재고현황', '출고현황', '재고알림'];
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -675,20 +675,20 @@ export default function InventoryPage() {
                     layout="vertical"
                     margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis type="number" tick={{ fontSize: 12, fill: '#64748b' }} />
-                    <YAxis dataKey="category" type="category" tick={{ fontSize: 12, fill: '#64748b' }} width={70} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1C1C1F" />
+                    <XAxis type="number" tick={{ fontSize: 12, fill: '#8A8F98' }} />
+                    <YAxis dataKey="category" type="category" tick={{ fontSize: 12, fill: '#8A8F98' }} width={70} />
                     <Tooltip
                       contentStyle={{
                         borderRadius: '12px',
-                        border: '1px solid #e2e8f0',
+                        border: '1px solid #34343A',
                         boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                       }}
                       formatter={(value: number) => fmt(value)}
                     />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
                     <Bar dataKey="현재재고" fill="#6366f1" radius={[0, 4, 4, 0]} />
-                    <Bar dataKey="안전재고" fill="#e2e8f0" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="안전재고" fill="#232326" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -817,13 +817,13 @@ export default function InventoryPage() {
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={outboundTrendData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} />
-                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1C1C1F" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#8A8F98' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#8A8F98' }} />
                     <Tooltip
                       contentStyle={{
                         borderRadius: '12px',
-                        border: '1px solid #e2e8f0',
+                        border: '1px solid #34343A',
                         boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                       }}
                       formatter={(value: number) => [fmt(value) + '개', '출고수량']}
@@ -940,10 +940,10 @@ export default function InventoryPage() {
                               item.currentStock === 0
                                 ? 'bg-[#EB5757]'
                                 : item.currentStock < item.safetyStock * 0.5
-                                ? 'bg-red-400'
+                                ? 'bg-[#EB5757]/80'
                                 : item.currentStock < item.safetyStock
-                                ? 'bg-orange-400'
-                                : 'bg-yellow-400'
+                                ? 'bg-[#FC7840]/80'
+                                : 'bg-[#F0BF00]/80'
                             }`}
                             style={{
                               width: `${Math.min(100, item.safetyStock > 0 ? (item.currentStock / item.safetyStock) * 100 : 0)}%`,

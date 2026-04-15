@@ -314,7 +314,7 @@ export default function WorkforcePage() {
   // ---------------------------------------------------------------------------
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
           <p className="text-[#8A8F98]">로딩 중...</p>
@@ -340,7 +340,7 @@ export default function WorkforcePage() {
   // JSX
   // ---------------------------------------------------------------------------
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -379,7 +379,7 @@ export default function WorkforcePage() {
             value={formatNum(summaryCards.available)}
             unit="명"
             icon={
-              <svg className="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-[#7070FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             }
@@ -999,23 +999,23 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#1C1C1F" />
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 12, fill: '#64748b' }}
-                  axisLine={{ stroke: '#e2e8f0' }}
+                  tick={{ fontSize: 12, fill: '#8A8F98' }}
+                  axisLine={{ stroke: '#23252A' }}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 12, fill: '#64748b' }}
-                  axisLine={{ stroke: '#e2e8f0' }}
+                  tick={{ fontSize: 12, fill: '#8A8F98' }}
+                  axisLine={{ stroke: '#23252A' }}
                   tickLine={false}
                   unit="h"
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e2e8f0',
+                    backgroundColor: '#1C1C1F',
+                    border: '1px solid #34343A',
                     borderRadius: '12px',
                     boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                     fontSize: '13px',
@@ -1053,8 +1053,8 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e2e8f0',
+                    backgroundColor: '#1C1C1F',
+                    border: '1px solid #34343A',
                     borderRadius: '12px',
                     boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                     fontSize: '13px',
@@ -1118,7 +1118,7 @@ function UtilizationChart({ tasks, staffList }: { tasks: Task[]; staffList: Staf
               <circle
                 cx="18" cy="18" r="14"
                 fill="none"
-                stroke="#e2e8f0"
+                stroke="#1C1C1F"
                 strokeWidth="3"
               />
               <circle

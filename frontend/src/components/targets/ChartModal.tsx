@@ -35,7 +35,7 @@ interface PreviousPeriodData {
   month?: number;
 }
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+const COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#EB5757', '#7070FF', '#EB5757'];
 
 function parseNumber(value: string | number | undefined | null): number {
   if (value === null || value === undefined || value === '') return 0;
@@ -663,7 +663,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
               )}
               {showTargetComparison && targetData && type === 'sales' && (
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: '#F97316' }} />
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FC7840' }} />
                   <span>{showCumulative ? '목표 누계' : '목표'}</span>
                 </div>
               )}

@@ -585,7 +585,7 @@ export default function MappingPage() {
   // ── Loading / Auth ──
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]/30 flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -830,7 +830,7 @@ export default function MappingPage() {
               <button
                 onClick={handleBulkApprove}
                 disabled={bulkApproving}
-                className="flex items-center gap-2 bg-[#27A644] text-white hover:bg-emerald-600 disabled:opacity-60 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+                className="flex items-center gap-2 bg-[#27A644] text-white hover:bg-[#27A644] disabled:opacity-60 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
               >
                 {bulkApproving ? (
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -995,7 +995,7 @@ export default function MappingPage() {
                             <button
                               onClick={() => handleApprove(suggestion.id)}
                               disabled={isApproving}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#27A644] text-white hover:bg-emerald-600 disabled:opacity-60 transition-colors"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#27A644] text-white hover:bg-[#27A644] disabled:opacity-60 transition-colors"
                             >
                               {isApproving ? (
                                 <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1258,7 +1258,7 @@ export default function MappingPage() {
                 </div>
                 <div className="w-full h-2 bg-[#141516] rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${mall.rate >= 80 ? 'bg-[#27A644]' : mall.rate >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
+                    className={`h-full rounded-full ${mall.rate >= 80 ? 'bg-[#27A644]' : mall.rate >= 50 ? 'bg-[#F0BF00]/80' : 'bg-[#EB5757]/80'}`}
                     style={{ width: `${Math.min(mall.rate, 100)}%` }}
                   />
                 </div>
@@ -1350,7 +1350,7 @@ export default function MappingPage() {
               key={opt.value}
               className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
                 config.operation_mode === opt.value
-                  ? 'border-blue-400 bg-[#5E6AD2]/10'
+                  ? 'border-[#5E6AD2]/50 bg-[#5E6AD2]/10'
                   : 'border-[#23252A] hover:border-[#23252A]'
               }`}
             >
@@ -1569,7 +1569,7 @@ export default function MappingPage() {
                       <span className="text-xs text-[#62666D]">개</span>
                       <button
                         onClick={() => removeComponent(i)}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#EB5757]/10 text-[#62666D] hover:text-red-400 transition-colors"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#EB5757]/10 text-[#62666D] hover:text-[#EB5757] transition-colors"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1611,7 +1611,7 @@ export default function MappingPage() {
   const pendingSuggestionsCount = suggestions.filter(s => s.status === 'pending').length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]/30">
       <Navigation />
 
       <main className="max-w-[1400px] mx-auto px-4 py-6">
@@ -1642,7 +1642,7 @@ export default function MappingPage() {
               {tab.label}
               {'count' in tab && tab.count !== undefined && (
                 <span className={`px-1.5 py-0.5 rounded-full text-xs ${
-                  activeTab === tab.key ? 'bg-blue-400 text-white' : 'bg-[#232326] text-[#8A8F98]'
+                  activeTab === tab.key ? 'bg-[#4EA7FC] text-white' : 'bg-[#232326] text-[#8A8F98]'
                 }`}>
                   {tab.count}
                 </span>
@@ -1707,7 +1707,7 @@ export default function MappingPage() {
                     type="text" placeholder="예: ND-NEW-001"
                     value={registerMapForm.sabangnet_product_code}
                     onChange={e => setRegisterMapForm(prev => ({ ...prev, sabangnet_product_code: e.target.value }))}
-                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:border-[#5E6AD2]/50 outline-none"
                   />
                 </div>
                 <div>
@@ -1716,7 +1716,7 @@ export default function MappingPage() {
                     type="text" placeholder="자사 상품명"
                     value={registerMapForm.product_name}
                     onChange={e => setRegisterMapForm(prev => ({ ...prev, product_name: e.target.value }))}
-                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:border-[#5E6AD2]/50 outline-none"
                   />
                 </div>
                 <div>
@@ -1725,7 +1725,7 @@ export default function MappingPage() {
                     type="text" placeholder="예: 마카롱, 케이크, 세트"
                     value={registerMapForm.category}
                     onChange={e => setRegisterMapForm(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"
+                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:border-[#5E6AD2]/50 outline-none"
                   />
                 </div>
                 <div className="flex items-center gap-3">
@@ -1738,7 +1738,7 @@ export default function MappingPage() {
                   </button>
                 </div>
                 {registerMapForm.is_set && (
-                  <div className="bg-[#5E6AD2]/10 rounded-xl p-4 border border-blue-100">
+                  <div className="bg-[#5E6AD2]/10 rounded-xl p-4 border border-[#5E6AD2]/20">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-semibold text-[#828FFF]">세트 구성</p>
                       <button
@@ -1839,7 +1839,7 @@ export default function MappingPage() {
                   type="text" placeholder="자사 상품 검색..."
                   value={manualMapSearch}
                   onChange={e => setManualMapSearch(e.target.value)}
-                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm mb-3 focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"
+                  className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm mb-3 focus:ring-2 focus:ring-blue-300 focus:border-[#5E6AD2]/50 outline-none"
                 />
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {products
@@ -1853,7 +1853,7 @@ export default function MappingPage() {
                         onClick={() => setManualMapProductId(p.id)}
                         className={`w-full text-left rounded-xl p-3 border transition-colors ${
                           manualMapProductId === p.id
-                            ? 'border-blue-400 bg-[#5E6AD2]/10 ring-2 ring-blue-200'
+                            ? 'border-[#5E6AD2]/50 bg-[#5E6AD2]/10 ring-2 ring-blue-200'
                             : 'border-[#23252A] hover:border-[#23252A] hover:bg-[#141516]/5'
                         }`}
                       >
@@ -1888,7 +1888,7 @@ export default function MappingPage() {
                 </button>
                 <button onClick={handleManualMap}
                   disabled={!manualMapProductId}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-[#27A644] text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors">
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-[#27A644] text-white hover:bg-[#27A644] disabled:opacity-50 transition-colors">
                   매핑 연결
                 </button>
               </div>

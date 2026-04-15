@@ -64,20 +64,20 @@ const CHANNELS_BY_CATEGORY = ALL_CHANNELS.reduce((acc, ch) => {
 }, {} as Record<string, typeof ALL_CHANNELS>);
 
 const COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899',
-  '#06B6D4', '#84CC16', '#F97316', '#6366F1', '#14B8A6', '#A855F7',
+  '#5E6AD2', '#27A644', '#F0BF00', '#EB5757', '#7070FF', '#EB5757',
+  '#06B6D4', '#68CC58', '#FC7840', '#828FFF', '#00B8CC', '#A855F7',
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  '오픈마켓': '#3B82F6',
-  '소셜커머스': '#10B981',
-  '버티컬': '#F59E0B',
-  '홈쇼핑': '#EF4444',
-  '백화점': '#8B5CF6',
-  '복지몰': '#EC4899',
+  '오픈마켓': '#5E6AD2',
+  '소셜커머스': '#27A644',
+  '버티컬': '#F0BF00',
+  '홈쇼핑': '#EB5757',
+  '백화점': '#7070FF',
+  '복지몰': '#EB5757',
   '대형마트': '#06B6D4',
-  '편의점': '#84CC16',
-  'B2B': '#F97316',
+  '편의점': '#68CC58',
+  'B2B': '#FC7840',
   '기타': '#6B7280',
 };
 
@@ -257,7 +257,7 @@ export default function SettlementPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
         </div>
       }
@@ -292,7 +292,7 @@ function SettlementPageContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -309,7 +309,7 @@ function SettlementPageContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A]">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
@@ -562,7 +562,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           <div className="flex-1" />
           <button
             onClick={() => handleOpenManual()}
-            className="px-4 py-2 text-sm bg-[#27A644] text-white rounded-lg hover:bg-emerald-600 transition-colors"
+            className="px-4 py-2 text-sm bg-[#27A644] text-white rounded-lg hover:bg-[#27A644] transition-colors"
           >
             + 수동 입력
           </button>
@@ -578,7 +578,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           </button>
           <button
             onClick={handleFinalizeAll}
-            className="px-4 py-2 text-sm bg-[#FC7840] text-white rounded-lg hover:bg-orange-600 transition-colors"
+            className="px-4 py-2 text-sm bg-[#FC7840] text-white rounded-lg hover:bg-[#FC7840] transition-colors"
           >
             전체 확정
           </button>
@@ -615,12 +615,12 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
               {monthlyTrend.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={monthlyTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1C1C1F" />
                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`} />
                     <Tooltip formatter={(value: number) => fmtWon(value)} />
                     <Legend />
-                    <Bar dataKey="총매출" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="총매출" fill="#5E6AD2" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="정산금액" fill="#10B981" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -803,7 +803,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
 function SummaryCard({ label, value, color, icon }: { label: string; value: string; color: string; icon: React.ReactNode }) {
   const colorMap: Record<string, string> = {
     blue: 'from-[#5E6AD2] to-[#5E6AD2]',
-    emerald: 'from-emerald-500 to-emerald-600',
+    emerald: 'from-[#27A644] to-emerald-600',
     amber: 'from-amber-500 to-amber-600',
     violet: 'from-violet-500 to-violet-600',
   };
@@ -1648,7 +1648,7 @@ AGENT_API_KEY=your-api-key`}
             </div>
             <div className="p-6 space-y-4">
               {/* 설정 안내 */}
-              <div className="bg-[#5E6AD2]/10 border border-blue-100 rounded-lg p-3 text-xs text-[#828FFF] space-y-1">
+              <div className="bg-[#5E6AD2]/10 border border-[#5E6AD2]/20 rounded-lg p-3 text-xs text-[#828FFF] space-y-1">
                 <p className="font-semibold">설정 방법:</p>
                 <p>1. 해당 채널의 셀러 어드민에 웹브라우저로 직접 로그인해 보세요.</p>
                 <p>2. 로그인 페이지 URL을 아래 &quot;로그인 URL&quot;에 붙여넣으세요.</p>
@@ -1965,7 +1965,7 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
                   <button
                     onClick={() => handleSendNow(report.id)}
                     disabled={sendingReportId === report.id}
-                    className="px-4 py-2 text-sm bg-[#27A644] text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 text-sm bg-[#27A644] text-white rounded-lg hover:bg-[#27A644] transition-colors disabled:opacity-50"
                   >
                     {sendingReportId === report.id ? '발송 중...' : '즉시 발송'}
                   </button>

@@ -22,7 +22,7 @@ export function ChatContainer({ tableId, datasetId }: ChatContainerProps) {
   return (
     <div className="flex flex-col h-full bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] border border-[#23252A] overflow-hidden">
       {/* 헤더 */}
-      <div className="flex items-center justify-between p-4 border-b border-[#23252A] bg-gradient-to-r from-slate-50 to-blue-50">
+      <div className="flex items-center justify-between p-4 border-b border-[#23252A] bg-gradient-to-r from-slate-50 to-[#08090A]">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-[0px_3px_12px_rgba(0,0,0,0.2)]">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -63,7 +63,7 @@ export function ChatContainer({ tableId, datasetId }: ChatContainerProps) {
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-slate-50/50 to-[#0F1011]">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mb-6">
+            <div className="w-20 h-20 bg-gradient-to-br from-[#5E6AD2]/15 to-indigo-100 rounded-full flex items-center justify-center mb-6">
               <svg className="w-10 h-10 text-[#7070FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>

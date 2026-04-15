@@ -11,7 +11,7 @@ export default function ScmError({ error, reset }: { error: Error & { digest?: s
   }, [error]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-[#08090A] flex items-center justify-center">
       <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-8 max-w-md text-center">
         <div className="w-12 h-12 bg-[#EB5757]/15 rounded-full flex items-center justify-center mx-auto mb-4">
           <svg className="w-6 h-6 text-[#EB5757]" fill="none" stroke="currentColor" viewBox="0 0 24 24">

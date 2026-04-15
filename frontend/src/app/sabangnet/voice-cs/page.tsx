@@ -353,7 +353,7 @@ const renderTranscript = (transcript: string) => {
                   : 'bg-[#5E6AD2] text-white rounded-tr-sm'
               }`}
             >
-              <p className={`text-xs font-semibold mb-1 ${isCustomer ? 'text-[#8A8F98]' : 'text-blue-100'}`}>
+              <p className={`text-xs font-semibold mb-1 ${isCustomer ? 'text-[#8A8F98]' : 'text-[#7070FF]/40'}`}>
                 {isCustomer ? '고객' : 'AI 상담원'}
               </p>
               {content}
@@ -1007,7 +1007,7 @@ export default function VoiceCsPage() {
                               className={`px-4 py-2 text-xs font-medium rounded-lg border transition-colors ${
                                 call.resolved
                                   ? 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-[#141516]/5'
-                                  : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                                  : 'bg-[#27A644] text-white border-emerald-600 hover:bg-[#1E8A3A]'
                               }`}
                             >
                               {call.resolved ? '미해결로 변경' : '해결 완료'}
