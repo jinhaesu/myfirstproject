@@ -29,6 +29,7 @@ const navGroups: NavGroup[] = [
       { href: '/targets', label: '목표 영업 지표', icon: 'target' },
       { href: '/channels', label: '채널별 매출 취합', icon: 'channel' },
       { href: '/settlement', label: '월별 결산', icon: 'settlement' },
+      { href: '/contribution-margin', label: '공헌이익 시뮬레이션', icon: 'simulation' },
     ],
   },
   {
@@ -147,6 +148,11 @@ const iconMap: Record<string, JSX.Element> = {
   scm: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  ),
+  simulation: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3v18h18M7 14l4-4 4 4 6-6" />
     </svg>
   ),
 };
