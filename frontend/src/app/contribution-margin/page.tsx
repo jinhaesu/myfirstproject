@@ -481,8 +481,8 @@ export default function ContributionMarginPage() {
                 formula="최종 공헌이익 = (자연유입 + ROAS×예산) × 1차공헌이익율 − 예산"
                 description="광고예산을 늘릴 때 매출과 최종 공헌이익이 어떻게 변하는지. X축 범위는 현재 예산의 0~2배로 자동 스케일됩니다."
               >
-                <ResponsiveContainer width="100%" height={400}>
-                  <AreaChart data={budgetSensitivity} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+                <ResponsiveContainer width="100%" height={420}>
+                  <AreaChart data={budgetSensitivity} margin={{ top: 20, right: 30, left: 10, bottom: 40 }}>
                     <defs>
                       <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#5E6AD2" stopOpacity={0.35} />
@@ -507,14 +507,25 @@ export default function ContributionMarginPage() {
                       tick={{ fontSize: 11, fill: '#8A8F98' }}
                       width={70}
                     />
+                    <Legend
+                      verticalAlign="top"
+                      align="right"
+                      height={36}
+                      iconType="plainline"
+                      wrapperStyle={{ fontSize: 11, color: '#D0D6E0', paddingBottom: 12 }}
+                    />
                     <Tooltip
                       contentStyle={tooltipStyle}
                       formatter={(v: number) => `₩${fmtC(v)}`}
                       labelFormatter={(v: number) => `예산 ₩${fmtC(v)}`}
                     />
-                    <Legend wrapperStyle={{ fontSize: 11, color: '#D0D6E0' }} />
                     <ReferenceLine y={0} stroke="#62666D" />
-                    <ReferenceLine x={adBudget} stroke="#828FFF" strokeDasharray="2 2" />
+                    <ReferenceLine
+                      x={adBudget}
+                      stroke="#828FFF"
+                      strokeDasharray="6 4"
+                      label={{ value: `현재 예산 ₩${fmtC(adBudget)}`, fontSize: 10, fill: '#828FFF', position: 'top' }}
+                    />
                     <Area type="monotone" dataKey="revenue" stroke="#5E6AD2" strokeWidth={1.5} fill="url(#gRev)" name="총매출 (자연+광고)" />
                     <Area type="monotone" dataKey="finalCm" stroke="#828FFF" strokeWidth={2} fill="url(#gCm)" name="최종 공헌이익" />
                   </AreaChart>
@@ -528,13 +539,14 @@ export default function ContributionMarginPage() {
                 formula="실공헌이익율 = 1차공헌이익율 − 채널수수료 − 반품손실율"
                 description="좌측에서 각 채널의 수수료와 반품율을 자유롭게 조정하세요. 채널명도 클릭해서 바꾸실 수 있습니다. 널담의 실제 계약 조건으로 수정하시면 즉시 실무 비교용으로 사용 가능."
               >
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={channelData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }} layout="vertical">
+                <ResponsiveContainer width="100%" height={420}>
+                  <BarChart data={channelData} margin={{ top: 20, right: 30, left: 0, bottom: 40 }} layout="vertical">
                     <CartesianGrid strokeDasharray="2 4" stroke="#23252A" horizontal={false} />
                     <XAxis
                       type="number"
                       stroke="#62666D"
                       tick={{ fontSize: 11, fill: '#8A8F98' }}
+                      tickFormatter={(v: number) => `${v}%`}
                       label={{ value: '% of 매출', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#8A8F98' }}
                     />
                     <YAxis
@@ -544,11 +556,18 @@ export default function ContributionMarginPage() {
                       tick={{ fontSize: 12, fill: '#D0D6E0' }}
                       width={80}
                     />
+                    <Legend
+                      verticalAlign="top"
+                      align="right"
+                      height={36}
+                      iconType="square"
+                      wrapperStyle={{ fontSize: 11, color: '#D0D6E0', paddingBottom: 12 }}
+                    />
                     <Tooltip
                       contentStyle={tooltipStyle}
                       formatter={(v: number) => `${v}%`}
+                      cursor={{ fill: 'rgba(130, 143, 255, 0.05)' }}
                     />
-                    <Legend wrapperStyle={{ fontSize: 11, color: '#D0D6E0' }} />
                     <Bar dataKey="수수료" stackId="a" fill="#34343A" />
                     <Bar dataKey="반품손실" stackId="a" fill="#62666D" />
                     <Bar dataKey="실공헌이익율" stackId="a" fill="#5E6AD2" />
