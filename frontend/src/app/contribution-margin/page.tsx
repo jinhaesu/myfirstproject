@@ -29,6 +29,7 @@ export default function ContributionMarginPage() {
   }, [user, authLoading, router]);
 
   const [tab, setTab] = useState<TabKey>('roas');
+  const [roasHover, setRoasHover] = useState<{ x: number; y: number } | null>(null);
 
   const [cm1, setCm1] = useState(50);
   const [roas, setRoas] = useState(400);
@@ -81,17 +82,21 @@ export default function ContributionMarginPage() {
 
   const roasCurveData = useMemo(() => {
     const data: Array<Record<string, number>> = [];
+    const cmLow = cm1 - 10;
+    const cmHigh = cm1 + 10;
     for (let r = 150; r <= 800; r += 25) {
-      const row: Record<string, number> = { roas: r };
-      [40, 50, 60].forEach((c) => {
-        const adRev = (r * adBudget) / 100;
-        const total = organicRevenue + adRev;
-        row[`cm${c}`] = total > 0 ? c - (adBudget / total) * 100 : 0;
+      const adRev = (r * adBudget) / 100;
+      const total = organicRevenue + adRev;
+      const ratio = total > 0 ? (adBudget / total) * 100 : 0;
+      data.push({
+        roas: r,
+        cmLow: total > 0 ? cmLow - ratio : 0,
+        cmMid: total > 0 ? cm1 - ratio : 0,
+        cmHigh: total > 0 ? cmHigh - ratio : 0,
       });
-      data.push(row);
     }
     return data;
-  }, [adBudget, organicRevenue]);
+  }, [adBudget, organicRevenue, cm1]);
 
   const budgetSensitivity = useMemo(() => {
     const data: Array<{ budget: number; revenue: number; finalCm: number }> = [];
@@ -293,7 +298,7 @@ export default function ContributionMarginPage() {
                 }
                 tone={metrics.targetRoas === null ? 'neg' : undefined}
               />
-              <ResultRow label="현재 E율" value={fmtPct(metrics.finalCmRate)} />
+              <ResultRow label="현재 최종 공헌이익율" value={fmtPct(metrics.finalCmRate)} />
             </div>
 
             {tab === 'channel' && (
@@ -394,28 +399,47 @@ export default function ContributionMarginPage() {
             {tab === 'roas' && (
               <Panel
                 title="ROAS와 공헌이익율의 관계"
-                formula="E율 = 1차공헌이익율 − 광고비/총매출  ·  총매출 = 자연유입 + ROAS×광고비"
-                description="자연유입 매출이 섞이면 동일 ROAS에서도 실질 공헌이익율이 달라집니다. 자연유입이 커질수록 광고비가 총매출에서 차지하는 비중이 줄어 E율이 개선됩니다."
+                formula="최종 공헌이익율 = 1차공헌이익율 − 광고비/총매출  ·  총매출 = 자연유입 + ROAS×광고비"
+                description="자연유입 매출이 섞이면 동일 ROAS에서도 실질 공헌이익율이 달라집니다. 자연유입이 커질수록 광고비가 총매출에서 차지하는 비중이 줄어 최종 공헌이익율이 개선됩니다."
               >
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={roasCurveData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                <ResponsiveContainer width="100%" height={420}>
+                  <LineChart
+                    data={roasCurveData}
+                    margin={{ top: 20, right: 30, left: 0, bottom: 40 }}
+                    onMouseMove={(s) => {
+                      const ap = (s as { activePayload?: Array<{ payload: Record<string, number> }> } | null)?.activePayload;
+                      if (ap && ap[0]) {
+                        const p = ap.find((pp) => (pp as { dataKey?: string }).dataKey === 'cmMid') ?? ap[0];
+                        setRoasHover({ x: p.payload.roas, y: p.payload.cmMid });
+                      }
+                    }}
+                    onMouseLeave={() => setRoasHover(null)}
+                  >
                     <CartesianGrid strokeDasharray="2 4" stroke="#23252A" />
                     <XAxis
                       dataKey="roas"
                       stroke="#62666D"
                       tick={{ fontSize: 11, fill: '#8A8F98' }}
+                      tickFormatter={(v: number) => `${v}%`}
                       label={{ value: '광고 ROAS (%)', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#8A8F98' }}
                     />
                     <YAxis
                       stroke="#62666D"
                       tick={{ fontSize: 11, fill: '#8A8F98' }}
+                      tickFormatter={(v: number) => `${v.toFixed(0)}%`}
                       label={{ value: '최종 공헌이익율 (%)', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#8A8F98' }}
                     />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(v: number) => `${v.toFixed(1)}%`}
+                    <Legend
+                      verticalAlign="top"
+                      align="right"
+                      height={36}
+                      iconType="plainline"
+                      wrapperStyle={{ fontSize: 11, color: '#D0D6E0', paddingBottom: 12 }}
                     />
-                    <Legend wrapperStyle={{ fontSize: 11, color: '#D0D6E0' }} />
+                    <Tooltip
+                      cursor={{ stroke: '#D0D6E0', strokeDasharray: '3 3', strokeOpacity: 0.7 }}
+                      content={<RoasTooltip />}
+                    />
                     <ReferenceLine y={0} stroke="#62666D" strokeWidth={1} />
                     <ReferenceLine
                       y={targetMargin}
@@ -423,15 +447,29 @@ export default function ContributionMarginPage() {
                       strokeDasharray="4 4"
                       label={{ value: `목표 ${targetMargin}%`, fontSize: 10, fill: '#EB5757' }}
                     />
-                    <ReferenceLine x={roas} stroke="#828FFF" strokeDasharray="2 2" />
-                    <Line type="monotone" dataKey="cm40" stroke="#62666D" strokeWidth={1.5} dot={false} name="1차 40%" />
-                    <Line type="monotone" dataKey="cm50" stroke="#D0D6E0" strokeWidth={2} dot={false} name="1차 50%" />
-                    <Line type="monotone" dataKey="cm60" stroke="#5E6AD2" strokeWidth={1.5} dot={false} name="1차 60%" />
+                    <ReferenceLine
+                      x={roas}
+                      stroke="#828FFF"
+                      strokeDasharray="6 4"
+                      label={{ value: `현재 ROAS ${roas}%`, fontSize: 10, fill: '#828FFF', position: 'top' }}
+                    />
+                    {roasHover && (
+                      <ReferenceLine
+                        y={roasHover.y}
+                        stroke="#D0D6E0"
+                        strokeDasharray="3 3"
+                        strokeOpacity={0.7}
+                        ifOverflow="visible"
+                      />
+                    )}
+                    <Line type="monotone" dataKey="cmLow" stroke="#62666D" strokeWidth={1.5} dot={false} name={`1차 공헌이익율 ${cm1 - 10}%`} />
+                    <Line type="monotone" dataKey="cmMid" stroke="#828FFF" strokeWidth={2.5} dot={false} name={`1차 공헌이익율 ${cm1}% (기준)`} />
+                    <Line type="monotone" dataKey="cmHigh" stroke="#27A644" strokeWidth={1.5} dot={false} name={`1차 공헌이익율 ${cm1 + 10}%`} />
                   </LineChart>
                 </ResponsiveContainer>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                  <Tip title="자연유입 = 0일 때" body="기존 공식 E율 = cm1 − 1/ROAS로 회귀. 광고에 100% 의존하는 상태." />
-                  <Tip title="자연유입 ↑" body="동일 ROAS에서 E율 상승. 광고 의존도가 낮을수록 수익구조가 견고." />
+                  <Tip title="자연유입 = 0일 때" body="기존 공식 최종 공헌이익율 = 1차공헌이익율 − 1/ROAS로 회귀. 광고에 100% 의존하는 상태." />
+                  <Tip title="자연유입 ↑" body="동일 ROAS에서 최종 공헌이익율 상승. 광고 의존도가 낮을수록 수익구조가 견고." />
                   <Tip title="광고 ROAS ↓" body="자연유입이 충분하면 광고 ROAS가 떨어져도 전체 수익은 유지 가능." />
                 </div>
               </Panel>
@@ -939,6 +977,44 @@ function MiniStat({
       </div>
       <div className="text-2xl font-semibold">{value}</div>
       {note && <div className="font-mono text-[10px] mt-1">{note}</div>}
+    </div>
+  );
+}
+
+function RoasTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string; dataKey: string }>;
+  label?: number;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  return (
+    <div className="bg-[#0F1011] border border-[#23252A] rounded-lg px-3 py-2.5 shadow-[0px_7px_32px_rgba(0,0,0,0.35)]">
+      <div className="text-[11px] text-[#8A8F98] font-mono mb-2">
+        광고 ROAS <span className="text-[#F7F8F8] font-semibold">{label}%</span>
+      </div>
+      <div className="text-[10px] tracking-[0.12em] text-[#62666D] uppercase font-mono mb-1.5">
+        최종 공헌이익율
+      </div>
+      <div className="space-y-1">
+        {payload.map((p, i) => (
+          <div key={i} className="flex items-center justify-between gap-6 text-xs font-mono">
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-block w-2.5 h-0.5"
+                style={{ background: p.color }}
+              />
+              <span className="text-[#D0D6E0]">{p.name}</span>
+            </div>
+            <span className="font-semibold" style={{ color: p.color }}>
+              {p.value.toFixed(1)}%
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
