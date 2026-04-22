@@ -596,7 +596,13 @@ export default function ContributionMarginPage() {
             {tab === 'ltv' && (
               <Panel
                 title="LTV / CAC Payback"
-                formula="LTV = AOV × 재구매횟수 × 공헌이익율  ·  Payback = CAC ÷ 월평균 공헌이익"
+                formula={
+                  <>
+                    LTV = AOV × 재구매횟수 × 1차 공헌이익율
+                    <br />
+                    Payback = CAC ÷ 월평균 공헌이익
+                  </>
+                }
                 description="신규 고객 한 명 확보에 투입한 CAC를 몇 개월 만에 회수하는지. 0선을 넘는 지점이 Payback Period."
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-xs">
@@ -629,6 +635,32 @@ export default function ContributionMarginPage() {
                     tone={ltvCac >= 3 ? 'pos' : ltvCac >= 1 ? 'mid' : 'neg'}
                     note={ltvCac >= 3 ? '건강' : ltvCac >= 1 ? '주의' : '위험'}
                   />
+                </div>
+
+                <div className={`${SUBPANEL} p-4 mb-6 text-xs`}>
+                  <div className="font-mono text-[10px] tracking-wider text-[#62666D] uppercase mb-1.5">
+                    PAYBACK — 월 공헌이익 누적 방식
+                  </div>
+                  <div className="font-mono text-[11px] text-[#828FFF] bg-[#0F1011] border border-[#23252A] inline-block px-2.5 py-1 rounded mb-2">
+                    월 공헌이익 = AOV × 1차 공헌이익율 × (재구매 ÷ 12)
+                  </div>
+                  <div className="text-[#D0D6E0] leading-relaxed">
+                    연간 재구매 횟수를 <span className="font-mono text-[#828FFF]">12개월</span>로 분산해 매달 회수되는 공헌이익을 구합니다.
+                    M0 시점에 <span className="font-mono text-[#EB5757]">−CAC</span>에서 출발해 매월 월 공헌이익을 누적하며,
+                    이 누적값이 <span className="font-mono text-[#828FFF]">0선(Break-even)</span>을 넘는 지점이 <strong className="text-[#F7F8F8]">Payback Period</strong>입니다.
+                    현재 입력값 기준 월 공헌이익은 <span className="font-mono text-[#F7F8F8] font-semibold">₩{fmtC((aov * (cm1 / 100) * repurchase) / 12)}</span>,
+                    CAC <span className="font-mono text-[#F7F8F8] font-semibold">₩{fmtC(cac)}</span> 회수에{' '}
+                    {(() => {
+                      const monthly = (aov * (cm1 / 100) * repurchase) / 12;
+                      if (monthly <= 0) return <span className="font-mono text-[#EB5757] font-semibold">계산 불가</span>;
+                      const months = cac / monthly;
+                      return (
+                        <span className="font-mono text-[#F7F8F8] font-semibold">
+                          약 {months.toFixed(1)}개월
+                        </span>
+                      );
+                    })()} 소요됩니다.
+                  </div>
                 </div>
 
                 <ResponsiveContainer width="100%" height={320}>
@@ -952,7 +984,7 @@ function Panel({
   children,
 }: {
   title: string;
-  formula: string;
+  formula: React.ReactNode;
   description: string;
   children: React.ReactNode;
 }) {
@@ -960,7 +992,7 @@ function Panel({
     <div>
       <div className="mb-5">
         <h2 className="text-xl font-semibold tracking-tight text-[#F7F8F8] mb-2.5">{title}</h2>
-        <div className="font-mono text-[11px] bg-[#08090A] border border-[#23252A] text-[#828FFF] inline-block px-3 py-1.5 rounded-md mb-3">
+        <div className="font-mono text-[11px] bg-[#08090A] border border-[#23252A] text-[#828FFF] inline-block px-3 py-1.5 rounded-md mb-3 leading-relaxed">
           {formula}
         </div>
         <p className="text-sm text-[#8A8F98] leading-relaxed max-w-3xl">{description}</p>
