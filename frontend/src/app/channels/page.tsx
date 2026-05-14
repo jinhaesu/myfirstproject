@@ -457,6 +457,41 @@ function DashboardTab({
   })();
   const sparkSeries = (data?.series || []).map((s: any) => ({ x: s.bucket, revenue: s.revenue, pcs: s.pcs, cm: s.contribution_margin }));
   const sparkKey = (k: string) => sparkSeries.map((p: any) => ({ x: p.x, v: p[k] || 0 }));
+
+  // 비교 시리즈/채널/품목 매핑
+  const seriesWithCompare = (() => {
+    if (!data?.series) return [];
+    if (!hasCompare || !compareData?.series) return data.series;
+    const cmp = compareData.series;
+    return data.series.map((s: any, i: number) => ({
+      ...s,
+      compare_revenue: cmp[i]?.revenue ?? null,
+      compare_cm: cmp[i]?.contribution_margin ?? null,
+      compare_period: cmp[i]?.period,
+    }));
+  })();
+  const channelsCmpMap: Record<string, any> = hasCompare
+    ? Object.fromEntries((compareData?.channels || []).map((c: any) => [c.channel_id, c]))
+    : {};
+  const productsCmpMap: Record<string | number, any> = hasCompare
+    ? Object.fromEntries((compareData?.products || []).map((p: any) => [p.product_id, p]))
+    : {};
+  const channelsWithCmp = (data?.channels || []).map((c: any) => ({
+    ...c,
+    compare_revenue: channelsCmpMap[c.channel_id]?.revenue ?? null,
+    compare_cm: channelsCmpMap[c.channel_id]?.contribution_margin ?? null,
+  }));
+  const productsWithCmp = (data?.products || []).map((p: any) => ({
+    ...p,
+    compare_revenue: productsCmpMap[p.product_id]?.revenue ?? null,
+    compare_cm: productsCmpMap[p.product_id]?.contribution_margin ?? null,
+  }));
+  const fmtDelta = (cur: number | null | undefined, cmp: number | null | undefined) => {
+    if (cur === null || cur === undefined || cmp === null || cmp === undefined) return null;
+    if (cmp === 0) return cur > 0 ? { pct: 100, sign: 'up' as const } : null;
+    const pct = ((cur - cmp) / Math.abs(cmp)) * 100;
+    return { pct, sign: pct > 0.05 ? 'up' as const : pct < -0.05 ? 'down' as const : 'flat' as const };
+  };
   const costBreakdown = data?.cost_breakdown
     ? Object.entries(data.cost_breakdown)
         .filter(([_, v]) => (v as number) > 0)
@@ -634,16 +669,27 @@ function DashboardTab({
           </div>
           {loading ? <Skeleton h={240} /> : data && data.series.length ? (
             <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart data={data.series} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+              <ComposedChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis dataKey="period" tick={AXIS_TICK} stroke="#62666D" />
                 <YAxis tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                   formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
+                  labelFormatter={(label: any, payload: any) => {
+                    if (!payload?.[0]) return label;
+                    const cp = payload[0].payload?.compare_period;
+                    return cp ? `${label}  (비교: ${cp})` : label;
+                  }}
                 />
                 <Legend wrapperStyle={LEGEND_STYLE} />
+                {hasCompare && (
+                  <Bar dataKey="compare_revenue" name="비교 매출" fill="#62666D" opacity={0.35} radius={[4, 4, 0, 0]} />
+                )}
                 <Bar dataKey="revenue" name="순매출" fill="#828FFF" opacity={0.65} radius={[4, 4, 0, 0]} />
+                {hasCompare && (
+                  <Line type="monotone" dataKey="compare_cm" name="비교 공헌이익" stroke="#7A7F8A" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                )}
                 <Line type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="#27A644" strokeWidth={2.5} dot={{ r: 3 }} />
               </ComposedChart>
             </ResponsiveContainer>
@@ -680,8 +726,8 @@ function DashboardTab({
             <h3 className="text-sm font-semibold text-[#F7F8F8]">채널별 매출/공헌이익 Top 10</h3>
           </div>
           {data && data.channels.length ? (
-            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.channels.length, 10) * 26)}>
-              <BarChart data={data.channels.slice(0, 10)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.channels.length, 10) * (hasCompare ? 38 : 26))}>
+              <BarChart data={channelsWithCmp.slice(0, 10)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
                 <YAxis type="category" dataKey="channel_name" tick={AXIS_TICK} stroke="#62666D" width={80} />
@@ -691,7 +737,9 @@ function DashboardTab({
                 />
                 <Legend wrapperStyle={LEGEND_STYLE} />
                 <Bar dataKey="revenue" name="매출" fill="#828FFF" radius={[0, 3, 3, 0]} />
+                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="#62666D" opacity={0.6} radius={[0, 3, 3, 0]} />}
                 <Bar dataKey="contribution_margin" name="공헌이익" fill="#27A644" radius={[0, 3, 3, 0]} />
+                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="#1F7A38" opacity={0.6} radius={[0, 3, 3, 0]} />}
               </BarChart>
             </ResponsiveContainer>
           ) : <Empty h={220} />}
@@ -699,8 +747,8 @@ function DashboardTab({
         <div className={`${PANEL} p-4`}>
           <h3 className="text-sm font-semibold text-[#F7F8F8] mb-2">품목별 매출/공헌이익 Top 12</h3>
           {data && data.products.length ? (
-            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.products.length, 12) * 26)}>
-              <BarChart data={data.products.slice(0, 12)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.products.length, 12) * (hasCompare ? 38 : 26))}>
+              <BarChart data={productsWithCmp.slice(0, 12)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
                 <YAxis type="category" dataKey="product_name" tick={AXIS_TICK} stroke="#62666D" width={70} />
@@ -710,7 +758,9 @@ function DashboardTab({
                 />
                 <Legend wrapperStyle={LEGEND_STYLE} />
                 <Bar dataKey="revenue" name="매출" fill="#828FFF" radius={[0, 3, 3, 0]} />
+                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="#62666D" opacity={0.6} radius={[0, 3, 3, 0]} />}
                 <Bar dataKey="contribution_margin" name="공헌이익" fill="#27A644" radius={[0, 3, 3, 0]} />
+                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="#1F7A38" opacity={0.6} radius={[0, 3, 3, 0]} />}
               </BarChart>
             </ResponsiveContainer>
           ) : <Empty h={220} />}
@@ -719,7 +769,9 @@ function DashboardTab({
 
       {/* 품목 테이블 */}
       <div className={`${PANEL} p-5 mb-5`}>
-        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">품목별 상세</h2>
+        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">
+          품목별 상세{hasCompare && <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+        </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -734,16 +786,26 @@ function DashboardTab({
             </thead>
             <tbody>
               {data && data.products.length ? (
-                data.products.map((p: any) => (
-                  <tr key={p.product_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                    <td className="py-2 px-2 text-[#F7F8F8]">{p.product_name}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(p.pcs))}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(p.orders)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(p.revenue)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#27A644]">₩{fmtKR(p.contribution_margin)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(p.cm_rate)}</td>
-                  </tr>
-                ))
+                productsWithCmp.map((p: any) => {
+                  const revDelta = hasCompare ? fmtDelta(p.revenue, p.compare_revenue) : null;
+                  const cmDelta = hasCompare ? fmtDelta(p.contribution_margin, p.compare_cm) : null;
+                  return (
+                    <tr key={p.product_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
+                      <td className="py-2 px-2 text-[#F7F8F8]">{p.product_name}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(p.pcs))}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(p.orders)}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">
+                        ₩{fmtKR(p.revenue)}
+                        {revDelta && <DeltaBadge delta={revDelta} />}
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono text-[#27A644]">
+                        ₩{fmtKR(p.contribution_margin)}
+                        {cmDelta && <DeltaBadge delta={cmDelta} />}
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(p.cm_rate)}</td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr><td colSpan={6} className="py-8 text-center text-[#62666D]">데이터가 없습니다. 엑셀을 업로드해보세요.</td></tr>
               )}
@@ -754,7 +816,9 @@ function DashboardTab({
 
       {/* 채널 테이블 */}
       <div className={`${PANEL} p-5`}>
-        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">채널별 상세</h2>
+        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">
+          채널별 상세{hasCompare && <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+        </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -770,17 +834,27 @@ function DashboardTab({
             </thead>
             <tbody>
               {data && data.channels.length ? (
-                data.channels.map((c: any) => (
-                  <tr key={c.channel_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                    <td className="py-2 px-2 text-[#F7F8F8]">{c.channel_name}</td>
-                    <td className="py-2 px-2 text-[#8A8F98]">{c.channel_category || '-'}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(c.pcs))}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(c.orders)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(c.revenue)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#27A644]">₩{fmtKR(c.contribution_margin)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(c.cm_rate)}</td>
-                  </tr>
-                ))
+                channelsWithCmp.map((c: any) => {
+                  const revDelta = hasCompare ? fmtDelta(c.revenue, c.compare_revenue) : null;
+                  const cmDelta = hasCompare ? fmtDelta(c.contribution_margin, c.compare_cm) : null;
+                  return (
+                    <tr key={c.channel_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
+                      <td className="py-2 px-2 text-[#F7F8F8]">{c.channel_name}</td>
+                      <td className="py-2 px-2 text-[#8A8F98]">{c.channel_category || '-'}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(c.pcs))}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(c.orders)}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">
+                        ₩{fmtKR(c.revenue)}
+                        {revDelta && <DeltaBadge delta={revDelta} />}
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono text-[#27A644]">
+                        ₩{fmtKR(c.contribution_margin)}
+                        {cmDelta && <DeltaBadge delta={cmDelta} />}
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(c.cm_rate)}</td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr><td colSpan={7} className="py-8 text-center text-[#62666D]">데이터가 없습니다.</td></tr>
               )}
@@ -2647,6 +2721,17 @@ function KpiCard({ label, value, hint, accent }: { label: string; value: string;
     </div>
   );
 }
+
+function DeltaBadge({ delta }: { delta: { pct: number; sign: 'up' | 'down' | 'flat' } }) {
+  const color = delta.sign === 'up' ? '#27A644' : delta.sign === 'down' ? '#EB5757' : '#7A7F8A';
+  const arrow = delta.sign === 'up' ? '▲' : delta.sign === 'down' ? '▼' : '–';
+  return (
+    <span className="text-[10px] ml-1.5 font-medium" style={{ color }}>
+      {arrow} {Math.abs(delta.pct).toFixed(1)}%
+    </span>
+  );
+}
+
 
 function CompactKpi({
   label, value, hint, accent,
