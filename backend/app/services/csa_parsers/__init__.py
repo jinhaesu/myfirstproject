@@ -37,4 +37,5 @@ from app.services.csa_parsers import (  # noqa: E402,F401
     lotteon, ns, aliexpress, temu, coupang_rocket,
     eleven, gs25, seven, toss,
     gsshop, ssg, cjonstyle, lottehome, shinsegae_live, ably,
+    samsung_welstory, ourhome,
 )
