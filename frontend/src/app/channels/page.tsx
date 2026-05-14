@@ -165,6 +165,7 @@ function Content() {
   const [unmatched, setUnmatched] = useState<UnmatchedItem[]>([]);
   const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   // Filters
   const [periodStart, setPeriodStart] = useState(isoDate(firstOfMonth));
@@ -172,6 +173,7 @@ function Content() {
   const [granularity, setGranularity] = useState<Granularity>('day');
   const [selChannels, setSelChannels] = useState<string[]>([]);
   const [selProducts, setSelProducts] = useState<number[]>([]);
+  const [selEmployees, setSelEmployees] = useState<number[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [seedDone, setSeedDone] = useState(false);
@@ -187,18 +189,20 @@ function Content() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [cRes, pRes, bRes, uRes, vRes] = await Promise.all([
+      const [cRes, pRes, bRes, uRes, vRes, eRes] = await Promise.all([
         fetch(`${API_BASE}/api/csa/channels`, { headers: authHeaders() }),
         fetch(`${API_BASE}/api/csa/products`, { headers: authHeaders() }),
         fetch(`${API_BASE}/api/csa/batches?limit=20`, { headers: authHeaders() }),
         fetch(`${API_BASE}/api/csa/unmatched`, { headers: authHeaders() }),
         fetch(`${API_BASE}/api/csa/variable-costs`, { headers: authHeaders() }),
+        fetch(`${API_BASE}/api/csa/employees`, { headers: authHeaders() }),
       ]);
       if (cRes.ok) setChannels(await cRes.json());
       if (pRes.ok) setProducts(await pRes.json());
       if (bRes.ok) setBatches(await bRes.json());
       if (uRes.ok) setUnmatched(await uRes.json());
       if (vRes.ok) setVariableCosts(await vRes.json());
+      if (eRes.ok) setEmployees(await eRes.json());
     } catch (e) {
       console.error(e);
     }
@@ -214,12 +218,13 @@ function Content() {
       });
       if (selChannels.length) qs.set('channel_ids', selChannels.join(','));
       if (selProducts.length) qs.set('product_ids', selProducts.join(','));
+      if (selEmployees.length) qs.set('employee_ids', selEmployees.join(','));
       const r = await fetch(`${API_BASE}/api/csa/dashboard?${qs.toString()}`, { headers: authHeaders() });
       if (r.ok) setDashboard(await r.json());
     } finally {
       setLoading(false);
     }
-  }, [authHeaders, periodStart, periodEnd, granularity, selChannels, selProducts]);
+  }, [authHeaders, periodStart, periodEnd, granularity, selChannels, selProducts, selEmployees]);
 
   const seedIfEmpty = useCallback(async () => {
     if (seedDone) return;
@@ -263,6 +268,7 @@ function Content() {
             loading={loading}
             channels={channels}
             products={products}
+            employees={employees}
             periodStart={periodStart}
             periodEnd={periodEnd}
             setPeriodStart={setPeriodStart}
@@ -273,6 +279,8 @@ function Content() {
             setSelChannels={setSelChannels}
             selProducts={selProducts}
             setSelProducts={setSelProducts}
+            selEmployees={selEmployees}
+            setSelEmployees={setSelEmployees}
           />
         )}
 
@@ -379,10 +387,11 @@ const COST_LABELS: Record<string, string> = {
 };
 
 function DashboardTab({
-  data, loading, channels, products,
+  data, loading, channels, products, employees,
   periodStart, periodEnd, setPeriodStart, setPeriodEnd,
   granularity, setGranularity,
   selChannels, setSelChannels, selProducts, setSelProducts,
+  selEmployees, setSelEmployees,
 }: any) {
   const costBreakdown = data?.cost_breakdown
     ? Object.entries(data.cost_breakdown)
@@ -419,10 +428,23 @@ function DashboardTab({
             value={selProducts.map((n: number) => String(n))}
             onChange={(vs: string[]) => setSelProducts(vs.map(s => parseInt(s)))}
           />
+          <MultiSelect
+            label="담당자"
+            options={(employees || [])
+              .filter((e: Employee) => e.is_active)
+              .map((e: Employee) => ({
+                v: String(e.id),
+                l: `${e.name} (${e.channels.length}채널)`,
+                group: e.role === 'admin' ? '관리자' : e.role === 'manager' ? '매니저' : '담당자',
+              }))
+            }
+            value={selEmployees.map((n: number) => String(n))}
+            onChange={(vs: string[]) => setSelEmployees(vs.map(s => parseInt(s)))}
+          />
           <div className="ml-auto">
-            {(selChannels.length > 0 || selProducts.length > 0) && (
+            {(selChannels.length > 0 || selProducts.length > 0 || selEmployees.length > 0) && (
               <button
-                onClick={() => { setSelChannels([]); setSelProducts([]); }}
+                onClick={() => { setSelChannels([]); setSelProducts([]); setSelEmployees([]); }}
                 className="text-xs text-[#A3A9B3] hover:text-[#F7F8F8] px-3 py-2"
               >
                 필터 초기화
