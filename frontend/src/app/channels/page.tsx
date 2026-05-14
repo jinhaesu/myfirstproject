@@ -2710,8 +2710,8 @@ function PnlTab({ authHeaders, userEmail }: { authHeaders: () => HeadersInit; us
                           {formulaRow && <span className="text-[9px] text-[#7A7F8A] ml-2">자동</span>}
                           {row.parent_id && row.is_computed && <span className="text-[9px] text-[#7A7F8A] ml-2">자동</span>}
                         </span>
-                        {/* 행 추가 버튼 (수동 sub-total: cogs_fixed, sga_fixed, cogs_var) */}
-                        {(row.code === 'cogs_fixed' || row.code === 'sga_fixed' || row.code === 'cogs_var') && (
+                        {/* 행 추가 버튼 (수동 sub-total: cogs_fixed, sga_fixed, cogs_var, sga_var) */}
+                        {(row.code === 'cogs_fixed' || row.code === 'sga_fixed' || row.code === 'cogs_var' || row.code === 'sga_var') && (
                           <button
                             onClick={() => setAddRowParent(row)}
                             className="ml-auto text-[#7A7F8A] hover:text-[#828FFF] text-[10px]"
