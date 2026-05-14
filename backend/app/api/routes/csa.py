@@ -340,17 +340,33 @@ async def upload_channel_file(
                 "message": "이미 업로드된 파일입니다. 새로 적재하지 않았습니다.",
             }
 
-        lines = list(parser(tmp_path))
-        batch = ingest_lines(
-            db,
-            channel_id=channel_id,
-            channel_name=channel_name,
-            file_name=file.filename or "upload",
-            file_hash=fhash,
-            file_size=fsize,
-            parser_version="v1",
-            lines=lines,
-        )
+        try:
+            lines = list(parser(tmp_path))
+            batch = ingest_lines(
+                db,
+                channel_id=channel_id,
+                channel_name=channel_name,
+                file_name=file.filename or "upload",
+                file_hash=fhash,
+                file_size=fsize,
+                parser_version="v1",
+                lines=lines,
+            )
+        except Exception as e:
+            # 부분 진행된 batch가 'parsing' 상태로 남지 않도록 failed로 마킹
+            try:
+                stuck = db.query(ChannelSalesUploadBatch).filter(
+                    ChannelSalesUploadBatch.channel_id == channel_id,
+                    ChannelSalesUploadBatch.file_hash == fhash,
+                    ChannelSalesUploadBatch.status == "parsing",
+                ).first()
+                if stuck:
+                    stuck.status = "failed"
+                    stuck.error_message = f"{type(e).__name__}: {str(e)[:500]}"
+                    db.commit()
+            except Exception:
+                db.rollback()
+            raise HTTPException(status_code=500, detail=f"파싱 실패: {type(e).__name__}: {e}")
         return {
             "batch_id": batch.id,
             "duplicate_file": False,
@@ -1368,6 +1384,68 @@ def admin_migrate_partitions(db: Session = Depends(get_db)):
 def admin_run_retention_now(db: Session = Depends(get_db)):
     """수동으로 retention 1회 실행 (스케줄 외 즉시)."""
     return run_retention_now(db)
+
+
+@router.post("/admin/migrate-pnl-plan-cm")
+def admin_migrate_pnl_plan_cm(year: int = 2026, db: Session = Depends(get_db)):
+    """target_cm/cm_share 컬럼 강제 추가 + 현재 plan/group summary 진단.
+
+    1) ALTER TABLE ADD COLUMN IF NOT EXISTS — 멱등
+    2) BusinessPlanGroupSummary 데이터 진단 (월별 cm 합계 등)
+    3) get_pnl_matrix의 plan 컬럼 표시값 미리보기
+    """
+    from sqlalchemy import text
+    from app.db_models import BusinessPlanGroupSummary
+    from app.services.csa_pnl_service import compute_plan
+
+    alter_result = {}
+    try:
+        with db.bind.connect() as conn:
+            conn.execute(text(
+                "ALTER TABLE csa_plan_group_summary ADD COLUMN IF NOT EXISTS target_cm DOUBLE PRECISION DEFAULT 0"
+            ))
+            conn.execute(text(
+                "ALTER TABLE csa_plan_group_summary ADD COLUMN IF NOT EXISTS cm_share DOUBLE PRECISION"
+            ))
+            conn.commit()
+        alter_result["status"] = "ok"
+    except Exception as e:
+        alter_result["status"] = "failed"
+        alter_result["error"] = str(e)
+
+    rows = db.query(BusinessPlanGroupSummary).filter_by(year=year).all()
+    by_month: dict[int, dict] = {}
+    for r in rows:
+        b = by_month.setdefault(r.month, {"revenue": 0, "marketing": 0, "cm": 0, "groups": []})
+        b["revenue"] += float(r.target_revenue or 0)
+        b["marketing"] += float(r.target_marketing or 0)
+        b["cm"] += float(getattr(r, "target_cm", 0) or 0)
+        b["groups"].append({
+            "group": r.group_name,
+            "revenue": float(r.target_revenue or 0),
+            "marketing": float(r.target_marketing or 0),
+            "cm": float(getattr(r, "target_cm", 0) or 0),
+        })
+
+    try:
+        plan = compute_plan(db, year)
+        plan_preview = {
+            f"month_{m}": {
+                "revenue": plan.get(("revenue", m), 0),
+                "advertising": plan.get(("advertising", m), 0),
+                "contribution_margin": plan.get(("contribution_margin", m), 0),
+            } for m in range(1, 13)
+        }
+    except Exception as e:
+        plan_preview = {"error": str(e)}
+
+    return {
+        "year": year,
+        "alter": alter_result,
+        "group_summary_count": len(rows),
+        "monthly_totals": by_month,
+        "compute_plan_preview": plan_preview,
+    }
 
 
 # ──────────────────────────────────────────────────────────────

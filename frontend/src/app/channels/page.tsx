@@ -840,40 +840,175 @@ function MappingTab({
   authHeaders: () => HeadersInit; onResolved: () => void;
 }) {
   const [busy, setBusy] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkProductId, setBulkProductId] = useState<number | ''>('');
+  const [bulkUnitPerSet, setBulkUnitPerSet] = useState<number>(1);
+  const [bulkExcluded, setBulkExcluded] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const resolveOne = async (it: UnmatchedItem, productId: number | null, unitPerSet: number, isExcluded: boolean) => {
+    const r = await fetch(`${API_BASE}/api/csa/mapping`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({
+        channel_id: it.channel_id,
+        channel_name: it.channel_name,
+        raw_product_name: it.raw_product_name,
+        raw_option_name: it.raw_option_name,
+        product_id: productId,
+        unit_per_set: unitPerSet,
+        is_excluded: isExcluded,
+      }),
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || r.statusText);
+    }
+  };
 
   const resolve = async (it: UnmatchedItem, productId: number | null, unitPerSet: number, isExcluded: boolean) => {
     setBusy(it.id);
     try {
-      const r = await fetch(`${API_BASE}/api/csa/mapping`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({
-          channel_id: it.channel_id,
-          channel_name: it.channel_name,
-          raw_product_name: it.raw_product_name,
-          raw_option_name: it.raw_option_name,
-          product_id: productId,
-          unit_per_set: unitPerSet,
-          is_excluded: isExcluded,
-        }),
-      });
-      if (!r.ok) {
-        const data = await r.json().catch(() => ({}));
-        alert(`매핑 저장 실패: ${data.detail || r.statusText}`);
-        return;
-      }
+      await resolveOne(it, productId, unitPerSet, isExcluded);
       onResolved();
+    } catch (e: any) {
+      alert(`매핑 저장 실패: ${e.message || e}`);
     } finally {
       setBusy(null);
     }
   };
 
+  const toggleAll = () => {
+    if (selected.size === unmatched.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(unmatched.map(u => u.id)));
+    }
+  };
+
+  const toggleOne = (id: number) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const applyBulk = async () => {
+    if (selected.size === 0) {
+      alert('선택된 항목이 없습니다.'); return;
+    }
+    if (!bulkExcluded && !bulkProductId) {
+      alert('적용할 표준 품목을 선택하거나, "제외"를 체크해주세요.'); return;
+    }
+    if (!confirm(`선택된 ${selected.size}개 항목에 일괄 적용하시겠습니까?\n  · 품목: ${bulkExcluded ? '제외 처리' : products.find(p => p.id === bulkProductId)?.name}\n  · 입수: ${bulkUnitPerSet}개`)) return;
+    setBulkBusy(true);
+    const targets = unmatched.filter(u => selected.has(u.id));
+    let ok = 0, fail = 0;
+    const errors: string[] = [];
+    for (const it of targets) {
+      try {
+        await resolveOne(
+          it,
+          bulkExcluded ? null : (bulkProductId as number),
+          bulkUnitPerSet,
+          bulkExcluded,
+        );
+        ok++;
+      } catch (e: any) {
+        fail++;
+        errors.push(`${it.raw_product_name}: ${e.message || e}`);
+      }
+    }
+    setBulkBusy(false);
+    setSelected(new Set());
+    if (fail > 0) {
+      alert(`완료: ${ok}건 성공, ${fail}건 실패\n\n${errors.slice(0, 5).join('\n')}`);
+    }
+    onResolved();
+  };
+
+  const allChecked = unmatched.length > 0 && selected.size === unmatched.length;
+  const someChecked = selected.size > 0 && !allChecked;
+
   return (
     <div className={`${PANEL} p-5`}>
-      <h2 className="text-sm font-semibold mb-3">매핑 대기 큐 ({unmatched.length})</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold">매핑 대기 큐 ({unmatched.length})</h2>
+        {unmatched.length > 0 && (
+          <label className="flex items-center gap-1.5 text-xs text-[#8A8F98] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allChecked}
+              ref={el => { if (el) el.indeterminate = someChecked; }}
+              onChange={toggleAll}
+              className="accent-[#828FFF]"
+            />
+            전체 선택 ({selected.size}/{unmatched.length})
+          </label>
+        )}
+      </div>
       <p className="text-xs text-[#62666D] mb-4">
         각 채널의 원본 상품명을 자사 표준 품목으로 매핑하고, 1세트당 낱개 수(입수)를 입력하세요. 카운트 대상이 아니면 "제외"로 처리합니다.
       </p>
+
+      {selected.size > 0 && (
+        <div className={`${SUBPANEL} p-3 mb-3 grid grid-cols-12 gap-3 items-center text-xs border-[#828FFF]/40`}>
+          <div className="col-span-3">
+            <div className="text-[10px] uppercase tracking-wider text-[#828FFF]">일괄 적용 ({selected.size}건)</div>
+            <div className="text-[#8A8F98] text-[11px] mt-1">선택된 항목에 동일한 품목·입수 적용</div>
+          </div>
+          <div className="col-span-3">
+            <label className="block text-[10px] text-[#62666D] uppercase tracking-wider mb-1">표준 품목</label>
+            <select
+              value={bulkProductId}
+              onChange={(e) => setBulkProductId(e.target.value ? parseInt(e.target.value) : '')}
+              disabled={bulkExcluded}
+              className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] disabled:opacity-50"
+            >
+              <option value="">— 선택 —</option>
+              {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="col-span-2">
+            <label className="block text-[10px] text-[#62666D] uppercase tracking-wider mb-1">1세트=N개입</label>
+            <input
+              type="number"
+              min={1}
+              value={bulkUnitPerSet}
+              onChange={(e) => setBulkUnitPerSet(parseInt(e.target.value) || 1)}
+              disabled={bulkExcluded}
+              className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] disabled:opacity-50 font-mono text-right"
+            />
+          </div>
+          <div className="col-span-4 flex items-center gap-2 justify-end">
+            <label className="flex items-center gap-1.5 text-[#8A8F98] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={bulkExcluded}
+                onChange={(e) => setBulkExcluded(e.target.checked)}
+                className="accent-[#EB5757]"
+              />
+              제외
+            </label>
+            <button
+              onClick={applyBulk}
+              disabled={bulkBusy || (!bulkExcluded && !bulkProductId)}
+              className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-xs font-medium"
+            >
+              {bulkBusy ? '적용 중…' : `${selected.size}건 일괄 적용`}
+            </button>
+            <button
+              onClick={() => setSelected(new Set())}
+              disabled={bulkBusy}
+              className="px-3 py-1.5 bg-[#23252A] hover:bg-[#2A2D33] text-[#8A8F98] rounded text-xs"
+            >
+              해제
+            </button>
+          </div>
+        </div>
+      )}
+
       {unmatched.length === 0 ? (
         <div className="text-center py-10 text-[#62666D] text-sm">매핑 대기 항목이 없습니다.</div>
       ) : (
@@ -884,6 +1019,8 @@ function MappingTab({
               item={it}
               products={products}
               busy={busy === it.id}
+              selected={selected.has(it.id)}
+              onToggle={() => toggleOne(it.id)}
               onResolve={resolve}
             />
           ))}
@@ -894,9 +1031,10 @@ function MappingTab({
 }
 
 function UnmatchedRow({
-  item, products, busy, onResolve,
+  item, products, busy, selected, onToggle, onResolve,
 }: {
   item: UnmatchedItem; products: Product[]; busy: boolean;
+  selected: boolean; onToggle: () => void;
   onResolve: (it: UnmatchedItem, productId: number | null, unitPerSet: number, isExcluded: boolean) => void;
 }) {
   const [productId, setProductId] = useState<number | ''>(item.llm_suggested_product_id || '');
@@ -904,8 +1042,15 @@ function UnmatchedRow({
   const [excluded, setExcluded] = useState(false);
 
   return (
-    <div className={`${SUBPANEL} p-3 grid grid-cols-12 gap-3 items-center text-xs`}>
-      <div className="col-span-4">
+    <div className={`${SUBPANEL} p-3 grid grid-cols-12 gap-3 items-center text-xs ${selected ? 'border-[#828FFF]/60 bg-[#828FFF]/5' : ''}`}>
+      <div className="col-span-4 flex items-start gap-2">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          className="mt-1 accent-[#828FFF] flex-shrink-0"
+        />
+        <div className="min-w-0 flex-1">
         <div className="text-[10px] uppercase tracking-wider text-[#62666D]">{item.channel_name}</div>
         <div className="text-[#F7F8F8] font-medium truncate">{item.raw_product_name}</div>
         {item.raw_option_name && (
@@ -913,6 +1058,7 @@ function UnmatchedRow({
         )}
         <div className="text-[10px] text-[#62666D] mt-0.5">
           발견 {item.occurrence_count}회 · 누적수량 {fmtNum(Math.round(item.total_qty))}
+        </div>
         </div>
       </div>
       <div className="col-span-3">

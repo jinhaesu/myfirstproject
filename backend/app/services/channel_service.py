@@ -54,6 +54,7 @@ DEFAULT_CHANNELS = [
     {"name": "홈플러스", "category": "대형마트", "integration_type": "manual"},
     {"name": "메가마트", "category": "대형마트", "integration_type": "manual"},
     {"name": "이마트", "category": "대형마트", "integration_type": "manual"},
+    {"name": "이마트 노브랜드", "category": "대형마트", "integration_type": "manual"},
     {"name": "GS25", "category": "편의점", "integration_type": "manual"},
     {"name": "CU", "category": "편의점", "integration_type": "manual"},
 
