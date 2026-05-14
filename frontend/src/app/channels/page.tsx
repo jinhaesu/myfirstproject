@@ -15,8 +15,27 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const PANEL = 'bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A]';
 const SUBPANEL = 'bg-[#08090A] rounded-lg border border-[#23252A]';
 const TEXT_PRIMARY = '#F7F8F8';
-const TEXT_DIM = '#8A8F98';
-const TEXT_MUTED = '#62666D';
+const TEXT_DIM = '#A3A9B3';     // 8A8F98보다 밝게 — 가시성 개선
+const TEXT_MUTED = '#7A7F8A';   // 62666D보다 밝게
+const ROW_HOVER = 'hover:bg-[#1A1C22]'; // 0A0B0D는 너무 어두워 hover 효과 약함 → 더 밝게
+
+// recharts Tooltip 공통 스타일 (다크 배경 + 큰 글씨)
+const TOOLTIP_STYLE: React.CSSProperties = {
+  background: '#13141A',
+  border: '1px solid #2E3138',
+  borderRadius: 8,
+  color: '#F7F8F8',
+  fontSize: 12,
+  padding: '8px 12px',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+};
+const TOOLTIP_LABEL_STYLE: React.CSSProperties = { color: '#A3A9B3', fontWeight: 500, marginBottom: 4 };
+const TOOLTIP_ITEM_STYLE: React.CSSProperties = { color: '#F7F8F8' };
+
+// 차트 공통 props
+const CHART_GRID = { stroke: '#23252A', strokeDasharray: '3 3' };
+const AXIS_TICK = { fill: '#A3A9B3', fontSize: 11 };
+const LEGEND_STYLE = { fontSize: 11, color: '#D0D6E0' };
 
 const PALETTE = [
   '#828FFF', '#27A644', '#F0BF00', '#EB5757', '#06B6D4',
@@ -279,6 +298,7 @@ function Content() {
           <CostTab
             products={products}
             variableCosts={variableCosts}
+            channels={channels}
             authHeaders={authHeaders}
             onUpdated={() => { fetchAll(); fetchDashboard(); }}
           />
@@ -351,17 +371,31 @@ function Header({
 // Dashboard Tab
 // ──────────────────────────────────────────────────────────────
 
+const COST_LABELS: Record<string, string> = {
+  cogs: '원가', labor: '노무비', overhead: '제조간접비',
+  logistics_work: '물류작업비', logistics_oh: '물류간접비',
+  advertising: '광고비', commission_rate: '수수료(정률)', commission_fixed: '수수료(정액)',
+  shipping: '운반비', packaging: '포장비',
+};
+
 function DashboardTab({
   data, loading, channels, products,
   periodStart, periodEnd, setPeriodStart, setPeriodEnd,
   granularity, setGranularity,
   selChannels, setSelChannels, selProducts, setSelProducts,
 }: any) {
+  const costBreakdown = data?.cost_breakdown
+    ? Object.entries(data.cost_breakdown)
+        .filter(([_, v]) => (v as number) > 0)
+        .map(([k, v]) => ({ key: k, name: COST_LABELS[k] || k, value: v as number }))
+        .sort((a, b) => b.value - a.value)
+    : [];
+  const groupsData = data?.groups || [];
   return (
-    <div>
+    <div className="space-y-4">
       {/* Filter bar */}
-      <div className={`${PANEL} p-4 mb-5`}>
-        <div className="flex flex-wrap gap-3 items-end">
+      <div className={`${PANEL} p-3`}>
+        <div className="flex flex-wrap gap-2 items-end">
           <DateInput label="시작" value={periodStart} onChange={setPeriodStart} />
           <DateInput label="종료" value={periodEnd} onChange={setPeriodEnd} />
           <Segment
@@ -389,7 +423,7 @@ function DashboardTab({
             {(selChannels.length > 0 || selProducts.length > 0) && (
               <button
                 onClick={() => { setSelChannels([]); setSelProducts([]); }}
-                className="text-xs text-[#8A8F98] hover:text-[#F7F8F8] px-3 py-2"
+                className="text-xs text-[#A3A9B3] hover:text-[#F7F8F8] px-3 py-2"
               >
                 필터 초기화
               </button>
@@ -398,120 +432,127 @@ function DashboardTab({
         </div>
       </div>
 
-      {/* KPI */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-        <KpiCard label="순매출" value={data ? `₩${fmtKR(data.summary.revenue)}` : '—'} hint={data ? `${fmtNum(data.summary.orders)} 주문` : ''} />
-        <KpiCard label="판매수량 (낱개)" value={data ? fmtNum(Math.round(data.summary.pcs)) : '—'} hint={data ? '입수 환산 적용' : ''} />
-        <KpiCard label="공헌이익" value={data ? `₩${fmtKR(data.summary.contribution_margin)}` : '—'} hint={data ? `변동비 ₩${fmtKR(data.summary.variable_cost)} 차감` : ''} accent="#27A644" />
-        <KpiCard label="공헌이익률" value={data ? fmtPct(data.summary.cm_rate) : '—'} hint={data && data.summary.commission ? `수수료 ₩${fmtKR(data.summary.commission)}` : ''} accent="#828FFF" />
+      {/* KPI 6개 (컴팩트) */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <CompactKpi label="순매출" value={data ? `₩${fmtKR(data.summary.revenue)}` : '—'} hint={data ? `${fmtNum(data.summary.orders)} 주문` : ''} accent="#828FFF" />
+        <CompactKpi label="낱개수량" value={data ? fmtNum(Math.round(data.summary.pcs)) : '—'} hint="입수 환산" accent="#7070FF" />
+        <CompactKpi label="공헌이익" value={data ? `₩${fmtKR(data.summary.contribution_margin)}` : '—'} hint={data ? `변동비 ₩${fmtKR(data.summary.variable_cost)}` : ''} accent="#27A644" />
+        <CompactKpi label="공헌이익률" value={data ? fmtPct(data.summary.cm_rate) : '—'} hint="" accent={data?.summary.cm_rate >= 30 ? '#27A644' : '#F0BF00'} />
+        <CompactKpi label="낱개당 객단가" value={data ? `₩${fmtKR(data.summary.avg_price_per_pcs || 0)}` : '—'} hint="" accent="#06B6D4" />
+        <CompactKpi label="주문당 객단가" value={data ? `₩${fmtKR(data.summary.avg_price_per_order || 0)}` : '—'} hint="" accent="#A855F7" />
       </div>
 
-      {/* 시리즈 + 채널 도넛 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
-        <div className={`${PANEL} p-5 lg:col-span-2`}>
-          <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-sm font-semibold text-[#F7F8F8]">기간별 매출/공헌이익 추이</h2>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[#62666D]">
+      {/* 도넛 3종 (구분/채널/품목) — 가로 컴팩트 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <DonutCard
+          title="구분별 매출 비중"
+          subtitle="온라인(위탁)·온라인(사입)·오프라인"
+          data={groupsData.map((g: any) => ({ name: g.group, value: g.revenue }))}
+          colors={['#828FFF', '#27A644', '#F0BF00']}
+        />
+        <DonutCard
+          title="채널별 매출 비중"
+          subtitle={`Top 10 / ${data?.channels?.length || 0}`}
+          data={(data?.channels || []).slice(0, 10).map((c: any) => ({ name: c.channel_name, value: c.revenue }))}
+        />
+        <DonutCard
+          title="품목별 매출 비중"
+          subtitle={`Top 12 / ${data?.products?.length || 0}`}
+          data={(data?.products || []).slice(0, 12).map((p: any) => ({ name: p.product_name, value: p.revenue }))}
+        />
+      </div>
+
+      {/* 메인 추이 + 변동비 분해 (2:1) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className={`${PANEL} p-4 lg:col-span-2`}>
+          <div className="flex items-baseline justify-between mb-2">
+            <h3 className="text-sm font-semibold text-[#F7F8F8]">매출 & 공헌이익 추이</h3>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3]">
               {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
             </span>
           </div>
-          {loading ? (
-            <Skeleton h={300} />
-          ) : data && data.series.length ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <ComposedChart data={data.series} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
-                <XAxis dataKey="period" stroke="#62666D" tick={{ fill: '#8A8F98', fontSize: 11 }} />
-                <YAxis stroke="#62666D" tick={{ fill: '#8A8F98', fontSize: 11 }} tickFormatter={fmtKR} />
+          {loading ? <Skeleton h={240} /> : data && data.series.length ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <ComposedChart data={data.series} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="period" tick={AXIS_TICK} stroke="#62666D" />
+                <YAxis tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
                 <Tooltip
-                  contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8' }}
-                  formatter={(v: number) => `₩${fmtKR(v)}`}
+                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
+                  formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
                 />
-                <Legend wrapperStyle={{ fontSize: 11, color: '#8A8F98' }} />
-                <Bar dataKey="revenue" name="순매출" fill="#828FFF" opacity={0.7} />
-                <Line type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="#27A644" strokeWidth={2} dot={{ r: 3 }} />
+                <Legend wrapperStyle={LEGEND_STYLE} />
+                <Bar dataKey="revenue" name="순매출" fill="#828FFF" opacity={0.65} radius={[4, 4, 0, 0]} />
+                <Line type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="#27A644" strokeWidth={2.5} dot={{ r: 3 }} />
               </ComposedChart>
             </ResponsiveContainer>
-          ) : <Empty />}
+          ) : <Empty h={240} />}
         </div>
-
-        <div className={`${PANEL} p-5`}>
-          <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">채널별 매출 비중</h2>
-          {data && data.channels.length ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={data.channels.slice(0, 12)}
-                  dataKey="revenue"
-                  nameKey="channel_name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={90}
-                  paddingAngle={2}
-                >
-                  {data.channels.slice(0, 12).map((_: any, i: number) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                  ))}
-                </Pie>
+        <div className={`${PANEL} p-4`}>
+          <h3 className="text-sm font-semibold text-[#F7F8F8] mb-2">변동비 분해</h3>
+          {costBreakdown.length ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={costBreakdown} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
+                <YAxis type="category" dataKey="name" tick={AXIS_TICK} stroke="#62666D" width={70} />
                 <Tooltip
-                  contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8', fontSize: 11 }}
-                  formatter={(v: number, name: string) => [`₩${fmtKR(v)}`, name]}
+                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
+                  formatter={(v: number) => `₩${fmtKR(v)}`}
                 />
-                <Legend wrapperStyle={{ fontSize: 10, color: '#8A8F98' }} />
-              </PieChart>
+                <Bar dataKey="value" fill="#EB5757" radius={[0, 4, 4, 0]} />
+              </BarChart>
             </ResponsiveContainer>
-          ) : <Empty />}
+          ) : (
+            <div className="h-[240px] flex flex-col items-center justify-center text-xs text-[#A3A9B3] gap-1">
+              <span>변동비 규칙이 설정되지 않았습니다</span>
+              <span className="text-[10px] text-[#7A7F8A]">변동비 설정 탭에서 입력해 주세요</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 품목 도넛 + 공헌이익률 도넛 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-        <div className={`${PANEL} p-5`}>
-          <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">품목별 매출 비중</h2>
-          {data && data.products.length ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={data.products.slice(0, 15)}
-                  dataKey="revenue"
-                  nameKey="product_name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={90}
-                  paddingAngle={2}
-                >
-                  {data.products.slice(0, 15).map((_: any, i: number) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                  ))}
-                </Pie>
+      {/* Top10 채널 + Top12 품목 가로 막대 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className={`${PANEL} p-4`}>
+          <div className="flex items-baseline justify-between mb-2">
+            <h3 className="text-sm font-semibold text-[#F7F8F8]">채널별 매출/공헌이익 Top 10</h3>
+          </div>
+          {data && data.channels.length ? (
+            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.channels.length, 10) * 26)}>
+              <BarChart data={data.channels.slice(0, 10)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
+                <YAxis type="category" dataKey="channel_name" tick={AXIS_TICK} stroke="#62666D" width={80} />
                 <Tooltip
-                  contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8', fontSize: 11 }}
-                  formatter={(v: number, name: string) => [`₩${fmtKR(v)}`, name]}
+                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
+                  formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
                 />
-                <Legend wrapperStyle={{ fontSize: 10, color: '#8A8F98' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : <Empty />}
-        </div>
-
-        <div className={`${PANEL} p-5`}>
-          <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">품목별 공헌이익 (Top 12)</h2>
-          {data && data.products.length ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data.products.slice(0, 12)} layout="vertical" margin={{ left: 60 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
-                <XAxis type="number" stroke="#62666D" tick={{ fill: '#8A8F98', fontSize: 11 }} tickFormatter={fmtKR} />
-                <YAxis type="category" dataKey="product_name" stroke="#62666D" tick={{ fill: '#8A8F98', fontSize: 11 }} width={70} />
-                <Tooltip
-                  contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8' }}
-                  formatter={(v: number) => `₩${fmtKR(v)}`}
-                />
-                <Bar dataKey="contribution_margin" fill="#27A644" />
+                <Legend wrapperStyle={LEGEND_STYLE} />
+                <Bar dataKey="revenue" name="매출" fill="#828FFF" radius={[0, 3, 3, 0]} />
+                <Bar dataKey="contribution_margin" name="공헌이익" fill="#27A644" radius={[0, 3, 3, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          ) : <Empty />}
+          ) : <Empty h={220} />}
+        </div>
+        <div className={`${PANEL} p-4`}>
+          <h3 className="text-sm font-semibold text-[#F7F8F8] mb-2">품목별 매출/공헌이익 Top 12</h3>
+          {data && data.products.length ? (
+            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.products.length, 12) * 26)}>
+              <BarChart data={data.products.slice(0, 12)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
+                <YAxis type="category" dataKey="product_name" tick={AXIS_TICK} stroke="#62666D" width={70} />
+                <Tooltip
+                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
+                  formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
+                />
+                <Legend wrapperStyle={LEGEND_STYLE} />
+                <Bar dataKey="revenue" name="매출" fill="#828FFF" radius={[0, 3, 3, 0]} />
+                <Bar dataKey="contribution_margin" name="공헌이익" fill="#27A644" radius={[0, 3, 3, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <Empty h={220} />}
         </div>
       </div>
 
@@ -533,7 +574,7 @@ function DashboardTab({
             <tbody>
               {data && data.products.length ? (
                 data.products.map((p: any) => (
-                  <tr key={p.product_id} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                  <tr key={p.product_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
                     <td className="py-2 px-2 text-[#F7F8F8]">{p.product_name}</td>
                     <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(p.pcs))}</td>
                     <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(p.orders)}</td>
@@ -569,7 +610,7 @@ function DashboardTab({
             <tbody>
               {data && data.channels.length ? (
                 data.channels.map((c: any) => (
-                  <tr key={c.channel_id} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                  <tr key={c.channel_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
                     <td className="py-2 px-2 text-[#F7F8F8]">{c.channel_name}</td>
                     <td className="py-2 px-2 text-[#8A8F98]">{c.channel_category || '-'}</td>
                     <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(c.pcs))}</td>
@@ -878,78 +919,442 @@ function UnmatchedRow({
 }
 
 // ──────────────────────────────────────────────────────────────
-// Variable Cost Tab
+// Variable Cost Tab — 세분 변동비 (8종 카테고리)
 // ──────────────────────────────────────────────────────────────
 
+interface CostItem {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  basis: string;
+  description: string | null;
+  is_active: boolean;
+  sort_order: number;
+}
+
+interface CostRule {
+  id: number;
+  cost_item_id: number;
+  channel_id: string | null;
+  product_id: number | null;
+  rate: number | null;
+  amount_per_pcs: number | null;
+  amount_per_order: number | null;
+  notes: string | null;
+  is_active: boolean;
+}
+
+interface ChannelMonthlyCost {
+  id: number;
+  year: number;
+  month: number;
+  channel_id: string;
+  channel_name: string;
+  cost_item_id: number;
+  amount: number;
+  notes: string | null;
+}
+
+const BASIS_LABEL: Record<string, string> = {
+  product_pcs: '낱개당 정액 (₩/낱개)',
+  channel_revenue_rate: '채널 매출 정률 (%)',
+  channel_monthly_fixed: '채널 월정액 (₩/월)',
+  order_fixed: '주문당 정액 (₩/주문)',
+  order_revenue_rate: '매출 정률 (%) — 주문 단위',
+};
+
 function CostTab({
-  products, variableCosts, authHeaders, onUpdated,
+  products, variableCosts, authHeaders, onUpdated, channels,
 }: {
   products: Product[]; variableCosts: VariableCost[];
   authHeaders: () => HeadersInit; onUpdated: () => void;
+  channels: Channel[];
 }) {
-  const costMap = useMemo(() => {
-    const m: Record<number, VariableCost> = {};
-    variableCosts.filter(v => !v.channel_id).forEach(v => { m[v.product_id] = v; });
-    return m;
-  }, [variableCosts]);
+  const [items, setItems] = useState<CostItem[]>([]);
+  const [rules, setRules] = useState<CostRule[]>([]);
+  const [monthly, setMonthly] = useState<ChannelMonthlyCost[]>([]);
+  const [selectedItem, setSelectedItem] = useState<CostItem | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const [draft, setDraft] = useState<Record<number, number>>({});
-  const [savingId, setSavingId] = useState<number | null>(null);
+  const fetchAll = useCallback(async () => {
+    const [iRes, rRes, mRes] = await Promise.all([
+      fetch(`${API_BASE}/api/csa/cost-items`, { headers: authHeaders() }),
+      fetch(`${API_BASE}/api/csa/cost-rules`, { headers: authHeaders() }),
+      fetch(`${API_BASE}/api/csa/channel-monthly-costs`, { headers: authHeaders() }),
+    ]);
+    if (iRes.ok) setItems(await iRes.json());
+    if (rRes.ok) setRules(await rRes.json());
+    if (mRes.ok) setMonthly(await mRes.json());
+  }, [authHeaders]);
 
-  const save = async (productId: number) => {
-    const cost = draft[productId];
-    if (cost === undefined) return;
-    setSavingId(productId);
-    try {
-      await fetch(`${API_BASE}/api/csa/variable-costs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ product_id: productId, cost_per_pcs: cost }),
-      });
-      onUpdated();
-      setDraft(d => { const nd = { ...d }; delete nd[productId]; return nd; });
-    } finally {
-      setSavingId(null);
-    }
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const rulesForItem = (itemId: number) => rules.filter(r => r.cost_item_id === itemId);
+  const monthlyForItem = (itemId: number) => monthly.filter(m => m.cost_item_id === itemId);
+
+  // 변동비 항목별 색상
+  const ITEM_COLOR: Record<string, string> = {
+    cogs: '#EB5757', labor: '#FC7840', overhead: '#F0BF00',
+    logistics_work: '#06B6D4', logistics_oh: '#00B8CC',
+    advertising: '#A855F7', commission_rate: '#828FFF', commission_fixed: '#7070FF',
+    shipping: '#27A644', packaging: '#68CC58',
   };
 
   return (
-    <div className={`${PANEL} p-5`}>
-      <h2 className="text-sm font-semibold mb-3">품목별 변동비 (낱개당)</h2>
-      <p className="text-xs text-[#62666D] mb-4">
-        공헌이익 = 순매출 − (낱개수량 × 낱개당 변동비) − 채널 수수료. 변동비를 변경하면 즉시 전체 집계가 재계산됩니다.
-      </p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {products.map(p => {
-          const current = costMap[p.id]?.cost_per_pcs ?? 0;
-          const value = draft[p.id] !== undefined ? draft[p.id] : current;
-          const dirty = draft[p.id] !== undefined && draft[p.id] !== current;
-          return (
-            <div key={p.id} className={`${SUBPANEL} p-3 flex items-center gap-3`}>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-[#F7F8F8] truncate">{p.name}</div>
-                <div className="text-[10px] text-[#62666D]">{p.category || '-'}</div>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-[#62666D]">₩</span>
+    <div className="space-y-4">
+      {/* 안내 */}
+      <div className={`${PANEL} p-4`}>
+        <div className="flex items-baseline justify-between mb-2">
+          <h2 className="text-sm font-semibold">변동비 8종 카테고리 — 공헌이익 계산 기준</h2>
+          <span className="text-[10px] text-[#A3A9B3]">규칙 변경 시 즉시 daily 집계 재계산</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+          {items.map(it => {
+            const r = rulesForItem(it.id);
+            const m = monthlyForItem(it.id);
+            const ruleCount = r.length;
+            const monthlyCount = m.length;
+            const isSel = selectedItem?.id === it.id;
+            return (
+              <button
+                key={it.id}
+                onClick={() => setSelectedItem(isSel ? null : it)}
+                className={`text-left p-3 rounded-lg border transition-colors ${
+                  isSel ? 'border-[#828FFF] bg-[#1A1C22]' : 'border-[#23252A] bg-[#08090A] hover:border-[#828FFF]/50'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-2.5 h-2.5 rounded-sm" style={{ background: ITEM_COLOR[it.code] || '#828FFF' }} />
+                  <div className="text-sm font-semibold text-[#F7F8F8]">{it.name}</div>
+                </div>
+                <div className="text-[10px] text-[#A3A9B3]">{BASIS_LABEL[it.basis] || it.basis}</div>
+                <div className="text-[10px] text-[#7A7F8A] mt-1.5">
+                  규칙 <span className="text-[#D0D6E0] font-mono">{ruleCount}</span>
+                  {it.basis === 'channel_monthly_fixed' && (
+                    <> · 월입력 <span className="text-[#D0D6E0] font-mono">{monthlyCount}</span></>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 선택된 항목의 규칙 편집 */}
+      {selectedItem && (
+        <CostRuleEditor
+          item={selectedItem}
+          rules={rulesForItem(selectedItem.id)}
+          monthlyCosts={monthlyForItem(selectedItem.id)}
+          channels={channels}
+          products={products}
+          authHeaders={authHeaders}
+          onSaved={fetchAll}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
+
+      {/* 도움말 */}
+      {!selectedItem && (
+        <div className={`${PANEL} p-4 text-xs text-[#A3A9B3] leading-relaxed`}>
+          <div className="font-semibold text-[#F7F8F8] mb-2">공헌이익 계산식</div>
+          <div className="font-mono text-[11px] bg-[#08090A] border border-[#23252A] rounded p-2.5 text-[#D0D6E0]">
+            공헌이익 = 순매출
+            <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-[#EB5757]">원가</span>)
+            <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-[#FC7840]">노무비</span>)
+            <br />&nbsp;&nbsp;− (매출 × <span className="text-[#F0BF00]">제조간접비율</span>)
+            <br />&nbsp;&nbsp;− (매출 × <span className="text-[#06B6D4]">물류작업비율</span> + 매출 × <span className="text-[#00B8CC]">물류간접비율</span>)
+            <br />&nbsp;&nbsp;− <span className="text-[#A855F7]">광고비</span> (채널 월정액 → 일별 매출 비례 분배)
+            <br />&nbsp;&nbsp;− (매출 × <span className="text-[#828FFF]">정률 수수료</span> + 주문건수 × <span className="text-[#7070FF]">정액 수수료</span>)
+            <br />&nbsp;&nbsp;− (주문건수 × <span className="text-[#27A644]">운반비</span> + 주문건수 × <span className="text-[#68CC58]">포장비</span>)
+          </div>
+          <div className="mt-3 text-[11px]">
+            우선순위: <span className="font-mono text-[#828FFF]">채널×품목 → 채널 → 품목 → 전역</span> (구체적인 규칙이 우선)
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CostRuleEditor({
+  item, rules, monthlyCosts, channels, products, authHeaders, onSaved, onClose,
+}: {
+  item: CostItem;
+  rules: CostRule[];
+  monthlyCosts: ChannelMonthlyCost[];
+  channels: Channel[];
+  products: Product[];
+  authHeaders: () => HeadersInit;
+  onSaved: () => void;
+  onClose: () => void;
+}) {
+  const [newRule, setNewRule] = useState<Partial<CostRule>>({
+    cost_item_id: item.id,
+    channel_id: null, product_id: null,
+    rate: null, amount_per_pcs: null, amount_per_order: null,
+    is_active: true,
+  });
+  const [busy, setBusy] = useState(false);
+
+  const saveRule = async () => {
+    setBusy(true);
+    try {
+      await fetch(`${API_BASE}/api/csa/cost-rules`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          cost_item_id: item.id,
+          channel_id: newRule.channel_id || null,
+          product_id: newRule.product_id || null,
+          rate: newRule.rate || null,
+          amount_per_pcs: newRule.amount_per_pcs || null,
+          amount_per_order: newRule.amount_per_order || null,
+          notes: newRule.notes || null,
+          is_active: true,
+        }),
+      });
+      setNewRule({
+        cost_item_id: item.id, channel_id: null, product_id: null,
+        rate: null, amount_per_pcs: null, amount_per_order: null, is_active: true,
+      });
+      onSaved();
+    } finally { setBusy(false); }
+  };
+
+  const deleteRule = async (id: number) => {
+    if (!confirm('이 규칙을 삭제하시겠습니까?')) return;
+    await fetch(`${API_BASE}/api/csa/cost-rules/${id}`, {
+      method: 'DELETE', headers: authHeaders(),
+    });
+    onSaved();
+  };
+
+  const channelName = (id: string | null) => id ? (channels.find(c => c.id === id)?.name || '?') : '전체 채널';
+  const productName = (id: number | null) => id ? (products.find(p => p.id === id)?.name || '?') : '전체 품목';
+
+  // basis별 입력 필드 결정
+  const showRate = ['channel_revenue_rate', 'order_revenue_rate'].includes(item.basis);
+  const showPcs = item.basis === 'product_pcs';
+  const showOrder = item.basis === 'order_fixed' || item.code === 'shipping';
+  // shipping은 둘 다 가능
+  const showShippingBoth = item.code === 'shipping';
+
+  return (
+    <div className={`${PANEL} p-4`}>
+      <div className="flex items-baseline justify-between mb-3">
+        <h3 className="text-sm font-semibold">
+          {item.name} — 규칙 편집
+          <span className="ml-2 text-[10px] text-[#A3A9B3] font-mono">{BASIS_LABEL[item.basis]}</span>
+        </h3>
+        <button onClick={onClose} className="text-[#A3A9B3] hover:text-[#F7F8F8] text-xs">✕ 닫기</button>
+      </div>
+
+      {item.description && <p className="text-xs text-[#A3A9B3] mb-3">{item.description}</p>}
+
+      {/* 월정액 입력 (광고비) */}
+      {item.basis === 'channel_monthly_fixed' && (
+        <MonthlyCostEditor
+          itemId={item.id}
+          channels={channels}
+          existing={monthlyCosts}
+          authHeaders={authHeaders}
+          onSaved={onSaved}
+        />
+      )}
+
+      {/* 규칙 추가 (정률·정액) */}
+      {item.basis !== 'channel_monthly_fixed' && (
+        <div className={`${SUBPANEL} p-3 mb-3`}>
+          <div className="text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-2">+ 새 규칙 추가</div>
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
+            <div className="md:col-span-2">
+              <label className="block text-[10px] text-[#7A7F8A] mb-1">채널 (선택 시 그 채널만)</label>
+              <select
+                value={newRule.channel_id || ''}
+                onChange={(e) => setNewRule({ ...newRule, channel_id: e.target.value || null })}
+                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+              >
+                <option value="">전체 채널</option>
+                {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-[10px] text-[#7A7F8A] mb-1">품목 (선택 시 그 품목만)</label>
+              <select
+                value={newRule.product_id || ''}
+                onChange={(e) => setNewRule({ ...newRule, product_id: e.target.value ? parseInt(e.target.value) : null })}
+                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+              >
+                <option value="">전체 품목</option>
+                {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            {showRate && (
+              <div>
+                <label className="block text-[10px] text-[#7A7F8A] mb-1">정률 (%)</label>
                 <input
-                  type="number"
-                  step={1}
-                  min={0}
-                  value={value}
-                  onChange={(e) => setDraft(d => ({ ...d, [p.id]: parseFloat(e.target.value) || 0 }))}
-                  className="w-24 bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] font-mono text-right text-sm"
+                  type="number" step="0.1"
+                  value={newRule.rate != null ? newRule.rate * 100 : ''}
+                  onChange={(e) => setNewRule({ ...newRule, rate: e.target.value ? parseFloat(e.target.value) / 100 : null })}
+                  placeholder="5.0"
+                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
                 />
               </div>
+            )}
+            {showPcs && (
+              <div>
+                <label className="block text-[10px] text-[#7A7F8A] mb-1">₩/낱개</label>
+                <input
+                  type="number"
+                  value={newRule.amount_per_pcs || ''}
+                  onChange={(e) => setNewRule({ ...newRule, amount_per_pcs: e.target.value ? parseFloat(e.target.value) : null })}
+                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
+                />
+              </div>
+            )}
+            {showOrder && (
+              <div>
+                <label className="block text-[10px] text-[#7A7F8A] mb-1">₩/주문</label>
+                <input
+                  type="number"
+                  value={newRule.amount_per_order || ''}
+                  onChange={(e) => setNewRule({ ...newRule, amount_per_order: e.target.value ? parseFloat(e.target.value) : null })}
+                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
+                />
+              </div>
+            )}
+            {showShippingBoth && !showRate && (
+              <div>
+                <label className="block text-[10px] text-[#7A7F8A] mb-1">또는 정률 (%)</label>
+                <input
+                  type="number" step="0.1"
+                  value={newRule.rate != null ? newRule.rate * 100 : ''}
+                  onChange={(e) => setNewRule({ ...newRule, rate: e.target.value ? parseFloat(e.target.value) / 100 : null })}
+                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
+                />
+              </div>
+            )}
+            <button
+              onClick={saveRule} disabled={busy}
+              className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium disabled:opacity-50"
+            >{busy ? '저장…' : '+ 추가'}</button>
+          </div>
+        </div>
+      )}
+
+      {/* 기존 규칙 리스트 */}
+      {item.basis !== 'channel_monthly_fixed' && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-2">기존 규칙 ({rules.length})</div>
+          {rules.length === 0 ? (
+            <div className="text-xs text-[#7A7F8A] py-3">설정된 규칙이 없습니다. 위에서 추가하세요.</div>
+          ) : (
+            <div className="space-y-1.5">
+              {rules.map(r => (
+                <div key={r.id} className={`${SUBPANEL} p-2.5 flex items-center gap-3 text-xs`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[#F7F8F8] truncate">
+                      <span className="text-[#A3A9B3]">대상:</span> {channelName(r.channel_id)} <span className="text-[#7A7F8A]">×</span> {productName(r.product_id)}
+                    </div>
+                    <div className="text-[10px] text-[#A3A9B3] font-mono mt-0.5">
+                      {r.rate != null && <span>정률 {(r.rate * 100).toFixed(2)}%</span>}
+                      {r.amount_per_pcs != null && <span> · ₩{fmtNum(r.amount_per_pcs)}/낱개</span>}
+                      {r.amount_per_order != null && <span> · ₩{fmtNum(r.amount_per_order)}/주문</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => deleteRule(r.id)} className="text-[#EB5757] hover:underline text-xs">삭제</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MonthlyCostEditor({
+  itemId, channels, existing, authHeaders, onSaved,
+}: {
+  itemId: number;
+  channels: Channel[];
+  existing: ChannelMonthlyCost[];
+  authHeaders: () => HeadersInit;
+  onSaved: () => void;
+}) {
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const [year, setYear] = useState(currentYear);
+  const [month, setMonth] = useState(currentMonth);
+  const [draft, setDraft] = useState<Record<string, number>>({});
+  const [savingChannel, setSavingChannel] = useState<string | null>(null);
+
+  const valueFor = (channelId: string) => {
+    const v = existing.find(e => e.channel_id === channelId && e.year === year && e.month === month);
+    return draft[channelId] !== undefined ? draft[channelId] : (v?.amount ?? 0);
+  };
+
+  const isDirty = (channelId: string) => {
+    if (draft[channelId] === undefined) return false;
+    const v = existing.find(e => e.channel_id === channelId && e.year === year && e.month === month);
+    return draft[channelId] !== (v?.amount ?? 0);
+  };
+
+  const save = async (channel: Channel) => {
+    const amount = draft[channel.id];
+    if (amount === undefined) return;
+    setSavingChannel(channel.id);
+    try {
+      await fetch(`${API_BASE}/api/csa/channel-monthly-costs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          year, month,
+          channel_id: channel.id, channel_name: channel.name,
+          cost_item_id: itemId, amount,
+        }),
+      });
+      setDraft(d => { const nd = { ...d }; delete nd[channel.id]; return nd; });
+      onSaved();
+    } finally { setSavingChannel(null); }
+  };
+
+  return (
+    <div className={`${SUBPANEL} p-3 mb-3`}>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[10px] uppercase tracking-wider text-[#A3A9B3]">기간:</span>
+        <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
+          className="w-20 bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1 text-xs text-[#F7F8F8] font-mono text-center" />
+        <span className="text-[#A3A9B3] text-xs">년</span>
+        <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))}
+          className="bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1 text-xs text-[#F7F8F8]">
+          {Array.from({ length: 12 }).map((_, i) => <option key={i} value={i + 1}>{i + 1}월</option>)}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[500px] overflow-y-auto pr-1">
+        {channels.map(c => {
+          const v = valueFor(c.id);
+          const dirty = isDirty(c.id);
+          return (
+            <div key={c.id} className="flex items-center gap-2 bg-[#0F1011] border border-[#23252A] rounded p-2 text-xs">
+              <div className="flex-1 min-w-0 truncate text-[#F7F8F8]">{c.name}</div>
+              <span className="text-[10px] text-[#7A7F8A]">₩</span>
+              <input
+                type="number"
+                value={v || ''}
+                onChange={(e) => setDraft(d => ({ ...d, [c.id]: parseFloat(e.target.value) || 0 }))}
+                className="w-24 bg-[#08090A] border border-[#2E3138] rounded px-1.5 py-1 text-[#F7F8F8] font-mono text-right"
+              />
               <button
-                onClick={() => save(p.id)}
-                disabled={savingId === p.id || !dirty}
-                className={`px-3 py-1.5 rounded text-xs font-medium ${
-                  dirty ? 'bg-[#828FFF] text-white hover:bg-[#7070FF]' : 'bg-[#1A1B1F] text-[#62666D]'
-                } disabled:opacity-40`}
-              >
-                {savingId === p.id ? '저장 중' : dirty ? '저장' : '저장됨'}
-              </button>
+                onClick={() => save(c)}
+                disabled={savingChannel === c.id || !dirty}
+                className={`px-2 py-1 rounded text-[10px] font-medium ${
+                  dirty ? 'bg-[#828FFF] text-white hover:bg-[#7070FF]' : 'bg-[#1A1B1F] text-[#7A7F8A]'
+                } disabled:opacity-50`}
+              >{savingChannel === c.id ? '…' : dirty ? '저장' : '✓'}</button>
             </div>
           );
         })}
@@ -962,7 +1367,7 @@ function CostTab({
 // Plan Tab — 사업계획 업로드 + vs 실적 비교 + 객단가
 // ──────────────────────────────────────────────────────────────
 
-type CompareBy = 'channel' | 'product' | 'group' | 'employee' | 'category';
+type CompareBy = 'channel' | 'product' | 'group' | 'employee';
 
 function PlanTab({
   authHeaders, channels, products,
@@ -1090,9 +1495,8 @@ function PlanTab({
                 options={[
                   { v: 'channel', l: '채널' },
                   { v: 'product', l: '품목' },
-                  { v: 'group', l: '구분' },
+                  { v: 'group', l: '구분(3종)' },
                   { v: 'employee', l: '담당자' },
-                  { v: 'category', l: '품목류' },
                 ]}
                 value={by}
                 onChange={setBy}
@@ -1130,7 +1534,7 @@ function PlanTab({
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8', fontSize: 11 }}
+                    contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                     formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
                   />
                   <Legend wrapperStyle={{ fontSize: 10, color: '#8A8F98' }} />
@@ -1148,7 +1552,7 @@ function PlanTab({
                   <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 11 }} tickFormatter={fmtKR} stroke="#62666D" />
                   <YAxis type="category" dataKey="employee" tick={{ fill: '#8A8F98', fontSize: 11 }} stroke="#62666D" width={70} />
                   <Tooltip
-                    contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8' }}
+                    contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                     formatter={(v: number) => `₩${fmtKR(v)}`}
                   />
                   <Bar dataKey="target_revenue" fill="#828FFF" />
@@ -1162,7 +1566,7 @@ function PlanTab({
       {/* 비교 차트 */}
       <div className={`${PANEL} p-5`}>
         <h3 className="text-sm font-semibold mb-3">
-          {by === 'channel' ? '채널' : by === 'product' ? '품목' : by === 'group' ? '구분' : by === 'employee' ? '담당자' : '품목류'}별 — 사업계획 vs 실적
+          {by === 'channel' ? '채널' : by === 'product' ? '품목' : by === 'group' ? '구분' : '담당자'}별 — 사업계획 vs 실적
         </h3>
         {busy ? <Skeleton h={300} /> : items.length ? (
           <ResponsiveContainer width="100%" height={Math.max(300, items.length * 28)}>
@@ -1175,7 +1579,7 @@ function PlanTab({
               <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 11 }} tickFormatter={fmtKR} stroke="#62666D" />
               <YAxis type="category" dataKey="label" tick={{ fill: '#8A8F98', fontSize: 11 }} stroke="#62666D" width={130} />
               <Tooltip
-                contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8' }}
+                contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                 formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
               />
               <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -1208,7 +1612,7 @@ function PlanTab({
               {items.length === 0 ? (
                 <tr><td colSpan={9} className="py-6 text-center text-[#62666D]">사업계획 또는 실적 데이터가 없습니다.</td></tr>
               ) : items.map((it: any, idx: number) => (
-                <tr key={`${it.key}-${idx}`} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                <tr key={`${it.key}-${idx}`} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
                   <td className="py-1.5 px-2 text-[#F7F8F8]">{it.label}</td>
                   <td className="py-1.5 px-2 text-right font-mono text-[#8A8F98]">₩{fmtKR(it.target_revenue)}</td>
                   <td className="py-1.5 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(it.actual_revenue)}</td>
@@ -1247,7 +1651,7 @@ function PlanTab({
               </thead>
               <tbody>
                 {avgPrice.items.slice(0, 20).map((it: any, i: number) => (
-                  <tr key={i} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                  <tr key={i} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
                     <td className="py-1.5 px-2 text-[#F7F8F8]">{it.label}</td>
                     <td className="py-1.5 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(it.revenue)}</td>
                     <td className="py-1.5 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(it.pcs))}</td>
@@ -1604,7 +2008,7 @@ function AdminTab({
               {employees.length === 0 ? (
                 <tr><td colSpan={5} className="py-6 text-center text-[#62666D]">직원이 등록되지 않았습니다. 사업계획 엑셀을 업로드하면 자동 생성됩니다.</td></tr>
               ) : employees.map(e => (
-                <tr key={e.id} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                <tr key={e.id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
                   <td className="py-2 px-2 text-[#F7F8F8] font-medium">{e.name}</td>
                   <td className="py-2 px-2 text-[#8A8F98] font-mono text-xs">{e.email}</td>
                   <td className="py-2 px-2">
@@ -1645,7 +2049,7 @@ function AdminTab({
             </thead>
             <tbody>
               {channels.map(c => (
-                <tr key={c.id} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                <tr key={c.id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
                   <td className="py-2 px-2 text-[#F7F8F8]">{c.name}</td>
                   <td className="py-2 px-2 text-[#8A8F98] text-xs">{c.category}</td>
                   <td className="py-2 px-2">
@@ -1707,9 +2111,82 @@ function AdminTab({
 function KpiCard({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
   return (
     <div className={`${PANEL} p-5`}>
-      <div className="text-[10px] font-mono uppercase tracking-wider text-[#62666D] mb-2">{label}</div>
+      <div className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3] mb-2">{label}</div>
       <div className="text-2xl font-semibold tracking-tight" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
-      {hint && <div className="text-[11px] text-[#62666D] mt-1.5">{hint}</div>}
+      {hint && <div className="text-[11px] text-[#A3A9B3] mt-1.5">{hint}</div>}
+    </div>
+  );
+}
+
+function CompactKpi({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
+  return (
+    <div className={`${PANEL} p-3`}>
+      <div className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3] mb-1">{label}</div>
+      <div className="text-lg font-semibold tracking-tight truncate" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
+      {hint && <div className="text-[10px] text-[#7A7F8A] mt-0.5 truncate">{hint}</div>}
+    </div>
+  );
+}
+
+function DonutCard({
+  title, subtitle, data, colors,
+}: {
+  title: string;
+  subtitle?: string;
+  data: Array<{ name: string; value: number }>;
+  colors?: string[];
+}) {
+  if (!data || data.length === 0) {
+    return (
+      <div className={`${PANEL} p-4`}>
+        <h3 className="text-sm font-semibold text-[#F7F8F8] mb-1">{title}</h3>
+        {subtitle && <div className="text-[10px] text-[#A3A9B3] mb-2">{subtitle}</div>}
+        <Empty h={180} />
+      </div>
+    );
+  }
+  const total = data.reduce((s, x) => s + (x.value || 0), 0);
+  const palette = colors || PALETTE;
+  return (
+    <div className={`${PANEL} p-4`}>
+      <div className="flex items-baseline justify-between mb-1">
+        <h3 className="text-sm font-semibold text-[#F7F8F8]">{title}</h3>
+        <span className="text-[10px] text-[#A3A9B3] font-mono">총 ₩{fmtKR(total)}</span>
+      </div>
+      {subtitle && <div className="text-[10px] text-[#7A7F8A] mb-2">{subtitle}</div>}
+      <ResponsiveContainer width="100%" height={200}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            cx="50%" cy="50%"
+            innerRadius={42} outerRadius={75}
+            paddingAngle={2}
+          >
+            {data.map((_, i) => (
+              <Cell key={i} fill={palette[i % palette.length]} />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
+            formatter={(v: number, n: string) => [`₩${fmtKR(v)} (${total ? ((v as number) / total * 100).toFixed(1) : 0}%)`, n]}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+      {/* 범례를 직접 그려서 가시성 보장 */}
+      <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
+        {data.slice(0, 8).map((d, i) => (
+          <div key={d.name} className="flex items-center gap-1.5 min-w-0">
+            <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: palette[i % palette.length] }} />
+            <span className="text-[#D0D6E0] truncate">{d.name}</span>
+            <span className="text-[#7A7F8A] font-mono ml-auto flex-shrink-0">{total ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
+          </div>
+        ))}
+        {data.length > 8 && (
+          <div className="text-[#7A7F8A] col-span-2 text-center">+ {data.length - 8}개 더</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1823,10 +2300,10 @@ function Skeleton({ h }: { h: number }) {
   return <div className="animate-pulse bg-[#1A1B1F] rounded" style={{ height: h }} />;
 }
 
-function Empty() {
+function Empty({ h = 300 }: { h?: number }) {
   return (
-    <div className="h-[300px] flex items-center justify-center text-sm text-[#62666D]">
-      데이터가 없습니다. 엑셀 업로드 탭에서 데이터를 추가해 주세요.
+    <div className="flex items-center justify-center text-sm text-[#A3A9B3]" style={{ height: h }}>
+      데이터가 없습니다.
     </div>
   );
 }

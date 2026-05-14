@@ -428,86 +428,12 @@ def rebuild_daily_aggregate(
     since: Optional[date] = None,
     until: Optional[date] = None,
 ) -> int:
-    """raw_lines → daily_product 재계산. 영향 받는 (date, channel, product) 키만 갱신."""
-    q = db.query(
-        ChannelSalesRawLine.sale_date,
-        ChannelSalesRawLine.channel_id,
-        ChannelSalesRawLine.channel_name,
-        ChannelSalesRawLine.product_id,
-        func.sum(ChannelSalesRawLine.raw_qty).label("raw_qty"),
-        func.sum(ChannelSalesRawLine.pcs_qty).label("pcs_qty"),
-        func.sum(ChannelSalesRawLine.gross_amount).label("gross"),
-        func.sum(ChannelSalesRawLine.net_amount).label("net"),
-        func.sum(ChannelSalesRawLine.settlement_amount).label("settlement"),
-        func.sum(ChannelSalesRawLine.commission).label("commission"),
-        func.sum(ChannelSalesRawLine.refund_amount).label("refund"),
-        func.count(func.distinct(ChannelSalesRawLine.order_no)).label("order_count"),
-    ).filter(ChannelSalesRawLine.mapping_status == "matched")
+    """raw_lines → daily_product 재계산 (세분 변동비 반영).
 
-    if channel_id:
-        q = q.filter(ChannelSalesRawLine.channel_id == channel_id)
-    if since:
-        q = q.filter(ChannelSalesRawLine.sale_date >= since)
-    if until:
-        q = q.filter(ChannelSalesRawLine.sale_date <= until)
-
-    q = q.group_by(
-        ChannelSalesRawLine.sale_date,
-        ChannelSalesRawLine.channel_id,
-        ChannelSalesRawLine.channel_name,
-        ChannelSalesRawLine.product_id,
-    )
-
-    # 영향 받는 키만 삭제 후 재삽입
-    del_q = db.query(ChannelSalesDailyProduct)
-    if channel_id:
-        del_q = del_q.filter(ChannelSalesDailyProduct.channel_id == channel_id)
-    if since:
-        del_q = del_q.filter(ChannelSalesDailyProduct.sale_date >= since)
-    if until:
-        del_q = del_q.filter(ChannelSalesDailyProduct.sale_date <= until)
-    del_q.delete(synchronize_session=False)
-
-    # 채널 카테고리 캐시
-    ch_cat = {c.id: c.category for c in db.query(Channel).all()}
-    ch_cat_by_name = {c.name: c.category for c in db.query(Channel).all()}
-    prod_name_cache = {p.id: p.name for p in db.query(ProductMaster).all()}
-
-    # 변동비 캐시 (글로벌)
-    cost_cache: dict[int, float] = {}
-    for row in db.query(ProductVariableCost).filter(ProductVariableCost.channel_id.is_(None)).all():
-        cost_cache[row.product_id] = row.cost_per_pcs or 0
-
-    count = 0
-    for r in q.all():
-        sd: date = r.sale_date
-        cm_unit = cost_cache.get(r.product_id, 0)
-        var_cost = (r.pcs_qty or 0) * cm_unit
-        contribution = (r.net or 0) - var_cost - (r.commission or 0)
-        db.add(ChannelSalesDailyProduct(
-            sale_date=sd,
-            year=sd.year,
-            month=sd.month,
-            quarter=(sd.month - 1) // 3 + 1,
-            channel_id=r.channel_id,
-            channel_name=r.channel_name,
-            channel_category=ch_cat.get(r.channel_id) or ch_cat_by_name.get(r.channel_name),
-            product_id=r.product_id,
-            product_name=prod_name_cache.get(r.product_id),
-            raw_qty=r.raw_qty or 0,
-            pcs_qty=r.pcs_qty or 0,
-            gross_sales=r.gross or 0,
-            net_sales=r.net or 0,
-            settlement_amount=r.settlement or 0,
-            commission=r.commission or 0,
-            refund_amount=r.refund or 0,
-            order_count=r.order_count or 0,
-            variable_cost=var_cost,
-            contribution_margin=contribution,
-        ))
-        count += 1
-    db.commit()
-    return count
+    실제 분해 로직은 csa_cost_service.rebuild_daily_with_costs에 위임.
+    """
+    from app.services.csa_cost_service import rebuild_daily_with_costs
+    return rebuild_daily_with_costs(db, channel_id=channel_id, since=since, until=until)
 
 
 def is_db_available() -> bool:

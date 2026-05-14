@@ -38,12 +38,21 @@ log = logging.getLogger(__name__)
 DEFAULT_GROUPS = [
     {"code": "online_consign", "name": "온라인(위탁)", "big_group": "온라인", "sort_order": 1},
     {"code": "online_purchase", "name": "온라인(사입)", "big_group": "온라인", "sort_order": 2},
-    {"code": "offline_mart", "name": "오프라인(마트)", "big_group": "오프라인", "sort_order": 3},
-    {"code": "offline_warehouse", "name": "오프라인(창고형)", "big_group": "오프라인", "sort_order": 4},
-    {"code": "offline_cvs", "name": "오프라인(CVS)", "big_group": "오프라인", "sort_order": 5},
-    {"code": "offline_meal", "name": "오프라인(급식)", "big_group": "오프라인", "sort_order": 6},
-    {"code": "offline_etc", "name": "오프라인(기타)", "big_group": "오프라인", "sort_order": 7},
+    {"code": "offline", "name": "오프라인", "big_group": "오프라인", "sort_order": 3},
 ]
+
+
+# 사업계획 엑셀의 세분 구분 → 3대 그룹 매핑
+GROUP_3_MAP = {
+    "온라인(위탁)": "온라인(위탁)",
+    "온라인(사입)": "온라인(사입)",
+    "오프라인": "오프라인",
+    "오프라인(급식)": "오프라인",
+    "오프라인(기타)": "오프라인",
+    "오프라인(마트)": "오프라인",
+    "오프라인(창고형)": "오프라인",
+    "오프라인(CVS)": "오프라인",
+}
 
 
 MONTH_COLS = [f"{m}월" for m in range(1, 13)]
@@ -148,18 +157,19 @@ def import_channel_revenue(
             db.add(emp)
             db.flush()
 
-        # 그룹 정규화 — 마스터에 없으면 새로 추가
-        group = groups.get(group_name)
+        # 그룹 정규화 — 사업계획의 세분 구분을 3대 그룹으로 압축
+        normalized_group = GROUP_3_MAP.get(group_name, group_name)
+        group = groups.get(normalized_group)
         if not group:
             db.add(ChannelGroup(
-                code=re.sub(r"[^a-zA-Z0-9_]", "_", group_name).lower(),
-                name=group_name,
-                big_group="오프라인" if "오프라인" in group_name else "온라인",
+                code=re.sub(r"[^a-zA-Z0-9_]", "_", normalized_group).lower(),
+                name=normalized_group,
+                big_group="오프라인" if "오프라인" in normalized_group else "온라인",
                 sort_order=99,
             ))
             db.commit()
-            group = db.query(ChannelGroup).filter(ChannelGroup.name == group_name).first()
-            groups[group_name] = group
+            group = db.query(ChannelGroup).filter(ChannelGroup.name == normalized_group).first()
+            groups[normalized_group] = group
 
         # 채널 정규화
         channel_id = _resolve_channel_id(db, channel_raw)

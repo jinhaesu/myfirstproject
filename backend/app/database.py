@@ -55,6 +55,7 @@ def init_db():
             BusinessPlanChannelRevenue, BusinessPlanProductQty,
             BusinessPlanCategoryQty, BusinessPlanGroupSummary,
             BusinessPlanUploadBatch,
+            CsaCostItem, CsaCostRule, CsaChannelMonthlyCost,
         )
         from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401
         from app.models.scheduled_report import ScheduledReport  # noqa: F401
@@ -86,6 +87,28 @@ def init_db():
                 conn.execute(text(
                     "ALTER TABLE cs_inquiries ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP"
                 ))
+                conn.commit()
+        except Exception:
+            pass
+
+        # CSA 변동비 분해 컬럼 (기존 daily_product 테이블에 추가)
+        try:
+            from sqlalchemy import text
+            csa_daily_alters = [
+                "ADD COLUMN IF NOT EXISTS cost_cogs DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS cost_labor DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS cost_overhead DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS cost_logistics_work DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS cost_logistics_oh DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS cost_advertising DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS cost_commission_rate DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS cost_commission_fixed DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS cost_shipping DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS cost_packaging DOUBLE PRECISION DEFAULT 0",
+            ]
+            with engine.connect() as conn:
+                for col_sql in csa_daily_alters:
+                    conn.execute(text(f"ALTER TABLE csa_sales_daily_product {col_sql}"))
                 conn.commit()
         except Exception:
             pass
