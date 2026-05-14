@@ -180,6 +180,20 @@ function Content() {
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareStart, setCompareStart] = useState('');
   const [compareEnd, setCompareEnd] = useState('');
+  const [compareManual, setCompareManual] = useState(false);  // 사용자가 직접 수정했는지
+
+  // 토글 켜졌을 때 기준 기간 직전 동일 길이를 자동 계산 (수동 수정 안 한 경우만)
+  useEffect(() => {
+    if (!compareOpen || compareManual) return;
+    if (!periodStart || !periodEnd) return;
+    const s = new Date(periodStart), e = new Date(periodEnd);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return;
+    const dur = e.getTime() - s.getTime();
+    const ce = new Date(s.getTime() - 24 * 3600 * 1000);
+    const cs = new Date(ce.getTime() - dur);
+    setCompareStart(cs.toISOString().slice(0, 10));
+    setCompareEnd(ce.toISOString().slice(0, 10));
+  }, [compareOpen, compareManual, periodStart, periodEnd]);
 
   const [loading, setLoading] = useState(false);
   const [seedDone, setSeedDone] = useState(false);
@@ -302,6 +316,8 @@ function Content() {
             setCompareStart={setCompareStart}
             compareEnd={compareEnd}
             setCompareEnd={setCompareEnd}
+            compareManual={compareManual}
+            setCompareManual={setCompareManual}
           />
         )}
 
@@ -429,8 +445,16 @@ function DashboardTab({
   selChannels, setSelChannels, selProducts, setSelProducts,
   selEmployees, setSelEmployees,
   compareOpen, setCompareOpen, compareStart, setCompareStart, compareEnd, setCompareEnd,
+  compareManual, setCompareManual,
 }: any) {
   const hasCompare = !!(compareData && compareOpen);
+  // 기준 기간 길이(일)
+  const periodDays = (() => {
+    if (!periodStart || !periodEnd) return 0;
+    const s = new Date(periodStart), e = new Date(periodEnd);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
+    return Math.round((e.getTime() - s.getTime()) / (24 * 3600 * 1000)) + 1;
+  })();
   const sparkSeries = (data?.series || []).map((s: any) => ({ x: s.bucket, revenue: s.revenue, pcs: s.pcs, cm: s.contribution_margin }));
   const sparkKey = (k: string) => sparkSeries.map((p: any) => ({ x: p.x, v: p[k] || 0 }));
   const costBreakdown = data?.cost_breakdown
@@ -506,23 +530,23 @@ function DashboardTab({
           </button>
           {compareOpen && (
             <div className="flex items-end gap-2 flex-wrap">
-              <DateInput label="비교 시작" value={compareStart} onChange={setCompareStart} />
-              <DateInput label="비교 종료" value={compareEnd} onChange={setCompareEnd} />
-              <button
-                onClick={() => {
-                  // 기본값: 동일 기간 전(예: 5/1~5/14 → 4/1~4/14 자동)
-                  const s = new Date(periodStart), e = new Date(periodEnd);
-                  const dur = e.getTime() - s.getTime();
-                  const ce = new Date(s.getTime() - 24 * 3600 * 1000);
-                  const cs = new Date(ce.getTime() - dur);
-                  setCompareStart(cs.toISOString().slice(0, 10));
-                  setCompareEnd(ce.toISOString().slice(0, 10));
-                }}
-                className="text-[10px] text-[#A3A9B3] hover:text-[#F7F8F8] px-2 py-1.5 border border-[#23252A] rounded"
-                title="기준 기간 직전과 동일 길이"
-              >직전 기간 자동</button>
+              <span className="text-[11px] text-[#A3A9B3] pb-1.5">
+                기준 기간({periodDays}일)의 <span className="text-[#F7F8F8] font-medium">직전 동일 길이</span>와 자동 비교됩니다.
+                {compareManual && <span className="ml-1 text-[#F0BF00]">(수동 조정됨)</span>}
+              </span>
+              <DateInput label="직전 시작" value={compareStart} onChange={(v: string) => { setCompareStart(v); setCompareManual(true); }} />
+              <DateInput label="직전 종료" value={compareEnd} onChange={(v: string) => { setCompareEnd(v); setCompareManual(true); }} />
+              {compareManual && (
+                <button
+                  onClick={() => setCompareManual(false)}
+                  className="text-[10px] text-[#A3A9B3] hover:text-[#F7F8F8] px-2 py-1.5 border border-[#23252A] rounded"
+                  title="기준 기간 직전 동일 길이로 재설정"
+                >자동으로 복귀</button>
+              )}
               {hasCompare && (
-                <span className="text-[10px] text-[#7A7F8A] ml-2">vs 매출 ₩{fmtKR(compareData.summary.revenue)} · 공헌이익 ₩{fmtKR(compareData.summary.contribution_margin)}</span>
+                <span className="text-[10px] text-[#7A7F8A] ml-2">
+                  비교: 매출 ₩{fmtKR(compareData.summary.revenue)} · 공헌이익 ₩{fmtKR(compareData.summary.contribution_margin)}
+                </span>
               )}
             </div>
           )}
