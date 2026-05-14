@@ -339,23 +339,35 @@ def import_group_summary(db: Session, file_path: str, year: int) -> int:
         BusinessPlanGroupSummary.year == year
     ).delete(synchronize_session=False)
 
-    # '구분' 행 찾기 → 그 다음 4~7개 행이 그룹별 데이터
+    # '구분' 행 찾기 → 그 위의 가장 가까운 섹션 제목('연간 매출 계획'/'마케팅'/'공헌이익')으로 타입 결정
     plan_data: dict[tuple[str, int], dict] = {}
 
-    sections = []  # 각 섹션: (header_idx, type) type ∈ {"revenue","marketing"}
+    sections: list[tuple[int, str]] = []  # (header_idx, type) type ∈ {"revenue","marketing","cm"}
     for i in range(len(df)):
-        c0 = str(df.iat[i, 0]).strip()
-        if c0 == "구분":
-            # 다음 비어있지 않은 컬럼이 1월이면 revenue, 매출\n대비/매출\n비중에 따라 타입
-            # 우측 두번째 컬럼이 1월인지 확인 (header row)
-            sections.append(i)
+        c0 = str(df.iat[i, 0]).strip() if df.iat[i, 0] is not None else ""
+        if c0 != "구분":
+            continue
+        # 위로 스캔: 가장 가까운 섹션 제목 텍스트
+        sec_type = "revenue"
+        for j in range(i - 1, max(-1, i - 6), -1):
+            up = df.iat[j, 0]
+            if up is None or pd.isna(up):
+                continue
+            s = str(up).strip()
+            if not s:
+                continue
+            if "공헌이익" in s:
+                sec_type = "cm"; break
+            if "마케팅" in s or "광고" in s:
+                sec_type = "marketing"; break
+            if "매출" in s:
+                sec_type = "revenue"; break
+        sections.append((i, sec_type))
 
-    if len(sections) == 0:
+    if not sections:
         return 0
 
-    # 첫 번째 섹션: 연간 매출 계획 (혼합 매출+비중)
-    # 두 번째 섹션: 마케팅 (매출 대비)
-    for sec_idx, hdr in enumerate(sections):
+    for sec_idx, (hdr, sec_type) in enumerate(sections):
         # 헤더 행에서 'X월' 위치 식별
         month_cols: dict[int, int] = {}  # month → column index
         for col_idx in range(df.shape[1]):
@@ -369,13 +381,16 @@ def import_group_summary(db: Session, file_path: str, year: int) -> int:
         if not month_cols:
             continue
         # 데이터 행: hdr+1 ~ 다음 섹션 직전 or 빈줄
-        end = sections[sec_idx + 1] if sec_idx + 1 < len(sections) else len(df)
+        end = sections[sec_idx + 1][0] if sec_idx + 1 < len(sections) else len(df)
         for r in range(hdr + 1, end):
             grp = df.iat[r, 0]
             if grp is None or pd.isna(grp):
                 continue
             grp_s = str(grp).strip()
-            if grp_s in ("합계", "총 합계", ""):
+            if grp_s in ("합계", "총 합계", "", "마케팅", "광고비", "공헌이익", "연간 매출 계획", "구분"):
+                continue
+            # 후속 섹션 제목이 데이터 행 영역에 끼어든 경우 skip
+            if not any(c in grp_s for c in ("오프라인", "온라인", "기타")):
                 continue
             # 정규화: 오프라인(전체) / 오프라인 → 오프라인
             for month, col_idx in month_cols.items():
@@ -397,12 +412,15 @@ def import_group_summary(db: Session, file_path: str, year: int) -> int:
                             share = None
                 key = (grp_s, month)
                 bucket = plan_data.setdefault(key, {})
-                if sec_idx == 0:
+                if sec_type == "revenue":
                     bucket["target_revenue"] = val
                     bucket["revenue_share"] = share
-                else:
+                elif sec_type == "marketing":
                     bucket["target_marketing"] = val
                     bucket["marketing_share"] = share
+                elif sec_type == "cm":
+                    bucket["target_cm"] = val
+                    bucket["cm_share"] = share
 
     for (grp, month), d in plan_data.items():
         db.add(BusinessPlanGroupSummary(
@@ -411,6 +429,8 @@ def import_group_summary(db: Session, file_path: str, year: int) -> int:
             revenue_share=d.get("revenue_share"),
             target_marketing=d.get("target_marketing", 0) or 0,
             marketing_share=d.get("marketing_share"),
+            target_cm=d.get("target_cm", 0) or 0,
+            cm_share=d.get("cm_share"),
         ))
         rows += 1
     db.commit()

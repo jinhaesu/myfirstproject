@@ -1066,6 +1066,8 @@ class BusinessPlanGroupSummary(Base):
     revenue_share = Column(Float, nullable=True)  # 매출 비중 (0~1)
     target_marketing = Column(Float, default=0)
     marketing_share = Column(Float, nullable=True)  # 매출 대비
+    target_cm = Column(Float, default=0)  # 공헌이익 목표
+    cm_share = Column(Float, nullable=True)  # 매출 대비
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
