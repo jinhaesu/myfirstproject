@@ -909,7 +909,7 @@ class ChannelUnmatchedProduct(Base):
 
 
 class ChannelBusinessPlan(Base):
-    """사업계획 (월별 채널×품목 목표)"""
+    """사업계획 (월별 채널×품목 목표) — legacy"""
     __tablename__ = "csa_business_plan"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -928,3 +928,150 @@ class ChannelBusinessPlan(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+# ──────────────────────────────────────────────
+# 직원·담당채널 + 사업계획 (Business Plan)
+# ──────────────────────────────────────────────
+
+class Employee(Base):
+    """직원 마스터. 로그인 이메일과 연결."""
+    __tablename__ = "csa_employee"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(200), nullable=False, unique=True, index=True)
+    name = Column(String(100), nullable=False)
+    role = Column(String(20), default="staff")  # admin / manager / staff
+    is_active = Column(Boolean, default=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ChannelGroup(Base):
+    """채널 구분: 온라인(위탁), 온라인(사입), 오프라인(마트/CVS/창고형/급식/기타)."""
+    __tablename__ = "csa_channel_group"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(50), unique=True, index=True)  # online_consign / online_purchase / offline_mart / ...
+    name = Column(String(100), nullable=False, unique=True)
+    big_group = Column(String(30), nullable=False)  # 온라인 / 오프라인
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+
+
+class ChannelGroupMembership(Base):
+    """채널 → 그룹 매핑 (1 channel 은 1 그룹에 속함)."""
+    __tablename__ = "csa_channel_group_membership"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=False)
+    group_id = Column(Integer, ForeignKey("csa_channel_group.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (UniqueConstraint('channel_id', name='uq_csa_channel_group_membership_channel'),)
+
+
+class EmployeeChannelAssignment(Base):
+    """직원 → 채널 담당 매핑."""
+    __tablename__ = "csa_employee_channel"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    employee_id = Column(Integer, ForeignKey("csa_employee.id"), nullable=False, index=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (UniqueConstraint('employee_id', 'channel_id', name='uq_csa_emp_channel'),)
+
+
+class BusinessPlanChannelRevenue(Base):
+    """월×담당자×구분×채널 매출 목표 (사업계획 시트 '채널별 매출 대시보드')."""
+    __tablename__ = "csa_plan_channel_revenue"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    year = Column(Integer, nullable=False, index=True)
+    month = Column(Integer, nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("csa_employee.id"), nullable=True)
+    employee_name = Column(String(100), nullable=True)
+    group_id = Column(Integer, ForeignKey("csa_channel_group.id"), nullable=True)
+    group_name = Column(String(100), nullable=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=False)
+    target_revenue = Column(Float, default=0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (UniqueConstraint('year', 'month', 'channel_id', name='uq_csa_plan_ch_rev'),)
+
+
+class BusinessPlanProductQty(Base):
+    """월×채널×품목 낱개 판매수량 목표 (시트 '채널별 판매수량')."""
+    __tablename__ = "csa_plan_product_qty"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    year = Column(Integer, nullable=False, index=True)
+    month = Column(Integer, nullable=False, index=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=False)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True, index=True)
+    product_name = Column(String(200), nullable=False)
+    target_pcs = Column(Float, default=0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (UniqueConstraint('year', 'month', 'channel_id', 'product_name', name='uq_csa_plan_prod_qty'),)
+
+
+class BusinessPlanCategoryQty(Base):
+    """월×품목류 낱개 수량 목표 (시트 '판매수량 대시보드')."""
+    __tablename__ = "csa_plan_category_qty"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    year = Column(Integer, nullable=False, index=True)
+    month = Column(Integer, nullable=False, index=True)
+    product_category = Column(String(200), nullable=False)
+    target_pcs = Column(Float, default=0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (UniqueConstraint('year', 'month', 'product_category', name='uq_csa_plan_cat_qty'),)
+
+
+class BusinessPlanGroupSummary(Base):
+    """월×그룹 매출/마케팅 비용 목표 (시트 '대시보드' - 연간 매출 계획)."""
+    __tablename__ = "csa_plan_group_summary"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    year = Column(Integer, nullable=False, index=True)
+    month = Column(Integer, nullable=False, index=True)
+    group_name = Column(String(100), nullable=False)  # 온라인(위탁) / 온라인(사입) / 오프라인
+    target_revenue = Column(Float, default=0)
+    revenue_share = Column(Float, nullable=True)  # 매출 비중 (0~1)
+    target_marketing = Column(Float, default=0)
+    marketing_share = Column(Float, nullable=True)  # 매출 대비
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (UniqueConstraint('year', 'month', 'group_name', name='uq_csa_plan_group_summary'),)
+
+
+class BusinessPlanUploadBatch(Base):
+    """사업계획 엑셀 업로드 배치 이력."""
+    __tablename__ = "csa_plan_upload_batches"
+
+    id = Column(String(64), primary_key=True)
+    year = Column(Integer, nullable=False)
+    file_name = Column(String(500), nullable=False)
+    uploaded_by = Column(String(100), nullable=True)
+    status = Column(String(20), default="done")  # done/failed
+    revenue_rows = Column(Integer, default=0)
+    qty_rows = Column(Integer, default=0)
+    category_rows = Column(Integer, default=0)
+    summary_rows = Column(Integer, default=0)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
