@@ -121,7 +121,7 @@ const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 const isoDate = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-type Tab = 'dashboard' | 'upload' | 'mapping' | 'cost' | 'plan';
+type Tab = 'dashboard' | 'upload' | 'mapping' | 'cost' | 'plan' | 'admin';
 
 export default function ChannelsPage() {
   return (
@@ -285,7 +285,11 @@ function Content() {
         )}
 
         {activeTab === 'plan' && (
-          <PlanTab dashboard={dashboard} />
+          <PlanTab authHeaders={authHeaders} channels={channels} products={products} />
+        )}
+
+        {activeTab === 'admin' && (
+          <AdminTab authHeaders={authHeaders} channels={channels} />
         )}
       </div>
     </div>
@@ -305,6 +309,7 @@ function Header({
     { key: 'mapping', label: '매핑 대기', badge: unmatchedCount },
     { key: 'cost', label: '변동비 설정' },
     { key: 'plan', label: '사업계획 비교' },
+    { key: 'admin', label: '직원·채널 관리' },
   ];
 
   return (
@@ -954,32 +959,577 @@ function CostTab({
 }
 
 // ──────────────────────────────────────────────────────────────
-// Plan Tab (Phase 5 placeholder + 실적 표시)
+// Plan Tab — 사업계획 업로드 + vs 실적 비교 + 객단가
 // ──────────────────────────────────────────────────────────────
 
-function PlanTab({ dashboard }: { dashboard: DashboardData | null }) {
+type CompareBy = 'channel' | 'product' | 'group' | 'employee' | 'category';
+
+function PlanTab({
+  authHeaders, channels, products,
+}: {
+  authHeaders: () => HeadersInit; channels: Channel[]; products: Product[];
+}) {
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
+  const [month, setMonth] = useState<number | ''>('');
+  const [by, setBy] = useState<CompareBy>('channel');
+  const [planSummary, setPlanSummary] = useState<any | null>(null);
+  const [comparison, setComparison] = useState<any | null>(null);
+  const [avgPrice, setAvgPrice] = useState<any | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const fetchData = useCallback(async () => {
+    setBusy(true);
+    try {
+      const sumRes = await fetch(`${API_BASE}/api/csa/plan/summary?year=${year}`, { headers: authHeaders() });
+      if (sumRes.ok) setPlanSummary(await sumRes.json());
+
+      const params = new URLSearchParams({ year: String(year), by });
+      if (month) params.set('month', String(month));
+      const cmpRes = await fetch(`${API_BASE}/api/csa/plan/comparison?${params}`, { headers: authHeaders() });
+      if (cmpRes.ok) setComparison(await cmpRes.json());
+
+      // 객단가는 현재 연도/월 실적 범위
+      const start = `${year}-${String(month || 1).padStart(2,'0')}-01`;
+      const lastDay = month ? new Date(year, month, 0).getDate() : new Date(year, 12, 0).getDate();
+      const end = month
+        ? `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
+        : `${year}-12-31`;
+      const apRes = await fetch(
+        `${API_BASE}/api/csa/avg-price?period_start=${start}&period_end=${end}&by=channel_product`,
+        { headers: authHeaders() }
+      );
+      if (apRes.ok) setAvgPrice(await apRes.json());
+    } finally {
+      setBusy(false);
+    }
+  }, [authHeaders, year, month, by]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const upload = async (file: File) => {
+    setBusy(true); setUploadMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append('year', String(year));
+      fd.append('file', file);
+      const r = await fetch(`${API_BASE}/api/csa/plan/upload`, {
+        method: 'POST', headers: authHeaders(), body: fd,
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || 'upload failed');
+      setUploadMsg(
+        `${data.status === 'done' ? '✓' : '⚠'} 매출 ${data.revenue_rows}행 · 수량 ${data.qty_rows}행 · 품목류 ${data.category_rows}행 · 그룹 ${data.summary_rows}행`
+      );
+      fetchData();
+    } catch (e: any) {
+      setUploadMsg(`❌ ${e.message || e}`);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const items = comparison?.items || [];
+  const totalActual = items.reduce((s: number, it: any) => s + (it.actual_revenue || 0), 0);
+  const totalTarget = items.reduce((s: number, it: any) => s + (it.target_revenue || 0), 0);
+  const totalAchRev = totalTarget ? (totalActual / totalTarget * 100) : 0;
+
   return (
-    <div className={`${PANEL} p-5`}>
-      <h2 className="text-sm font-semibold mb-3">사업계획 vs 실적 비교</h2>
-      <p className="text-xs text-[#62666D] mb-4">
-        사업계획(연/월 매출, 채널별·품목별 목표, 공헌이익 목표)을 업로드하면 실적과 자동 비교합니다.
-      </p>
-      <div className={`${SUBPANEL} p-5 text-sm text-[#8A8F98] leading-relaxed`}>
-        <div className="font-mono text-[10px] uppercase tracking-wider text-[#62666D] mb-2">준비 단계</div>
-        <div className="text-[#D0D6E0]">
-          이 기능은 다음 릴리스에 활성화됩니다.<br/>
-          사업계획 엑셀 양식을 공유해 주시면 매핑 로직과 비교 차트(달성률·차이·추세선)를 연결해 드리겠습니다.
+    <div className="space-y-5">
+      {/* 업로드 + 필터 */}
+      <div className={`${PANEL} p-5`}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div>
+            <h2 className="text-sm font-semibold mb-2">사업계획 엑셀 업로드</h2>
+            <p className="text-xs text-[#62666D] mb-3 leading-relaxed">
+              4개 시트 자동 인식: <span className="font-mono text-[#828FFF]">채널별 매출 대시보드 · 채널별 판매수량 · 판매수량 대시보드 · 대시보드(그룹 요약)</span>. 담당자·구분(위탁/사입/오프라인)·직원-채널 매핑이 자동 생성됩니다.
+            </p>
+            <div className="flex items-end gap-2">
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">연도</label>
+                <input
+                  type="number" value={year}
+                  onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
+                  className="w-24 bg-[#08090A] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8] font-mono"
+                />
+              </div>
+              <input
+                ref={fileRef}
+                type="file" accept=".xlsx,.xls"
+                onChange={(e) => e.target.files && e.target.files[0] && upload(e.target.files[0])}
+                disabled={busy}
+                className="flex-1 text-sm text-[#D0D6E0] file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-[#828FFF] file:text-white file:cursor-pointer hover:file:bg-[#7070FF] disabled:opacity-50"
+              />
+            </div>
+            {uploadMsg && (
+              <div className="mt-3 text-xs font-mono text-[#D0D6E0] bg-[#08090A] border border-[#23252A] rounded p-2">{uploadMsg}</div>
+            )}
+          </div>
+
+          <div>
+            <h2 className="text-sm font-semibold mb-2">비교 필터</h2>
+            <div className="flex flex-wrap gap-2 items-end">
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">월</label>
+                <select
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value === '' ? '' : parseInt(e.target.value))}
+                  className="bg-[#08090A] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                >
+                  <option value="">전체(YTD)</option>
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <option key={i} value={i + 1}>{i + 1}월</option>
+                  ))}
+                </select>
+              </div>
+              <Segment
+                label="기준"
+                options={[
+                  { v: 'channel', l: '채널' },
+                  { v: 'product', l: '품목' },
+                  { v: 'group', l: '구분' },
+                  { v: 'employee', l: '담당자' },
+                  { v: 'category', l: '품목류' },
+                ]}
+                value={by}
+                onChange={setBy}
+              />
+            </div>
+          </div>
         </div>
-        {dashboard && (
-          <div className="mt-4 pt-4 border-t border-[#23252A] text-xs">
-            <div className="text-[#62666D] mb-1">현재 기간 실적 요약</div>
-            <div className="text-[#F7F8F8] font-mono">
-              {dashboard.period_start} ~ {dashboard.period_end}<br/>
-              매출 ₩{fmtKR(dashboard.summary.revenue)} · 공헌이익 ₩{fmtKR(dashboard.summary.contribution_margin)} ({fmtPct(dashboard.summary.cm_rate)})
+      </div>
+
+      {/* 사업계획 요약 KPI */}
+      {planSummary && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <KpiCard label={`${year}년 연간 목표 매출`} value={`₩${fmtKR(planSummary.total_revenue_target)}`} hint={`낱개 목표 ${fmtNum(Math.round(planSummary.total_pcs_target))}개`} accent="#828FFF" />
+          <KpiCard label="실적 매출 (선택 기준)" value={`₩${fmtKR(totalActual)}`} hint={`목표 대비 ${fmtPct(totalAchRev)}`} accent={totalAchRev >= 100 ? '#27A644' : '#F0BF00'} />
+          <KpiCard label="달성률" value={fmtPct(totalAchRev)} hint={`목표 ₩${fmtKR(totalTarget)} / 실적 ₩${fmtKR(totalActual)}`} accent={totalAchRev >= 100 ? '#27A644' : '#EB5757'} />
+        </div>
+      )}
+
+      {/* 구분별 도넛 + 담당자별 바 */}
+      {planSummary && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className={`${PANEL} p-5`}>
+            <h3 className="text-sm font-semibold mb-3">구분별 목표 매출 분포</h3>
+            {planSummary.by_group.length ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie
+                    data={planSummary.by_group}
+                    dataKey="target_revenue"
+                    nameKey="group"
+                    cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2}
+                  >
+                    {planSummary.by_group.map((_: any, i: number) => (
+                      <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8', fontSize: 11 }}
+                    formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 10, color: '#8A8F98' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : <Empty />}
+          </div>
+
+          <div className={`${PANEL} p-5`}>
+            <h3 className="text-sm font-semibold mb-3">담당자별 목표 매출</h3>
+            {planSummary.by_employee.length ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={planSummary.by_employee} layout="vertical" margin={{ left: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
+                  <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 11 }} tickFormatter={fmtKR} stroke="#62666D" />
+                  <YAxis type="category" dataKey="employee" tick={{ fill: '#8A8F98', fontSize: 11 }} stroke="#62666D" width={70} />
+                  <Tooltip
+                    contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8' }}
+                    formatter={(v: number) => `₩${fmtKR(v)}`}
+                  />
+                  <Bar dataKey="target_revenue" fill="#828FFF" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <Empty />}
+          </div>
+        </div>
+      )}
+
+      {/* 비교 차트 */}
+      <div className={`${PANEL} p-5`}>
+        <h3 className="text-sm font-semibold mb-3">
+          {by === 'channel' ? '채널' : by === 'product' ? '품목' : by === 'group' ? '구분' : by === 'employee' ? '담당자' : '품목류'}별 — 사업계획 vs 실적
+        </h3>
+        {busy ? <Skeleton h={300} /> : items.length ? (
+          <ResponsiveContainer width="100%" height={Math.max(300, items.length * 28)}>
+            <BarChart
+              data={items.slice(0, 20)}
+              layout="vertical"
+              margin={{ left: 100, right: 20, top: 10, bottom: 10 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
+              <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 11 }} tickFormatter={fmtKR} stroke="#62666D" />
+              <YAxis type="category" dataKey="label" tick={{ fill: '#8A8F98', fontSize: 11 }} stroke="#62666D" width={130} />
+              <Tooltip
+                contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8' }}
+                formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
+              />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="target_revenue" name="계획 매출" fill="#62666D" />
+              <Bar dataKey="actual_revenue" name="실적 매출" fill="#828FFF" />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : <Empty />}
+      </div>
+
+      {/* 상세 테이블 */}
+      <div className={`${PANEL} p-5`}>
+        <h3 className="text-sm font-semibold mb-3">상세 — 계획·실적·달성률·객단가</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+                <th className="text-left py-2 px-2">대상</th>
+                <th className="text-right py-2 px-2">계획 매출</th>
+                <th className="text-right py-2 px-2">실적 매출</th>
+                <th className="text-right py-2 px-2">매출 달성률</th>
+                <th className="text-right py-2 px-2">계획 수량(낱개)</th>
+                <th className="text-right py-2 px-2">실적 수량(낱개)</th>
+                <th className="text-right py-2 px-2">수량 달성률</th>
+                <th className="text-right py-2 px-2">계획 객단가</th>
+                <th className="text-right py-2 px-2">실적 객단가</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr><td colSpan={9} className="py-6 text-center text-[#62666D]">사업계획 또는 실적 데이터가 없습니다.</td></tr>
+              ) : items.map((it: any, idx: number) => (
+                <tr key={`${it.key}-${idx}`} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                  <td className="py-1.5 px-2 text-[#F7F8F8]">{it.label}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-[#8A8F98]">₩{fmtKR(it.target_revenue)}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(it.actual_revenue)}</td>
+                  <td className={`py-1.5 px-2 text-right font-mono ${it.rev_ach == null ? 'text-[#62666D]' : it.rev_ach >= 100 ? 'text-[#27A644]' : it.rev_ach >= 80 ? 'text-[#F0BF00]' : 'text-[#EB5757]'}`}>
+                    {it.rev_ach == null ? '—' : fmtPct(it.rev_ach)}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-mono text-[#8A8F98]">{fmtNum(Math.round(it.target_pcs))}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(it.actual_pcs))}</td>
+                  <td className={`py-1.5 px-2 text-right font-mono ${it.pcs_ach == null ? 'text-[#62666D]' : it.pcs_ach >= 100 ? 'text-[#27A644]' : it.pcs_ach >= 80 ? 'text-[#F0BF00]' : 'text-[#EB5757]'}`}>
+                    {it.pcs_ach == null ? '—' : fmtPct(it.pcs_ach)}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-mono text-[#8A8F98]">{it.target_avg_price ? `₩${fmtKR(it.target_avg_price)}` : '—'}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-[#828FFF]">{it.actual_avg_price ? `₩${fmtKR(it.actual_avg_price)}` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 객단가 분석 */}
+      {avgPrice && avgPrice.items.length > 0 && (
+        <div className={`${PANEL} p-5`}>
+          <h3 className="text-sm font-semibold mb-3">채널×품목 객단가 (실적 기준, Top 20)</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+                  <th className="text-left py-2 px-2">채널 × 품목</th>
+                  <th className="text-right py-2 px-2">순매출</th>
+                  <th className="text-right py-2 px-2">낱개수량</th>
+                  <th className="text-right py-2 px-2">주문건수</th>
+                  <th className="text-right py-2 px-2">낱개당 객단가</th>
+                  <th className="text-right py-2 px-2">주문당 객단가</th>
+                </tr>
+              </thead>
+              <tbody>
+                {avgPrice.items.slice(0, 20).map((it: any, i: number) => (
+                  <tr key={i} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                    <td className="py-1.5 px-2 text-[#F7F8F8]">{it.label}</td>
+                    <td className="py-1.5 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(it.revenue)}</td>
+                    <td className="py-1.5 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(it.pcs))}</td>
+                    <td className="py-1.5 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(it.orders)}</td>
+                    <td className="py-1.5 px-2 text-right font-mono text-[#828FFF]">₩{fmtKR(it.avg_price_per_pcs)}</td>
+                    <td className="py-1.5 px-2 text-right font-mono text-[#828FFF]">₩{fmtKR(it.avg_price_per_order)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Admin Tab — 직원 관리 + 담당 채널 배정 + 채널 그룹 매핑
+// ──────────────────────────────────────────────────────────────
+
+interface Employee {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+  is_active: boolean;
+  channels: Array<{ channel_id: string; channel_name: string; is_active: boolean }>;
+}
+
+interface Group {
+  id: number;
+  code: string;
+  name: string;
+  big_group: string;
+  channels: Array<{ channel_id: string; channel_name: string }>;
+}
+
+function AdminTab({
+  authHeaders, channels,
+}: {
+  authHeaders: () => HeadersInit; channels: Channel[];
+}) {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [editingEmp, setEditingEmp] = useState<Partial<Employee> | null>(null);
+  const [assignTarget, setAssignTarget] = useState<Employee | null>(null);
+  const [pendingChannels, setPendingChannels] = useState<string[]>([]);
+
+  const fetchAll = useCallback(async () => {
+    const [eRes, gRes] = await Promise.all([
+      fetch(`${API_BASE}/api/csa/employees`, { headers: authHeaders() }),
+      fetch(`${API_BASE}/api/csa/groups`, { headers: authHeaders() }),
+    ]);
+    if (eRes.ok) setEmployees(await eRes.json());
+    if (gRes.ok) setGroups(await gRes.json());
+  }, [authHeaders]);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const saveEmployee = async () => {
+    if (!editingEmp || !editingEmp.email || !editingEmp.name) return;
+    await fetch(`${API_BASE}/api/csa/employees`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({
+        email: editingEmp.email,
+        name: editingEmp.name,
+        role: editingEmp.role || 'staff',
+        is_active: editingEmp.is_active !== false,
+      }),
+    });
+    setEditingEmp(null);
+    fetchAll();
+  };
+
+  const deleteEmployee = async (id: number) => {
+    await fetch(`${API_BASE}/api/csa/employees/${id}`, {
+      method: 'DELETE', headers: authHeaders(),
+    });
+    fetchAll();
+  };
+
+  const openAssign = (e: Employee) => {
+    setAssignTarget(e);
+    setPendingChannels(e.channels.map(c => c.channel_id));
+  };
+
+  const saveAssign = async () => {
+    if (!assignTarget) return;
+    await fetch(`${API_BASE}/api/csa/employees/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({
+        employee_id: assignTarget.id,
+        channel_ids: pendingChannels,
+      }),
+    });
+    setAssignTarget(null); setPendingChannels([]);
+    fetchAll();
+  };
+
+  const setChannelGroup = async (channelId: string, groupId: number) => {
+    await fetch(`${API_BASE}/api/csa/groups/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ channel_id: channelId, group_id: groupId }),
+    });
+    fetchAll();
+  };
+
+  // 채널 → 현재 그룹 매핑
+  const channelGroupMap = useMemo(() => {
+    const m: Record<string, number> = {};
+    groups.forEach(g => g.channels.forEach(c => { m[c.channel_id] = g.id; }));
+    return m;
+  }, [groups]);
+
+  return (
+    <div className="space-y-5">
+      {/* 직원 관리 */}
+      <div className={`${PANEL} p-5`}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-semibold">직원 관리</h2>
+            <p className="text-xs text-[#62666D] mt-1">직원 이메일(로그인용)·이름·역할 등록. 사업계획 업로드 시 직원이 자동 생성되며, 이메일을 실제 로그인 이메일로 수정해 주세요.</p>
+          </div>
+          <button
+            onClick={() => setEditingEmp({ email: '', name: '', role: 'staff', is_active: true })}
+            className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium"
+          >
+            + 직원 추가
+          </button>
+        </div>
+
+        {editingEmp && (
+          <div className={`${SUBPANEL} p-3 mb-4`}>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
+              <div className="md:col-span-2">
+                <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">이메일</label>
+                <input
+                  type="email" value={editingEmp.email || ''}
+                  onChange={(e) => setEditingEmp({ ...editingEmp, email: e.target.value })}
+                  className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                  placeholder="example@joinnjoin.com"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">이름</label>
+                <input
+                  type="text" value={editingEmp.name || ''}
+                  onChange={(e) => setEditingEmp({ ...editingEmp, name: e.target.value })}
+                  className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">역할</label>
+                <select
+                  value={editingEmp.role || 'staff'}
+                  onChange={(e) => setEditingEmp({ ...editingEmp, role: e.target.value })}
+                  className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                >
+                  <option value="admin">관리자</option>
+                  <option value="manager">매니저</option>
+                  <option value="staff">담당자</option>
+                </select>
+              </div>
+              <div className="flex gap-1.5">
+                <button onClick={saveEmployee} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium">저장</button>
+                <button onClick={() => setEditingEmp(null)} className="px-3 py-1.5 bg-[#1A1B1F] hover:bg-[#23252A] text-[#D0D6E0] rounded text-xs">취소</button>
+              </div>
             </div>
           </div>
         )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+                <th className="text-left py-2 px-2">이름</th>
+                <th className="text-left py-2 px-2">이메일</th>
+                <th className="text-left py-2 px-2">역할</th>
+                <th className="text-left py-2 px-2">담당 채널</th>
+                <th className="text-right py-2 px-2">작업</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employees.length === 0 ? (
+                <tr><td colSpan={5} className="py-6 text-center text-[#62666D]">직원이 등록되지 않았습니다. 사업계획 엑셀을 업로드하면 자동 생성됩니다.</td></tr>
+              ) : employees.map(e => (
+                <tr key={e.id} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                  <td className="py-2 px-2 text-[#F7F8F8] font-medium">{e.name}</td>
+                  <td className="py-2 px-2 text-[#8A8F98] font-mono text-xs">{e.email}</td>
+                  <td className="py-2 px-2">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                      e.role === 'admin' ? 'bg-[#EB5757]/15 text-[#EB5757]'
+                      : e.role === 'manager' ? 'bg-[#F0BF00]/15 text-[#F0BF00]'
+                      : 'bg-[#828FFF]/15 text-[#828FFF]'
+                    }`}>{e.role === 'admin' ? '관리자' : e.role === 'manager' ? '매니저' : '담당자'}</span>
+                  </td>
+                  <td className="py-2 px-2 text-[#D0D6E0] text-xs">
+                    {e.channels.length === 0 ? <span className="text-[#62666D]">없음</span>
+                      : e.channels.slice(0, 4).map(c => c.channel_name).join(', ') + (e.channels.length > 4 ? ` +${e.channels.length - 4}` : '')}
+                  </td>
+                  <td className="py-2 px-2 text-right">
+                    <button onClick={() => openAssign(e)} className="text-xs text-[#828FFF] hover:underline mr-2">채널 배정</button>
+                    <button onClick={() => setEditingEmp(e)} className="text-xs text-[#8A8F98] hover:text-[#F7F8F8] mr-2">수정</button>
+                    <button onClick={() => deleteEmployee(e.id)} className="text-xs text-[#EB5757] hover:underline">삭제</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* 채널 그룹 매핑 */}
+      <div className={`${PANEL} p-5`}>
+        <h2 className="text-sm font-semibold mb-3">채널 구분 (위탁 / 사입 / 오프라인)</h2>
+        <p className="text-xs text-[#62666D] mb-4">각 채널이 속한 구분을 지정합니다. 사업계획 업로드 시 자동 매핑되며, 수동으로 변경 가능합니다.</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+                <th className="text-left py-2 px-2">채널</th>
+                <th className="text-left py-2 px-2">카테고리</th>
+                <th className="text-left py-2 px-2">구분 (사업계획 분류)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {channels.map(c => (
+                <tr key={c.id} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                  <td className="py-2 px-2 text-[#F7F8F8]">{c.name}</td>
+                  <td className="py-2 px-2 text-[#8A8F98] text-xs">{c.category}</td>
+                  <td className="py-2 px-2">
+                    <select
+                      value={channelGroupMap[c.id] || ''}
+                      onChange={(e) => e.target.value && setChannelGroup(c.id, parseInt(e.target.value))}
+                      className="bg-[#08090A] border border-[#23252A] rounded px-2 py-1 text-xs text-[#F7F8F8]"
+                    >
+                      <option value="">— 미지정 —</option>
+                      {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 채널 배정 모달 (간단 inline) */}
+      {assignTarget && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className={`${PANEL} p-5 max-w-2xl w-full max-h-[80vh] overflow-y-auto`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">[{assignTarget.name}] 담당 채널 배정</h3>
+              <button onClick={() => setAssignTarget(null)} className="text-[#62666D] hover:text-[#F7F8F8]">✕</button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+              {channels.map(c => (
+                <label key={c.id} className="flex items-center gap-2 text-xs text-[#D0D6E0] cursor-pointer p-2 rounded hover:bg-[#1A1B1F]">
+                  <input
+                    type="checkbox"
+                    checked={pendingChannels.includes(c.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) setPendingChannels([...pendingChannels, c.id]);
+                      else setPendingChannels(pendingChannels.filter(x => x !== c.id));
+                    }}
+                    className="accent-[#828FFF]"
+                  />
+                  {c.name}
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setAssignTarget(null)} className="px-3 py-1.5 bg-[#1A1B1F] text-[#D0D6E0] rounded text-xs">취소</button>
+              <button onClick={saveAssign} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium">저장 ({pendingChannels.length}개)</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

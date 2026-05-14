@@ -50,6 +50,11 @@ def init_db():
             ProductMaster, ChannelProductMapping, ChannelSalesUploadBatch,
             ChannelSalesRawLine, ChannelSalesDailyProduct, ProductVariableCost,
             ChannelUnmatchedProduct, ChannelBusinessPlan,
+            Employee, ChannelGroup, ChannelGroupMembership,
+            EmployeeChannelAssignment,
+            BusinessPlanChannelRevenue, BusinessPlanProductQty,
+            BusinessPlanCategoryQty, BusinessPlanGroupSummary,
+            BusinessPlanUploadBatch,
         )
         from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401
         from app.models.scheduled_report import ScheduledReport  # noqa: F401

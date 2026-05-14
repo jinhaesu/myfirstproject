@@ -23,6 +23,15 @@ from app.db_models import (
     ProductVariableCost,
     ChannelUnmatchedProduct,
     ChannelBusinessPlan,
+    Employee,
+    ChannelGroup,
+    ChannelGroupMembership,
+    EmployeeChannelAssignment,
+    BusinessPlanChannelRevenue,
+    BusinessPlanProductQty,
+    BusinessPlanCategoryQty,
+    BusinessPlanGroupSummary,
+    BusinessPlanUploadBatch,
 )
 from app.services.csa_service import (
     seed_product_master,
@@ -31,6 +40,10 @@ from app.services.csa_service import (
     rebuild_daily_aggregate,
     resolve_product,
     normalize_channel_name,
+)
+from app.services.csa_plan_service import (
+    seed_channel_groups,
+    import_business_plan,
 )
 from app.services.csa_parsers import get_parser, registered_channels
 from app.services.csa_parsers._common import file_sha256
@@ -83,7 +96,8 @@ class VariableCostIn(BaseModel):
 def seed(db: Session = Depends(get_db)):
     p = seed_product_master(db)
     c = seed_channels(db)
-    return {"products": p, "channels": c, "parsers": registered_channels()}
+    g = seed_channel_groups(db)
+    return {"products": p, "channels": c, "groups": g, "parsers": registered_channels()}
 
 
 @router.get("/products", response_model=list[ProductMasterOut])
@@ -476,3 +490,385 @@ def dashboard(
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
     }
+
+
+# ──────────────────────────────────────────────────────────────
+# 직원 / 채널 그룹 / 담당 매핑
+# ──────────────────────────────────────────────────────────────
+
+class EmployeeIn(BaseModel):
+    email: str
+    name: str
+    role: str = "staff"
+    is_active: bool = True
+
+
+class EmployeeChannelIn(BaseModel):
+    employee_id: int
+    channel_ids: list[str]
+
+
+@router.get("/employees")
+def list_employees(db: Session = Depends(get_db)):
+    rows = db.query(Employee).order_by(Employee.role.desc(), Employee.name).all()
+    # 채널 매핑도 같이 반환
+    assignments = db.query(EmployeeChannelAssignment).all()
+    by_emp: dict[int, list[dict]] = {}
+    for a in assignments:
+        by_emp.setdefault(a.employee_id, []).append({
+            "channel_id": a.channel_id, "channel_name": a.channel_name,
+            "is_active": a.is_active,
+        })
+    return [
+        {
+            "id": e.id, "email": e.email, "name": e.name,
+            "role": e.role, "is_active": e.is_active,
+            "channels": by_emp.get(e.id, []),
+        } for e in rows
+    ]
+
+
+@router.post("/employees")
+def upsert_employee(payload: EmployeeIn, db: Session = Depends(get_db)):
+    existing = db.query(Employee).filter(Employee.email == payload.email).first()
+    if existing:
+        existing.name = payload.name
+        existing.role = payload.role
+        existing.is_active = payload.is_active
+        db.commit()
+        return {"id": existing.id, "updated": True}
+    e = Employee(**payload.model_dump())
+    db.add(e)
+    db.commit()
+    return {"id": e.id, "updated": False}
+
+
+@router.delete("/employees/{emp_id}")
+def delete_employee(emp_id: int, db: Session = Depends(get_db)):
+    db.query(EmployeeChannelAssignment).filter(EmployeeChannelAssignment.employee_id == emp_id).delete()
+    db.query(Employee).filter(Employee.id == emp_id).delete()
+    db.commit()
+    return {"deleted": emp_id}
+
+
+@router.post("/employees/assign")
+def assign_employee_channels(payload: EmployeeChannelIn, db: Session = Depends(get_db)):
+    # 기존 매핑 비활성화 후 새 매핑 추가/활성화
+    db.query(EmployeeChannelAssignment).filter(
+        EmployeeChannelAssignment.employee_id == payload.employee_id
+    ).delete(synchronize_session=False)
+    for ch_id in payload.channel_ids:
+        ch = db.query(Channel).filter(Channel.id == ch_id).first()
+        if not ch:
+            continue
+        db.add(EmployeeChannelAssignment(
+            employee_id=payload.employee_id,
+            channel_id=ch.id,
+            channel_name=ch.name,
+            is_active=True,
+        ))
+    db.commit()
+    return {"employee_id": payload.employee_id, "channel_count": len(payload.channel_ids)}
+
+
+@router.get("/groups")
+def list_groups(db: Session = Depends(get_db)):
+    rows = db.query(ChannelGroup).order_by(ChannelGroup.sort_order, ChannelGroup.id).all()
+    memberships = db.query(ChannelGroupMembership).all()
+    by_group: dict[int, list[dict]] = {}
+    for m in memberships:
+        by_group.setdefault(m.group_id, []).append({
+            "channel_id": m.channel_id, "channel_name": m.channel_name,
+        })
+    return [
+        {
+            "id": g.id, "code": g.code, "name": g.name, "big_group": g.big_group,
+            "channels": by_group.get(g.id, []),
+        } for g in rows
+    ]
+
+
+class GroupAssignIn(BaseModel):
+    channel_id: str
+    group_id: int
+
+
+@router.post("/groups/assign")
+def assign_channel_group(payload: GroupAssignIn, db: Session = Depends(get_db)):
+    ch = db.query(Channel).filter(Channel.id == payload.channel_id).first()
+    if not ch:
+        raise HTTPException(404, "channel not found")
+    existing = db.query(ChannelGroupMembership).filter(
+        ChannelGroupMembership.channel_id == payload.channel_id
+    ).first()
+    if existing:
+        existing.group_id = payload.group_id
+    else:
+        db.add(ChannelGroupMembership(
+            channel_id=payload.channel_id,
+            channel_name=ch.name,
+            group_id=payload.group_id,
+        ))
+    db.commit()
+    return {"channel_id": payload.channel_id, "group_id": payload.group_id}
+
+
+# ──────────────────────────────────────────────────────────────
+# 사업계획 업로드 + 비교
+# ──────────────────────────────────────────────────────────────
+
+@router.post("/plan/upload")
+async def upload_business_plan(
+    year: int = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    suffix = os.path.splitext(file.filename or "")[1] or ".xlsx"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+    try:
+        batch = import_business_plan(
+            db, tmp_path, file.filename or "business_plan.xlsx", year
+        )
+        return {
+            "batch_id": batch.id,
+            "year": batch.year,
+            "status": batch.status,
+            "revenue_rows": batch.revenue_rows,
+            "qty_rows": batch.qty_rows,
+            "category_rows": batch.category_rows,
+            "summary_rows": batch.summary_rows,
+            "notes": batch.notes,
+        }
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+
+
+@router.get("/plan/summary")
+def plan_summary(year: int, db: Session = Depends(get_db)):
+    """사업계획 요약 (연간 총합)."""
+    rev_total = db.query(func.sum(BusinessPlanChannelRevenue.target_revenue)).filter(
+        BusinessPlanChannelRevenue.year == year
+    ).scalar() or 0
+    qty_total = db.query(func.sum(BusinessPlanProductQty.target_pcs)).filter(
+        BusinessPlanProductQty.year == year
+    ).scalar() or 0
+    by_group_rev = db.query(
+        BusinessPlanChannelRevenue.group_name,
+        func.sum(BusinessPlanChannelRevenue.target_revenue),
+    ).filter(BusinessPlanChannelRevenue.year == year).group_by(
+        BusinessPlanChannelRevenue.group_name
+    ).all()
+    by_employee = db.query(
+        BusinessPlanChannelRevenue.employee_id,
+        BusinessPlanChannelRevenue.employee_name,
+        func.sum(BusinessPlanChannelRevenue.target_revenue),
+    ).filter(BusinessPlanChannelRevenue.year == year).group_by(
+        BusinessPlanChannelRevenue.employee_id, BusinessPlanChannelRevenue.employee_name,
+    ).all()
+    return {
+        "year": year,
+        "total_revenue_target": rev_total,
+        "total_pcs_target": qty_total,
+        "by_group": [{"group": g or "미분류", "target_revenue": float(v or 0)} for g, v in by_group_rev],
+        "by_employee": [
+            {"employee_id": eid, "employee": en or "미배정", "target_revenue": float(v or 0)}
+            for eid, en, v in by_employee
+        ],
+    }
+
+
+@router.get("/plan/comparison")
+def plan_comparison(
+    year: int,
+    month: Optional[int] = None,
+    by: str = Query("channel", regex="^(channel|product|group|employee|category)$"),
+    db: Session = Depends(get_db),
+):
+    """사업계획 vs 실적 비교.
+
+    실적: csa_sales_daily_product (해당 year/month)
+    계획: csa_plan_* 테이블
+
+    공통 키: channel_id / product_id / group / employee / category
+    """
+    # 실적 집계
+    actual_q = db.query(ChannelSalesDailyProduct).filter(
+        ChannelSalesDailyProduct.year == year
+    )
+    if month:
+        actual_q = actual_q.filter(ChannelSalesDailyProduct.month == month)
+    actual_rows = actual_q.all()
+
+    # 채널-그룹/직원 매핑
+    group_map = {m.channel_id: m.group_id for m in db.query(ChannelGroupMembership).all()}
+    group_names = {g.id: g.name for g in db.query(ChannelGroup).all()}
+    emp_channel = {}  # channel_id -> [(emp_id, emp_name)]
+    for a in db.query(EmployeeChannelAssignment).filter(EmployeeChannelAssignment.is_active).all():
+        emp_channel.setdefault(a.channel_id, []).append((a.employee_id, ""))
+    emp_names = {e.id: e.name for e in db.query(Employee).all()}
+    prod_categories = {p.id: p.category for p in db.query(ProductMaster).all()}
+
+    def key_actual(r):
+        if by == "channel":
+            return (r.channel_id, r.channel_name)
+        if by == "product":
+            return (r.product_id, r.product_name)
+        if by == "group":
+            gid = group_map.get(r.channel_id)
+            return (gid, group_names.get(gid, "미분류"))
+        if by == "employee":
+            emps = emp_channel.get(r.channel_id, [])
+            if not emps:
+                return ("unassigned", "미배정")
+            eid, _ = emps[0]
+            return (eid, emp_names.get(eid, ""))
+        if by == "category":
+            return (prod_categories.get(r.product_id) or "-", prod_categories.get(r.product_id) or "-")
+
+    actual_map: dict = {}
+    for r in actual_rows:
+        k = key_actual(r)
+        if k is None or k[0] is None:
+            continue
+        slot = actual_map.setdefault(k, {
+            "key": k[0], "label": k[1],
+            "actual_revenue": 0, "actual_pcs": 0,
+            "target_revenue": 0, "target_pcs": 0,
+        })
+        slot["actual_revenue"] += r.net_sales or 0
+        slot["actual_pcs"] += r.pcs_qty or 0
+
+    # 계획 데이터
+    if by == "channel":
+        rev_q = db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year)
+        if month: rev_q = rev_q.filter(BusinessPlanChannelRevenue.month == month)
+        for p in rev_q.all():
+            k = (p.channel_id, p.channel_name)
+            slot = actual_map.setdefault(k, {
+                "key": k[0], "label": k[1],
+                "actual_revenue": 0, "actual_pcs": 0,
+                "target_revenue": 0, "target_pcs": 0,
+            })
+            slot["target_revenue"] += p.target_revenue or 0
+        qty_q = db.query(BusinessPlanProductQty).filter(BusinessPlanProductQty.year == year)
+        if month: qty_q = qty_q.filter(BusinessPlanProductQty.month == month)
+        for p in qty_q.all():
+            k = (p.channel_id, p.channel_name)
+            slot = actual_map.setdefault(k, {
+                "key": k[0], "label": k[1],
+                "actual_revenue": 0, "actual_pcs": 0,
+                "target_revenue": 0, "target_pcs": 0,
+            })
+            slot["target_pcs"] += p.target_pcs or 0
+    elif by == "product":
+        qty_q = db.query(BusinessPlanProductQty).filter(BusinessPlanProductQty.year == year)
+        if month: qty_q = qty_q.filter(BusinessPlanProductQty.month == month)
+        for p in qty_q.all():
+            if p.product_id is None: continue
+            k = (p.product_id, p.product_name)
+            slot = actual_map.setdefault(k, {
+                "key": k[0], "label": k[1],
+                "actual_revenue": 0, "actual_pcs": 0,
+                "target_revenue": 0, "target_pcs": 0,
+            })
+            slot["target_pcs"] += p.target_pcs or 0
+    elif by == "group":
+        rev_q = db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year)
+        if month: rev_q = rev_q.filter(BusinessPlanChannelRevenue.month == month)
+        for p in rev_q.all():
+            if p.group_id is None: continue
+            k = (p.group_id, p.group_name)
+            slot = actual_map.setdefault(k, {
+                "key": k[0], "label": k[1],
+                "actual_revenue": 0, "actual_pcs": 0,
+                "target_revenue": 0, "target_pcs": 0,
+            })
+            slot["target_revenue"] += p.target_revenue or 0
+    elif by == "employee":
+        rev_q = db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year)
+        if month: rev_q = rev_q.filter(BusinessPlanChannelRevenue.month == month)
+        for p in rev_q.all():
+            if p.employee_id is None: continue
+            k = (p.employee_id, p.employee_name)
+            slot = actual_map.setdefault(k, {
+                "key": k[0], "label": k[1],
+                "actual_revenue": 0, "actual_pcs": 0,
+                "target_revenue": 0, "target_pcs": 0,
+            })
+            slot["target_revenue"] += p.target_revenue or 0
+    elif by == "category":
+        cat_q = db.query(BusinessPlanCategoryQty).filter(BusinessPlanCategoryQty.year == year)
+        if month: cat_q = cat_q.filter(BusinessPlanCategoryQty.month == month)
+        for p in cat_q.all():
+            k = (p.product_category, p.product_category)
+            slot = actual_map.setdefault(k, {
+                "key": k[0], "label": k[1],
+                "actual_revenue": 0, "actual_pcs": 0,
+                "target_revenue": 0, "target_pcs": 0,
+            })
+            slot["target_pcs"] += p.target_pcs or 0
+
+    items = list(actual_map.values())
+    for it in items:
+        it["rev_ach"] = (it["actual_revenue"] / it["target_revenue"] * 100) if it["target_revenue"] else None
+        it["pcs_ach"] = (it["actual_pcs"] / it["target_pcs"] * 100) if it["target_pcs"] else None
+        # 객단가
+        it["actual_avg_price"] = (it["actual_revenue"] / it["actual_pcs"]) if it["actual_pcs"] else 0
+        it["target_avg_price"] = (it["target_revenue"] / it["target_pcs"]) if it["target_pcs"] else 0
+    items.sort(key=lambda x: -(x["target_revenue"] or 0))
+    return {"year": year, "month": month, "by": by, "items": items}
+
+
+# ──────────────────────────────────────────────────────────────
+# 객단가 분석
+# ──────────────────────────────────────────────────────────────
+
+@router.get("/avg-price")
+def avg_price_analysis(
+    period_start: date,
+    period_end: date,
+    by: str = Query("channel_product", regex="^(channel|product|channel_product|group)$"),
+    db: Session = Depends(get_db),
+):
+    """객단가(매출/낱개) 분석. 실적 기준."""
+    rows = db.query(ChannelSalesDailyProduct).filter(
+        ChannelSalesDailyProduct.sale_date >= period_start,
+        ChannelSalesDailyProduct.sale_date <= period_end,
+    ).all()
+    group_map = {m.channel_id: m.group_id for m in db.query(ChannelGroupMembership).all()}
+    group_names = {g.id: g.name for g in db.query(ChannelGroup).all()}
+
+    bucket: dict = {}
+    for r in rows:
+        if by == "channel":
+            k = (r.channel_id, r.channel_name)
+        elif by == "product":
+            if r.product_id is None: continue
+            k = (r.product_id, r.product_name)
+        elif by == "group":
+            gid = group_map.get(r.channel_id)
+            k = (gid or "x", group_names.get(gid, "미분류"))
+        else:  # channel_product
+            if r.product_id is None: continue
+            k = (f"{r.channel_id}_{r.product_id}", f"{r.channel_name} × {r.product_name}")
+        slot = bucket.setdefault(k, {
+            "key": k[0], "label": k[1],
+            "revenue": 0, "pcs": 0, "orders": 0,
+        })
+        slot["revenue"] += r.net_sales or 0
+        slot["pcs"] += r.pcs_qty or 0
+        slot["orders"] += r.order_count or 0
+
+    items = list(bucket.values())
+    for it in items:
+        it["avg_price_per_pcs"] = (it["revenue"] / it["pcs"]) if it["pcs"] else 0
+        it["avg_price_per_order"] = (it["revenue"] / it["orders"]) if it["orders"] else 0
+    items.sort(key=lambda x: -x["revenue"])
+    return {"by": by, "period_start": period_start.isoformat(),
+            "period_end": period_end.isoformat(), "items": items[:200]}
