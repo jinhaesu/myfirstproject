@@ -437,6 +437,15 @@ def ingest_lines(
     return batch
 
 
+def _normalize_opt(s: Optional[str]) -> Optional[str]:
+    if s is None:
+        return None
+    t = str(s).strip()
+    if not t or t.lower() in ("nan", "none", "null"):
+        return None
+    return t
+
+
 def _bump_unmatched(
     db: Session,
     channel_id: str,
@@ -447,10 +456,12 @@ def _bump_unmatched(
 ) -> None:
     if not raw_name:
         return
+    name_norm = str(raw_name).strip()
+    opt_norm = _normalize_opt(raw_opt)
     existing = db.query(ChannelUnmatchedProduct).filter(
         ChannelUnmatchedProduct.channel_id == channel_id,
-        ChannelUnmatchedProduct.raw_product_name == raw_name,
-        ChannelUnmatchedProduct.raw_option_name == raw_opt,
+        ChannelUnmatchedProduct.raw_product_name == name_norm,
+        ChannelUnmatchedProduct.raw_option_name.is_(None) if opt_norm is None else (ChannelUnmatchedProduct.raw_option_name == opt_norm),
         ChannelUnmatchedProduct.status == "pending",
     ).first()
     if existing:
@@ -461,8 +472,8 @@ def _bump_unmatched(
         db.add(ChannelUnmatchedProduct(
             channel_id=channel_id,
             channel_name=channel_name,
-            raw_product_name=raw_name,
-            raw_option_name=raw_opt,
+            raw_product_name=name_norm,
+            raw_option_name=opt_norm,
             occurrence_count=1,
             total_qty=qty,
         ))

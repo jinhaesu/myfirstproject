@@ -1532,6 +1532,106 @@ def admin_cleanup_stuck_batches(
     }
 
 
+@router.post("/admin/delete-batch/{batch_id}")
+def admin_delete_batch(batch_id: str, db: Session = Depends(get_db)):
+    """특정 batch 완전 삭제: raw_lines + daily_aggregate(그 채널/기간) + unmatched(그 채널의 pending) + batch row."""
+    b = db.query(ChannelSalesUploadBatch).filter(ChannelSalesUploadBatch.id == batch_id).first()
+    if not b:
+        raise HTTPException(404, "batch not found")
+    # raw_lines 삭제
+    raw_deleted = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.batch_id == batch_id
+    ).delete(synchronize_session=False)
+    # daily_aggregate(그 채널의 batch 기간) 삭제
+    daily_deleted = 0
+    if b.period_start and b.period_end:
+        daily_deleted = db.query(ChannelSalesDailyProduct).filter(
+            ChannelSalesDailyProduct.channel_id == b.channel_id,
+            ChannelSalesDailyProduct.sale_date >= b.period_start,
+            ChannelSalesDailyProduct.sale_date <= b.period_end,
+        ).delete(synchronize_session=False)
+    # 해당 채널의 unmatched pending 모두 삭제 (다시 빌드 시 새로 생성됨)
+    unmatched_deleted = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.channel_id == b.channel_id,
+        ChannelUnmatchedProduct.status == "pending",
+    ).delete(synchronize_session=False)
+    db.delete(b)
+    db.commit()
+    # 남은 batch가 있다면 daily_aggregate 재구성
+    other_batches = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == b.channel_id,
+        ChannelSalesUploadBatch.status == "done",
+    ).count()
+    if other_batches > 0:
+        rebuild_daily_aggregate(db, channel_id=b.channel_id)
+    return {
+        "deleted_batch": batch_id,
+        "channel": b.channel_name,
+        "raw_lines_deleted": raw_deleted,
+        "daily_aggregate_deleted": daily_deleted,
+        "unmatched_pending_deleted": unmatched_deleted,
+    }
+
+
+@router.post("/admin/dedup-unmatched")
+def admin_dedup_unmatched(db: Session = Depends(get_db)):
+    """매핑 큐 정규화: 옵션 공백/nan/빈문자 → NULL로 통일, 중복 row 병합."""
+    from sqlalchemy import func as sa_func
+    # 1) 옵션 정규화 (공백, 'nan', 'None', 빈 문자열 → NULL)
+    affected = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.status == "pending"
+    ).all()
+    normalized = 0
+    for u in affected:
+        raw = u.raw_option_name
+        if raw is None:
+            continue
+        s = str(raw).strip()
+        if not s or s.lower() in ("nan", "none", "null"):
+            u.raw_option_name = None
+            normalized += 1
+        elif raw != s:
+            u.raw_option_name = s
+            normalized += 1
+    db.commit()
+
+    # 2) 중복 병합: 같은 (channel_id, raw_product_name, raw_option_name) → 첫 row에 합산, 나머지 삭제
+    duplicates_query = db.query(
+        ChannelUnmatchedProduct.channel_id,
+        ChannelUnmatchedProduct.raw_product_name,
+        ChannelUnmatchedProduct.raw_option_name,
+        sa_func.count(ChannelUnmatchedProduct.id),
+    ).filter(
+        ChannelUnmatchedProduct.status == "pending"
+    ).group_by(
+        ChannelUnmatchedProduct.channel_id,
+        ChannelUnmatchedProduct.raw_product_name,
+        ChannelUnmatchedProduct.raw_option_name,
+    ).having(sa_func.count(ChannelUnmatchedProduct.id) > 1).all()
+
+    merged = 0
+    for ch_id, name, opt, cnt in duplicates_query:
+        q = db.query(ChannelUnmatchedProduct).filter(
+            ChannelUnmatchedProduct.channel_id == ch_id,
+            ChannelUnmatchedProduct.raw_product_name == name,
+            ChannelUnmatchedProduct.status == "pending",
+        )
+        if opt is None:
+            rows = q.filter(ChannelUnmatchedProduct.raw_option_name.is_(None)).order_by(ChannelUnmatchedProduct.id).all()
+        else:
+            rows = q.filter(ChannelUnmatchedProduct.raw_option_name == opt).order_by(ChannelUnmatchedProduct.id).all()
+        if len(rows) <= 1:
+            continue
+        keeper = rows[0]
+        for dup in rows[1:]:
+            keeper.occurrence_count = (keeper.occurrence_count or 0) + (dup.occurrence_count or 0)
+            keeper.total_qty = (keeper.total_qty or 0) + (dup.total_qty or 0)
+            db.delete(dup)
+            merged += 1
+    db.commit()
+    return {"normalized_options": normalized, "merged_duplicates": merged}
+
+
 @router.get("/admin/diag-channel-data")
 def admin_diag_channel_data(channel_id: Optional[str] = None, db: Session = Depends(get_db)):
     """채널별 raw_lines / batches 상태 종합 진단.
