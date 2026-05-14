@@ -670,6 +670,20 @@ function DashboardTab({
           {loading ? <Skeleton h={240} /> : data && data.series.length ? (
             <ResponsiveContainer width="100%" height={240}>
               <ComposedChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#A8B3FF" stopOpacity={0.95} />
+                    <stop offset="100%" stopColor="#5560C8" stopOpacity={0.55} />
+                  </linearGradient>
+                  <linearGradient id="gradRevenueCmp" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#7A7F8A" stopOpacity={0.55} />
+                    <stop offset="100%" stopColor="#3A3D45" stopOpacity={0.25} />
+                  </linearGradient>
+                  <linearGradient id="gradCmArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#27A644" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#27A644" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis dataKey="period" tick={AXIS_TICK} stroke="#62666D" />
                 <YAxis tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
@@ -684,13 +698,13 @@ function DashboardTab({
                 />
                 <Legend wrapperStyle={LEGEND_STYLE} />
                 {hasCompare && (
-                  <Bar dataKey="compare_revenue" name="비교 매출" fill="#62666D" opacity={0.35} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradRevenueCmp)" radius={[6, 6, 0, 0]} />
                 )}
-                <Bar dataKey="revenue" name="순매출" fill="#828FFF" opacity={0.65} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="revenue" name="순매출" fill="url(#gradRevenue)" radius={[6, 6, 0, 0]} />
                 {hasCompare && (
-                  <Line type="monotone" dataKey="compare_cm" name="비교 공헌이익" stroke="#7A7F8A" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                  <Line type="monotone" dataKey="compare_cm" name="비교 공헌이익" stroke="#A3A9B3" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
                 )}
-                <Line type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="#27A644" strokeWidth={2.5} dot={{ r: 3 }} />
+                <Area type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="#27A644" strokeWidth={2.5} fill="url(#gradCmArea)" dot={{ r: 3, stroke: '#27A644', strokeWidth: 2, fill: '#0F1011' }} activeDot={{ r: 5 }} />
               </ComposedChart>
             </ResponsiveContainer>
           ) : <Empty h={240} />}
@@ -700,6 +714,12 @@ function DashboardTab({
           {costBreakdown.length ? (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={costBreakdown} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="gradCost" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#C03030" stopOpacity={0.85} />
+                    <stop offset="100%" stopColor="#FF7A7A" stopOpacity={1} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
                 <YAxis type="category" dataKey="name" tick={AXIS_TICK} stroke="#62666D" width={70} />
@@ -707,7 +727,7 @@ function DashboardTab({
                   contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                   formatter={(v: number) => `₩${fmtKR(v)}`}
                 />
-                <Bar dataKey="value" fill="#EB5757" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="value" fill="url(#gradCost)" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -728,6 +748,24 @@ function DashboardTab({
           {data && data.channels.length ? (
             <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.channels.length, 10) * (hasCompare ? 38 : 26))}>
               <BarChart data={channelsWithCmp.slice(0, 10)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="gradTopRev" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#5560C8" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#A8B3FF" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="gradTopRevCmp" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#7A7F8A" stopOpacity={0.7} />
+                  </linearGradient>
+                  <linearGradient id="gradTopCm" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#1F7A38" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#3DD971" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="gradTopCmCmp" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#1A4023" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#3F6E4D" stopOpacity={0.6} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
                 <YAxis type="category" dataKey="channel_name" tick={AXIS_TICK} stroke="#62666D" width={80} />
@@ -736,10 +774,10 @@ function DashboardTab({
                   formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
                 />
                 <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey="revenue" name="매출" fill="#828FFF" radius={[0, 3, 3, 0]} />
-                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="#62666D" opacity={0.6} radius={[0, 3, 3, 0]} />}
-                <Bar dataKey="contribution_margin" name="공헌이익" fill="#27A644" radius={[0, 3, 3, 0]} />
-                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="#1F7A38" opacity={0.6} radius={[0, 3, 3, 0]} />}
+                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev)" radius={[0, 6, 6, 0]} />
+                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRevCmp)" radius={[0, 6, 6, 0]} />}
+                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm)" radius={[0, 6, 6, 0]} />
+                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCmCmp)" radius={[0, 6, 6, 0]} />}
               </BarChart>
             </ResponsiveContainer>
           ) : <Empty h={220} />}
@@ -749,6 +787,24 @@ function DashboardTab({
           {data && data.products.length ? (
             <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.products.length, 12) * (hasCompare ? 38 : 26))}>
               <BarChart data={productsWithCmp.slice(0, 12)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="gradTopRev2" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#5560C8" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#A8B3FF" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="gradTopRev2Cmp" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#7A7F8A" stopOpacity={0.7} />
+                  </linearGradient>
+                  <linearGradient id="gradTopCm2" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#1F7A38" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#3DD971" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="gradTopCm2Cmp" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#1A4023" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#3F6E4D" stopOpacity={0.6} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
                 <YAxis type="category" dataKey="product_name" tick={AXIS_TICK} stroke="#62666D" width={70} />
@@ -757,10 +813,10 @@ function DashboardTab({
                   formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
                 />
                 <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey="revenue" name="매출" fill="#828FFF" radius={[0, 3, 3, 0]} />
-                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="#62666D" opacity={0.6} radius={[0, 3, 3, 0]} />}
-                <Bar dataKey="contribution_margin" name="공헌이익" fill="#27A644" radius={[0, 3, 3, 0]} />
-                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="#1F7A38" opacity={0.6} radius={[0, 3, 3, 0]} />}
+                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev2)" radius={[0, 6, 6, 0]} />
+                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRev2Cmp)" radius={[0, 6, 6, 0]} />}
+                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm2)" radius={[0, 6, 6, 0]} />
+                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCm2Cmp)" radius={[0, 6, 6, 0]} />}
               </BarChart>
             </ResponsiveContainer>
           ) : <Empty h={220} />}
@@ -2723,10 +2779,18 @@ function KpiCard({ label, value, hint, accent }: { label: string; value: string;
 }
 
 function DeltaBadge({ delta }: { delta: { pct: number; sign: 'up' | 'down' | 'flat' } }) {
-  const color = delta.sign === 'up' ? '#27A644' : delta.sign === 'down' ? '#EB5757' : '#7A7F8A';
+  const styles =
+    delta.sign === 'up'
+      ? { bg: 'rgba(39,166,68,0.15)', color: '#3DD971', border: 'rgba(39,166,68,0.35)' }
+      : delta.sign === 'down'
+        ? { bg: 'rgba(235,87,87,0.15)', color: '#FF7A7A', border: 'rgba(235,87,87,0.35)' }
+        : { bg: 'rgba(122,127,138,0.12)', color: '#A3A9B3', border: 'rgba(122,127,138,0.25)' };
   const arrow = delta.sign === 'up' ? '▲' : delta.sign === 'down' ? '▼' : '–';
   return (
-    <span className="text-[10px] ml-1.5 font-medium" style={{ color }}>
+    <span
+      className="text-[9px] ml-1.5 font-semibold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 border"
+      style={{ backgroundColor: styles.bg, color: styles.color, borderColor: styles.border }}
+    >
       {arrow} {Math.abs(delta.pct).toFixed(1)}%
     </span>
   );
@@ -2756,24 +2820,44 @@ function CompactKpi({
   const deltaColor = deltaSign === 'up' ? '#27A644' : deltaSign === 'down' ? '#EB5757' : '#7A7F8A';
   const arrow = deltaSign === 'up' ? '▲' : deltaSign === 'down' ? '▼' : '–';
 
+  const accentColor = accent || TEXT_PRIMARY;
+  const gradId = `kpi-grad-${label.replace(/\s/g, '')}-${(accent || 'def').replace('#', '')}`;
+  const deltaBadgeStyle =
+    deltaSign === 'up'
+      ? { bg: 'rgba(39,166,68,0.18)', color: '#3DD971', border: 'rgba(39,166,68,0.4)' }
+      : deltaSign === 'down'
+        ? { bg: 'rgba(235,87,87,0.18)', color: '#FF7A7A', border: 'rgba(235,87,87,0.4)' }
+        : { bg: 'rgba(122,127,138,0.15)', color: '#A3A9B3', border: 'rgba(122,127,138,0.3)' };
+
   return (
     <div className={`${PANEL} p-3 relative overflow-hidden`}>
-      {/* 카드 우상단 스파크라인 */}
+      {/* 좌측 accent 라인 */}
+      <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: `linear-gradient(180deg, ${accentColor}, transparent)` }} />
+      {/* 카드 우상단 스파크라인 (Area + 그라데이션) */}
       {spark && spark.length > 1 && (
-        <div className="absolute right-2 top-2 opacity-70 pointer-events-none" style={{ width: 56, height: 24 }}>
+        <div className="absolute right-2 top-2 opacity-90 pointer-events-none" style={{ width: 64, height: 28 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={spark} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-              <Line type="monotone" dataKey="v" stroke={accent || '#828FFF'} strokeWidth={1.5} dot={false} isAnimationActive={false} />
-            </LineChart>
+            <AreaChart data={spark} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={accentColor} stopOpacity={0.6} />
+                  <stop offset="100%" stopColor={accentColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area type="monotone" dataKey="v" stroke={accentColor} strokeWidth={1.5} fill={`url(#${gradId})`} isAnimationActive={false} />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       )}
-      <div className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3] mb-1">{label}</div>
-      <div className="text-lg font-semibold tracking-tight truncate" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
-      <div className="flex items-center gap-2 mt-0.5">
+      <div className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3] mb-1 pl-1.5">{label}</div>
+      <div className="text-lg font-semibold tracking-tight truncate pl-1.5" style={{ color: accentColor }}>{value}</div>
+      <div className="flex items-center gap-1.5 mt-1 pl-1.5">
         {deltaPct !== null && (
-          <span className="text-[10px] font-medium" style={{ color: deltaColor }}>
-            {arrow} {Math.abs(deltaPct).toFixed(deltaFormat === 'pp' ? 1 : 1)}{deltaFormat === 'pp' ? 'pp' : '%'}
+          <span
+            className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border inline-flex items-center"
+            style={{ backgroundColor: deltaBadgeStyle.bg, color: deltaBadgeStyle.color, borderColor: deltaBadgeStyle.border }}
+          >
+            {arrow} {Math.abs(deltaPct).toFixed(1)}{deltaFormat === 'pp' ? 'pp' : '%'}
           </span>
         )}
         {hint && <div className="text-[10px] text-[#7A7F8A] truncate">{hint}</div>}
