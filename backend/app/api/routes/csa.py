@@ -1460,6 +1460,52 @@ def admin_diag_batches(limit: int = 50, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/admin/cleanup-stuck-batches")
+def admin_cleanup_stuck_batches(
+    mode: str = "delete",  # delete | mark_failed
+    db: Session = Depends(get_db),
+):
+    """parsing 상태로 잔존한 batch들을 정리.
+
+    - mode=delete: row_inserted=0인 잔존 batch는 완전 삭제 (raw_lines도 함께)
+    - mode=mark_failed: status를 failed로 변경 (이력 보존)
+    """
+    from sqlalchemy import func as sa_func
+    stuck = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.status == "parsing"
+    ).all()
+    deleted_batches = 0
+    marked_failed = 0
+    deleted_raw = 0
+    details = []
+    for b in stuck:
+        raw_count = db.query(sa_func.count(ChannelSalesRawLine.id)).filter(
+            ChannelSalesRawLine.batch_id == b.id
+        ).scalar() or 0
+        if mode == "delete" and (b.row_inserted or 0) == 0:
+            # raw_lines가 일부 들어갔어도 row_inserted=0이면 batch는 의미 없음
+            if raw_count > 0:
+                db.query(ChannelSalesRawLine).filter(
+                    ChannelSalesRawLine.batch_id == b.id
+                ).delete(synchronize_session=False)
+                deleted_raw += raw_count
+            details.append({"id": b.id, "channel": b.channel_name, "file": b.file_name, "action": "deleted"})
+            db.delete(b)
+            deleted_batches += 1
+        else:
+            b.status = "failed"
+            b.error_message = b.error_message or "cleanup: parsing 잔존 → failed로 마킹"
+            details.append({"id": b.id, "channel": b.channel_name, "file": b.file_name, "action": "marked_failed", "raw_lines": raw_count})
+            marked_failed += 1
+    db.commit()
+    return {
+        "deleted_batches": deleted_batches,
+        "marked_failed": marked_failed,
+        "deleted_raw_lines": deleted_raw,
+        "details": details,
+    }
+
+
 @router.post("/admin/rebuild-daily/{batch_id}")
 def admin_rebuild_daily(batch_id: str, db: Session = Depends(get_db)):
     """특정 batch 기간의 daily_aggregate를 재계산."""
