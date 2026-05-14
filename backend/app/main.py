@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api.routes import chat, tables, query, auth, targets, ai, channels, smartstore, cafe24, coupang_wing, coupang_rocket, analytics, market_analysis, campaign_planner, settlement, scm, sabangnet, sabangnet_mapping, sabangnet_voice_cs
+from app.api.routes import chat, tables, query, auth, targets, ai, channels, smartstore, cafe24, coupang_wing, coupang_rocket, analytics, market_analysis, campaign_planner, settlement, scm, sabangnet, sabangnet_mapping, sabangnet_voice_cs, csa
 from app.database import init_db
 
 settings = get_settings()
@@ -227,6 +227,7 @@ app.include_router(scm.router, prefix="/api", tags=["scm"])
 app.include_router(sabangnet.router, prefix="/api", tags=["sabangnet"])
 app.include_router(sabangnet_mapping.router, prefix="/api", tags=["sabangnet-mapping"])
 app.include_router(sabangnet_voice_cs.router, prefix="/api", tags=["sabangnet-voice-cs"])
+app.include_router(csa.router)
 
 
 @app.get("/")

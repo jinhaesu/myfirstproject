@@ -47,6 +47,9 @@ def init_db():
             ScmProduct,
             CsInquiry, CsReferenceData, CsConfig,
             DeliveryTracking, CsFollowUpAction,
+            ProductMaster, ChannelProductMapping, ChannelSalesUploadBatch,
+            ChannelSalesRawLine, ChannelSalesDailyProduct, ProductVariableCost,
+            ChannelUnmatchedProduct, ChannelBusinessPlan,
         )
         from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401
         from app.models.scheduled_report import ScheduledReport  # noqa: F401
