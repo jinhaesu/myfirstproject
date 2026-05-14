@@ -1052,92 +1052,136 @@ function MappingTab({
     onResolved();
   };
 
-  const allChecked = unmatched.length > 0 && selected.size === unmatched.length;
-  const someChecked = selected.size > 0 && !allChecked;
+  // 채널 필터 + 페이지네이션
+  const [filterChannel, setFilterChannel] = useState<string>('');
+  const [filterText, setFilterText] = useState<string>('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 500;
+
+  const channelOpts = useMemo(() => {
+    const m = new Map<string, string>();
+    unmatched.forEach(u => m.set(u.channel_id, u.channel_name));
+    return Array.from(m.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [unmatched]);
+
+  const filtered = useMemo(() => {
+    const ft = filterText.trim().toLowerCase();
+    return unmatched.filter(u => {
+      if (filterChannel && u.channel_id !== filterChannel) return false;
+      if (ft && !((u.raw_product_name || '').toLowerCase().includes(ft) || (u.raw_option_name || '').toLowerCase().includes(ft))) return false;
+      return true;
+    });
+  }, [unmatched, filterChannel, filterText]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pageItems = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+
+  // 페이지 단위 전체선택
+  const toggleAllInPage = () => {
+    const ids = pageItems.map(u => u.id);
+    const allInPage = ids.every(id => selected.has(id));
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (allInPage) ids.forEach(id => next.delete(id));
+      else ids.forEach(id => next.add(id));
+      return next;
+    });
+  };
+  const allChecked = pageItems.length > 0 && pageItems.every(u => selected.has(u.id));
+  const someChecked = pageItems.some(u => selected.has(u.id)) && !allChecked;
 
   return (
-    <div className={`${PANEL} p-5`}>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold">매핑 대기 큐 ({unmatched.length})</h2>
-        {unmatched.length > 0 && (
-          <label className="flex items-center gap-1.5 text-xs text-[#8A8F98] cursor-pointer">
-            <input
-              type="checkbox"
-              checked={allChecked}
-              ref={el => { if (el) el.indeterminate = someChecked; }}
-              onChange={toggleAll}
-              className="accent-[#828FFF]"
-            />
-            전체 선택 ({selected.size}/{unmatched.length})
-          </label>
-        )}
+    <div className={`${PANEL} p-4`}>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div>
+          <h2 className="text-sm font-semibold">매핑 대기 큐 ({filtered.length.toLocaleString()}건{filtered.length !== unmatched.length && ` / 전체 ${unmatched.length.toLocaleString()}`})</h2>
+          <p className="text-[11px] text-[#62666D] mt-0.5">한 번 매핑하면 동일 (채널·상품명·옵션) 조합은 다음 업로드부터 자동 매핑됩니다.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={filterChannel}
+            onChange={(e) => { setFilterChannel(e.target.value); setPage(1); }}
+            className="bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-xs text-[#F7F8F8] max-w-[160px]"
+          >
+            <option value="">전체 채널</option>
+            {channelOpts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <input
+            type="search"
+            placeholder="상품명/옵션 검색"
+            value={filterText}
+            onChange={(e) => { setFilterText(e.target.value); setPage(1); }}
+            className="bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-xs text-[#F7F8F8] w-40"
+          />
+        </div>
       </div>
-      <p className="text-xs text-[#62666D] mb-4">
-        각 채널의 원본 상품명을 자사 표준 품목으로 매핑하고, 1세트당 낱개 수(입수)를 입력하세요. 카운트 대상이 아니면 "제외"로 처리합니다.
-      </p>
 
+      {/* 일괄 처리 바 */}
       {selected.size > 0 && (
-        <div className={`${SUBPANEL} p-3 mb-3 grid grid-cols-12 gap-3 items-center text-xs border-[#828FFF]/40`}>
-          <div className="col-span-3">
-            <div className="text-[10px] uppercase tracking-wider text-[#828FFF]">일괄 적용 ({selected.size}건)</div>
-            <div className="text-[#8A8F98] text-[11px] mt-1">선택된 항목에 동일한 품목·입수 적용</div>
-          </div>
-          <div className="col-span-3">
-            <label className="block text-[10px] text-[#62666D] uppercase tracking-wider mb-1">표준 품목</label>
-            <select
-              value={bulkProductId}
-              onChange={(e) => setBulkProductId(e.target.value ? parseInt(e.target.value) : '')}
-              disabled={bulkExcluded}
-              className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] disabled:opacity-50"
-            >
-              <option value="">— 선택 —</option>
-              {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <div className="col-span-2">
-            <label className="block text-[10px] text-[#62666D] uppercase tracking-wider mb-1">1세트=N개입</label>
-            <input
-              type="number"
-              min={1}
-              value={bulkUnitPerSet}
-              onChange={(e) => setBulkUnitPerSet(parseInt(e.target.value) || 1)}
-              disabled={bulkExcluded}
-              className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] disabled:opacity-50 font-mono text-right"
-            />
-          </div>
-          <div className="col-span-4 flex items-center gap-2 justify-end">
-            <label className="flex items-center gap-1.5 text-[#8A8F98] cursor-pointer">
-              <input
-                type="checkbox"
-                checked={bulkExcluded}
-                onChange={(e) => setBulkExcluded(e.target.checked)}
-                className="accent-[#EB5757]"
-              />
-              제외
-            </label>
-            <button
-              onClick={applyBulk}
-              disabled={bulkBusy || (!bulkExcluded && !bulkProductId)}
-              className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-xs font-medium"
-            >
-              {bulkBusy ? '적용 중…' : `${selected.size}건 일괄 적용`}
-            </button>
-            <button
-              onClick={() => setSelected(new Set())}
-              disabled={bulkBusy}
-              className="px-3 py-1.5 bg-[#23252A] hover:bg-[#2A2D33] text-[#8A8F98] rounded text-xs"
-            >
-              해제
-            </button>
-          </div>
+        <div className={`${SUBPANEL} p-2 mb-2 flex items-center gap-2 text-xs border-[#828FFF]/40`}>
+          <span className="text-[#828FFF] font-medium whitespace-nowrap">선택 {selected.size}건</span>
+          <select
+            value={bulkProductId}
+            onChange={(e) => setBulkProductId(e.target.value ? parseInt(e.target.value) : '')}
+            disabled={bulkExcluded}
+            className="flex-1 bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-[#F7F8F8] disabled:opacity-40"
+          >
+            <option value="">품목 선택…</option>
+            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <input
+            type="number" min={1} value={bulkUnitPerSet}
+            onChange={(e) => setBulkUnitPerSet(parseInt(e.target.value) || 1)}
+            disabled={bulkExcluded}
+            title="1세트당 낱개 수(입수)"
+            className="w-14 bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-[#F7F8F8] font-mono text-right disabled:opacity-40"
+          />
+          <label className="flex items-center gap-1 text-[#8A8F98] cursor-pointer whitespace-nowrap">
+            <input type="checkbox" checked={bulkExcluded} onChange={(e) => setBulkExcluded(e.target.checked)} className="accent-[#EB5757]" />
+            제외
+          </label>
+          <button
+            onClick={applyBulk}
+            disabled={bulkBusy || (!bulkExcluded && !bulkProductId)}
+            className="px-3 py-1 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-xs font-medium whitespace-nowrap"
+          >
+            {bulkBusy ? '적용 중…' : `${selected.size}건 적용`}
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            disabled={bulkBusy}
+            className="px-2 py-1 bg-[#23252A] hover:bg-[#2A2D33] text-[#8A8F98] rounded text-xs"
+          >해제</button>
         </div>
       )}
 
-      {unmatched.length === 0 ? (
+      {/* 헤더 (sticky) */}
+      {pageItems.length > 0 && (
+        <div className="sticky top-0 z-10 bg-[#0F1011] border-b border-[#23252A] flex items-center gap-2 px-2 py-1.5 text-[9px] uppercase tracking-wider text-[#62666D]">
+          <input
+            type="checkbox"
+            checked={allChecked}
+            ref={el => { if (el) el.indeterminate = someChecked; }}
+            onChange={toggleAllInPage}
+            className="accent-[#828FFF]"
+          />
+          <span className="w-20">채널</span>
+          <span className="flex-1">원본 상품 / 옵션</span>
+          <span className="w-20 text-right">발견/수량</span>
+          <span className="w-40">표준 품목</span>
+          <span className="w-12 text-center">입수</span>
+          <span className="w-10 text-center">제외</span>
+          <span className="w-14 text-center">액션</span>
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
         <div className="text-center py-10 text-[#62666D] text-sm">매핑 대기 항목이 없습니다.</div>
       ) : (
-        <div className="space-y-2">
-          {unmatched.map(it => (
+        <div className="divide-y divide-[#1A1C22]">
+          {pageItems.map(it => (
             <UnmatchedRow
               key={it.id}
               item={it}
@@ -1148,6 +1192,39 @@ function MappingTab({
               onResolve={resolve}
             />
           ))}
+        </div>
+      )}
+
+      {/* 페이지네이션 */}
+      {filtered.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#23252A] text-xs">
+          <span className="text-[#7A7F8A]">
+            {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} / {filtered.length.toLocaleString()}건
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(1)} disabled={safePage === 1}
+              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+            >« 처음</button>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+            >‹ 이전</button>
+            <input
+              type="number" min={1} max={totalPages} value={safePage}
+              onChange={(e) => setPage(Math.max(1, Math.min(totalPages, parseInt(e.target.value) || 1)))}
+              className="w-12 px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#F7F8F8] text-center font-mono"
+            />
+            <span className="text-[#7A7F8A]">/ {totalPages}</span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+            >다음 ›</button>
+            <button
+              onClick={() => setPage(totalPages)} disabled={safePage === totalPages}
+              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+            >끝 »</button>
+          </div>
         </div>
       )}
     </div>
@@ -1166,66 +1243,53 @@ function UnmatchedRow({
   const [excluded, setExcluded] = useState(false);
 
   return (
-    <div className={`${SUBPANEL} p-3 grid grid-cols-12 gap-3 items-center text-xs ${selected ? 'border-[#828FFF]/60 bg-[#828FFF]/5' : ''}`}>
-      <div className="col-span-4 flex items-start gap-2">
+    <div className={`flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-[#1A1C22] ${selected ? 'bg-[#828FFF]/5' : ''}`}>
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={onToggle}
+        className="accent-[#828FFF] flex-shrink-0"
+      />
+      <span className="w-20 text-[10px] text-[#62666D] truncate" title={item.channel_name}>{item.channel_name}</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[#F7F8F8] truncate" title={item.raw_product_name}>{item.raw_product_name}</div>
+        {item.raw_option_name && (
+          <div className="text-[#7A7F8A] text-[10px] truncate" title={item.raw_option_name}>{item.raw_option_name}</div>
+        )}
+      </div>
+      <div className="w-20 text-right text-[10px] text-[#7A7F8A] font-mono whitespace-nowrap">
+        {item.occurrence_count}회<br/>{fmtNum(Math.round(item.total_qty))}
+      </div>
+      <select
+        value={productId}
+        onChange={(e) => setProductId(e.target.value ? parseInt(e.target.value) : '')}
+        disabled={excluded}
+        className="w-40 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[11px] text-[#F7F8F8] disabled:opacity-40"
+      >
+        <option value="">—</option>
+        {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+      <input
+        type="number" min={1} value={unitPerSet}
+        onChange={(e) => setUnitPerSet(parseInt(e.target.value) || 1)}
+        disabled={excluded}
+        className="w-12 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[#F7F8F8] disabled:opacity-40 font-mono text-right text-[11px]"
+      />
+      <label className="w-10 flex items-center justify-center cursor-pointer">
         <input
           type="checkbox"
-          checked={selected}
-          onChange={onToggle}
-          className="mt-1 accent-[#828FFF] flex-shrink-0"
+          checked={excluded}
+          onChange={(e) => setExcluded(e.target.checked)}
+          className="accent-[#EB5757]"
         />
-        <div className="min-w-0 flex-1">
-        <div className="text-[10px] uppercase tracking-wider text-[#62666D]">{item.channel_name}</div>
-        <div className="text-[#F7F8F8] font-medium truncate">{item.raw_product_name}</div>
-        {item.raw_option_name && (
-          <div className="text-[#8A8F98] text-[11px] truncate">{item.raw_option_name}</div>
-        )}
-        <div className="text-[10px] text-[#62666D] mt-0.5">
-          발견 {item.occurrence_count}회 · 누적수량 {fmtNum(Math.round(item.total_qty))}
-        </div>
-        </div>
-      </div>
-      <div className="col-span-3">
-        <label className="block text-[10px] text-[#62666D] uppercase tracking-wider mb-1">표준 품목</label>
-        <select
-          value={productId}
-          onChange={(e) => setProductId(e.target.value ? parseInt(e.target.value) : '')}
-          disabled={excluded}
-          className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] disabled:opacity-50"
-        >
-          <option value="">— 선택 —</option>
-          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-      </div>
-      <div className="col-span-2">
-        <label className="block text-[10px] text-[#62666D] uppercase tracking-wider mb-1">1세트=N개입</label>
-        <input
-          type="number"
-          min={1}
-          value={unitPerSet}
-          onChange={(e) => setUnitPerSet(parseInt(e.target.value) || 1)}
-          disabled={excluded}
-          className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] disabled:opacity-50 font-mono text-right"
-        />
-      </div>
-      <div className="col-span-3 flex items-center gap-2 justify-end">
-        <label className="flex items-center gap-1.5 text-[#8A8F98] cursor-pointer">
-          <input
-            type="checkbox"
-            checked={excluded}
-            onChange={(e) => setExcluded(e.target.checked)}
-            className="accent-[#EB5757]"
-          />
-          제외
-        </label>
-        <button
-          onClick={() => onResolve(item, excluded ? null : (productId || null) as any, unitPerSet, excluded)}
-          disabled={busy || (!excluded && !productId)}
-          className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-xs font-medium"
-        >
-          {busy ? '저장 중…' : '저장'}
-        </button>
-      </div>
+      </label>
+      <button
+        onClick={() => onResolve(item, excluded ? null : (productId || null) as any, unitPerSet, excluded)}
+        disabled={busy || (!excluded && !productId)}
+        className="w-14 px-2 py-1 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-[11px] font-medium"
+      >
+        {busy ? '…' : '저장'}
+      </button>
     </div>
   );
 }
