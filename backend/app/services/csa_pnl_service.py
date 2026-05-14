@@ -233,7 +233,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
 
 def get_pnl_matrix(db: Session, year: int) -> dict:
     seed_pnl_rows(db)
-    rows = db.query(CsaPnlRow).filter(CsaPnlRow.is_active).order_by(CsaPnlRow.sort_order).all()
+    rows = db.query(CsaPnlRow).filter(CsaPnlRow.is_active.is_(True)).order_by(CsaPnlRow.sort_order).all()
     actual_calc = compute_actual(db, year)
     plan_calc = compute_plan(db, year)
 
@@ -415,6 +415,9 @@ def delete_row(db: Session, row_id: int) -> bool:
     SEED_CODES = {r[0] for r in ROW_SEED}
     if row.code in SEED_CODES:
         raise ValueError("기본 행은 삭제할 수 없습니다")
+    # 자식 행이 있으면 삭제 금지 (FK 위반 방지)
+    if db.query(CsaPnlRow).filter(CsaPnlRow.parent_id == row_id).count() > 0:
+        raise ValueError("자식 행이 있어 삭제할 수 없습니다. 자식 행을 먼저 삭제하세요")
     db.query(CsaPnlValue).filter(CsaPnlValue.row_id == row_id).delete()
     db.delete(row); db.commit()
     return True

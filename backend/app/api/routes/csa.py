@@ -944,8 +944,22 @@ def upsert_employee(payload: EmployeeIn, db: Session = Depends(get_db)):
 
 @router.delete("/employees/{emp_id}")
 def delete_employee(emp_id: int, db: Session = Depends(get_db)):
-    db.query(EmployeeChannelAssignment).filter(EmployeeChannelAssignment.employee_id == emp_id).delete()
-    db.query(Employee).filter(Employee.id == emp_id).delete()
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(404, "employee not found")
+    # 의존 데이터 먼저 해제
+    db.query(EmployeeChannelAssignment).filter(
+        EmployeeChannelAssignment.employee_id == emp_id
+    ).delete(synchronize_session=False)
+    # 사업계획 매출 행은 employee_id를 NULL로 (역사 보존)
+    db.query(BusinessPlanChannelRevenue).filter(
+        BusinessPlanChannelRevenue.employee_id == emp_id
+    ).update(
+        {"employee_id": None, "employee_name": None},
+        synchronize_session=False,
+    )
+    db.commit()
+    db.delete(emp)
     db.commit()
     return {"deleted": emp_id}
 
@@ -1108,7 +1122,7 @@ def plan_comparison(
     group_map = {m.channel_id: m.group_id for m in db.query(ChannelGroupMembership).all()}
     group_names = {g.id: g.name for g in db.query(ChannelGroup).all()}
     emp_channel = {}  # channel_id -> [(emp_id, emp_name)]
-    for a in db.query(EmployeeChannelAssignment).filter(EmployeeChannelAssignment.is_active).all():
+    for a in db.query(EmployeeChannelAssignment).filter(EmployeeChannelAssignment.is_active.is_(True)).all():
         emp_channel.setdefault(a.channel_id, []).append((a.employee_id, ""))
     emp_names = {e.id: e.name for e in db.query(Employee).all()}
     prod_categories = {p.id: p.category for p in db.query(ProductMaster).all()}

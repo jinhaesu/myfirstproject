@@ -844,7 +844,7 @@ function MappingTab({
   const resolve = async (it: UnmatchedItem, productId: number | null, unitPerSet: number, isExcluded: boolean) => {
     setBusy(it.id);
     try {
-      await fetch(`${API_BASE}/api/csa/mapping`, {
+      const r = await fetch(`${API_BASE}/api/csa/mapping`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
@@ -857,6 +857,11 @@ function MappingTab({
           is_excluded: isExcluded,
         }),
       });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        alert(`매핑 저장 실패: ${data.detail || r.statusText}`);
+        return;
+      }
       onResolved();
     } finally {
       setBusy(null);
@@ -1144,7 +1149,7 @@ function CostRuleEditor({
   const saveRule = async () => {
     setBusy(true);
     try {
-      await fetch(`${API_BASE}/api/csa/cost-rules`, {
+      const r = await fetch(`${API_BASE}/api/csa/cost-rules`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
@@ -1160,6 +1165,11 @@ function CostRuleEditor({
           is_active: true,
         }),
       });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        alert(`규칙 저장 실패: ${data.detail || r.statusText}`);
+        return;
+      }
       setNewRule({
         cost_item_id: item.id, channel_id: null, product_id: null,
         rate: null, amount_per_pcs: null, amount_per_order: null,
@@ -1816,26 +1826,49 @@ function AdminTab({
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const saveEmployee = async () => {
-    if (!editingEmp || !editingEmp.email || !editingEmp.name) return;
-    await fetch(`${API_BASE}/api/csa/employees`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({
-        email: editingEmp.email,
-        name: editingEmp.name,
-        role: editingEmp.role || 'staff',
-        is_active: editingEmp.is_active !== false,
-      }),
-    });
-    setEditingEmp(null);
-    fetchAll();
+    if (!editingEmp || !editingEmp.email || !editingEmp.name) {
+      alert('이메일과 이름을 모두 입력해 주세요'); return;
+    }
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/employees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          email: editingEmp.email,
+          name: editingEmp.name,
+          role: editingEmp.role || 'staff',
+          is_active: editingEmp.is_active !== false,
+        }),
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        alert(`저장 실패: ${data.detail || r.statusText}`);
+        return;
+      }
+      setEditingEmp(null);
+      fetchAll();
+    } catch (e: any) {
+      alert(`저장 실패: ${e.message || e}`);
+    }
   };
 
   const deleteEmployee = async (id: number) => {
-    await fetch(`${API_BASE}/api/csa/employees/${id}`, {
-      method: 'DELETE', headers: authHeaders(),
-    });
-    fetchAll();
+    const emp = employees.find(e => e.id === id);
+    if (!emp) return;
+    if (!confirm(`'${emp.name}' 직원을 삭제하시겠습니까?\n· 담당 채널 배정이 해제됩니다.\n· 사업계획 매출 행은 보존되되 담당자가 미배정으로 바뀝니다.`)) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/employees/${id}`, {
+        method: 'DELETE', headers: authHeaders(),
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        alert(`삭제 실패: ${data.detail || r.statusText || '알 수 없는 오류'}`);
+        return;
+      }
+      fetchAll();
+    } catch (e: any) {
+      alert(`삭제 실패: ${e.message || e}`);
+    }
   };
 
   const openAssign = (e: Employee) => {
@@ -1845,25 +1878,43 @@ function AdminTab({
 
   const saveAssign = async () => {
     if (!assignTarget) return;
-    await fetch(`${API_BASE}/api/csa/employees/assign`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({
-        employee_id: assignTarget.id,
-        channel_ids: pendingChannels,
-      }),
-    });
-    setAssignTarget(null); setPendingChannels([]);
-    fetchAll();
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/employees/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          employee_id: assignTarget.id,
+          channel_ids: pendingChannels,
+        }),
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        alert(`채널 배정 저장 실패: ${data.detail || r.statusText}`);
+        return;
+      }
+      setAssignTarget(null); setPendingChannels([]);
+      fetchAll();
+    } catch (e: any) {
+      alert(`저장 실패: ${e.message || e}`);
+    }
   };
 
   const setChannelGroup = async (channelId: string, groupId: number) => {
-    await fetch(`${API_BASE}/api/csa/groups/assign`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ channel_id: channelId, group_id: groupId }),
-    });
-    fetchAll();
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/groups/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ channel_id: channelId, group_id: groupId }),
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        alert(`구분 변경 실패: ${data.detail || r.statusText}`);
+        return;
+      }
+      fetchAll();
+    } catch (e: any) {
+      alert(`구분 변경 실패: ${e.message || e}`);
+    }
   };
 
   // 채널 → 현재 그룹 매핑
