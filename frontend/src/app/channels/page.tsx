@@ -1,14 +1,31 @@
 'use client';
 
-import { Suspense, useEffect, useState, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
-  BarChart, Bar, LineChart, Line, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
+  AreaChart, Area, BarChart, Bar, LineChart, Line, ComposedChart,
+  PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+// Linear 다크 팔레트 (contribution-margin 페이지와 통일)
+const PANEL = 'bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A]';
+const SUBPANEL = 'bg-[#08090A] rounded-lg border border-[#23252A]';
+const TEXT_PRIMARY = '#F7F8F8';
+const TEXT_DIM = '#8A8F98';
+const TEXT_MUTED = '#62666D';
+
+const PALETTE = [
+  '#828FFF', '#27A644', '#F0BF00', '#EB5757', '#06B6D4',
+  '#A855F7', '#FC7840', '#5E6AD2', '#68CC58', '#00B8CC',
+  '#FF6B9D', '#7070FF', '#22C55E', '#FBBF24', '#F472B6',
+  '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#3B82F6',
+];
+
+type Granularity = 'day' | 'month' | 'quarter' | 'year';
 
 interface Channel {
   id: string;
@@ -16,1887 +33,1084 @@ interface Channel {
   category: string;
   integration_type: string;
   is_active: boolean;
-  last_synced_at: string | null;
+  has_parser: boolean;
 }
 
-interface ChannelSummary {
+interface Product {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  default_unit_size: number;
+  is_active: boolean;
+  sort_order: number;
+}
+
+interface Batch {
+  id: string;
   channel_id: string;
   channel_name: string;
-  gross_sales: number;
-  net_sales: number;
-  order_count: number;
-  quantity: number;
-  commission: number;
-  data_count: number;
+  file_name: string;
+  status: string;
+  period_start: string | null;
+  period_end: string | null;
+  row_total: number;
+  row_inserted: number;
+  row_duplicate: number;
+  row_unmatched: number;
+  created_at: string | null;
 }
 
-interface DailySummary {
-  year: number;
-  month: number;
-  days_in_month: number;
-  daily: {
-    day: number;
-    gross_sales: number;
-    net_sales: number;
-    order_count: number;
-    quantity: number;
-    cumulative_gross: number;
-    cumulative_net: number;
-  }[];
-  total: {
-    gross_sales: number;
-    net_sales: number;
-    order_count: number;
-    quantity: number;
+interface UnmatchedItem {
+  id: number;
+  channel_id: string;
+  channel_name: string;
+  raw_product_name: string;
+  raw_option_name: string | null;
+  occurrence_count: number;
+  total_qty: number;
+  llm_suggested_product_id: number | null;
+  llm_suggested_unit_per_set: number | null;
+  llm_confidence: number | null;
+  llm_reason: string | null;
+}
+
+interface DashboardData {
+  summary: {
+    revenue: number; pcs: number; orders: number;
+    variable_cost: number; commission: number;
+    contribution_margin: number; cm_rate: number;
   };
+  series: Array<{
+    period: string; revenue: number; pcs: number; orders: number;
+    cost: number; commission: number; contribution_margin: number;
+  }>;
+  channels: Array<{
+    channel_id: string; channel_name: string; channel_category: string | null;
+    revenue: number; pcs: number; orders: number; contribution_margin: number; cm_rate: number;
+  }>;
+  products: Array<{
+    product_id: number; product_name: string;
+    revenue: number; pcs: number; orders: number; contribution_margin: number; cm_rate: number;
+  }>;
+  granularity: Granularity;
+  period_start: string;
+  period_end: string;
 }
 
-interface ChannelDailySale {
-  channel_id: string;
-  channel_name: string;
-  year: number;
-  month: number;
-  day: number;
-  gross_sales: number;
-  net_sales: number;
-  order_count: number;
-  quantity: number;
+interface VariableCost {
+  id: number;
+  product_id: number;
+  channel_id: string | null;
+  cost_per_pcs: number;
+  valid_from: string | null;
+  valid_to: string | null;
 }
 
-
-const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
-const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` }));
-
-const COLORS = [
-  '#5E6AD2', '#27A644', '#F0BF00', '#EB5757', '#7070FF', '#EB5757',
-  '#06B6D4', '#68CC58', '#FC7840', '#828FFF', '#00B8CC', '#A855F7',
-];
-
-const CATEGORY_COLORS: Record<string, string> = {
-  '오픈마켓': '#5E6AD2',
-  '소셜커머스': '#27A644',
-  '버티컬': '#F0BF00',
-  '홈쇼핑': '#EB5757',
-  '백화점': '#7070FF',
-  '복지몰': '#EB5757',
-  '대형마트': '#06B6D4',
-  '편의점': '#68CC58',
-  'B2B': '#FC7840',
-  '기타': '#6B7280',
+const fmtKR = (n: number): string => {
+  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(2)}억`;
+  if (Math.abs(n) >= 1e4) return `${(n / 1e4).toFixed(1)}만`;
+  return n.toLocaleString();
 };
+
+const fmtNum = (n: number): string => n.toLocaleString();
+const fmtPct = (n: number): string => `${n.toFixed(1)}%`;
+
+const today = new Date();
+const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+const isoDate = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+type Tab = 'dashboard' | 'upload' | 'mapping' | 'cost' | 'plan';
 
 export default function ChannelsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#08090A] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#828FFF] border-t-transparent rounded-full animate-spin" />
       </div>
     }>
-      <ChannelsPageContent />
+      <Content />
     </Suspense>
   );
 }
 
-function ChannelsPageContent() {
+function Content() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [channelSummary, setChannelSummary] = useState<ChannelSummary[]>([]);
-  const [dailySummary, setDailySummary] = useState<DailySummary | null>(null);
-  const [channelDailyDetail, setChannelDailyDetail] = useState<ChannelDailySale[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
-  const [chartMode, setChartMode] = useState<'daily' | 'cumulative'>('cumulative');
-  const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncingChannelId, setSyncingChannelId] = useState<string | null>(null);
-  const [syncResult, setSyncResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [playwrightRetryCount, setPlaywrightRetryCount] = useState(0);
-  const [playwrightRetryChannel, setPlaywrightRetryChannel] = useState<Channel | null>(null);
-  const [isRetrying, setIsRetrying] = useState(false);
-  const [cafe24Connecting, setCafe24Connecting] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [unmatched, setUnmatched] = useState<UnmatchedItem[]>([]);
+  const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
 
-  // 쿠팡 설정 모달
-  const [showCoupangSettings, setShowCoupangSettings] = useState(false);
-  const [coupangWingStatus, setCoupangWingStatus] = useState<{configured: boolean; connected: boolean; message: string} | null>(null);
-  const [coupangRocketStatus, setCoupangRocketStatus] = useState<{configured: boolean; connected: boolean; message: string; playwright_installed?: boolean} | null>(null);
+  // Filters
+  const [periodStart, setPeriodStart] = useState(isoDate(firstOfMonth));
+  const [periodEnd, setPeriodEnd] = useState(isoDate(today));
+  const [granularity, setGranularity] = useState<Granularity>('day');
+  const [selChannels, setSelChannels] = useState<string[]>([]);
+  const [selProducts, setSelProducts] = useState<number[]>([]);
 
-  // 동기화 날짜 범위 (기본: 현재 선택된 월의 1일 ~ 말일)
-  const getDefaultDates = (y: number, m: number) => {
-    const daysInMonth = new Date(y, m, 0).getDate();
-    return {
-      start: `${y}-${String(m).padStart(2, '0')}-01`,
-      end: `${y}-${String(m).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`,
-    };
-  };
-  const defaults = getDefaultDates(year, month);
-  const [syncStartDate, setSyncStartDate] = useState(defaults.start);
-  const [syncEndDate, setSyncEndDate] = useState(defaults.end);
-
-  const isPlaywrightError = (msg: string) =>
-    /Playwright|BrowserType|Executable doesn't exist|playwright install/i.test(msg);
-  const PLAYWRIGHT_USER_MSG = '서버에서 브라우저 엔진을 초기화하는 중입니다. 잠시 후 다시 시도해주세요. (서버 재시작 후 첫 동기화 시 1-2분 소요될 수 있습니다)';
-
-  const retrySync = useCallback(async (channel: Channel) => {
-    if (playwrightRetryCount >= 2) {
-      setSyncResult({ type: 'error', message: `[${channel.name}] 브라우저 엔진 준비가 완료되지 않았습니다. 잠시 후 다시 시도해주세요.` });
-      setPlaywrightRetryCount(0);
-      setPlaywrightRetryChannel(null);
-      return;
-    }
-    setIsRetrying(true);
-    setSyncResult({ type: 'error', message: `[${channel.name}] 재시도 중... (${playwrightRetryCount + 1}/2)` });
-    await new Promise(r => setTimeout(r, 3000));
-    setPlaywrightRetryCount(prev => prev + 1);
-    setIsRetrying(false);
-    // Trigger sync again
-    const endpoint = SYNC_ENDPOINTS[channel.name];
-    if (!endpoint) return;
-    setSyncingChannelId(channel.id);
-    try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ start_date: syncStartDate, end_date: syncEndDate, channel_id: channel.id }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSyncResult({ type: 'success', message: `[${channel.name}] ${data.message} (${data.processed || 0}일, ${data.created || 0}건 저장)` });
-        setPlaywrightRetryCount(0);
-        setPlaywrightRetryChannel(null);
-        fetchSummary();
-      } else {
-        const errMsg = typeof data.detail === 'string' ? data.detail : '동기화 실패';
-        if (isPlaywrightError(errMsg)) {
-          setSyncResult({ type: 'error', message: `[${channel.name}] ${PLAYWRIGHT_USER_MSG}` });
-          setPlaywrightRetryChannel(channel);
-        } else {
-          setSyncResult({ type: 'error', message: `[${channel.name}] ${errMsg}` });
-          setPlaywrightRetryChannel(null);
-        }
-      }
-    } catch (err: any) {
-      setSyncResult({ type: 'error', message: `[${channel.name}] ${err?.message || '네트워크 오류'}` });
-    }
-    setSyncingChannelId(null);
-  }, [playwrightRetryCount, syncStartDate, syncEndDate]);
-
-  // 연동 채널 필터
-  const [selectedSyncChannels, setSelectedSyncChannels] = useState<Set<string>>(new Set(['스마트스토어', '카페24']));
-  // 목표 지표
-  const [showTarget, setShowTarget] = useState(false);
-  const [monthlyTarget, setMonthlyTarget] = useState<number | null>(null);
-  // 차트 유형
-  const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
-
-  // 카페24 OAuth 연동 완료 쿼리 파라미터 처리
-  useEffect(() => {
-    const cafe24Connected = searchParams.get('cafe24_connected');
-    const cafe24Error = searchParams.get('cafe24_error');
-    if (cafe24Connected === 'true') {
-      setSyncResult({ type: 'success', message: '카페24 OAuth 연동이 완료되었습니다!' });
-      router.replace('/channels');
-    } else if (cafe24Error) {
-      setSyncResult({ type: 'error', message: `카페24 연동 실패: ${cafe24Error}` });
-      router.replace('/channels');
-    }
-  }, [searchParams, router]);
-
-  const connectCafe24 = async () => {
-    setCafe24Connecting(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/cafe24/oauth/authorize`, {
-        headers: getAuthHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        window.location.href = data.authorize_url;
-      } else {
-        const data = await res.json();
-        setSyncResult({ type: 'error', message: data.detail || '카페24 연동 URL 생성 실패' });
-        setCafe24Connecting(false);
-      }
-    } catch (err: any) {
-      setSyncResult({ type: 'error', message: `카페24 연동 실패: ${err?.message || '네트워크 오류'}` });
-      setCafe24Connecting(false);
-    }
-  };
-
-  const toggleSyncChannel = (channelName: string) => {
-    setSelectedSyncChannels(prev => {
-      const next = new Set(prev);
-      if (next.has(channelName)) {
-        next.delete(channelName);
-      } else {
-        next.add(channelName);
-      }
-      return next;
-    });
-  };
-
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  };
-
-  const fetchChannels = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/channels`, {
-        headers: getAuthHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setChannels(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch channels:', error);
-    }
-  }, []);
-
-  const initializeChannels = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/channels/initialize`, {
-        headers: getAuthHeaders(),
-      });
-      if (res.ok) {
-        await fetchChannels();
-      }
-    } catch (error) {
-      console.error('Failed to initialize channels:', error);
-    }
-  };
-
-  const fetchSummary = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [channelRes, dailyRes, detailRes] = await Promise.all([
-        fetch(`${API_BASE}/api/channels/sales/by-channel?year=${year}&month=${month}`, {
-          headers: getAuthHeaders(),
-        }),
-        fetch(`${API_BASE}/api/channels/sales/summary?year=${year}&month=${month}`, {
-          headers: getAuthHeaders(),
-        }),
-        fetch(`${API_BASE}/api/channels/sales/detail?year=${year}&month=${month}`, {
-          headers: getAuthHeaders(),
-        }),
-      ]);
-
-      if (channelRes.ok) {
-        const data = await channelRes.json();
-        setChannelSummary(data);
-      }
-      if (dailyRes.ok) {
-        const data = await dailyRes.json();
-        setDailySummary(data);
-      }
-      if (detailRes.ok) {
-        const data = await detailRes.json();
-        setChannelDailyDetail(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch summary:', error);
-    }
-    setIsLoading(false);
-  }, [year, month]);
-
-  // 목표 지표 fetch - by-criteria API로 기준명별 매출 목표 가져오기
-  const [targetByCriteria, setTargetByCriteria] = useState<Record<string, Record<string, number>>>({});
-
-  const fetchTarget = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/targets/chart/by-criteria?year=${year}&month=${month}`, {
-        headers: getAuthHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTargetByCriteria(data.by_criteria || {});
-      } else {
-        setTargetByCriteria({});
-        setMonthlyTarget(null);
-      }
-    } catch {
-      setTargetByCriteria({});
-      setMonthlyTarget(null);
-    }
-  }, [year, month]);
+  const [loading, setLoading] = useState(false);
+  const [seedDone, setSeedDone] = useState(false);
 
   useEffect(() => {
-    if (showTarget) {
-      fetchTarget();
-    } else {
-      setTargetByCriteria({});
-      setMonthlyTarget(null);
-    }
-  }, [showTarget, fetchTarget]);
-
-  // 선택된 채널에 해당하는 목표 매출 합산
-  useEffect(() => {
-    if (!showTarget) {
-      setMonthlyTarget(null);
-      return;
-    }
-    const criteriaNames = Object.keys(targetByCriteria);
-    if (criteriaNames.length === 0) {
-      setMonthlyTarget(null);
-      return;
-    }
-
-    let total = 0;
-    for (const [criteria, values] of Object.entries(targetByCriteria)) {
-      // 선택된 채널명과 기준명 매칭 (정확 일치 또는 포함)
-      const matches = Array.from(selectedSyncChannels).some(name =>
-        criteria === name || criteria.includes(name) || name.includes(criteria)
-      );
-      if (matches) {
-        total += values['매출'] || 0;
-      }
-    }
-    setMonthlyTarget(total > 0 ? total : null);
-  }, [targetByCriteria, selectedSyncChannels, showTarget]);
-
-  // 채널명 → API 동기화 엔드포인트 매핑 (연동 구현된 채널만)
-  const SYNC_ENDPOINTS: Record<string, string> = {
-    '스마트스토어': '/api/smartstore/sync',
-    '카페24': '/api/cafe24/sync',
-    '쿠팡 WING': '/api/coupang-wing/sync',
-    '쿠팡 로켓': '/api/coupang-rocket/sync',
-  };
-
-  const syncChannel = async (channel: Channel) => {
-    const endpoint = SYNC_ENDPOINTS[channel.name];
-    if (!endpoint) {
-      setSyncResult({ type: 'error', message: `${channel.name}은 아직 API 연동이 준비되지 않았습니다` });
-      return;
-    }
-
-    setSyncingChannelId(channel.id);
-    setSyncResult(null);
-
-    try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ start_date: syncStartDate, end_date: syncEndDate, channel_id: channel.id }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSyncResult({
-          type: 'success',
-          message: `[${channel.name}] ${data.message} (${data.processed || 0}일, ${data.created || 0}건 저장)`,
-        });
-        fetchSummary();
-      } else {
-        const errMsg = typeof data.detail === 'string' ? data.detail : '동기화 실패';
-        if (isPlaywrightError(errMsg)) {
-          setSyncResult({ type: 'error', message: `[${channel.name}] ${PLAYWRIGHT_USER_MSG}` });
-          setPlaywrightRetryChannel(channel);
-          setPlaywrightRetryCount(0);
-        } else {
-          setSyncResult({ type: 'error', message: `[${channel.name}] ${errMsg}` });
-        }
-      }
-    } catch (err: any) {
-      const errMsg = err?.message || '네트워크 오류';
-      if (isPlaywrightError(errMsg)) {
-        setSyncResult({ type: 'error', message: `[${channel.name}] ${PLAYWRIGHT_USER_MSG}` });
-        setPlaywrightRetryChannel(channel);
-        setPlaywrightRetryCount(0);
-      } else {
-        setSyncResult({ type: 'error', message: `[${channel.name}] ${errMsg}` });
-      }
-    }
-    setSyncingChannelId(null);
-  };
-
-  const syncAll = async () => {
-    setIsSyncing(true);
-    setSyncResult(null);
-    const apiChannels = channels.filter(c => SYNC_ENDPOINTS[c.name]);
-    if (apiChannels.length === 0) {
-      setSyncResult({ type: 'error', message: 'API 연동된 채널이 없습니다' });
-      setIsSyncing(false);
-      return;
-    }
-
-    const results: string[] = [];
-    const errors: string[] = [];
-
-    for (const channel of apiChannels) {
-      const endpoint = SYNC_ENDPOINTS[channel.name];
-      try {
-        const res = await fetch(`${API_BASE}${endpoint}`, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ start_date: syncStartDate, end_date: syncEndDate, channel_id: channel.id }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          results.push(`${channel.name}: ${data.processed || 0}일`);
-        } else {
-          const errMsg = typeof data.detail === 'string' ? data.detail : '실패';
-          errors.push(`${channel.name}: ${isPlaywrightError(errMsg) ? PLAYWRIGHT_USER_MSG : errMsg}`);
-        }
-      } catch (err: any) {
-        const errMsg = err?.message || '네트워크 오류';
-        errors.push(`${channel.name}: ${isPlaywrightError(errMsg) ? PLAYWRIGHT_USER_MSG : errMsg}`);
-      }
-    }
-
-    const message = [
-      results.length > 0 ? `성공: ${results.join(', ')}` : '',
-      errors.length > 0 ? `실패: ${errors.join(', ')}` : '',
-    ].filter(Boolean).join(' / ');
-
-    setSyncResult({
-      type: errors.length === 0 ? 'success' : results.length > 0 ? 'success' : 'error',
-      message,
-    });
-    fetchSummary();
-    setIsSyncing(false);
-  };
-
-  // 년/월 변경 시 동기화 날짜 범위도 업데이트
-  useEffect(() => {
-    const d = getDefaultDates(year, month);
-    setSyncStartDate(d.start);
-    setSyncEndDate(d.end);
-  }, [year, month]);
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
-    }
+    if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
 
-  useEffect(() => {
-    if (user) {
-      fetchChannels();
-    }
-  }, [user, fetchChannels]);
-
-  useEffect(() => {
-    if (user && channels.length === 0) {
-      // 채널이 없으면 초기화 시도
-    }
-  }, [user, channels]);
-
-  useEffect(() => {
-    if (user) {
-      fetchSummary();
-    }
-  }, [user, fetchSummary]);
-
-  // 쿠팡 채널 상태 조회
-  const fetchCoupangStatus = useCallback(async () => {
-    try {
-      const [wingRes, rocketRes] = await Promise.all([
-        fetch(`${API_BASE}/api/coupang-wing/status`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/api/coupang-rocket/status`, { headers: getAuthHeaders() }),
-      ]);
-      if (wingRes.ok) {
-        const data = await wingRes.json();
-        setCoupangWingStatus(data);
-      }
-      if (rocketRes.ok) {
-        const data = await rocketRes.json();
-        setCoupangRocketStatus(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch Coupang status:', error);
-    }
+  const authHeaders = useCallback((): HeadersInit => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
 
+  const fetchAll = useCallback(async () => {
+    try {
+      const [cRes, pRes, bRes, uRes, vRes] = await Promise.all([
+        fetch(`${API_BASE}/api/csa/channels`, { headers: authHeaders() }),
+        fetch(`${API_BASE}/api/csa/products`, { headers: authHeaders() }),
+        fetch(`${API_BASE}/api/csa/batches?limit=20`, { headers: authHeaders() }),
+        fetch(`${API_BASE}/api/csa/unmatched`, { headers: authHeaders() }),
+        fetch(`${API_BASE}/api/csa/variable-costs`, { headers: authHeaders() }),
+      ]);
+      if (cRes.ok) setChannels(await cRes.json());
+      if (pRes.ok) setProducts(await pRes.json());
+      if (bRes.ok) setBatches(await bRes.json());
+      if (uRes.ok) setUnmatched(await uRes.json());
+      if (vRes.ok) setVariableCosts(await vRes.json());
+    } catch (e) {
+      console.error(e);
+    }
+  }, [authHeaders]);
+
+  const fetchDashboard = useCallback(async () => {
+    setLoading(true);
+    try {
+      const qs = new URLSearchParams({
+        period_start: periodStart,
+        period_end: periodEnd,
+        granularity,
+      });
+      if (selChannels.length) qs.set('channel_ids', selChannels.join(','));
+      if (selProducts.length) qs.set('product_ids', selProducts.join(','));
+      const r = await fetch(`${API_BASE}/api/csa/dashboard?${qs.toString()}`, { headers: authHeaders() });
+      if (r.ok) setDashboard(await r.json());
+    } finally {
+      setLoading(false);
+    }
+  }, [authHeaders, periodStart, periodEnd, granularity, selChannels, selProducts]);
+
+  const seedIfEmpty = useCallback(async () => {
+    if (seedDone) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/seed`, { method: 'POST', headers: authHeaders() });
+      if (r.ok) setSeedDone(true);
+    } catch {}
+  }, [authHeaders, seedDone]);
+
   useEffect(() => {
-    if (user) {
-      fetchCoupangStatus();
-    }
-  }, [user, fetchCoupangStatus]);
+    if (!user) return;
+    seedIfEmpty().then(fetchAll);
+  }, [user, seedIfEmpty, fetchAll]);
 
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('ko-KR').format(Math.round(num));
-  };
+  useEffect(() => {
+    if (user) fetchDashboard();
+  }, [user, fetchDashboard]);
 
-  const formatCurrency = (num: number) => {
-    if (num >= 100000000) {
-      return `${(num / 100000000).toFixed(1)}억`;
-    }
-    if (num >= 10000) {
-      return `${(num / 10000).toFixed(0)}만`;
-    }
-    return formatNumber(num);
-  };
-
-  // 연동 채널 필터 적용된 채널 서머리
-  const syncChannelNames = Object.keys(SYNC_ENDPOINTS);
-  const filteredChannelSummary = channelSummary.filter(c => {
-    // 연동 채널이면 selectedSyncChannels에 포함되어야 표시
-    if (syncChannelNames.includes(c.channel_name)) {
-      return selectedSyncChannels.has(c.channel_name);
-    }
-    // 비연동 채널은 항상 표시
-    return true;
-  });
-
-  // 필터된 채널 기준 합계 (총 매출/주문/판매수량 카드용)
-  const filteredTotal = filteredChannelSummary.reduce(
-    (acc, c) => ({
-      gross_sales: acc.gross_sales + (c.gross_sales || 0),
-      order_count: acc.order_count + (c.order_count || 0),
-      quantity: acc.quantity + (c.quantity || 0),
-    }),
-    { gross_sales: 0, order_count: 0, quantity: 0 },
-  );
-
-  // 채널별 파이차트 데이터
-  const pieChartData = filteredChannelSummary
-    .filter(c => c.gross_sales > 0)
-    .sort((a, b) => b.gross_sales - a.gross_sales)
-    .map((c, i) => ({
-      name: c.channel_name,
-      value: c.gross_sales,
-      color: COLORS[i % COLORS.length],
-    }));
-
-  // 연동 채널 필터 적용된 일별 차트 데이터
-  const dailyChartData = (() => {
-    if (!dailySummary) return [];
-    const daysInMonth = dailySummary.days_in_month;
-
-    // 선택된 채널만 필터한 일별 집계
-    const filteredDetail = channelDailyDetail.filter(d => {
-      if (syncChannelNames.includes(d.channel_name)) {
-        return selectedSyncChannels.has(d.channel_name);
-      }
-      return true;
-    });
-
-    // 일별 합산
-    const dailyMap: Record<number, { gross_sales: number; order_count: number }> = {};
-    for (let day = 1; day <= daysInMonth; day++) {
-      dailyMap[day] = { gross_sales: 0, order_count: 0 };
-    }
-    for (const d of filteredDetail) {
-      if (dailyMap[d.day]) {
-        dailyMap[d.day].gross_sales += d.gross_sales || 0;
-        dailyMap[d.day].order_count += d.order_count || 0;
-      }
-    }
-
-    // 누계 계산 + 차트 데이터 생성
-    let cumulative = 0;
-    return Array.from({ length: daysInMonth }, (_, i) => {
-      const day = i + 1;
-      const dayData = dailyMap[day];
-      cumulative += dayData.gross_sales;
-
-      const entry: Record<string, string | number> = {
-        day: `${day}일`,
-        매출: chartMode === 'cumulative' ? cumulative : dayData.gross_sales,
-        주문: dayData.order_count,
-      };
-      if (showTarget && monthlyTarget && daysInMonth > 0) {
-        const dailyTarget = monthlyTarget / daysInMonth;
-        entry['목표'] = Math.round(chartMode === 'cumulative' ? day * dailyTarget : dailyTarget);
-      }
-      return entry;
-    });
-  })();
-
-  // 카테고리별 합계
-  const categoryTotals = filteredChannelSummary.reduce((acc, c) => {
-    const channel = channels.find(ch => ch.id === c.channel_id);
-    const category = channel?.category || '기타';
-    if (!acc[category]) {
-      acc[category] = { gross_sales: 0, order_count: 0 };
-    }
-    acc[category].gross_sales += c.gross_sales;
-    acc[category].order_count += c.order_count;
-    return acc;
-  }, {} as Record<string, { gross_sales: number; order_count: number }>);
-
-  const categoryChartData = Object.entries(categoryTotals)
-    .filter(([_, data]) => data.gross_sales > 0)
-    .map(([category, data]) => ({
-      name: category,
-      매출: data.gross_sales,
-      주문: data.order_count,
-      color: CATEGORY_COLORS[category] || '#6B7280',
-    }));
-
-  if (authLoading) {
+  if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[#8A8F98]">로딩 중...</p>
-        </div>
+      <div className="min-h-screen bg-[#08090A] flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-[#828FFF] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]">
+    <div className="min-h-screen bg-[#08090A] text-[#F7F8F8]">
       <Navigation />
+      <div className="md:ml-64 p-6 md:p-8 max-w-[1600px]">
+        <Header
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          channels={channels}
+          unmatchedCount={unmatched.length}
+        />
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* 헤더 */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-[#F7F8F8]">채널별 매출 취합</h1>
-            <p className="text-[#8A8F98] mt-1">모든 판매 채널의 매출을 한눈에 확인하세요</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={syncAll}
-              disabled={isSyncing}
-              className="px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-[#27A644] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-            >
-              {isSyncing ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  동기화 중...
-                </>
-              ) : (
-                '전체 동기화'
-              )}
-            </button>
-            {channels.length === 0 && (
-              <button
-                onClick={initializeChannels}
-                className="px-4 py-2 bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors"
-              >
-                채널 초기화
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* 동기화 결과 메시지 */}
-        {syncResult && (
-          <div className={`mb-4 p-4 rounded-xl flex items-center justify-between ${
-            syncResult.type === 'success'
-              ? 'bg-[#27A644]/10 border border-[#27A644]/30 text-[#27A644]'
-              : 'bg-[#EB5757]/10 border border-[#EB5757]/30 text-[#EB5757]'
-          }`}>
-            <span>{syncResult.message}</span>
-            <div className="flex items-center gap-2">
-              {playwrightRetryChannel && syncResult.type === 'error' && playwrightRetryCount < 2 && (
-                <button
-                  onClick={() => retrySync(playwrightRetryChannel)}
-                  disabled={isRetrying}
-                  className="px-3 py-1 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50"
-                >
-                  {isRetrying ? '재시도 중...' : '재시도'}
-                </button>
-              )}
-              <button onClick={() => { setSyncResult(null); setPlaywrightRetryChannel(null); setPlaywrightRetryCount(0); }} className="hover:opacity-70">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
+        {activeTab === 'dashboard' && (
+          <DashboardTab
+            data={dashboard}
+            loading={loading}
+            channels={channels}
+            products={products}
+            periodStart={periodStart}
+            periodEnd={periodEnd}
+            setPeriodStart={setPeriodStart}
+            setPeriodEnd={setPeriodEnd}
+            granularity={granularity}
+            setGranularity={setGranularity}
+            selChannels={selChannels}
+            setSelChannels={setSelChannels}
+            selProducts={selProducts}
+            setSelProducts={setSelProducts}
+          />
         )}
 
-        {/* 필터 & 총합계 */}
-        <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6 mb-6">
-          <div className="flex flex-wrap items-center gap-4 mb-6">
-            {/* 대시보드 조회 기간 */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-[#8A8F98]">조회:</label>
-              <select
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value))}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
-              >
-                {years.map((y) => (
-                  <option key={y} value={y}>{y}년</option>
-                ))}
-              </select>
-              <select
-                value={month}
-                onChange={(e) => setMonth(Number(e.target.value))}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
-              >
-                {months.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="w-px h-8 bg-[#232326]" />
-
-            {/* 동기화 기간 */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-[#8A8F98]">동기화 기간:</label>
-              <input
-                type="date"
-                value={syncStartDate}
-                onChange={(e) => setSyncStartDate(e.target.value)}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
-              />
-              <span className="text-[#62666D]">~</span>
-              <input
-                type="date"
-                value={syncEndDate}
-                onChange={(e) => setSyncEndDate(e.target.value)}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
-              />
-            </div>
-          </div>
-
-          {/* 연동 채널 필터 + 목표 지표 체크박스 */}
-          <div className="flex flex-wrap items-center gap-4 mb-6 pt-2 border-t border-[#23252A]">
-            <span className="text-sm font-medium text-[#8A8F98]">연동 채널:</span>
-            {syncChannelNames.map(name => (
-              <label key={name} className="flex items-center gap-1.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={selectedSyncChannels.has(name)}
-                  onChange={() => toggleSyncChannel(name)}
-                  className="w-4 h-4 rounded border-[#23252A] text-[#7070FF] focus:ring-[#5E6AD2]"
-                />
-                <span className="text-sm text-[#D0D6E0]">{name}</span>
-              </label>
-            ))}
-
-            <div className="w-px h-6 bg-[#232326]" />
-
-            <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={showTarget}
-                onChange={() => setShowTarget(prev => !prev)}
-                className="w-4 h-4 rounded border-[#23252A] text-[#F0BF00] focus:ring-[#F0BF00]"
-              />
-              <span className="text-sm text-[#D0D6E0]">목표 지표</span>
-            </label>
-          </div>
-
-          {/* 총합계 카드 (선택된 채널 기준) */}
-          {dailySummary && (
-            <div className={`grid grid-cols-2 gap-4 ${showTarget && monthlyTarget ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
-              <div className="bg-gradient-to-br from-[#08090A] to-[#5E6AD2]/15 p-4 rounded-xl border border-[#5E6AD2]/30">
-                <p className="text-sm text-[#7070FF] mb-1">총 매출</p>
-                <p className="text-2xl font-bold text-[#828FFF]">
-                  {formatCurrency(filteredTotal.gross_sales)}원
-                </p>
-              </div>
-              <div className="bg-gradient-to-br from-[#27A644]/10 to-[#27A644]/15 p-4 rounded-xl border border-[#27A644]/25">
-                <p className="text-sm text-[#27A644] mb-1">총 주문</p>
-                <p className="text-2xl font-bold text-[#27A644]">
-                  {formatNumber(filteredTotal.order_count)}건
-                </p>
-              </div>
-              <div className="bg-gradient-to-br from-[#F0BF00]/10 to-[#F0BF00]/15 p-4 rounded-xl border border-[#F0BF00]/30">
-                <p className="text-sm text-[#F0BF00] mb-1">총 판매수량</p>
-                <p className="text-2xl font-bold text-[#F0BF00]">
-                  {formatNumber(filteredTotal.quantity)}개
-                </p>
-              </div>
-              <div className="bg-gradient-to-br from-[#5E6AD2]/10 to-[#5E6AD2]/15 p-4 rounded-xl border border-[#5E6AD2]/30">
-                <p className="text-sm text-[#7070FF] mb-1">활성 채널</p>
-                <p className="text-2xl font-bold text-[#828FFF]">
-                  {filteredChannelSummary.length}개
-                </p>
-              </div>
-              {showTarget && monthlyTarget !== null && (
-                <div className="bg-gradient-to-br from-[#EB5757]/10 to-[#EB5757]/15 p-4 rounded-xl border border-[#EB5757]/25">
-                  <p className="text-sm text-[#EB5757] mb-1">월 목표 / 달성률</p>
-                  <p className="text-2xl font-bold text-[#D04040]">
-                    {formatCurrency(monthlyTarget)}원
-                  </p>
-                  <p className="text-sm text-[#EB5757] mt-1">
-                    {filteredTotal.gross_sales > 0
-                      ? `${((filteredTotal.gross_sales / monthlyTarget) * 100).toFixed(1)}%`
-                      : '0%'}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 차트 영역 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* 일별 매출 추이 */}
-          <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-[#F7F8F8]">일별 매출 추이</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setChartMode('daily')}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                    chartMode === 'daily'
-                      ? 'bg-[#5E6AD2] text-white'
-                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
-                  }`}
-                >
-                  일계
-                </button>
-                <button
-                  onClick={() => setChartMode('cumulative')}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                    chartMode === 'cumulative'
-                      ? 'bg-[#5E6AD2] text-white'
-                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
-                  }`}
-                >
-                  누계
-                </button>
-                <div className="w-px h-6 bg-[#232326]" />
-                <button
-                  onClick={() => setChartType('bar')}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                    chartType === 'bar'
-                      ? 'bg-[#5E6AD2] text-white'
-                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
-                  }`}
-                >
-                  막대
-                </button>
-                <button
-                  onClick={() => setChartType('line')}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                    chartType === 'line'
-                      ? 'bg-[#5E6AD2] text-white'
-                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
-                  }`}
-                >
-                  선형
-                </button>
-              </div>
-            </div>
-            {isLoading ? (
-              <div className="h-64 flex items-center justify-center">
-                <div className="w-8 h-8 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : dailyChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                {chartType === 'line' ? (
-                  <LineChart data={dailyChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                    <YAxis tickFormatter={(value) => formatCurrency(value)} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value: number, name: string) => [`${formatNumber(value)}원`, name]} />
-                    <Legend />
-                    <Line type="monotone" dataKey="매출" stroke="#5E6AD2" strokeWidth={2} dot={false} />
-                    {showTarget && monthlyTarget && (
-                      <Line type="monotone" dataKey="목표" stroke="#EB5757" strokeWidth={2} strokeDasharray="6 3" dot={false} />
-                    )}
-                  </LineChart>
-                ) : (
-                  <ComposedChart data={dailyChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                    <YAxis tickFormatter={(value) => formatCurrency(value)} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value: number, name: string) => [`${formatNumber(value)}원`, name]} />
-                    <Legend />
-                    <Bar dataKey="매출" fill="#5E6AD2" />
-                    {showTarget && monthlyTarget && (
-                      <Line type="monotone" dataKey="목표" stroke="#EB5757" strokeWidth={2} strokeDasharray="6 3" dot={false} />
-                    )}
-                  </ComposedChart>
-                )}
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-[#62666D]">
-                데이터가 없습니다
-              </div>
-            )}
-          </div>
-
-          {/* 채널별 매출 비중 */}
-          <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6">
-            <h3 className="text-lg font-semibold text-[#F7F8F8] mb-4">채널별 매출 비중</h3>
-            {pieChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie
-                    data={pieChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={2}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    {pieChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => [`${formatNumber(value)}원`, '매출']} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-[#62666D]">
-                데이터가 없습니다
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 카테고리별 매출 */}
-        {categoryChartData.length > 0 && (
-          <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-6 mb-6">
-            <h3 className="text-lg font-semibold text-[#F7F8F8] mb-4">카테고리별 매출</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={categoryChartData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" tickFormatter={(value) => formatCurrency(value)} tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value: number) => [`${formatNumber(value)}원`, '매출']} />
-                <Bar dataKey="매출" fill="#5E6AD2">
-                  {categoryChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        {activeTab === 'upload' && (
+          <UploadTab
+            channels={channels}
+            batches={batches}
+            authHeaders={authHeaders}
+            onUploaded={() => { fetchAll(); fetchDashboard(); }}
+          />
         )}
 
-        {/* 채널 목록 & 데이터 입력 */}
-        <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-[#F7F8F8]">채널별 상세</h3>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setViewMode('chart')}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                  viewMode === 'chart'
-                    ? 'bg-[#5E6AD2] text-white'
-                    : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
-                }`}
-              >
-                카드뷰
-              </button>
-              <button
-                onClick={() => setViewMode('table')}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                  viewMode === 'table'
-                    ? 'bg-[#5E6AD2] text-white'
-                    : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
-                }`}
-              >
-                테이블
-              </button>
-            </div>
-          </div>
+        {activeTab === 'mapping' && (
+          <MappingTab
+            unmatched={unmatched}
+            products={products}
+            authHeaders={authHeaders}
+            onResolved={() => { fetchAll(); fetchDashboard(); }}
+          />
+        )}
 
-          {viewMode === 'chart' ? (
-            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {channels.map((channel) => {
-                const summary = channelSummary.find(s => s.channel_id === channel.id);
-                return (
-                  <div
-                    key={channel.id}
-                    className="border border-[#23252A] rounded-xl p-4 hover:shadow-[0px_3px_12px_rgba(0,0,0,0.2)] transition-shadow"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-[#F7F8F8]">{channel.name}</h4>
-                      <span
-                        className="px-2 py-0.5 text-xs rounded-full"
-                        style={{
-                          backgroundColor: `${CATEGORY_COLORS[channel.category] || '#6B7280'}20`,
-                          color: CATEGORY_COLORS[channel.category] || '#6B7280',
-                        }}
-                      >
-                        {channel.category}
-                      </span>
-                    </div>
-                    <div className="text-sm text-[#8A8F98] mb-3">
-                      {channel.integration_type === 'api' && '🔗 API 연동'}
-                      {channel.integration_type === 'rpa' && '🤖 RPA 자동화'}
-                      {channel.integration_type === 'manual' && '📤 수동 업로드'}
-                      {SYNC_ENDPOINTS[channel.name] && (
-                        <span className="ml-2 text-[#27A644] text-xs font-medium">연동완료</span>
-                      )}
-                    </div>
-                    {summary ? (
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[#8A8F98]">매출</span>
-                          <span className="font-medium text-[#7070FF]">{formatCurrency(summary.gross_sales)}원</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[#8A8F98]">주문</span>
-                          <span className="font-medium text-[#27A644]">{formatNumber(summary.order_count)}건</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-[#62666D] text-center py-2">
-                        데이터 없음
-                      </div>
-                    )}
-                    <div className="flex gap-2 mt-3 pt-3 border-t border-[#23252A]">
-                      {channel.name === '카페24' && !SYNC_ENDPOINTS[channel.name] ? null : channel.name === '카페24' ? (
-                        <>
-                          <button
-                            onClick={connectCafe24}
-                            disabled={cafe24Connecting}
-                            className="flex-1 px-3 py-1.5 text-xs bg-[#FC7840]/10 text-[#FC7840] rounded-lg hover:bg-[#FC7840]/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            {cafe24Connecting ? 'OAuth 연동 중...' : 'OAuth 연동'}
-                          </button>
-                          <button
-                            onClick={() => syncChannel(channel)}
-                            disabled={syncingChannelId === channel.id || isSyncing}
-                            className="flex-1 px-3 py-1.5 text-xs bg-[#27A644]/10 text-[#27A644] rounded-lg hover:bg-[#27A644]/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
-                          >
-                            {syncingChannelId === channel.id ? (
-                              <>
-                                <div className="w-3 h-3 border-2 border-[#27A644] border-t-transparent rounded-full animate-spin" />
-                                동기화 중
-                              </>
-                            ) : (
-                              '동기화'
-                            )}
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => syncChannel(channel)}
-                          disabled={syncingChannelId === channel.id || isSyncing}
-                          className="flex-1 px-3 py-1.5 text-xs bg-[#27A644]/10 text-[#27A644] rounded-lg hover:bg-[#27A644]/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
-                        >
-                          {syncingChannelId === channel.id ? (
-                            <>
-                              <div className="w-3 h-3 border-2 border-[#27A644] border-t-transparent rounded-full animate-spin" />
-                              동기화 중
-                            </>
-                          ) : (
-                            '동기화'
-                          )}
-                        </button>
-                      )}
-                      {(channel.name === '쿠팡 WING' || channel.name === '쿠팡 로켓') && (
-                        <button
-                          onClick={() => setShowCoupangSettings(true)}
-                          className="flex-1 px-3 py-1.5 text-xs bg-[#F0BF00]/10 text-[#F0BF00] rounded-lg hover:bg-[#F0BF00]/15 transition-colors"
-                        >
-                          설정
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setSelectedChannel(channel);
-                          setShowUploadModal(true);
-                        }}
-                        className="flex-1 px-3 py-1.5 text-xs bg-[#5E6AD2]/10 text-[#828FFF] rounded-lg hover:bg-[#5E6AD2]/15 transition-colors"
-                      >
-                        수동입력
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-[#08090A]">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-[#8A8F98]">채널</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-[#8A8F98]">카테고리</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-[#8A8F98]">매출</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-[#8A8F98]">주문수</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-[#8A8F98]">판매수량</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-[#8A8F98]">연동</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-[#8A8F98]">작업</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#23252A]">
-                  {channels.map((channel) => {
-                    const summary = channelSummary.find(s => s.channel_id === channel.id);
-                    return (
-                      <tr key={channel.id} className="hover:bg-white/5/5">
-                        <td className="px-4 py-3 text-sm font-medium text-[#F7F8F8]">{channel.name}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className="px-2 py-0.5 text-xs rounded-full"
-                            style={{
-                              backgroundColor: `${CATEGORY_COLORS[channel.category] || '#6B7280'}20`,
-                              color: CATEGORY_COLORS[channel.category] || '#6B7280',
-                            }}
-                          >
-                            {channel.category}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-[#7070FF]">
-                          {summary ? `${formatNumber(summary.gross_sales)}원` : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-[#8A8F98]">
-                          {summary ? formatNumber(summary.order_count) : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-[#8A8F98]">
-                          {summary ? formatNumber(summary.quantity) : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-center text-sm">
-                          {channel.integration_type === 'api' && '🔗'}
-                          {channel.integration_type === 'rpa' && '🤖'}
-                          {channel.integration_type === 'manual' && '📤'}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => syncChannel(channel)}
-                              disabled={syncingChannelId === channel.id || isSyncing}
-                              className="px-3 py-1 text-sm bg-[#27A644]/15 text-[#27A644] rounded-lg hover:bg-[#27A644]/25 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                              {syncingChannelId === channel.id ? '...' : '동기화'}
-                            </button>
-                            {(channel.name === '쿠팡 WING' || channel.name === '쿠팡 로켓') && (
-                              <button
-                                onClick={() => setShowCoupangSettings(true)}
-                                className="px-3 py-1 text-sm bg-[#F0BF00]/15 text-[#F0BF00] rounded-lg hover:bg-[#F0BF00]/25 transition-colors"
-                              >
-                                설정
-                              </button>
-                            )}
-                            <button
-                              onClick={() => {
-                                setSelectedChannel(channel);
-                                setShowUploadModal(true);
-                              }}
-                              className="px-3 py-1 text-sm bg-[#5E6AD2]/15 text-[#828FFF] rounded-lg hover:bg-[#5E6AD2]/25 transition-colors"
-                            >
-                              수동입력
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        {activeTab === 'cost' && (
+          <CostTab
+            products={products}
+            variableCosts={variableCosts}
+            authHeaders={authHeaders}
+            onUpdated={() => { fetchAll(); fetchDashboard(); }}
+          />
+        )}
+
+        {activeTab === 'plan' && (
+          <PlanTab dashboard={dashboard} />
+        )}
       </div>
-
-      {/* 업로드 모달 */}
-      {showUploadModal && selectedChannel && (
-        <UploadModal
-          channel={selectedChannel}
-          year={year}
-          month={month}
-          onClose={() => {
-            setShowUploadModal(false);
-            setSelectedChannel(null);
-          }}
-          onSuccess={() => {
-            setShowUploadModal(false);
-            setSelectedChannel(null);
-            fetchSummary();
-          }}
-        />
-      )}
-
-      {/* 쿠팡 설정 모달 */}
-      {showCoupangSettings && (
-        <CoupangSettingsModal
-          onClose={() => setShowCoupangSettings(false)}
-          coupangWingStatus={coupangWingStatus}
-          coupangRocketStatus={coupangRocketStatus}
-          onStatusUpdate={() => fetchCoupangStatus()}
-        />
-      )}
-    </main>
+    </div>
   );
 }
 
-// 쿠팡 설정 모달 컴포넌트
-function CoupangSettingsModal({
-  onClose,
-  coupangWingStatus,
-  coupangRocketStatus,
-  onStatusUpdate,
+function Header({
+  activeTab, setActiveTab, channels, unmatchedCount,
 }: {
-  onClose: () => void;
-  coupangWingStatus: { configured: boolean; connected: boolean; message: string } | null;
-  coupangRocketStatus: { configured: boolean; connected: boolean; message: string; playwright_installed?: boolean } | null;
-  onStatusUpdate: () => void;
+  activeTab: Tab; setActiveTab: (t: Tab) => void;
+  channels: Channel[]; unmatchedCount: number;
 }) {
-  const [activeTab, setActiveTab] = useState<'wing' | 'rocket'>('wing');
-
-  // 쿠팡 WING 폼
-  const [wingVendorId, setWingVendorId] = useState('');
-  const [wingAccessKey, setWingAccessKey] = useState('');
-  const [wingSecretKey, setWingSecretKey] = useState('');
-  const [wingSaving, setWingSaving] = useState(false);
-  const [wingTesting, setWingTesting] = useState(false);
-  const [wingMessage, setWingMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // 쿠팡 로켓 폼
-  const [rocketLoginId, setRocketLoginId] = useState('');
-  const [rocketLoginPassword, setRocketLoginPassword] = useState('');
-  const [rocketSaving, setRocketSaving] = useState(false);
-  const [rocketTesting, setRocketTesting] = useState(false);
-  const [rocketMessage, setRocketMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  };
-
-  // 쿠팡 WING 저장
-  const saveWingCredentials = async () => {
-    if (!wingVendorId || !wingAccessKey || !wingSecretKey) {
-      setWingMessage({ type: 'error', text: '모든 필드를 입력해주세요' });
-      return;
-    }
-    setWingSaving(true);
-    setWingMessage(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/coupang-wing/credentials`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          vendor_id: wingVendorId,
-          access_key: wingAccessKey,
-          secret_key: wingSecretKey,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setWingMessage({ type: 'success', text: data.message || '저장되었습니다' });
-        onStatusUpdate();
-      } else {
-        setWingMessage({ type: 'error', text: typeof data.detail === 'string' ? data.detail : '저장 실패' });
-      }
-    } catch (err: any) {
-      setWingMessage({ type: 'error', text: err?.message || '네트워크 오류' });
-    }
-    setWingSaving(false);
-  };
-
-  // 쿠팡 WING 연결 테스트
-  const testWingConnection = async () => {
-    setWingTesting(true);
-    setWingMessage(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/coupang-wing/status`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        if (data.connected) {
-          setWingMessage({ type: 'success', text: data.message || '연결 성공' });
-        } else if (data.configured) {
-          setWingMessage({ type: 'error', text: data.message || '인증 정보가 설정되었으나 연결에 실패했습니다' });
-        } else {
-          setWingMessage({ type: 'error', text: data.message || '인증 정보가 설정되지 않았습니다' });
-        }
-        onStatusUpdate();
-      } else {
-        setWingMessage({ type: 'error', text: '상태 조회 실패' });
-      }
-    } catch (err: any) {
-      setWingMessage({ type: 'error', text: err?.message || '네트워크 오류' });
-    }
-    setWingTesting(false);
-  };
-
-  // 쿠팡 로켓 저장
-  const saveRocketCredentials = async () => {
-    if (!rocketLoginId || !rocketLoginPassword) {
-      setRocketMessage({ type: 'error', text: '모든 필드를 입력해주세요' });
-      return;
-    }
-    setRocketSaving(true);
-    setRocketMessage(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/coupang-rocket/credentials`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          login_id: rocketLoginId,
-          login_password: rocketLoginPassword,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setRocketMessage({ type: 'success', text: data.message || '저장되었습니다' });
-        onStatusUpdate();
-      } else {
-        setRocketMessage({ type: 'error', text: typeof data.detail === 'string' ? data.detail : '저장 실패' });
-      }
-    } catch (err: any) {
-      setRocketMessage({ type: 'error', text: err?.message || '네트워크 오류' });
-    }
-    setRocketSaving(false);
-  };
-
-  // 쿠팡 로켓 연결 테스트
-  const testRocketConnection = async () => {
-    setRocketTesting(true);
-    setRocketMessage(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/coupang-rocket/status`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        if (data.connected) {
-          setRocketMessage({ type: 'success', text: data.message || '연결 성공' });
-        } else if (data.configured) {
-          setRocketMessage({ type: 'error', text: data.message || '인증 정보가 설정되었으나 연결에 실패했습니다' });
-        } else {
-          setRocketMessage({ type: 'error', text: data.message || '인증 정보가 설정되지 않았습니다' });
-        }
-        onStatusUpdate();
-      } else {
-        setRocketMessage({ type: 'error', text: '상태 조회 실패' });
-      }
-    } catch (err: any) {
-      setRocketMessage({ type: 'error', text: err?.message || '네트워크 오류' });
-    }
-    setRocketTesting(false);
-  };
-
-  const wingStatus = coupangWingStatus;
-  const rocketStatus = coupangRocketStatus;
+  const parsersReady = channels.filter(c => c.has_parser).length;
+  const tabs: Array<{ key: Tab; label: string; badge?: number }> = [
+    { key: 'dashboard', label: '대시보드' },
+    { key: 'upload', label: '엑셀 업로드' },
+    { key: 'mapping', label: '매핑 대기', badge: unmatchedCount },
+    { key: 'cost', label: '변동비 설정' },
+    { key: 'plan', label: '사업계획 비교' },
+  ];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg max-h-[90vh] overflow-hidden">
-        {/* 헤더 */}
-        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-[#F7F8F8]">쿠팡 채널 설정</h3>
-          <button onClick={onClose} className="text-[#62666D] hover:text-[#D0D6E0]">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+    <div className="mb-6">
+      <div className="flex items-baseline justify-between mb-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">채널별 매출 취합·분석</h1>
+          <p className="text-sm text-[#8A8F98] mt-1">
+            채널 엑셀 업로드 → 자동 정규화 → 실시간 공헌이익 분석.
+            {' '}<span className="text-[#62666D]">파서 준비 채널 {parsersReady}/{channels.length}</span>
+          </p>
         </div>
+      </div>
+      <div className="flex gap-1 border-b border-[#23252A]">
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5 ${
+              activeTab === t.key
+                ? 'text-[#F7F8F8] border-[#828FFF]'
+                : 'text-[#8A8F98] border-transparent hover:text-[#D0D6E0]'
+            }`}
+          >
+            {t.label}
+            {t.badge !== undefined && t.badge > 0 && (
+              <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-[#F0BF00] text-[#08090A]">
+                {t.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-        {/* 탭 */}
-        <div className="px-6 pt-4">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab('wing')}
-              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'wing'
-                  ? 'bg-[#5E6AD2] text-white'
-                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
-              }`}
-            >
-              쿠팡 WING
-            </button>
-            <button
-              onClick={() => setActiveTab('rocket')}
-              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'rocket'
-                  ? 'bg-[#5E6AD2] text-white'
-                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
-              }`}
-            >
-              쿠팡 로켓
-            </button>
+// ──────────────────────────────────────────────────────────────
+// Dashboard Tab
+// ──────────────────────────────────────────────────────────────
+
+function DashboardTab({
+  data, loading, channels, products,
+  periodStart, periodEnd, setPeriodStart, setPeriodEnd,
+  granularity, setGranularity,
+  selChannels, setSelChannels, selProducts, setSelProducts,
+}: any) {
+  return (
+    <div>
+      {/* Filter bar */}
+      <div className={`${PANEL} p-4 mb-5`}>
+        <div className="flex flex-wrap gap-3 items-end">
+          <DateInput label="시작" value={periodStart} onChange={setPeriodStart} />
+          <DateInput label="종료" value={periodEnd} onChange={setPeriodEnd} />
+          <Segment
+            label="단위"
+            options={[
+              { v: 'day', l: '일' }, { v: 'month', l: '월' },
+              { v: 'quarter', l: '분기' }, { v: 'year', l: '년' },
+            ]}
+            value={granularity}
+            onChange={setGranularity}
+          />
+          <MultiSelect
+            label="채널"
+            options={channels.map((c: Channel) => ({ v: c.id, l: c.name, group: c.category }))}
+            value={selChannels}
+            onChange={setSelChannels}
+          />
+          <MultiSelect
+            label="품목"
+            options={products.map((p: Product) => ({ v: String(p.id), l: p.name }))}
+            value={selProducts.map((n: number) => String(n))}
+            onChange={(vs: string[]) => setSelProducts(vs.map(s => parseInt(s)))}
+          />
+          <div className="ml-auto">
+            {(selChannels.length > 0 || selProducts.length > 0) && (
+              <button
+                onClick={() => { setSelChannels([]); setSelProducts([]); }}
+                className="text-xs text-[#8A8F98] hover:text-[#F7F8F8] px-3 py-2"
+              >
+                필터 초기화
+              </button>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* 탭 컨텐츠 */}
-        <div className="p-6">
-          {activeTab === 'wing' ? (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
-                  업체코드 (Vendor ID)
-                </label>
-                <input
-                  type="text"
-                  value={wingVendorId}
-                  onChange={(e) => setWingVendorId(e.target.value)}
-                  placeholder="업체코드를 입력하세요"
-                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
-                  Access Key
-                </label>
-                <input
-                  type="text"
-                  value={wingAccessKey}
-                  onChange={(e) => setWingAccessKey(e.target.value)}
-                  placeholder="Access Key를 입력하세요"
-                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
-                  Secret Key
-                </label>
-                <input
-                  type="password"
-                  value={wingSecretKey}
-                  onChange={(e) => setWingSecretKey(e.target.value)}
-                  placeholder="Secret Key를 입력하세요"
-                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
-                />
-              </div>
+      {/* KPI */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+        <KpiCard label="순매출" value={data ? `₩${fmtKR(data.summary.revenue)}` : '—'} hint={data ? `${fmtNum(data.summary.orders)} 주문` : ''} />
+        <KpiCard label="판매수량 (낱개)" value={data ? fmtNum(Math.round(data.summary.pcs)) : '—'} hint={data ? '입수 환산 적용' : ''} />
+        <KpiCard label="공헌이익" value={data ? `₩${fmtKR(data.summary.contribution_margin)}` : '—'} hint={data ? `변동비 ₩${fmtKR(data.summary.variable_cost)} 차감` : ''} accent="#27A644" />
+        <KpiCard label="공헌이익률" value={data ? fmtPct(data.summary.cm_rate) : '—'} hint={data && data.summary.commission ? `수수료 ₩${fmtKR(data.summary.commission)}` : ''} accent="#828FFF" />
+      </div>
 
-              {/* 상태 표시 */}
-              <div className="flex items-center gap-2 text-sm">
-                {wingStatus ? (
-                  wingStatus.connected ? (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#27A644]" />
-                      <span className="text-[#27A644]">연결됨</span>
-                    </>
-                  ) : wingStatus.configured ? (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#F0BF00]/100" />
-                      <span className="text-[#F0BF00]">설정됨 (미연결)</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#28282C]" />
-                      <span className="text-[#8A8F98]">미설정</span>
-                    </>
-                  )
-                ) : (
-                  <>
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#28282C]" />
-                    <span className="text-[#8A8F98]">상태 확인 중...</span>
-                  </>
-                )}
-              </div>
+      {/* 시리즈 + 채널 도넛 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+        <div className={`${PANEL} p-5 lg:col-span-2`}>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-sm font-semibold text-[#F7F8F8]">기간별 매출/공헌이익 추이</h2>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#62666D]">
+              {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
+            </span>
+          </div>
+          {loading ? (
+            <Skeleton h={300} />
+          ) : data && data.series.length ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={data.series} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
+                <XAxis dataKey="period" stroke="#62666D" tick={{ fill: '#8A8F98', fontSize: 11 }} />
+                <YAxis stroke="#62666D" tick={{ fill: '#8A8F98', fontSize: 11 }} tickFormatter={fmtKR} />
+                <Tooltip
+                  contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8' }}
+                  formatter={(v: number) => `₩${fmtKR(v)}`}
+                />
+                <Legend wrapperStyle={{ fontSize: 11, color: '#8A8F98' }} />
+                <Bar dataKey="revenue" name="순매출" fill="#828FFF" opacity={0.7} />
+                <Line type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="#27A644" strokeWidth={2} dot={{ r: 3 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          ) : <Empty />}
+        </div>
 
-              {/* 메시지 */}
-              {wingMessage && (
-                <div className={`p-3 text-sm rounded-lg ${
-                  wingMessage.type === 'success'
-                    ? 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/30'
-                    : 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
-                }`}>
-                  {wingMessage.text}
-                </div>
+        <div className={`${PANEL} p-5`}>
+          <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">채널별 매출 비중</h2>
+          {data && data.channels.length ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={data.channels.slice(0, 12)}
+                  dataKey="revenue"
+                  nameKey="channel_name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={90}
+                  paddingAngle={2}
+                >
+                  {data.channels.slice(0, 12).map((_: any, i: number) => (
+                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8', fontSize: 11 }}
+                  formatter={(v: number, name: string) => [`₩${fmtKR(v)}`, name]}
+                />
+                <Legend wrapperStyle={{ fontSize: 10, color: '#8A8F98' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : <Empty />}
+        </div>
+      </div>
+
+      {/* 품목 도넛 + 공헌이익률 도넛 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+        <div className={`${PANEL} p-5`}>
+          <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">품목별 매출 비중</h2>
+          {data && data.products.length ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={data.products.slice(0, 15)}
+                  dataKey="revenue"
+                  nameKey="product_name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={90}
+                  paddingAngle={2}
+                >
+                  {data.products.slice(0, 15).map((_: any, i: number) => (
+                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8', fontSize: 11 }}
+                  formatter={(v: number, name: string) => [`₩${fmtKR(v)}`, name]}
+                />
+                <Legend wrapperStyle={{ fontSize: 10, color: '#8A8F98' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : <Empty />}
+        </div>
+
+        <div className={`${PANEL} p-5`}>
+          <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">품목별 공헌이익 (Top 12)</h2>
+          {data && data.products.length ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={data.products.slice(0, 12)} layout="vertical" margin={{ left: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
+                <XAxis type="number" stroke="#62666D" tick={{ fill: '#8A8F98', fontSize: 11 }} tickFormatter={fmtKR} />
+                <YAxis type="category" dataKey="product_name" stroke="#62666D" tick={{ fill: '#8A8F98', fontSize: 11 }} width={70} />
+                <Tooltip
+                  contentStyle={{ background: '#08090A', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8' }}
+                  formatter={(v: number) => `₩${fmtKR(v)}`}
+                />
+                <Bar dataKey="contribution_margin" fill="#27A644" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <Empty />}
+        </div>
+      </div>
+
+      {/* 품목 테이블 */}
+      <div className={`${PANEL} p-5 mb-5`}>
+        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">품목별 상세</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+                <th className="text-left py-2.5 px-2">품목</th>
+                <th className="text-right py-2.5 px-2">낱개수량</th>
+                <th className="text-right py-2.5 px-2">주문건수</th>
+                <th className="text-right py-2.5 px-2">순매출</th>
+                <th className="text-right py-2.5 px-2">공헌이익</th>
+                <th className="text-right py-2.5 px-2">공헌이익률</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data && data.products.length ? (
+                data.products.map((p: any) => (
+                  <tr key={p.product_id} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                    <td className="py-2 px-2 text-[#F7F8F8]">{p.product_name}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(p.pcs))}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(p.orders)}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(p.revenue)}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[#27A644]">₩{fmtKR(p.contribution_margin)}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(p.cm_rate)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan={6} className="py-8 text-center text-[#62666D]">데이터가 없습니다. 엑셀을 업로드해보세요.</td></tr>
               )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-              {/* 버튼 */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={testWingConnection}
-                  disabled={wingTesting}
-                  className="flex-1 px-4 py-2 text-sm bg-[#141516] text-[#D0D6E0] rounded-lg hover:bg-white/5/7 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                >
-                  {wingTesting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-[#34343A] border-t-transparent rounded-full animate-spin" />
-                      테스트 중...
-                    </>
-                  ) : (
-                    '연결 테스트'
-                  )}
-                </button>
-                <button
-                  onClick={saveWingCredentials}
-                  disabled={wingSaving}
-                  className="flex-1 px-4 py-2 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                >
-                  {wingSaving ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      저장 중...
-                    </>
-                  ) : (
-                    '저장'
-                  )}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
-                  로그인 ID
-                </label>
-                <input
-                  type="text"
-                  value={rocketLoginId}
-                  onChange={(e) => setRocketLoginId(e.target.value)}
-                  placeholder="쿠팡 로그인 ID를 입력하세요"
-                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
-                  로그인 비밀번호
-                </label>
-                <input
-                  type="password"
-                  value={rocketLoginPassword}
-                  onChange={(e) => setRocketLoginPassword(e.target.value)}
-                  placeholder="로그인 비밀번호를 입력하세요"
-                  className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
-                />
-              </div>
-
-              {/* 상태 표시 */}
-              <div className="flex items-center gap-2 text-sm">
-                {rocketStatus ? (
-                  rocketStatus.connected ? (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#27A644]" />
-                      <span className="text-[#27A644]">연결됨</span>
-                    </>
-                  ) : rocketStatus.configured ? (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#F0BF00]/100" />
-                      <span className="text-[#F0BF00]">설정됨 (미연결)</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#28282C]" />
-                      <span className="text-[#8A8F98]">미설정</span>
-                    </>
-                  )
-                ) : (
-                  <>
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#28282C]" />
-                    <span className="text-[#8A8F98]">상태 확인 중...</span>
-                  </>
-                )}
-                {rocketStatus && rocketStatus.playwright_installed === false && (
-                  <span className="ml-2 text-xs text-[#F0BF00]">서버에서 브라우저 엔진을 준비 중입니다. 1-2분 후 새로고침해주세요.</span>
-                )}
-              </div>
-
-              {/* 메시지 */}
-              {rocketMessage && (
-                <div className={`p-3 text-sm rounded-lg ${
-                  rocketMessage.type === 'success'
-                    ? 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/30'
-                    : 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
-                }`}>
-                  {rocketMessage.text}
-                </div>
+      {/* 채널 테이블 */}
+      <div className={`${PANEL} p-5`}>
+        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">채널별 상세</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+                <th className="text-left py-2.5 px-2">채널</th>
+                <th className="text-left py-2.5 px-2">카테고리</th>
+                <th className="text-right py-2.5 px-2">낱개수량</th>
+                <th className="text-right py-2.5 px-2">주문건수</th>
+                <th className="text-right py-2.5 px-2">순매출</th>
+                <th className="text-right py-2.5 px-2">공헌이익</th>
+                <th className="text-right py-2.5 px-2">공헌이익률</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data && data.channels.length ? (
+                data.channels.map((c: any) => (
+                  <tr key={c.channel_id} className="border-b border-[#1A1B1F] hover:bg-[#0A0B0D]">
+                    <td className="py-2 px-2 text-[#F7F8F8]">{c.channel_name}</td>
+                    <td className="py-2 px-2 text-[#8A8F98]">{c.channel_category || '-'}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(c.pcs))}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(c.orders)}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(c.revenue)}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[#27A644]">₩{fmtKR(c.contribution_margin)}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(c.cm_rate)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan={7} className="py-8 text-center text-[#62666D]">데이터가 없습니다.</td></tr>
               )}
-
-              {/* 버튼 */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={testRocketConnection}
-                  disabled={rocketTesting}
-                  className="flex-1 px-4 py-2 text-sm bg-[#141516] text-[#D0D6E0] rounded-lg hover:bg-white/5/7 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                >
-                  {rocketTesting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-[#34343A] border-t-transparent rounded-full animate-spin" />
-                      테스트 중...
-                    </>
-                  ) : (
-                    '연결 테스트'
-                  )}
-                </button>
-                <button
-                  onClick={saveRocketCredentials}
-                  disabled={rocketSaving}
-                  className="flex-1 px-4 py-2 text-sm bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                >
-                  {rocketSaving ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      저장 중...
-                    </>
-                  ) : (
-                    '저장'
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
 }
 
-// 업로드 모달 컴포넌트
-function UploadModal({
-  channel,
-  year,
-  month,
-  onClose,
-  onSuccess,
+// ──────────────────────────────────────────────────────────────
+// Upload Tab
+// ──────────────────────────────────────────────────────────────
+
+function UploadTab({
+  channels, batches, authHeaders, onUploaded,
 }: {
-  channel: Channel;
-  year: number;
-  month: number;
-  onClose: () => void;
-  onSuccess: () => void;
+  channels: Channel[]; batches: Batch[];
+  authHeaders: () => HeadersInit; onUploaded: () => void;
 }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [manualData, setManualData] = useState<{ day: number; gross_sales: string; order_count: string }[]>([]);
-  const [mode, setMode] = useState<'file' | 'manual'>('file');
+  const [selChannel, setSelChannel] = useState<Channel | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const daysInMonth = new Date(year, month, 0).getDate();
-
-  useEffect(() => {
-    // 수동 입력용 빈 데이터 초기화
-    setManualData(
-      Array.from({ length: daysInMonth }, (_, i) => ({
-        day: i + 1,
-        gross_sales: '',
-        order_count: '',
-      }))
-    );
-  }, [daysInMonth]);
-
-  const handleFileUpload = async () => {
-    if (!file) return;
-
-    setIsUploading(true);
-    setError(null);
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('channel_id', channel.id);
-    formData.append('channel_name', channel.name);
-    formData.append('year', year.toString());
-    formData.append('month', month.toString());
-
+  const upload = async (file: File) => {
+    if (!selChannel) return;
+    setUploading(true); setResult(null);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/channels/sales/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
+      const fd = new FormData();
+      fd.append('channel_id', selChannel.id);
+      fd.append('channel_name', selChannel.name);
+      fd.append('file', file);
+      const r = await fetch(`${API_BASE}/api/csa/upload`, {
+        method: 'POST', headers: authHeaders(), body: fd,
       });
-
-      if (res.ok) {
-        onSuccess();
-      } else {
-        const data = await res.json();
-        setError(data.detail || '업로드 실패');
-      }
-    } catch (err) {
-      setError('업로드 중 오류가 발생했습니다');
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || 'upload failed');
+      setResult(data);
+      onUploaded();
+    } catch (e: any) {
+      setResult({ error: e.message || String(e) });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
     }
-    setIsUploading(false);
   };
 
-  const handleManualSubmit = async () => {
-    const salesData = manualData
-      .filter(d => d.gross_sales || d.order_count)
-      .map(d => ({
-        day: d.day,
-        gross_sales: parseFloat(d.gross_sales) || 0,
-        order_count: parseInt(d.order_count) || 0,
-      }));
+  const categories = useMemo(() => {
+    const map: Record<string, Channel[]> = {};
+    channels.forEach(c => {
+      if (!map[c.category]) map[c.category] = [];
+      map[c.category].push(c);
+    });
+    return map;
+  }, [channels]);
 
-    if (salesData.length === 0) {
-      setError('최소 하나의 데이터를 입력해주세요');
-      return;
-    }
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className={`${PANEL} p-5`}>
+        <h2 className="text-sm font-semibold mb-3">1) 채널 선택</h2>
+        <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+          {Object.entries(categories).map(([cat, list]) => (
+            <div key={cat}>
+              <div className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1.5">{cat}</div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {list.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelChannel(c)}
+                    disabled={!c.has_parser}
+                    className={`text-left text-xs px-3 py-2 rounded border transition-colors ${
+                      selChannel?.id === c.id
+                        ? 'bg-[#828FFF] border-[#828FFF] text-white'
+                        : c.has_parser
+                          ? 'bg-[#08090A] border-[#23252A] text-[#D0D6E0] hover:border-[#828FFF]'
+                          : 'bg-[#08090A] border-[#1A1B1F] text-[#62666D] cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="font-medium flex items-center justify-between">
+                      <span>{c.name}</span>
+                      {!c.has_parser && (
+                        <span className="text-[9px] text-[#62666D]">미지원</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
-    setIsUploading(true);
-    setError(null);
+      <div className={`${PANEL} p-5`}>
+        <h2 className="text-sm font-semibold mb-3">2) 엑셀 업로드</h2>
+        {selChannel ? (
+          <>
+            <div className={`${SUBPANEL} p-4 mb-4`}>
+              <div className="text-xs text-[#8A8F98] mb-1">선택된 채널</div>
+              <div className="text-lg font-semibold text-[#F7F8F8]">{selChannel.name}</div>
+              <div className="text-[11px] text-[#62666D] mt-1">{selChannel.category} · 파서: {selChannel.has_parser ? '준비 완료' : '미지원'}</div>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={(e) => e.target.files && e.target.files[0] && upload(e.target.files[0])}
+              disabled={uploading || !selChannel.has_parser}
+              className="w-full text-sm text-[#D0D6E0] file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-[#828FFF] file:text-white file:cursor-pointer hover:file:bg-[#7070FF] disabled:opacity-50"
+            />
+            <div className="text-[11px] text-[#62666D] mt-2 leading-relaxed">
+              · 동일 파일을 다시 올리면 자동 감지하여 중복 적재하지 않습니다.<br/>
+              · (주문번호 + 라인 + 일자 + 상품 + 수량 + 금액)으로 dedup 키 생성.<br/>
+              · 표준 품목명 매칭 실패 행은 <span className="text-[#F0BF00]">매핑 대기</span> 큐로 자동 이동.
+            </div>
 
+            {uploading && (
+              <div className="mt-4 text-sm text-[#828FFF] flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-[#828FFF] border-t-transparent rounded-full animate-spin" />
+                업로드 및 파싱 중...
+              </div>
+            )}
+
+            {result && !result.error && (
+              <div className={`${SUBPANEL} p-3 mt-4 text-xs`}>
+                {result.duplicate_file ? (
+                  <div className="text-[#F0BF00] mb-1">⚠ 이미 업로드된 파일입니다.</div>
+                ) : (
+                  <div className="text-[#27A644] mb-1">✓ 업로드 성공</div>
+                )}
+                <div className="grid grid-cols-4 gap-2 text-[#D0D6E0] font-mono">
+                  <div><span className="text-[#62666D]">총행: </span>{result.row_total}</div>
+                  <div><span className="text-[#62666D]">신규: </span>{result.row_inserted}</div>
+                  <div><span className="text-[#62666D]">중복: </span>{result.row_duplicate}</div>
+                  <div><span className="text-[#62666D]">미매핑: </span>{result.row_unmatched}</div>
+                </div>
+              </div>
+            )}
+            {result?.error && (
+              <div className="mt-4 text-sm text-[#EB5757]">❌ {result.error}</div>
+            )}
+          </>
+        ) : (
+          <div className="text-sm text-[#62666D] py-12 text-center">먼저 좌측에서 채널을 선택하세요.</div>
+        )}
+
+        <div className="mt-6 pt-4 border-t border-[#23252A]">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#62666D] mb-3">최근 업로드 이력</h3>
+          <div className="space-y-1.5 max-h-[260px] overflow-y-auto">
+            {batches.length === 0 ? (
+              <div className="text-xs text-[#62666D]">업로드 이력이 없습니다.</div>
+            ) : batches.map(b => (
+              <div key={b.id} className={`${SUBPANEL} p-2.5 text-xs flex items-center justify-between`}>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[#F7F8F8] truncate">{b.channel_name} · <span className="text-[#8A8F98]">{b.file_name}</span></div>
+                  <div className="text-[10px] text-[#62666D] font-mono mt-0.5">
+                    {b.period_start} ~ {b.period_end} · 신규 {b.row_inserted} · 중복 {b.row_duplicate} · 미매핑 {b.row_unmatched}
+                  </div>
+                </div>
+                <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                  b.status === 'done' ? 'bg-[#27A644]/15 text-[#27A644]' : 'bg-[#F0BF00]/15 text-[#F0BF00]'
+                }`}>{b.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Mapping Tab
+// ──────────────────────────────────────────────────────────────
+
+function MappingTab({
+  unmatched, products, authHeaders, onResolved,
+}: {
+  unmatched: UnmatchedItem[]; products: Product[];
+  authHeaders: () => HeadersInit; onResolved: () => void;
+}) {
+  const [busy, setBusy] = useState<number | null>(null);
+
+  const resolve = async (it: UnmatchedItem, productId: number | null, unitPerSet: number, isExcluded: boolean) => {
+    setBusy(it.id);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/channels/sales/bulk`, {
+      await fetch(`${API_BASE}/api/csa/mapping`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
-          channel_id: channel.id,
-          channel_name: channel.name,
-          year,
-          month,
-          sales_data: salesData,
+          channel_id: it.channel_id,
+          channel_name: it.channel_name,
+          raw_product_name: it.raw_product_name,
+          raw_option_name: it.raw_option_name,
+          product_id: productId,
+          unit_per_set: unitPerSet,
+          is_excluded: isExcluded,
         }),
       });
-
-      if (res.ok) {
-        onSuccess();
-      } else {
-        const data = await res.json();
-        setError(data.detail || '저장 실패');
-      }
-    } catch (err) {
-      setError('저장 중 오류가 발생했습니다');
+      onResolved();
+    } finally {
+      setBusy(null);
     }
-    setIsUploading(false);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-[#F7F8F8]">{channel.name} 매출 데이터 입력</h3>
-            <p className="text-sm text-[#8A8F98]">{year}년 {month}월</p>
-          </div>
-          <button onClick={onClose} className="text-[#62666D] hover:text-[#D0D6E0]">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+    <div className={`${PANEL} p-5`}>
+      <h2 className="text-sm font-semibold mb-3">매핑 대기 큐 ({unmatched.length})</h2>
+      <p className="text-xs text-[#62666D] mb-4">
+        각 채널의 원본 상품명을 자사 표준 품목으로 매핑하고, 1세트당 낱개 수(입수)를 입력하세요. 카운트 대상이 아니면 "제외"로 처리합니다.
+      </p>
+      {unmatched.length === 0 ? (
+        <div className="text-center py-10 text-[#62666D] text-sm">매핑 대기 항목이 없습니다.</div>
+      ) : (
+        <div className="space-y-2">
+          {unmatched.map(it => (
+            <UnmatchedRow
+              key={it.id}
+              item={it}
+              products={products}
+              busy={busy === it.id}
+              onResolve={resolve}
+            />
+          ))}
         </div>
+      )}
+    </div>
+  );
+}
 
-        <div className="p-6">
-          {/* 모드 선택 */}
-          <div className="flex gap-2 mb-6">
-            <button
-              onClick={() => setMode('file')}
-              className={`flex-1 py-2 rounded-lg transition-colors ${
-                mode === 'file'
-                  ? 'bg-[#5E6AD2] text-white'
-                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
-              }`}
-            >
-              파일 업로드
-            </button>
-            <button
-              onClick={() => setMode('manual')}
-              className={`flex-1 py-2 rounded-lg transition-colors ${
-                mode === 'manual'
-                  ? 'bg-[#5E6AD2] text-white'
-                  : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
-              }`}
-            >
-              수동 입력
-            </button>
-          </div>
+function UnmatchedRow({
+  item, products, busy, onResolve,
+}: {
+  item: UnmatchedItem; products: Product[]; busy: boolean;
+  onResolve: (it: UnmatchedItem, productId: number | null, unitPerSet: number, isExcluded: boolean) => void;
+}) {
+  const [productId, setProductId] = useState<number | ''>(item.llm_suggested_product_id || '');
+  const [unitPerSet, setUnitPerSet] = useState<number>(item.llm_suggested_unit_per_set || 1);
+  const [excluded, setExcluded] = useState(false);
 
-          {mode === 'file' ? (
-            <div className="space-y-4">
-              <div className="border-2 border-dashed border-[#23252A] rounded-xl p-8 text-center">
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  <div className="text-[#62666D] mb-2">
-                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                  </div>
-                  <p className="text-[#8A8F98] mb-1">Excel 또는 CSV 파일을 선택하세요</p>
-                  <p className="text-sm text-[#62666D]">xlsx, xls, csv 지원</p>
-                </label>
-              </div>
-              {file && (
-                <div className="flex items-center gap-2 p-3 bg-[#5E6AD2]/10 rounded-lg">
-                  <svg className="w-5 h-5 text-[#7070FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <span className="text-sm text-[#828FFF] flex-1">{file.name}</span>
-                  <button onClick={() => setFile(null)} className="text-[#7070FF] hover:text-[#828FFF]">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-              <div className="text-sm text-[#8A8F98] bg-[#08090A] p-4 rounded-lg">
-                <p className="font-medium mb-2">파일 형식 안내</p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>필수 컬럼: 날짜(또는 일), 매출</li>
-                  <li>선택 컬럼: 주문수, 판매수량, 환불, 수수료</li>
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <div className="max-h-96 overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-[#08090A] sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 text-left">일</th>
-                    <th className="px-3 py-2 text-left">매출</th>
-                    <th className="px-3 py-2 text-left">주문수</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {manualData.map((row, idx) => (
-                    <tr key={row.day} className="border-b border-[#23252A]">
-                      <td className="px-3 py-2 font-medium">{row.day}일</td>
-                      <td className="px-3 py-1">
-                        <input
-                          type="number"
-                          value={row.gross_sales}
-                          onChange={(e) => {
-                            const newData = [...manualData];
-                            newData[idx].gross_sales = e.target.value;
-                            setManualData(newData);
-                          }}
-                          placeholder="0"
-                          className="w-full px-2 py-1 border border-[#23252A] rounded focus:outline-none focus:ring-1 focus:ring-[#5E6AD2]"
-                        />
-                      </td>
-                      <td className="px-3 py-1">
-                        <input
-                          type="number"
-                          value={row.order_count}
-                          onChange={(e) => {
-                            const newData = [...manualData];
-                            newData[idx].order_count = e.target.value;
-                            setManualData(newData);
-                          }}
-                          placeholder="0"
-                          className="w-full px-2 py-1 border border-[#23252A] rounded focus:outline-none focus:ring-1 focus:ring-[#5E6AD2]"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {error && (
-            <div className="mt-4 p-3 bg-[#EB5757]/10 text-[#EB5757] text-sm rounded-lg">
-              {error}
-            </div>
-          )}
-        </div>
-
-        <div className="px-6 py-4 border-t border-[#23252A] flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-[#8A8F98] hover:text-[#F7F8F8]"
-          >
-            취소
-          </button>
-          <button
-            onClick={mode === 'file' ? handleFileUpload : handleManualSubmit}
-            disabled={isUploading || (mode === 'file' && !file)}
-            className="px-6 py-2 bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isUploading ? '처리 중...' : mode === 'file' ? '업로드' : '저장'}
-          </button>
+  return (
+    <div className={`${SUBPANEL} p-3 grid grid-cols-12 gap-3 items-center text-xs`}>
+      <div className="col-span-4">
+        <div className="text-[10px] uppercase tracking-wider text-[#62666D]">{item.channel_name}</div>
+        <div className="text-[#F7F8F8] font-medium truncate">{item.raw_product_name}</div>
+        {item.raw_option_name && (
+          <div className="text-[#8A8F98] text-[11px] truncate">{item.raw_option_name}</div>
+        )}
+        <div className="text-[10px] text-[#62666D] mt-0.5">
+          발견 {item.occurrence_count}회 · 누적수량 {fmtNum(Math.round(item.total_qty))}
         </div>
       </div>
+      <div className="col-span-3">
+        <label className="block text-[10px] text-[#62666D] uppercase tracking-wider mb-1">표준 품목</label>
+        <select
+          value={productId}
+          onChange={(e) => setProductId(e.target.value ? parseInt(e.target.value) : '')}
+          disabled={excluded}
+          className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] disabled:opacity-50"
+        >
+          <option value="">— 선택 —</option>
+          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </div>
+      <div className="col-span-2">
+        <label className="block text-[10px] text-[#62666D] uppercase tracking-wider mb-1">1세트=N개입</label>
+        <input
+          type="number"
+          min={1}
+          value={unitPerSet}
+          onChange={(e) => setUnitPerSet(parseInt(e.target.value) || 1)}
+          disabled={excluded}
+          className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] disabled:opacity-50 font-mono text-right"
+        />
+      </div>
+      <div className="col-span-3 flex items-center gap-2 justify-end">
+        <label className="flex items-center gap-1.5 text-[#8A8F98] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={excluded}
+            onChange={(e) => setExcluded(e.target.checked)}
+            className="accent-[#EB5757]"
+          />
+          제외
+        </label>
+        <button
+          onClick={() => onResolve(item, excluded ? null : (productId || null) as any, unitPerSet, excluded)}
+          disabled={busy || (!excluded && !productId)}
+          className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-xs font-medium"
+        >
+          {busy ? '저장 중…' : '저장'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Variable Cost Tab
+// ──────────────────────────────────────────────────────────────
+
+function CostTab({
+  products, variableCosts, authHeaders, onUpdated,
+}: {
+  products: Product[]; variableCosts: VariableCost[];
+  authHeaders: () => HeadersInit; onUpdated: () => void;
+}) {
+  const costMap = useMemo(() => {
+    const m: Record<number, VariableCost> = {};
+    variableCosts.filter(v => !v.channel_id).forEach(v => { m[v.product_id] = v; });
+    return m;
+  }, [variableCosts]);
+
+  const [draft, setDraft] = useState<Record<number, number>>({});
+  const [savingId, setSavingId] = useState<number | null>(null);
+
+  const save = async (productId: number) => {
+    const cost = draft[productId];
+    if (cost === undefined) return;
+    setSavingId(productId);
+    try {
+      await fetch(`${API_BASE}/api/csa/variable-costs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ product_id: productId, cost_per_pcs: cost }),
+      });
+      onUpdated();
+      setDraft(d => { const nd = { ...d }; delete nd[productId]; return nd; });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  return (
+    <div className={`${PANEL} p-5`}>
+      <h2 className="text-sm font-semibold mb-3">품목별 변동비 (낱개당)</h2>
+      <p className="text-xs text-[#62666D] mb-4">
+        공헌이익 = 순매출 − (낱개수량 × 낱개당 변동비) − 채널 수수료. 변동비를 변경하면 즉시 전체 집계가 재계산됩니다.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {products.map(p => {
+          const current = costMap[p.id]?.cost_per_pcs ?? 0;
+          const value = draft[p.id] !== undefined ? draft[p.id] : current;
+          const dirty = draft[p.id] !== undefined && draft[p.id] !== current;
+          return (
+            <div key={p.id} className={`${SUBPANEL} p-3 flex items-center gap-3`}>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-[#F7F8F8] truncate">{p.name}</div>
+                <div className="text-[10px] text-[#62666D]">{p.category || '-'}</div>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-[#62666D]">₩</span>
+                <input
+                  type="number"
+                  step={1}
+                  min={0}
+                  value={value}
+                  onChange={(e) => setDraft(d => ({ ...d, [p.id]: parseFloat(e.target.value) || 0 }))}
+                  className="w-24 bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] font-mono text-right text-sm"
+                />
+              </div>
+              <button
+                onClick={() => save(p.id)}
+                disabled={savingId === p.id || !dirty}
+                className={`px-3 py-1.5 rounded text-xs font-medium ${
+                  dirty ? 'bg-[#828FFF] text-white hover:bg-[#7070FF]' : 'bg-[#1A1B1F] text-[#62666D]'
+                } disabled:opacity-40`}
+              >
+                {savingId === p.id ? '저장 중' : dirty ? '저장' : '저장됨'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Plan Tab (Phase 5 placeholder + 실적 표시)
+// ──────────────────────────────────────────────────────────────
+
+function PlanTab({ dashboard }: { dashboard: DashboardData | null }) {
+  return (
+    <div className={`${PANEL} p-5`}>
+      <h2 className="text-sm font-semibold mb-3">사업계획 vs 실적 비교</h2>
+      <p className="text-xs text-[#62666D] mb-4">
+        사업계획(연/월 매출, 채널별·품목별 목표, 공헌이익 목표)을 업로드하면 실적과 자동 비교합니다.
+      </p>
+      <div className={`${SUBPANEL} p-5 text-sm text-[#8A8F98] leading-relaxed`}>
+        <div className="font-mono text-[10px] uppercase tracking-wider text-[#62666D] mb-2">준비 단계</div>
+        <div className="text-[#D0D6E0]">
+          이 기능은 다음 릴리스에 활성화됩니다.<br/>
+          사업계획 엑셀 양식을 공유해 주시면 매핑 로직과 비교 차트(달성률·차이·추세선)를 연결해 드리겠습니다.
+        </div>
+        {dashboard && (
+          <div className="mt-4 pt-4 border-t border-[#23252A] text-xs">
+            <div className="text-[#62666D] mb-1">현재 기간 실적 요약</div>
+            <div className="text-[#F7F8F8] font-mono">
+              {dashboard.period_start} ~ {dashboard.period_end}<br/>
+              매출 ₩{fmtKR(dashboard.summary.revenue)} · 공헌이익 ₩{fmtKR(dashboard.summary.contribution_margin)} ({fmtPct(dashboard.summary.cm_rate)})
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Reusable bits
+// ──────────────────────────────────────────────────────────────
+
+function KpiCard({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
+  return (
+    <div className={`${PANEL} p-5`}>
+      <div className="text-[10px] font-mono uppercase tracking-wider text-[#62666D] mb-2">{label}</div>
+      <div className="text-2xl font-semibold tracking-tight" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
+      {hint && <div className="text-[11px] text-[#62666D] mt-1.5">{hint}</div>}
+    </div>
+  );
+}
+
+function DateInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex flex-col">
+      <label className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">{label}</label>
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-[#08090A] border border-[#23252A] rounded-md px-3 py-1.5 text-sm text-[#F7F8F8]"
+      />
+    </div>
+  );
+}
+
+function Segment<T extends string>({ label, options, value, onChange }: {
+  label: string;
+  options: Array<{ v: T; l: string }>;
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex flex-col">
+      <label className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">{label}</label>
+      <div className="flex bg-[#08090A] border border-[#23252A] rounded-md p-0.5">
+        {options.map(o => (
+          <button
+            key={o.v}
+            onClick={() => onChange(o.v)}
+            className={`px-2.5 py-1 text-xs rounded transition-colors ${
+              value === o.v ? 'bg-[#828FFF] text-white' : 'text-[#8A8F98] hover:text-[#F7F8F8]'
+            }`}
+          >
+            {o.l}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MultiSelect({ label, options, value, onChange }: {
+  label: string;
+  options: Array<{ v: string; l: string; group?: string }>;
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
+
+  const toggle = (v: string) => {
+    if (value.includes(v)) onChange(value.filter(x => x !== v));
+    else onChange([...value, v]);
+  };
+
+  const grouped = useMemo(() => {
+    const g: Record<string, typeof options> = {};
+    options.forEach(o => {
+      const key = o.group || '_';
+      if (!g[key]) g[key] = [];
+      g[key].push(o);
+    });
+    return g;
+  }, [options]);
+
+  return (
+    <div className="flex flex-col relative" ref={wrapRef}>
+      <label className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">{label}</label>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="bg-[#08090A] border border-[#23252A] rounded-md px-3 py-1.5 text-sm text-[#F7F8F8] min-w-[120px] text-left flex items-center justify-between"
+      >
+        <span>{value.length === 0 ? '전체' : `${value.length}개 선택`}</span>
+        <span className="text-[#62666D] ml-2">▾</span>
+      </button>
+      {open && (
+        <div className="absolute z-20 top-full mt-1 left-0 w-72 max-h-[300px] overflow-y-auto bg-[#0F1011] border border-[#23252A] rounded-md shadow-xl p-2">
+          {Object.entries(grouped).map(([g, opts]) => (
+            <div key={g} className="mb-1">
+              {g !== '_' && <div className="text-[10px] uppercase tracking-wider text-[#62666D] px-2 py-1">{g}</div>}
+              {opts.map(o => (
+                <label key={o.v} className="flex items-center gap-2 px-2 py-1 hover:bg-[#1A1B1F] rounded cursor-pointer text-xs">
+                  <input
+                    type="checkbox"
+                    checked={value.includes(o.v)}
+                    onChange={() => toggle(o.v)}
+                    className="accent-[#828FFF]"
+                  />
+                  <span className="text-[#D0D6E0]">{o.l}</span>
+                </label>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Skeleton({ h }: { h: number }) {
+  return <div className="animate-pulse bg-[#1A1B1F] rounded" style={{ height: h }} />;
+}
+
+function Empty() {
+  return (
+    <div className="h-[300px] flex items-center justify-center text-sm text-[#62666D]">
+      데이터가 없습니다. 엑셀 업로드 탭에서 데이터를 추가해 주세요.
     </div>
   );
 }

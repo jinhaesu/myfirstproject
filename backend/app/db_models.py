@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, JSON, Float, Boolean, Text, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, JSON, Float, Boolean, Text, Date, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -721,5 +721,210 @@ class VoiceCsPhoneNumber(Base):
     provider_id = Column(String(200), nullable=True)  # 외부 서비스 ID
     is_active = Column(Boolean, default=True)
     total_calls = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+# ──────────────────────────────────────────────
+# 채널별 매출 취합 (Channel Sales Aggregation)
+# ──────────────────────────────────────────────
+
+class ProductMaster(Base):
+    """표준 품목 마스터 (자사 표준 제품명 기준)"""
+    __tablename__ = "csa_product_master"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(100), unique=True, index=True)  # 자체 코드 (마카롱→MACA 등)
+    name = Column(String(200), nullable=False, unique=True, index=True)  # 표준명 (마카롱, 뚱낭시에 등)
+    aliases = Column(JSON, nullable=True)  # 별칭 리스트
+    category = Column(String(100), nullable=True)
+    default_unit_size = Column(Integer, default=1)  # 기본 입수 (낱개=1)
+    notes = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ChannelProductMapping(Base):
+    """채널 원본 상품명 → 표준 품목 매핑 (입수 환산 포함)"""
+    __tablename__ = "csa_channel_product_mapping"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=False)
+    raw_product_name = Column(String(500), nullable=False, index=True)
+    raw_option_name = Column(String(500), nullable=True)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True, index=True)
+    unit_per_set = Column(Integer, default=1)  # 1세트당 낱개 수 (사랑세트=8 등)
+    confidence = Column(String(20), default="manual")  # auto/llm/manual
+    is_excluded = Column(Boolean, default=False)  # 카운트 대상 외 (배송비, 사은품 등)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ChannelSalesUploadBatch(Base):
+    """채널 엑셀 업로드 배치 (각 업로드 1건)"""
+    __tablename__ = "csa_upload_batches"
+
+    id = Column(String(64), primary_key=True)  # uuid
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=False)
+    file_name = Column(String(500), nullable=False)
+    file_size = Column(Integer, default=0)
+    file_hash = Column(String(64), nullable=True, index=True)  # 동일 파일 재업로드 감지
+    parser_version = Column(String(50), nullable=True)
+
+    period_start = Column(Date, nullable=True)
+    period_end = Column(Date, nullable=True)
+
+    status = Column(String(20), default="pending")  # pending/parsing/done/failed
+    row_total = Column(Integer, default=0)
+    row_inserted = Column(Integer, default=0)
+    row_duplicate = Column(Integer, default=0)
+    row_unmatched = Column(Integer, default=0)
+    row_excluded = Column(Integer, default=0)
+    error_message = Column(Text, nullable=True)
+
+    uploaded_by = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    completed_at = Column(DateTime, nullable=True)
+
+
+class ChannelSalesRawLine(Base):
+    """채널 원본 매출 라인 (1주문 1상품 = 1행)"""
+    __tablename__ = "csa_sales_raw_lines"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    batch_id = Column(String(64), ForeignKey("csa_upload_batches.id"), nullable=False, index=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=False)
+
+    # 식별
+    order_no = Column(String(200), nullable=True, index=True)
+    line_no = Column(String(100), nullable=True)
+    dedup_hash = Column(String(64), nullable=False, unique=True, index=True)  # sha256(channel,order,line,date,product,qty)
+
+    # 일자
+    sale_date = Column(Date, nullable=False, index=True)
+    sale_datetime = Column(DateTime, nullable=True)
+
+    # 원본
+    raw_product_name = Column(String(500), nullable=True)
+    raw_option_name = Column(String(500), nullable=True)
+    raw_qty = Column(Float, default=0)  # 채널 표기 수량
+
+    # 금액
+    gross_amount = Column(Float, default=0)  # 총 판매가
+    net_amount = Column(Float, default=0)    # 순매출 (할인반영)
+    settlement_amount = Column(Float, default=0)  # 정산금액
+    commission = Column(Float, default=0)
+    shipping_fee = Column(Float, default=0)
+    refund_amount = Column(Float, default=0)
+
+    # 매핑 결과 (resolve 후 채워짐)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True, index=True)
+    pcs_qty = Column(Float, default=0)  # 낱개 환산 = raw_qty × unit_per_set
+    mapping_status = Column(String(20), default="pending")  # pending/matched/unmatched/excluded
+
+    raw_row = Column(JSON, nullable=True)  # 디버깅용 (보존 정책에 따라 비울 수 있음)
+    created_at = Column(DateTime, default=func.now())
+
+
+class ChannelSalesDailyProduct(Base):
+    """일×채널×품목 집계 (대시보드용 핫 테이블)"""
+    __tablename__ = "csa_sales_daily_product"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sale_date = Column(Date, nullable=False, index=True)
+    year = Column(Integer, nullable=False, index=True)
+    month = Column(Integer, nullable=False, index=True)
+    quarter = Column(Integer, nullable=False, index=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=False)
+    channel_category = Column(String(100), nullable=True)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True, index=True)
+    product_name = Column(String(200), nullable=True)
+
+    raw_qty = Column(Float, default=0)
+    pcs_qty = Column(Float, default=0)
+    gross_sales = Column(Float, default=0)
+    net_sales = Column(Float, default=0)
+    settlement_amount = Column(Float, default=0)
+    commission = Column(Float, default=0)
+    refund_amount = Column(Float, default=0)
+    order_count = Column(Integer, default=0)
+    variable_cost = Column(Float, default=0)
+    contribution_margin = Column(Float, default=0)
+
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('sale_date', 'channel_id', 'product_id', name='uq_csa_daily_product'),
+    )
+
+
+class ProductVariableCost(Base):
+    """품목별 변동비 (글로벌 또는 채널별)"""
+    __tablename__ = "csa_product_variable_cost"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=False, index=True)
+    channel_id = Column(String(100), nullable=True, index=True)  # NULL=글로벌 기본
+    cost_per_pcs = Column(Float, default=0)  # 낱개당 변동비
+    notes = Column(Text, nullable=True)
+    valid_from = Column(Date, nullable=True)
+    valid_to = Column(Date, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ChannelUnmatchedProduct(Base):
+    """매핑 실패 큐 (CEO 검토 대기)"""
+    __tablename__ = "csa_unmatched_products"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=False)
+    raw_product_name = Column(String(500), nullable=False)
+    raw_option_name = Column(String(500), nullable=True)
+
+    occurrence_count = Column(Integer, default=1)
+    total_qty = Column(Float, default=0)
+    first_seen_at = Column(DateTime, default=func.now())
+    last_seen_at = Column(DateTime, default=func.now())
+
+    # LLM 추론 결과 (대안 제시)
+    llm_suggested_product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True)
+    llm_suggested_unit_per_set = Column(Integer, nullable=True)
+    llm_confidence = Column(Float, nullable=True)
+    llm_reason = Column(Text, nullable=True)
+
+    status = Column(String(20), default="pending")  # pending/resolved/excluded/ignored
+    resolved_product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True)
+    resolved_unit_per_set = Column(Integer, nullable=True)
+    resolved_by = Column(String(100), nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+
+
+class ChannelBusinessPlan(Base):
+    """사업계획 (월별 채널×품목 목표)"""
+    __tablename__ = "csa_business_plan"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    year = Column(Integer, nullable=False, index=True)
+    month = Column(Integer, nullable=False, index=True)
+    channel_id = Column(String(100), nullable=True, index=True)  # NULL=전체
+    channel_name = Column(String(200), nullable=True)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True, index=True)
+    product_name = Column(String(200), nullable=True)
+
+    target_pcs_qty = Column(Float, default=0)        # 목표 낱개 수량
+    target_revenue = Column(Float, default=0)        # 목표 매출
+    target_contribution = Column(Float, default=0)   # 목표 공헌이익
+    target_contribution_rate = Column(Float, nullable=True)  # 목표 공헌이익률
+
+    notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
