@@ -1296,6 +1296,30 @@ function AdminTab({
   const [editingEmp, setEditingEmp] = useState<Partial<Employee> | null>(null);
   const [assignTarget, setAssignTarget] = useState<Employee | null>(null);
   const [pendingChannels, setPendingChannels] = useState<string[]>([]);
+  const [storage, setStorage] = useState<any | null>(null);
+  const [adminBusy, setAdminBusy] = useState<string | null>(null);
+  const [adminMsg, setAdminMsg] = useState<string | null>(null);
+
+  const fetchStorage = useCallback(async () => {
+    const r = await fetch(`${API_BASE}/api/csa/admin/storage`, { headers: authHeaders() });
+    if (r.ok) setStorage(await r.json());
+  }, [authHeaders]);
+
+  const runAdmin = async (endpoint: string, label: string) => {
+    setAdminBusy(label); setAdminMsg(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/admin/${endpoint}`, {
+        method: 'POST', headers: authHeaders(),
+      });
+      const data = await r.json();
+      setAdminMsg(`${label}: ${JSON.stringify(data)}`);
+      await fetchStorage();
+    } catch (e: any) {
+      setAdminMsg(`${label} 실패: ${e.message || e}`);
+    } finally {
+      setAdminBusy(null);
+    }
+  };
 
   const fetchAll = useCallback(async () => {
     const [eRes, gRes] = await Promise.all([
@@ -1304,7 +1328,8 @@ function AdminTab({
     ]);
     if (eRes.ok) setEmployees(await eRes.json());
     if (gRes.ok) setGroups(await gRes.json());
-  }, [authHeaders]);
+    await fetchStorage();
+  }, [authHeaders, fetchStorage]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -1366,8 +1391,149 @@ function AdminTab({
     return m;
   }, [groups]);
 
+  // Supabase Pro 8GB 한도
+  const SUPABASE_LIMIT_BYTES = 8 * 1024 * 1024 * 1024;
+  const dbBytes = storage?.db_size?.bytes || 0;
+  const dbPct = (dbBytes / SUPABASE_LIMIT_BYTES) * 100;
+  const dbBarColor = dbPct < 60 ? '#27A644' : dbPct < 85 ? '#F0BF00' : '#EB5757';
+
   return (
     <div className="space-y-5">
+      {/* 저장소 관리 */}
+      <div className={`${PANEL} p-5`}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-semibold">저장소 관리 — 보존 정책 + 월 파티션</h2>
+            <p className="text-xs text-[#62666D] mt-1">
+              30일 후 원본 JSON 비우기 · 24개월 hot + 5년 cold 압축 · resolved 매핑 6개월 후 삭제 · 매일 02:00 KST 자동 실행.
+            </p>
+          </div>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => runAdmin('setup-retention', 'retention 등록')}
+              disabled={adminBusy !== null}
+              className="px-3 py-1.5 bg-[#1A1B1F] hover:bg-[#23252A] text-[#D0D6E0] rounded text-xs"
+            >{adminBusy === 'retention 등록' ? '실행 중…' : 'retention 재등록'}</button>
+            <button
+              onClick={() => runAdmin('migrate-partitions', '파티션 마이그레이션')}
+              disabled={adminBusy !== null}
+              className="px-3 py-1.5 bg-[#F0BF00] hover:bg-[#D9A800] text-[#08090A] rounded text-xs font-medium"
+            >{adminBusy === '파티션 마이그레이션' ? '실행 중…' : '파티션 전환'}</button>
+            <button
+              onClick={() => runAdmin('run-retention-now', '즉시 실행')}
+              disabled={adminBusy !== null}
+              className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium"
+            >{adminBusy === '즉시 실행' ? '실행 중…' : '지금 실행'}</button>
+          </div>
+        </div>
+
+        {storage && (
+          <>
+            {/* DB 사용량 게이지 */}
+            <div className={`${SUBPANEL} p-4 mb-3`}>
+              <div className="flex items-baseline justify-between mb-2">
+                <span className="text-xs font-mono uppercase tracking-wider text-[#62666D]">SUPABASE DB 사용량</span>
+                <span className="text-sm font-mono text-[#F7F8F8]">
+                  {storage.db_size?.s || '?'} <span className="text-[#62666D]">/ 8 GB ({dbPct.toFixed(1)}%)</span>
+                </span>
+              </div>
+              <div className="h-2 bg-[#0F1011] rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, dbPct)}%`, background: dbBarColor }} />
+              </div>
+            </div>
+
+            {/* 상태 카드 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+              <div className={`${SUBPANEL} p-3`}>
+                <div className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">월 파티션</div>
+                <div className="text-base font-mono text-[#F7F8F8]">
+                  {storage.is_partitioned ? `✓ 활성 (${storage.partitions?.length || 0}개월)` : '단일 테이블 (전환 가능)'}
+                </div>
+              </div>
+              <div className={`${SUBPANEL} p-3`}>
+                <div className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">pg_cron 스케줄</div>
+                <div className="text-base font-mono text-[#F7F8F8]">
+                  {(storage.cron_jobs?.length || 0)}개 등록
+                </div>
+                {storage.cron_jobs?.map((j: any, i: number) => (
+                  <div key={i} className="text-[10px] text-[#62666D] mt-0.5">
+                    {j.jobname} · {j.schedule} {j.active ? '✓' : '✗'}
+                  </div>
+                ))}
+              </div>
+              <div className={`${SUBPANEL} p-3`}>
+                <div className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">최근 retention 실행</div>
+                <div className="text-base font-mono text-[#F7F8F8]">
+                  {storage.recent_runs?.[0]?.ran_at ? new Date(storage.recent_runs[0].ran_at).toLocaleString('ko-KR') : '없음'}
+                </div>
+              </div>
+            </div>
+
+            {/* 테이블별 용량 */}
+            {storage.tables?.length > 0 && (
+              <details className={`${SUBPANEL} p-3 mb-2`}>
+                <summary className="text-xs cursor-pointer text-[#D0D6E0]">CSA 테이블별 용량 ({storage.tables.length}개)</summary>
+                <div className="mt-2 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-[#23252A] text-[10px] uppercase tracking-wider text-[#62666D]">
+                        <th className="text-left py-1.5 px-2">테이블</th>
+                        <th className="text-right py-1.5 px-2">용량</th>
+                        <th className="text-right py-1.5 px-2">행 수 (추정)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {storage.tables.map((t: any) => (
+                        <tr key={t.table_name} className="border-b border-[#1A1B1F]">
+                          <td className="py-1 px-2 font-mono text-[#D0D6E0]">{t.table_name}</td>
+                          <td className="py-1 px-2 text-right font-mono text-[#F7F8F8]">{t.pretty_size}</td>
+                          <td className="py-1 px-2 text-right font-mono text-[#8A8F98]">{(t.est_rows || 0).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            )}
+
+            {/* 파티션 리스트 */}
+            {storage.is_partitioned && storage.partitions?.length > 0 && (
+              <details className={`${SUBPANEL} p-3 mb-2`}>
+                <summary className="text-xs cursor-pointer text-[#D0D6E0]">월 파티션 ({storage.partitions.length}개)</summary>
+                <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-1.5">
+                  {storage.partitions.map((p: any) => (
+                    <div key={p.partition_name} className="text-[10px] font-mono text-[#D0D6E0] bg-[#0F1011] border border-[#23252A] rounded px-2 py-1">
+                      {p.partition_name.replace('csa_sales_raw_lines_', '')}
+                      <span className="text-[#62666D] ml-1">· {p.pretty_size}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+
+            {/* 최근 실행 로그 */}
+            {storage.recent_runs?.length > 0 && (
+              <details className={`${SUBPANEL} p-3`}>
+                <summary className="text-xs cursor-pointer text-[#D0D6E0]">최근 retention 실행 로그 ({storage.recent_runs.length}건)</summary>
+                <div className="mt-2 space-y-1 text-[10px] font-mono">
+                  {storage.recent_runs.map((r: any, i: number) => (
+                    <div key={i} className="text-[#8A8F98]">
+                      <span className="text-[#D0D6E0]">{new Date(r.ran_at).toLocaleString('ko-KR')}</span> ·
+                      raw_clear {r.result?.cleared_raw_row ?? 0} · archive {r.result?.archived_lines ?? 0}행/{r.result?.archived_months ?? 0}개월 ·
+                      5y삭제 {r.result?.purged_archive_5y ?? 0} · 매핑정리 {r.result?.purged_unmatched_6m ?? 0}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </>
+        )}
+
+        {adminMsg && (
+          <div className="mt-3 text-[11px] font-mono text-[#D0D6E0] bg-[#08090A] border border-[#23252A] rounded p-2 break-all">{adminMsg}</div>
+        )}
+      </div>
+
       {/* 직원 관리 */}
       <div className={`${PANEL} p-5`}>
         <div className="flex items-center justify-between mb-3">
