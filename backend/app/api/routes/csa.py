@@ -7,7 +7,7 @@ import tempfile
 from datetime import date, datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import Session
@@ -36,6 +36,7 @@ from app.db_models import (
 from app.services.csa_service import (
     seed_product_master,
     seed_channels,
+    seed_channel_products,
     ingest_lines,
     rebuild_daily_aggregate,
     resolve_product,
@@ -62,6 +63,7 @@ from app.services.csa_pnl_service import (
 from app.db_models import (
     CsaCostItem, CsaCostRule, CsaChannelMonthlyCost,
     CsaPnlRow, CsaPnlValue, CsaPnlConfig,
+    CsaChannelProduct,
 )
 from app.services.csa_parsers import get_parser, registered_channels
 from app.services.csa_parsers._common import file_sha256
@@ -116,7 +118,12 @@ def seed(db: Session = Depends(get_db)):
     c = seed_channels(db)
     g = seed_channel_groups(db)
     ci = seed_cost_items(db)
-    return {"products": p, "channels": c, "groups": g, "cost_items": ci, "parsers": registered_channels()}
+    cp = seed_channel_products(db)
+    return {
+        "products": p, "channels": c, "groups": g,
+        "cost_items": ci, "channel_products_created": cp,
+        "parsers": registered_channels(),
+    }
 
 
 @router.get("/products", response_model=list[ProductMasterOut])
@@ -127,6 +134,152 @@ def list_products(db: Session = Depends(get_db)):
         .order_by(ProductMaster.sort_order, ProductMaster.id)
         .all()
     )
+
+
+class ProductMasterIn(BaseModel):
+    name: str
+    code: Optional[str] = None
+    category: Optional[str] = None
+    default_unit_size: int = 1
+    is_active: bool = True
+    sort_order: int = 100
+    notes: Optional[str] = None
+
+
+@router.post("/products")
+def upsert_product(payload: ProductMasterIn, db: Session = Depends(get_db)):
+    existing = db.query(ProductMaster).filter(ProductMaster.name == payload.name).first()
+    if existing:
+        for k, v in payload.model_dump(exclude_unset=True).items():
+            setattr(existing, k, v)
+        db.commit()
+        # 모든 활성 채널에 신규 매핑 자동 생성 (멱등)
+        seed_channel_products(db)
+        return {"id": existing.id, "updated": True}
+    item = ProductMaster(**payload.model_dump())
+    db.add(item); db.commit()
+    seed_channel_products(db)
+    return {"id": item.id, "updated": False}
+
+
+@router.delete("/products/{product_id}")
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    p = db.query(ProductMaster).filter(ProductMaster.id == product_id).first()
+    if not p:
+        raise HTTPException(404, "product not found")
+    # soft delete (is_active=False) — 매핑/매출 데이터 보존
+    p.is_active = False
+    db.commit()
+    return {"deactivated": product_id}
+
+
+# ──────────────────────────────────────────────────────────────
+# 채널 × 품목 매핑
+# ──────────────────────────────────────────────────────────────
+
+class ChannelProductIn(BaseModel):
+    channel_id: str
+    product_id: int
+    is_active: bool = True
+    notes: Optional[str] = None
+
+
+@router.get("/channel-products")
+def list_channel_products(
+    channel_id: Optional[str] = None,
+    product_id: Optional[int] = None,
+    only_active: bool = True,
+    db: Session = Depends(get_db),
+):
+    q = db.query(CsaChannelProduct)
+    if channel_id:
+        q = q.filter(CsaChannelProduct.channel_id == channel_id)
+    if product_id:
+        q = q.filter(CsaChannelProduct.product_id == product_id)
+    if only_active:
+        q = q.filter(CsaChannelProduct.is_active.is_(True))
+    rows = q.order_by(CsaChannelProduct.channel_name, CsaChannelProduct.product_name).all()
+    return [
+        {
+            "id": r.id, "channel_id": r.channel_id, "channel_name": r.channel_name,
+            "product_id": r.product_id, "product_name": r.product_name,
+            "is_active": r.is_active, "added_by": r.added_by,
+        } for r in rows
+    ]
+
+
+@router.post("/channel-products")
+def upsert_channel_product(payload: ChannelProductIn, db: Session = Depends(get_db)):
+    ch = db.query(Channel).filter(Channel.id == payload.channel_id).first()
+    p = db.query(ProductMaster).filter(ProductMaster.id == payload.product_id).first()
+    if not ch:
+        raise HTTPException(404, "channel not found")
+    if not p:
+        raise HTTPException(404, "product not found")
+    existing = db.query(CsaChannelProduct).filter(
+        CsaChannelProduct.channel_id == payload.channel_id,
+        CsaChannelProduct.product_id == payload.product_id,
+    ).first()
+    if existing:
+        existing.is_active = payload.is_active
+        existing.notes = payload.notes
+        db.commit()
+        return {"id": existing.id, "updated": True}
+    item = CsaChannelProduct(
+        channel_id=ch.id, channel_name=ch.name,
+        product_id=p.id, product_name=p.name,
+        is_active=payload.is_active, notes=payload.notes,
+        added_by="manual",
+    )
+    db.add(item); db.commit()
+    return {"id": item.id, "updated": False}
+
+
+@router.delete("/channel-products/{cp_id}")
+def delete_channel_product(cp_id: int, db: Session = Depends(get_db)):
+    item = db.query(CsaChannelProduct).filter(CsaChannelProduct.id == cp_id).first()
+    if not item:
+        raise HTTPException(404, "not found")
+    item.is_active = False
+    db.commit()
+    return {"deactivated": cp_id}
+
+
+@router.post("/channel-products/bulk-set")
+def bulk_set_channel_products(
+    channel_id: str,
+    product_ids: list[int] = Body(...),
+    db: Session = Depends(get_db),
+):
+    """채널의 활성 품목을 product_ids로 일괄 세팅 (그 외 모두 비활성)."""
+    ch = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not ch:
+        raise HTTPException(404, "channel not found")
+    products = {p.id: p for p in db.query(ProductMaster).filter(ProductMaster.is_active.is_(True)).all()}
+    existing = {r.product_id: r for r in db.query(CsaChannelProduct).filter(
+        CsaChannelProduct.channel_id == channel_id
+    ).all()}
+    pid_set = set(product_ids)
+    changed = 0
+    for pid in pid_set:
+        if pid not in products:
+            continue
+        r = existing.get(pid)
+        if r:
+            if not r.is_active:
+                r.is_active = True; changed += 1
+        else:
+            db.add(CsaChannelProduct(
+                channel_id=channel_id, channel_name=ch.name,
+                product_id=pid, product_name=products[pid].name,
+                is_active=True, added_by="bulk",
+            ))
+            changed += 1
+    for pid, r in existing.items():
+        if pid not in pid_set and r.is_active:
+            r.is_active = False; changed += 1
+    db.commit()
+    return {"channel_id": channel_id, "active_count": len(pid_set), "changed": changed}
 
 
 @router.get("/channels")

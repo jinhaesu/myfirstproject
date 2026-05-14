@@ -140,7 +140,7 @@ const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 const isoDate = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-type Tab = 'dashboard' | 'pnl' | 'upload' | 'mapping' | 'cost' | 'plan' | 'admin';
+type Tab = 'dashboard' | 'pnl' | 'upload' | 'mapping' | 'cost' | 'plan' | 'products' | 'admin';
 
 export default function ChannelsPage() {
   return (
@@ -323,6 +323,15 @@ function Content() {
         {activeTab === 'pnl' && (
           <PnlTab authHeaders={authHeaders} userEmail={user?.email || ''} />
         )}
+
+        {activeTab === 'products' && (
+          <ProductsTab
+            authHeaders={authHeaders}
+            channels={channels}
+            products={products}
+            onRefresh={fetchAll}
+          />
+        )}
       </div>
     </div>
   );
@@ -342,6 +351,7 @@ function Header({
     { key: 'mapping', label: '매핑 대기', badge: unmatchedCount },
     { key: 'cost', label: '변동비 설정' },
     { key: 'plan', label: '사업계획 비교' },
+    { key: 'products', label: '품목 관리' },
     { key: 'admin', label: '직원·채널 관리' },
   ];
 
@@ -2433,6 +2443,390 @@ function MultiSelect({ label, options, value, onChange }: {
 
 function Skeleton({ h }: { h: number }) {
   return <div className="animate-pulse bg-[#1A1B1F] rounded" style={{ height: h }} />;
+}
+
+// ──────────────────────────────────────────────────────────────
+// 품목 관리 탭
+// ──────────────────────────────────────────────────────────────
+
+interface ChannelProduct {
+  id: number;
+  channel_id: string;
+  channel_name: string;
+  product_id: number;
+  product_name: string;
+  is_active: boolean;
+  added_by: string | null;
+}
+
+function ProductsTab({
+  authHeaders, channels, products, onRefresh,
+}: {
+  authHeaders: () => HeadersInit;
+  channels: Channel[];
+  products: Product[];
+  onRefresh: () => void;
+}) {
+  const [mappings, setMappings] = useState<ChannelProduct[]>([]);
+  const [view, setView] = useState<'matrix' | 'channel'>('channel');
+  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
+  const [pendingPids, setPendingPids] = useState<Set<number>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  // 품목 추가/수정 모달
+  const [showProdEditor, setShowProdEditor] = useState(false);
+  const [editProd, setEditProd] = useState<Partial<Product>>({});
+
+  const fetchMappings = useCallback(async () => {
+    const r = await fetch(`${API_BASE}/api/csa/channel-products?only_active=false`, { headers: authHeaders() });
+    if (r.ok) setMappings(await r.json());
+  }, [authHeaders]);
+
+  useEffect(() => { fetchMappings(); }, [fetchMappings]);
+
+  // 채널별 활성 품목 ID 집합
+  const byChannel = useMemo(() => {
+    const m: Record<string, Set<number>> = {};
+    mappings.forEach(mp => {
+      if (mp.is_active) {
+        if (!m[mp.channel_id]) m[mp.channel_id] = new Set();
+        m[mp.channel_id].add(mp.product_id);
+      }
+    });
+    return m;
+  }, [mappings]);
+
+  // 품목별 등록 채널 수
+  const productChannelCount = useMemo(() => {
+    const m: Record<number, number> = {};
+    mappings.filter(mp => mp.is_active).forEach(mp => {
+      m[mp.product_id] = (m[mp.product_id] || 0) + 1;
+    });
+    return m;
+  }, [mappings]);
+
+  const openChannel = (ch: Channel) => {
+    setSelectedChannel(ch);
+    setPendingPids(new Set(byChannel[ch.id] || []));
+  };
+
+  const togglePid = (pid: number) => {
+    setPendingPids(s => {
+      const ns = new Set(s);
+      if (ns.has(pid)) ns.delete(pid); else ns.add(pid);
+      return ns;
+    });
+  };
+
+  const saveChannelProducts = async () => {
+    if (!selectedChannel) return;
+    setBusy(true);
+    try {
+      const r = await fetch(
+        `${API_BASE}/api/csa/channel-products/bulk-set?channel_id=${encodeURIComponent(selectedChannel.id)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify(Array.from(pendingPids)),
+        }
+      );
+      if (!r.ok) {
+        const data = await r.json();
+        alert(data.detail || '저장 실패');
+        return;
+      }
+      await fetchMappings();
+      setSelectedChannel(null);
+    } finally { setBusy(false); }
+  };
+
+  const saveProduct = async () => {
+    if (!editProd.name) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          name: editProd.name,
+          code: editProd.code || null,
+          category: editProd.category || null,
+          default_unit_size: editProd.default_unit_size || 1,
+          is_active: editProd.is_active !== false,
+          sort_order: editProd.sort_order || 100,
+        }),
+      });
+      if (!r.ok) {
+        const data = await r.json();
+        alert(data.detail || '저장 실패');
+        return;
+      }
+      setShowProdEditor(false);
+      setEditProd({});
+      onRefresh();
+      await fetchMappings();
+    } catch (e: any) {
+      alert(e.message || String(e));
+    }
+  };
+
+  const deactivateProduct = async (p: Product) => {
+    if (!confirm(`'${p.name}' 품목을 비활성화하시겠습니까? (기존 매출 데이터는 보존됩니다)`)) return;
+    const r = await fetch(`${API_BASE}/api/csa/products/${p.id}`, {
+      method: 'DELETE', headers: authHeaders(),
+    });
+    if (r.ok) {
+      onRefresh();
+      await fetchMappings();
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* 헤더 + 토글 + 품목 추가 */}
+      <div className={`${PANEL} p-4 flex flex-wrap items-end justify-between gap-3`}>
+        <div>
+          <h2 className="text-sm font-semibold">품목 관리</h2>
+          <p className="text-xs text-[#A3A9B3] mt-1">
+            표준 품목 {products.length}종 · 채널 {channels.length}개 · 활성 매핑 {mappings.filter(m => m.is_active).length}건
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Segment
+            label="뷰"
+            options={[
+              { v: 'channel', l: '채널 선택' },
+              { v: 'matrix', l: '매트릭스' },
+            ]}
+            value={view}
+            onChange={setView}
+          />
+          <button
+            onClick={() => { setEditProd({ name: '', default_unit_size: 1, is_active: true, sort_order: 100 }); setShowProdEditor(true); }}
+            className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium"
+          >+ 품목 추가</button>
+        </div>
+      </div>
+
+      {/* 품목 마스터 목록 */}
+      <div className={`${PANEL} p-4`}>
+        <h3 className="text-sm font-semibold mb-3">등록된 품목 ({products.length})</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {products.map(p => (
+            <div key={p.id} className={`${SUBPANEL} p-3 flex items-center gap-2`}>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-[#F7F8F8] font-medium truncate">{p.name}</div>
+                <div className="text-[10px] text-[#A3A9B3] mt-0.5 flex items-center gap-2">
+                  <span>{p.category || '-'}</span>
+                  <span className="text-[#7A7F8A]">·</span>
+                  <span className="text-[#828FFF] font-mono">{productChannelCount[p.id] || 0}채널</span>
+                </div>
+              </div>
+              <button
+                onClick={() => { setEditProd(p); setShowProdEditor(true); }}
+                className="text-[10px] text-[#8A8F98] hover:text-[#F7F8F8]"
+              >수정</button>
+              <button
+                onClick={() => deactivateProduct(p)}
+                className="text-[10px] text-[#EB5757] hover:underline"
+              >비활성</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 뷰 1: 채널 선택 → 그 채널의 활성 품목 */}
+      {view === 'channel' && (
+        <div className={`${PANEL} p-4`}>
+          <h3 className="text-sm font-semibold mb-3">채널별 판매 품목 설정</h3>
+          <p className="text-xs text-[#A3A9B3] mb-3">채널을 클릭하면 그 채널에서 판매하는 품목을 체크박스로 선택할 수 있습니다.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5">
+            {channels.map(c => {
+              const count = (byChannel[c.id] || new Set()).size;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => openChannel(c)}
+                  className={`${SUBPANEL} p-2.5 text-left hover:border-[#828FFF]/50 transition-colors`}
+                >
+                  <div className="text-sm text-[#F7F8F8] font-medium truncate">{c.name}</div>
+                  <div className="text-[10px] text-[#A3A9B3] mt-0.5">{c.category}</div>
+                  <div className="text-[11px] mt-1">
+                    <span className="text-[#828FFF] font-mono">{count}</span>
+                    <span className="text-[#7A7F8A]"> / {products.length} 품목</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 뷰 2: 매트릭스 (채널 × 품목 체크박스) */}
+      {view === 'matrix' && (
+        <div className={`${PANEL} p-0 overflow-x-auto`}>
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-[#0F1011] sticky top-0 z-10">
+                <th className="text-left py-2 px-3 border-b-2 border-[#2E3138] text-[10px] uppercase tracking-wider text-[#A3A9B3] sticky left-0 bg-[#0F1011] min-w-[140px]">
+                  채널 \ 품목
+                </th>
+                {products.map(p => (
+                  <th key={p.id} className="text-center py-2 px-1 border-b-2 border-[#2E3138] text-[10px] text-[#D0D6E0] min-w-[60px]" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+                    {p.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {channels.map(c => (
+                <tr key={c.id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
+                  <td className="py-1.5 px-3 sticky left-0 bg-[#0F1011] z-[1] text-[#F7F8F8] min-w-[140px] border-r border-[#2E3138]">
+                    {c.name}
+                  </td>
+                  {products.map(p => {
+                    const checked = (byChannel[c.id] || new Set()).has(p.id);
+                    return (
+                      <td key={p.id} className="text-center py-1 px-1">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={async (e) => {
+                            const want = e.target.checked;
+                            const currentSet = new Set(byChannel[c.id] || []);
+                            if (want) currentSet.add(p.id); else currentSet.delete(p.id);
+                            await fetch(
+                              `${API_BASE}/api/csa/channel-products/bulk-set?channel_id=${encodeURIComponent(c.id)}`,
+                              {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                                body: JSON.stringify(Array.from(currentSet)),
+                              }
+                            );
+                            fetchMappings();
+                          }}
+                          className="accent-[#828FFF] w-3.5 h-3.5"
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 채널-품목 선택 모달 */}
+      {selectedChannel && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className={`${PANEL} p-5 max-w-3xl w-full max-h-[80vh] overflow-y-auto`}>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-semibold">[{selectedChannel.name}] 판매 품목 설정</h3>
+                <p className="text-[11px] text-[#A3A9B3] mt-0.5">{pendingPids.size} / {products.length} 품목 선택</p>
+              </div>
+              <button onClick={() => setSelectedChannel(null)} className="text-[#A3A9B3] hover:text-[#F7F8F8]">✕</button>
+            </div>
+            <div className="flex items-center gap-2 mb-3">
+              <button onClick={() => setPendingPids(new Set(products.map(p => p.id)))} className="text-[11px] px-2 py-1 bg-[#1A1B1F] hover:bg-[#23252A] text-[#D0D6E0] rounded">전체 선택</button>
+              <button onClick={() => setPendingPids(new Set())} className="text-[11px] px-2 py-1 bg-[#1A1B1F] hover:bg-[#23252A] text-[#D0D6E0] rounded">전체 해제</button>
+              <button onClick={() => setPendingPids(new Set(byChannel[selectedChannel.id] || []))} className="text-[11px] px-2 py-1 bg-[#1A1B1F] hover:bg-[#23252A] text-[#D0D6E0] rounded">원래대로</button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 mb-4">
+              {products.map(p => (
+                <label key={p.id} className="flex items-center gap-2 p-2 hover:bg-[#1A1C22] rounded cursor-pointer text-xs">
+                  <input
+                    type="checkbox"
+                    checked={pendingPids.has(p.id)}
+                    onChange={() => togglePid(p.id)}
+                    className="accent-[#828FFF]"
+                  />
+                  <span className="text-[#D0D6E0] truncate">{p.name}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setSelectedChannel(null)} className="px-3 py-1.5 bg-[#1A1B1F] text-[#D0D6E0] rounded text-xs">취소</button>
+              <button onClick={saveChannelProducts} disabled={busy} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium disabled:opacity-50">
+                {busy ? '저장 중…' : `저장 (${pendingPids.size}개)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 품목 추가/수정 모달 */}
+      {showProdEditor && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className={`${PANEL} p-5 max-w-md w-full`}>
+            <h3 className="text-sm font-semibold mb-3">{editProd.id ? `'${editProd.name}' 수정` : '새 품목 추가'}</h3>
+            <div className="space-y-2">
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-1">품목명</label>
+                <input
+                  type="text"
+                  value={editProd.name || ''}
+                  onChange={(e) => setEditProd({ ...editProd, name: e.target.value })}
+                  className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8]"
+                  autoFocus
+                  placeholder="예: 마들렌, 비건쿠키"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-1">코드</label>
+                  <input
+                    type="text"
+                    value={editProd.code || ''}
+                    onChange={(e) => setEditProd({ ...editProd, code: e.target.value })}
+                    className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8] font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-1">카테고리</label>
+                  <input
+                    type="text"
+                    value={editProd.category || ''}
+                    onChange={(e) => setEditProd({ ...editProd, category: e.target.value })}
+                    className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8]"
+                    placeholder="베이커리/디저트 등"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-1">기본 입수</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editProd.default_unit_size || 1}
+                    onChange={(e) => setEditProd({ ...editProd, default_unit_size: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-1">정렬 순서</label>
+                  <input
+                    type="number"
+                    value={editProd.sort_order || 100}
+                    onChange={(e) => setEditProd({ ...editProd, sort_order: parseInt(e.target.value) || 100 })}
+                    className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-[#7A7F8A] mt-2">
+                추가 시 자동으로 모든 활성 채널에 등록됩니다. 채널별로는 위에서 체크박스로 토글하세요.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => { setShowProdEditor(false); setEditProd({}); }} className="px-3 py-1.5 bg-[#1A1B1F] text-[#D0D6E0] rounded text-xs">취소</button>
+              <button onClick={saveProduct} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium">저장</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ──────────────────────────────────────────────────────────────

@@ -26,6 +26,7 @@ from app.db_models import (
     ProductVariableCost,
     ChannelUnmatchedProduct,
     Channel,
+    CsaChannelProduct,
 )
 
 log = logging.getLogger(__name__)
@@ -123,6 +124,27 @@ def seed_product_master(db: Session) -> dict[str, int]:
         created += 1
     db.commit()
     return {"created": created, "total": db.query(ProductMaster).count()}
+
+
+def seed_channel_products(db: Session) -> int:
+    """모든 채널 × 모든 활성 품목 = 활성 등록 (기존 매핑이 없는 경우만).
+    멱등 — 이미 등록된 (channel, product) 조합은 skip."""
+    channels = db.query(Channel).filter(Channel.is_active.is_(True)).all()
+    products = db.query(ProductMaster).filter(ProductMaster.is_active.is_(True)).all()
+    existing = {(m.channel_id, m.product_id) for m in db.query(CsaChannelProduct).all()}
+    created = 0
+    for ch in channels:
+        for p in products:
+            if (ch.id, p.id) in existing:
+                continue
+            db.add(CsaChannelProduct(
+                channel_id=ch.id, channel_name=ch.name,
+                product_id=p.id, product_name=p.name,
+                is_active=True, added_by="seed",
+            ))
+            created += 1
+    db.commit()
+    return created
 
 
 def seed_channels(db: Session) -> dict[str, int]:

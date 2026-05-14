@@ -1221,6 +1221,29 @@ class CsaPnlConfig(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
+class CsaChannelProduct(Base):
+    """채널 × 품목 등록 매핑 (해당 채널에서 판매하는 품목 리스트).
+
+    기본 시드: 모든 채널 × 모든 표준 품목 = 활성. 직원이 추가/제거 가능.
+    """
+    __tablename__ = "csa_channel_product"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=False)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=False, index=True)
+    product_name = Column(String(200), nullable=False)
+    is_active = Column(Boolean, default=True)
+    added_by = Column(String(200), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('channel_id', 'product_id', name='uq_csa_channel_product'),
+    )
+
+
 class CsaChannelMonthlyCost(Base):
     """채널×월 고정비 입력 (광고비 등 channel_monthly_fixed basis 용)."""
     __tablename__ = "csa_channel_monthly_cost"
