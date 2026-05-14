@@ -1116,21 +1116,41 @@ def plan_summary(year: int, db: Session = Depends(get_db)):
 def plan_comparison(
     year: int,
     month: Optional[int] = None,
+    up_to_today: bool = False,
     by: str = Query("channel", regex="^(channel|product|group|employee|category)$"),
     db: Session = Depends(get_db),
 ):
     """사업계획 vs 실적 비교.
 
-    실적: csa_sales_daily_product (해당 year/month)
-    계획: csa_plan_* 테이블
+    실적: csa_sales_daily_product (해당 year/month, 또는 up_to_today=true면 1/1~오늘 누계)
+    계획: csa_plan_* 테이블 (up_to_today=true면 1/1~오늘 비율 안분)
 
     공통 키: channel_id / product_id / group / employee / category
     """
+    from datetime import date as _date
+    from calendar import monthrange as _monthrange
+    today = _date.today()
+    # YTD 모드: 해당 연도 1/1~오늘 (해당 연도가 미래/과거면 12/31 또는 미적용)
+    ytd_last_month = None
+    ytd_partial_ratio = 1.0  # 마지막 월 안분 비율
+    if up_to_today:
+        if year < today.year:
+            ytd_last_month = 12
+            ytd_partial_ratio = 1.0
+        elif year > today.year:
+            ytd_last_month = 0  # 데이터 없음
+        else:
+            ytd_last_month = today.month
+            month_days = _monthrange(year, today.month)[1]
+            ytd_partial_ratio = today.day / month_days
+
     # 실적 집계
     actual_q = db.query(ChannelSalesDailyProduct).filter(
         ChannelSalesDailyProduct.year == year
     )
-    if month:
+    if up_to_today:
+        actual_q = actual_q.filter(ChannelSalesDailyProduct.sale_date <= today)
+    elif month:
         actual_q = actual_q.filter(ChannelSalesDailyProduct.month == month)
     actual_rows = actual_q.all()
 
@@ -1173,75 +1193,85 @@ def plan_comparison(
         slot["actual_revenue"] += r.net_sales or 0
         slot["actual_pcs"] += r.pcs_qty or 0
 
+    def plan_factor(m: int) -> Optional[float]:
+        """up_to_today 모드: 미래 월은 None(제외), 현재 월은 비율 안분, 과거 월은 1.0.
+        평시: month 필터 매칭 시 1.0, 아니면 None."""
+        if up_to_today:
+            if ytd_last_month is None or ytd_last_month == 0:
+                return None
+            if m > ytd_last_month: return None
+            if m == ytd_last_month: return ytd_partial_ratio
+            return 1.0
+        if month is not None:
+            return 1.0 if m == month else None
+        return 1.0
+
     # 계획 데이터
     if by == "channel":
-        rev_q = db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year)
-        if month: rev_q = rev_q.filter(BusinessPlanChannelRevenue.month == month)
-        for p in rev_q.all():
+        for p in db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year).all():
+            f = plan_factor(p.month)
+            if f is None: continue
             k = (p.channel_id, p.channel_name)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_revenue"] += p.target_revenue or 0
-        qty_q = db.query(BusinessPlanProductQty).filter(BusinessPlanProductQty.year == year)
-        if month: qty_q = qty_q.filter(BusinessPlanProductQty.month == month)
-        for p in qty_q.all():
+            slot["target_revenue"] += (p.target_revenue or 0) * f
+        for p in db.query(BusinessPlanProductQty).filter(BusinessPlanProductQty.year == year).all():
+            f = plan_factor(p.month)
+            if f is None: continue
             k = (p.channel_id, p.channel_name)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_pcs"] += p.target_pcs or 0
+            slot["target_pcs"] += (p.target_pcs or 0) * f
     elif by == "product":
-        qty_q = db.query(BusinessPlanProductQty).filter(BusinessPlanProductQty.year == year)
-        if month: qty_q = qty_q.filter(BusinessPlanProductQty.month == month)
-        for p in qty_q.all():
-            if p.product_id is None: continue
+        for p in db.query(BusinessPlanProductQty).filter(BusinessPlanProductQty.year == year).all():
+            f = plan_factor(p.month)
+            if f is None or p.product_id is None: continue
             k = (p.product_id, p.product_name)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_pcs"] += p.target_pcs or 0
+            slot["target_pcs"] += (p.target_pcs or 0) * f
     elif by == "group":
-        rev_q = db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year)
-        if month: rev_q = rev_q.filter(BusinessPlanChannelRevenue.month == month)
-        for p in rev_q.all():
-            if p.group_id is None: continue
+        for p in db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year).all():
+            f = plan_factor(p.month)
+            if f is None or p.group_id is None: continue
             k = (p.group_id, p.group_name)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_revenue"] += p.target_revenue or 0
+            slot["target_revenue"] += (p.target_revenue or 0) * f
     elif by == "employee":
-        rev_q = db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year)
-        if month: rev_q = rev_q.filter(BusinessPlanChannelRevenue.month == month)
-        for p in rev_q.all():
-            if p.employee_id is None: continue
+        for p in db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year).all():
+            f = plan_factor(p.month)
+            if f is None or p.employee_id is None: continue
             k = (p.employee_id, p.employee_name)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_revenue"] += p.target_revenue or 0
+            slot["target_revenue"] += (p.target_revenue or 0) * f
     elif by == "category":
-        cat_q = db.query(BusinessPlanCategoryQty).filter(BusinessPlanCategoryQty.year == year)
-        if month: cat_q = cat_q.filter(BusinessPlanCategoryQty.month == month)
-        for p in cat_q.all():
+        for p in db.query(BusinessPlanCategoryQty).filter(BusinessPlanCategoryQty.year == year).all():
+            f = plan_factor(p.month)
+            if f is None: continue
             k = (p.product_category, p.product_category)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_pcs"] += p.target_pcs or 0
+            slot["target_pcs"] += (p.target_pcs or 0) * f
 
     items = list(actual_map.values())
     for it in items:
