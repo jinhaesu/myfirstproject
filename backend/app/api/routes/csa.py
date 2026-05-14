@@ -1386,6 +1386,171 @@ def admin_run_retention_now(db: Session = Depends(get_db)):
     return run_retention_now(db)
 
 
+@router.get("/admin/diag-batches")
+def admin_diag_batches(limit: int = 50, db: Session = Depends(get_db)):
+    """업로드 batch 상태 진단.
+
+    1) status별 카운트
+    2) parsing/failed batch 상세 + 그 batch의 raw_lines 적재 수
+    3) done batch 중 daily_aggregate가 비어 있는 케이스 (재집계 필요)
+    """
+    from sqlalchemy import func as sa_func
+    counts = dict(
+        db.query(
+            ChannelSalesUploadBatch.status,
+            sa_func.count(ChannelSalesUploadBatch.id),
+        ).group_by(ChannelSalesUploadBatch.status).all()
+    )
+
+    # parsing / failed 상세
+    stuck = (
+        db.query(ChannelSalesUploadBatch)
+        .filter(ChannelSalesUploadBatch.status.in_(["parsing", "failed"]))
+        .order_by(ChannelSalesUploadBatch.created_at.desc())
+        .limit(limit).all()
+    )
+    stuck_rows = []
+    for b in stuck:
+        raw_count = db.query(sa_func.count(ChannelSalesRawLine.id)).filter(
+            ChannelSalesRawLine.batch_id == b.id
+        ).scalar() or 0
+        stuck_rows.append({
+            "id": b.id, "status": b.status,
+            "channel": b.channel_name, "file_name": b.file_name,
+            "file_size": b.file_size,
+            "created_at": b.created_at.isoformat() if b.created_at else None,
+            "row_total": b.row_total, "row_inserted": b.row_inserted,
+            "raw_lines_in_db": raw_count,
+            "error_message": (b.error_message or "")[:300],
+        })
+
+    # done batch 중 daily_aggregate 비어 있는 케이스
+    done_batches = (
+        db.query(ChannelSalesUploadBatch)
+        .filter(ChannelSalesUploadBatch.status == "done")
+        .order_by(ChannelSalesUploadBatch.created_at.desc())
+        .limit(limit).all()
+    )
+    done_empty = []
+    for b in done_batches:
+        if not b.period_start or not b.period_end:
+            continue
+        daily_count = db.query(sa_func.count(ChannelSalesDailyProduct.id)).filter(
+            ChannelSalesDailyProduct.channel_id == b.channel_id,
+            ChannelSalesDailyProduct.sale_date >= b.period_start,
+            ChannelSalesDailyProduct.sale_date <= b.period_end,
+        ).scalar() or 0
+        raw_matched = db.query(sa_func.count(ChannelSalesRawLine.id)).filter(
+            ChannelSalesRawLine.batch_id == b.id,
+            ChannelSalesRawLine.mapping_status == "matched",
+        ).scalar() or 0
+        if daily_count == 0 and raw_matched > 0:
+            done_empty.append({
+                "id": b.id, "channel": b.channel_name, "file_name": b.file_name,
+                "period": f"{b.period_start}~{b.period_end}",
+                "row_inserted": b.row_inserted,
+                "raw_matched": raw_matched,
+                "daily_aggregate_count": daily_count,
+            })
+
+    return {
+        "status_counts": counts,
+        "stuck_batches": stuck_rows,
+        "done_but_empty_daily": done_empty,
+    }
+
+
+@router.post("/admin/rebuild-daily/{batch_id}")
+def admin_rebuild_daily(batch_id: str, db: Session = Depends(get_db)):
+    """특정 batch 기간의 daily_aggregate를 재계산."""
+    b = db.query(ChannelSalesUploadBatch).filter(ChannelSalesUploadBatch.id == batch_id).first()
+    if not b:
+        raise HTTPException(404, "batch not found")
+    if not b.period_start or not b.period_end:
+        raise HTTPException(400, "batch has no period")
+    n = rebuild_daily_aggregate(
+        db, channel_id=b.channel_id,
+        since=b.period_start, until=b.period_end,
+    )
+    return {"batch_id": batch_id, "rows_rebuilt": n}
+
+
+@router.get("/admin/diag-pnl-plan")
+def admin_diag_pnl_plan(year: int = 2026, db: Session = Depends(get_db)):
+    """P&L plan 진단: 어떤 데이터가 비어서 0이 되는지 핀포인트.
+
+    각 leaf row의 plan 값과, 그 산출에 쓰인 원천 데이터 카운트를 함께 반환.
+    """
+    from sqlalchemy import func as sa_func
+    from app.services.csa_pnl_service import compute_plan
+
+    sources = {
+        "BusinessPlanChannelRevenue": db.query(sa_func.count(BusinessPlanChannelRevenue.id)).filter_by(year=year).scalar() or 0,
+        "BusinessPlanProductQty": db.query(sa_func.count(BusinessPlanProductQty.id)).filter_by(year=year).scalar() or 0,
+        "BusinessPlanGroupSummary": db.query(sa_func.count(BusinessPlanGroupSummary.id)).filter_by(year=year).scalar() or 0,
+        "CsaCostItem(active)": db.query(sa_func.count(CsaCostItem.id)).filter_by(is_active=True).scalar() or 0,
+        "CsaCostRule(active)": db.query(sa_func.count(CsaCostRule.id)).filter_by(is_active=True).scalar() or 0,
+        "CsaChannelMonthlyCost": db.query(sa_func.count(CsaChannelMonthlyCost.id)).filter_by(year=year).scalar() or 0,
+    }
+    # 그룹별 cm 합 (target_cm 채워졌는지)
+    cm_total = 0
+    try:
+        cm_total = float(db.query(sa_func.sum(BusinessPlanGroupSummary.target_cm)).filter_by(year=year).scalar() or 0)
+    except Exception as e:
+        cm_total = f"error: {e}"
+
+    rev_total = float(db.query(sa_func.sum(BusinessPlanChannelRevenue.target_revenue)).filter_by(year=year).scalar() or 0)
+    # '대시보드' 시트 기반 매출 합 (BusinessPlanGroupSummary)
+    rev_group_total = float(db.query(sa_func.sum(BusinessPlanGroupSummary.target_revenue)).filter_by(year=year).scalar() or 0)
+
+    # 월별 매출 비교 (두 시트가 동일해야 정상)
+    monthly_compare = []
+    for m in range(1, 13):
+        ch_m = float(db.query(sa_func.sum(BusinessPlanChannelRevenue.target_revenue)).filter_by(year=year, month=m).scalar() or 0)
+        gp_m = float(db.query(sa_func.sum(BusinessPlanGroupSummary.target_revenue)).filter_by(year=year, month=m).scalar() or 0)
+        monthly_compare.append({
+            "month": m,
+            "channel_revenue_sheet": ch_m,
+            "group_summary_sheet": gp_m,
+            "diff": ch_m - gp_m,
+        })
+
+    try:
+        plan = compute_plan(db, year)
+        plan_by_key = {}
+        for k in {key[0] for key in plan}:
+            plan_by_key[k] = {f"m{m}": plan.get((k, m), 0) for m in range(1, 13)}
+            plan_by_key[k]["sum"] = sum(plan.get((k, m), 0) for m in range(1, 13))
+    except Exception as e:
+        plan_by_key = {"error": f"{type(e).__name__}: {e}"}
+
+    # 변동비 rule별 카운트 (어떤 코드가 비어있는지)
+    items = {it.id: it.code for it in db.query(CsaCostItem).all()}
+    rule_counts = {}
+    for r in db.query(CsaCostRule).filter_by(is_active=True).all():
+        code = items.get(r.cost_item_id, "?")
+        rule_counts[code] = rule_counts.get(code, 0) + 1
+
+    return {
+        "year": year,
+        "data_sources": sources,
+        "totals": {
+            "channel_revenue_sheet_year": rev_total,
+            "group_summary_sheet_revenue_year": rev_group_total,
+            "group_summary_sheet_cm_year": cm_total,
+        },
+        "monthly_revenue_comparison": monthly_compare,
+        "cost_rule_counts_by_code": rule_counts,
+        "compute_plan": plan_by_key,
+        "_note": (
+            "compute_plan.revenue 값은 channel_revenue_sheet 합계 기반. "
+            "사업계획 엑셀의 '대시보드' 시트 합계는 group_summary_sheet에 들어감. "
+            "둘이 다르면 시트 간 합산 차이. "
+            "공헌이익 plan은 group_summary.target_cm이 0이면 0으로 표시됨 (사업계획 재import 필요)."
+        ),
+    }
+
+
 @router.post("/admin/migrate-pnl-plan-cm")
 def admin_migrate_pnl_plan_cm(year: int = 2026, db: Session = Depends(get_db)):
     """target_cm/cm_share 컬럼 강제 추가 + 현재 plan/group summary 진단.
