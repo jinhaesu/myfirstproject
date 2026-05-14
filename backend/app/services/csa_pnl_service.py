@@ -43,6 +43,65 @@ log = logging.getLogger(__name__)
 OWNER_EMAIL = "lion9080@joinandjoin.com"
 
 
+def _migrate_cogs_split_to_material(db: Session) -> None:
+    """cogs_raw + cogs_sub 두 행을 cogs_material 단일 행으로 통합.
+
+    1회성 마이그레이션. 멱등하게 동작.
+    - 두 행의 manual 값은 cogs_material에 합산
+    - 합산 후 cogs_raw, cogs_sub 행은 비활성화 (삭제는 외래키 위험)
+    """
+    raw = db.query(CsaPnlRow).filter(CsaPnlRow.code == "cogs_raw").first()
+    sub = db.query(CsaPnlRow).filter(CsaPnlRow.code == "cogs_sub").first()
+    if not raw and not sub:
+        return  # 이미 마이그레이션됨
+
+    # cogs_material 행 확보 (없으면 생성)
+    material = db.query(CsaPnlRow).filter(CsaPnlRow.code == "cogs_material").first()
+    parent = db.query(CsaPnlRow).filter(CsaPnlRow.code == "cogs_var").first()
+    if not material:
+        material = CsaPnlRow(
+            code="cogs_material", label="원가(원재료+부재료)",
+            section="cogs_var", parent_id=parent.id if parent else None,
+            sign=1, is_subtotal=False, is_computed=True,
+            formula_code="cogs_material", sort_order=210,
+        )
+        db.add(material); db.flush()
+
+    # 기존 manual 값 합산
+    legacy_ids = [r.id for r in (raw, sub) if r]
+    if legacy_ids:
+        legacy_values = db.query(CsaPnlValue).filter(CsaPnlValue.row_id.in_(legacy_ids)).all()
+        agg: dict[tuple[int, int, str], float] = {}
+        for v in legacy_values:
+            key = (v.year, v.month, v.scope)
+            agg[key] = agg.get(key, 0) + (v.value or 0)
+        for (yr, mo, sc), total in agg.items():
+            if total == 0:
+                continue
+            existing = db.query(CsaPnlValue).filter(
+                CsaPnlValue.year == yr, CsaPnlValue.month == mo,
+                CsaPnlValue.row_id == material.id, CsaPnlValue.scope == sc,
+            ).first()
+            if existing:
+                existing.value = (existing.value or 0) + total
+                existing.is_manual = True
+            else:
+                db.add(CsaPnlValue(
+                    year=yr, month=mo, row_id=material.id, scope=sc,
+                    value=total, is_manual=True, notes="migrated from cogs_raw+cogs_sub",
+                ))
+
+    # 기존 leaf 행 비활성화 + 시드 외 행으로 표시 (이름 변경)
+    for r in (raw, sub):
+        if r:
+            r.is_active = False
+            # code 충돌 방지를 위해 prefix 변경
+            if not r.code.startswith("_legacy_"):
+                r.code = f"_legacy_{r.code}"
+
+    db.commit()
+
+
 # ──────────────────────────────────────────────────────────────
 # 행 시드
 # ──────────────────────────────────────────────────────────────
@@ -51,8 +110,7 @@ ROW_SEED = [
     # (code, label, section, parent_code, sign, is_subtotal, is_computed, formula_code, sort_order)
     ("revenue",          "매출액",          "revenue",      None,             1, True,  True,  "revenue",          100),
     ("cogs_var",         "원가(변동비)",     "cogs_var",     None,             -1, True,  True,  "cogs_var_subtotal", 200),
-    ("cogs_raw",         "원재료",          "cogs_var",     "cogs_var",       1, False, False, None,                210),
-    ("cogs_sub",         "부재료",          "cogs_var",     "cogs_var",       1, False, False, None,                220),
+    ("cogs_material",    "원가(원재료+부재료)", "cogs_var",  "cogs_var",       1, False, True,  "cogs_material",    210),
     ("cogs_labor",       "노무비",          "cogs_var",     "cogs_var",       1, False, True,  "labor",             230),
     ("cogs_overhead",    "제조간접비",      "cogs_var",     "cogs_var",       1, False, True,  "overhead",          240),
     ("cogs_fixed",       "원가(고정비)",     "cogs_fixed",   None,             -1, True,  False, None,                300),
@@ -72,10 +130,25 @@ ROW_SEED = [
 def seed_pnl_rows(db: Session) -> int:
     code_to_id: dict[str, int] = {}
     created = 0
-    # 1차: 모든 행 (parent 없이) 삽입 — 코드 충돌 시 skip
+
+    # 기존 cogs_raw/cogs_sub → cogs_material 마이그레이션 (1회성, 멱등)
+    _migrate_cogs_split_to_material(db)
+
+    # 1차: 모든 행 (parent 없이) 삽입 — 코드 충돌 시 핵심 속성 갱신
     for code, label, section, parent_code, sign, is_subtotal, is_computed, formula, sort in ROW_SEED:
         existing = db.query(CsaPnlRow).filter(CsaPnlRow.code == code).first()
         if existing:
+            # 기존 행이 있어도 label/is_computed/formula_code/section 등 핵심 메타는 시드 정의로 동기화
+            changed = False
+            if existing.label != label: existing.label = label; changed = True
+            if existing.section != section: existing.section = section; changed = True
+            if existing.sign != sign: existing.sign = sign; changed = True
+            if existing.is_subtotal != is_subtotal: existing.is_subtotal = is_subtotal; changed = True
+            if existing.is_computed != is_computed: existing.is_computed = is_computed; changed = True
+            if existing.formula_code != formula: existing.formula_code = formula; changed = True
+            if existing.sort_order != sort: existing.sort_order = sort; changed = True
+            if changed:
+                db.add(existing)
             code_to_id[code] = existing.id
             continue
         row = CsaPnlRow(
@@ -128,9 +201,8 @@ def compute_actual(db: Session, year: int) -> dict[tuple[str, int], float]:
         lo = _sum_daily_field(db, year, month, "cost_logistics_oh")
 
         out[("revenue", month)] = rev
-        # cost_cogs는 csa_cost_rule '원가' 규칙으로 계산된 값 → 자동 행 cogs_raw에 일단 반영하지 않음
-        # (원재료/부재료는 manual 우선). 단 자동 계산 cogs_raw_auto는 별도 키로 노출.
-        out[("cogs_raw_auto", month)] = cogs_basic  # 정보 제공용
+        # cost_cogs = 변동비 설정의 '원가' 규칙 합 (원재료+부재료 통합)
+        out[("cogs_material", month)] = cogs_basic
         out[("labor", month)] = labor
         out[("overhead", month)] = overhead
         out[("advertising", month)] = adv
@@ -224,7 +296,8 @@ def get_pnl_matrix(db: Session, year: int) -> dict:
             if ma is not None:
                 actuals.append(ma)
             elif r.is_computed and r.formula_code in ("revenue", "advertising", "labor", "overhead",
-                                                       "commission_all", "shipping", "packaging", "logistics"):
+                                                       "commission_all", "shipping", "packaging", "logistics",
+                                                       "cogs_material"):
                 actuals.append(actual_calc.get((r.formula_code, m), 0.0))
             elif r.is_computed and r.formula_code in ("cogs_var_subtotal", "sga_var_subtotal"):
                 actuals.append(subtotal_value(r.id, "actual", idx))
