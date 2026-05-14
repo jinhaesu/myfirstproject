@@ -173,6 +173,27 @@ async def _startup_catchup_rules():
         db.close()
 
 
+async def _startup_setup_csa_retention():
+    """CSA 보존 정책 함수 + pg_cron 스케줄 자동 등록 (멱등)."""
+    import asyncio
+    await asyncio.sleep(3)
+    from app.database import SessionLocal
+    if not SessionLocal:
+        return
+    from app.services.csa_retention import (
+        setup_retention_functions, setup_pg_cron_schedules
+    )
+    db = SessionLocal()
+    try:
+        f = setup_retention_functions(db)
+        c = setup_pg_cron_schedules(db)
+        logger.info(f"CSA retention setup: functions={f}, cron={c}")
+    except Exception as e:
+        logger.warning(f"CSA retention setup skipped: {e}")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """앱 시작 시 데이터베이스 테이블 초기화"""
@@ -187,6 +208,8 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_startup_catchup_rules())
     # 리포트 스케줄러 (백그라운드, 1분마다 체크)
     asyncio.create_task(_startup_report_scheduler())
+    # CSA 보존 정책 등록 (백그라운드, 멱등)
+    asyncio.create_task(_startup_setup_csa_retention())
     yield
 
 

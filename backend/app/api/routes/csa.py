@@ -45,6 +45,13 @@ from app.services.csa_plan_service import (
     seed_channel_groups,
     import_business_plan,
 )
+from app.services.csa_retention import (
+    setup_retention_functions,
+    setup_pg_cron_schedules,
+    migrate_to_partitions,
+    run_retention_now,
+    get_storage_status,
+)
 from app.services.csa_parsers import get_parser, registered_channels
 from app.services.csa_parsers._common import file_sha256
 
@@ -823,6 +830,39 @@ def plan_comparison(
         it["target_avg_price"] = (it["target_revenue"] / it["target_pcs"]) if it["target_pcs"] else 0
     items.sort(key=lambda x: -(x["target_revenue"] or 0))
     return {"year": year, "month": month, "by": by, "items": items}
+
+
+# ──────────────────────────────────────────────────────────────
+# 저장 효율화 (Phase 3) — retention + 월 파티션
+# ──────────────────────────────────────────────────────────────
+
+@router.get("/admin/storage")
+def admin_storage(db: Session = Depends(get_db)):
+    """저장소 상태 조회."""
+    return get_storage_status(db)
+
+
+@router.post("/admin/setup-retention")
+def admin_setup_retention(db: Session = Depends(get_db)):
+    """보존 함수 + pg_cron 스케줄 등록 (멱등)."""
+    funcs = setup_retention_functions(db)
+    cron_res = setup_pg_cron_schedules(db)
+    return {"functions": funcs, "cron": cron_res}
+
+
+@router.post("/admin/migrate-partitions")
+def admin_migrate_partitions(db: Session = Depends(get_db)):
+    """1회성: csa_sales_raw_lines를 월 파티션 테이블로 전환.
+
+    멱등하며 데이터 보존. 운영 중에는 짧은 lock 발생 가능.
+    """
+    return migrate_to_partitions(db)
+
+
+@router.post("/admin/run-retention-now")
+def admin_run_retention_now(db: Session = Depends(get_db)):
+    """수동으로 retention 1회 실행 (스케줄 외 즉시)."""
+    return run_retention_now(db)
 
 
 # ──────────────────────────────────────────────────────────────
