@@ -53,8 +53,15 @@ from app.services.csa_retention import (
     get_storage_status,
 )
 from app.services.csa_cost_service import seed_cost_items, rebuild_daily_with_costs
+from app.services.csa_pnl_service import (
+    seed_pnl_rows, get_pnl_matrix, upsert_value,
+    add_custom_row, delete_row,
+    is_password_set, can_set_password, set_password, verify_password,
+    OWNER_EMAIL,
+)
 from app.db_models import (
     CsaCostItem, CsaCostRule, CsaChannelMonthlyCost,
+    CsaPnlRow, CsaPnlValue, CsaPnlConfig,
 )
 from app.services.csa_parsers import get_parser, registered_channels
 from app.services.csa_parsers._common import file_sha256
@@ -397,6 +404,8 @@ class CostRuleIn(BaseModel):
     amount_per_pcs: Optional[float] = None
     amount_per_order: Optional[float] = None
     notes: Optional[str] = None
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
     is_active: bool = True
 
 
@@ -455,6 +464,8 @@ def list_cost_rules(
             "channel_id": r.channel_id, "product_id": r.product_id,
             "rate": r.rate, "amount_per_pcs": r.amount_per_pcs,
             "amount_per_order": r.amount_per_order,
+            "valid_from": r.valid_from.isoformat() if r.valid_from else None,
+            "valid_to": r.valid_to.isoformat() if r.valid_to else None,
             "notes": r.notes, "is_active": r.is_active,
         } for r in rows
     ]
@@ -462,10 +473,13 @@ def list_cost_rules(
 
 @router.post("/cost-rules")
 def upsert_cost_rule(payload: CostRuleIn, db: Session = Depends(get_db)):
+    # 동일 (item, channel, product) + 동일 기간이면 upsert, 기간이 다르면 새 규칙 추가 허용
     existing = db.query(CsaCostRule).filter(
         CsaCostRule.cost_item_id == payload.cost_item_id,
         CsaCostRule.channel_id == payload.channel_id,
         CsaCostRule.product_id == payload.product_id,
+        CsaCostRule.valid_from == payload.valid_from,
+        CsaCostRule.valid_to == payload.valid_to,
     ).first()
     if existing:
         for k, v in payload.model_dump().items():
@@ -1055,6 +1069,105 @@ def plan_comparison(
         it["target_avg_price"] = (it["target_revenue"] / it["target_pcs"]) if it["target_pcs"] else 0
     items.sort(key=lambda x: -(x["target_revenue"] or 0))
     return {"year": year, "month": month, "by": by, "items": items}
+
+
+# ──────────────────────────────────────────────────────────────
+# P&L 월별 매트릭스
+# ──────────────────────────────────────────────────────────────
+
+class PnlValueIn(BaseModel):
+    year: int
+    month: int
+    row_id: int
+    scope: str = "actual"  # 'actual' | 'plan'
+    value: float
+    password: Optional[str] = None
+    user_email: Optional[str] = None
+
+
+class PnlRowIn(BaseModel):
+    parent_id: int
+    label: str
+    password: Optional[str] = None
+
+
+class PnlPasswordIn(BaseModel):
+    new_password: str
+    user_email: str
+
+
+class PnlVerifyIn(BaseModel):
+    password: str
+
+
+@router.get("/pnl")
+def pnl_matrix(year: int, db: Session = Depends(get_db)):
+    return get_pnl_matrix(db, year)
+
+
+@router.post("/pnl/value")
+def pnl_save_value(payload: PnlValueIn, db: Session = Depends(get_db)):
+    # 비밀번호 검증 (비밀번호 미설정 상태에서는 OWNER만 저장 가능)
+    if not is_password_set(db):
+        if not (payload.user_email and can_set_password(payload.user_email)):
+            raise HTTPException(403, "P&L 수정 비밀번호가 설정되지 않았습니다. 직원·채널 관리 탭에서 먼저 설정하세요.")
+    else:
+        if not payload.password or not verify_password(db, payload.password):
+            raise HTTPException(403, "비밀번호가 일치하지 않습니다")
+
+    if payload.scope not in ("actual", "plan"):
+        raise HTTPException(400, "scope must be 'actual' or 'plan'")
+    vid = upsert_value(
+        db, year=payload.year, month=payload.month, row_id=payload.row_id,
+        scope=payload.scope, value=payload.value, updated_by=payload.user_email,
+    )
+    return {"id": vid}
+
+
+@router.post("/pnl/row")
+def pnl_add_row(payload: PnlRowIn, db: Session = Depends(get_db)):
+    if not is_password_set(db):
+        raise HTTPException(403, "P&L 비밀번호가 설정되지 않았습니다")
+    if not payload.password or not verify_password(db, payload.password):
+        raise HTTPException(403, "비밀번호가 일치하지 않습니다")
+    try:
+        rid = add_custom_row(db, parent_id=payload.parent_id, label=payload.label, section="custom")
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    return {"id": rid}
+
+
+@router.delete("/pnl/row/{row_id}")
+def pnl_delete_row(row_id: int, password: str, db: Session = Depends(get_db)):
+    if not verify_password(db, password):
+        raise HTTPException(403, "비밀번호가 일치하지 않습니다")
+    try:
+        ok = delete_row(db, row_id)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    return {"deleted": ok, "row_id": row_id}
+
+
+@router.get("/pnl/password-status")
+def pnl_password_status(db: Session = Depends(get_db)):
+    return {
+        "is_set": is_password_set(db),
+        "owner_email": OWNER_EMAIL,
+    }
+
+
+@router.post("/pnl/password")
+def pnl_set_password(payload: PnlPasswordIn, db: Session = Depends(get_db)):
+    try:
+        set_password(db, new_password=payload.new_password, current_user=payload.user_email)
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+    return {"ok": True}
+
+
+@router.post("/pnl/verify")
+def pnl_verify(payload: PnlVerifyIn, db: Session = Depends(get_db)):
+    return {"ok": verify_password(db, payload.password)}
 
 
 # ──────────────────────────────────────────────────────────────

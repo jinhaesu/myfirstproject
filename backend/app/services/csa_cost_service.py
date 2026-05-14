@@ -66,8 +66,17 @@ def seed_cost_items(db: Session) -> int:
 # 규칙 매칭
 # ──────────────────────────────────────────────────────────────
 
-def _best_rule(rules: list[CsaCostRule], channel_id: str, product_id: Optional[int]) -> Optional[CsaCostRule]:
-    """주어진 channel/product에 대해 가장 구체적인 규칙 선택."""
+def _best_rule(
+    rules: list[CsaCostRule],
+    channel_id: str,
+    product_id: Optional[int],
+    sale_date: Optional[date] = None,
+) -> Optional[CsaCostRule]:
+    """주어진 channel/product/date에 대해 가장 구체적인 규칙 선택.
+
+    valid_from / valid_to가 설정된 규칙은 해당 기간 내일 때만 매칭.
+    여러 시즌 규칙이 동시 매칭되면 더 좁은 기간을 우선.
+    """
     candidates = []
     for r in rules:
         if not r.is_active:
@@ -76,8 +85,17 @@ def _best_rule(rules: list[CsaCostRule], channel_id: str, product_id: Optional[i
             continue
         if r.product_id and r.product_id != product_id:
             continue
-        # 우선순위 점수: channel+product=3 / channel=2 / product=1 / global=0
-        score = (2 if r.channel_id else 0) + (1 if r.product_id else 0)
+        # 유효 기간
+        if sale_date is not None:
+            if r.valid_from and sale_date < r.valid_from:
+                continue
+            if r.valid_to and sale_date > r.valid_to:
+                continue
+        # 우선순위 점수
+        score = (4 if r.channel_id else 0) + (2 if r.product_id else 0)
+        # 기간 한정 규칙이 더 구체적
+        if r.valid_from or r.valid_to:
+            score += 1
         candidates.append((score, r.id, r))
     if not candidates:
         return None
@@ -165,11 +183,11 @@ def rebuild_daily_with_costs(
     for m in db.query(CsaChannelMonthlyCost).all():
         monthly_fixed[(m.channel_id, m.year, m.month, m.cost_item_id)] = m.amount or 0
 
-    def get_rule(code: str, ch_id: str, prod_id: Optional[int]) -> Optional[CsaCostRule]:
+    def get_rule(code: str, ch_id: str, prod_id: Optional[int], sale_date: Optional[date] = None) -> Optional[CsaCostRule]:
         it = items.get(code)
         if not it:
             return None
-        return _best_rule(rules_by_item.get(it.id, []), ch_id, prod_id)
+        return _best_rule(rules_by_item.get(it.id, []), ch_id, prod_id, sale_date)
 
     # 5) 행별 분해 + 적재
     count = 0
@@ -182,15 +200,15 @@ def rebuild_daily_with_costs(
         orders = int(r.order_count or 0)
 
         def rule_pcs(code: str) -> float:
-            rule = get_rule(code, ch, pid)
+            rule = get_rule(code, ch, pid, sd)
             return (rule.amount_per_pcs or 0) if rule else 0
 
         def rule_rate(code: str) -> float:
-            rule = get_rule(code, ch, pid)
+            rule = get_rule(code, ch, pid, sd)
             return (rule.rate or 0) if rule else 0
 
         def rule_order(code: str) -> float:
-            rule = get_rule(code, ch, pid)
+            rule = get_rule(code, ch, pid, sd)
             return (rule.amount_per_order or 0) if rule else 0
 
         c_cogs = pcs * rule_pcs("cogs")
@@ -201,7 +219,7 @@ def rebuild_daily_with_costs(
         c_comm_rate = net * rule_rate("commission_rate")
         c_comm_fixed = orders * rule_order("commission_fixed")
         # 운반비: order_fixed 우선, 없으면 매출 정률(rate)
-        shipping_rule = get_rule("shipping", ch, pid)
+        shipping_rule = get_rule("shipping", ch, pid, sd)
         c_shipping = 0.0
         if shipping_rule:
             if shipping_rule.amount_per_order:

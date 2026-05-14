@@ -56,6 +56,7 @@ def init_db():
             BusinessPlanCategoryQty, BusinessPlanGroupSummary,
             BusinessPlanUploadBatch,
             CsaCostItem, CsaCostRule, CsaChannelMonthlyCost,
+            CsaPnlRow, CsaPnlValue, CsaPnlConfig,
         )
         from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401
         from app.models.scheduled_report import ScheduledReport  # noqa: F401
@@ -86,6 +87,17 @@ def init_db():
                 ))
                 conn.execute(text(
                     "ALTER TABLE cs_inquiries ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP"
+                ))
+                conn.commit()
+        except Exception:
+            pass
+
+        # CSA 변동비 규칙 unique constraint 변경 (기간 추가)
+        try:
+            from sqlalchemy import text
+            with engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE csa_cost_rule DROP CONSTRAINT IF EXISTS uq_csa_cost_rule_scope"
                 ))
                 conn.commit()
         except Exception:
