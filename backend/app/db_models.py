@@ -852,11 +852,23 @@ class ChannelSalesDailyProduct(Base):
     gross_sales = Column(Float, default=0)
     net_sales = Column(Float, default=0)
     settlement_amount = Column(Float, default=0)
-    commission = Column(Float, default=0)
+    commission = Column(Float, default=0)  # raw 단계 채널 수수료
     refund_amount = Column(Float, default=0)
     order_count = Column(Integer, default=0)
     variable_cost = Column(Float, default=0)
     contribution_margin = Column(Float, default=0)
+
+    # 변동비 카테고리별 분해 (공헌이익 계산용)
+    cost_cogs = Column(Float, default=0)              # 원가
+    cost_labor = Column(Float, default=0)             # 노무비
+    cost_overhead = Column(Float, default=0)          # 제조간접비
+    cost_logistics_work = Column(Float, default=0)    # 물류작업비
+    cost_logistics_oh = Column(Float, default=0)      # 물류간접비
+    cost_advertising = Column(Float, default=0)       # 광고비
+    cost_commission_rate = Column(Float, default=0)   # 정률 수수료
+    cost_commission_fixed = Column(Float, default=0)  # 정액 수수료
+    cost_shipping = Column(Float, default=0)          # 운반비
+    cost_packaging = Column(Float, default=0)         # 포장비
 
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -1075,3 +1087,96 @@ class BusinessPlanUploadBatch(Base):
     summary_rows = Column(Integer, default=0)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
+
+
+# ──────────────────────────────────────────────
+# 세분화된 변동비 (Cost Items / Rules / Monthly fixed)
+# ──────────────────────────────────────────────
+
+class CsaCostItem(Base):
+    """변동비 항목 마스터.
+
+    category:
+      - cogs              원가 (제품 낱개 단위)
+      - labor             노무비 (제품 낱개 단위)
+      - overhead          제조간접비 (채널 매출 정률)
+      - logistics_work    물류작업비 (채널 매출 정률)
+      - logistics_oh      물류간접비 (채널 매출 정률)
+      - advertising       광고비 (채널 월정액 → 일별 분배)
+      - commission_rate   판매수수료 정률 (채널 매출 ×)
+      - commission_fixed  판매수수료 정액 (주문건 ×)
+      - shipping          운반비/택배비 (주문건 정액 or 매출 정률)
+      - packaging         포장비 (주문건 정액)
+
+    basis:
+      - product_pcs       낱개당 정액
+      - channel_revenue_rate  채널 매출 × rate
+      - channel_monthly_fixed 채널 월정액 (일별 균등 분배)
+      - order_fixed       주문건당 정액
+      - order_revenue_rate  매출 × rate (운반비 옵션)
+    """
+    __tablename__ = "csa_cost_item"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(60), unique=True, index=True)
+    name = Column(String(120), nullable=False)
+    category = Column(String(40), nullable=False, index=True)
+    basis = Column(String(40), nullable=False)  # 계산 기준
+    description = Column(Text, nullable=True)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class CsaCostRule(Base):
+    """변동비 규칙. 채널/제품/글로벌 범위로 단가·율 설정.
+
+    우선순위: (channel_id IS NOT NULL AND product_id IS NOT NULL)
+            > channel_id > product_id > global
+    """
+    __tablename__ = "csa_cost_rule"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    cost_item_id = Column(Integer, ForeignKey("csa_cost_item.id"), nullable=False, index=True)
+    channel_id = Column(String(100), nullable=True, index=True)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True, index=True)
+
+    # 기준에 따라 사용하는 필드가 달라짐 (basis로 매칭)
+    rate = Column(Float, nullable=True)            # 정률 (0.05 = 5%)
+    amount_per_pcs = Column(Float, nullable=True)  # 낱개당 원
+    amount_per_order = Column(Float, nullable=True)  # 주문당 원
+
+    notes = Column(Text, nullable=True)
+    valid_from = Column(Date, nullable=True)
+    valid_to = Column(Date, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            'cost_item_id', 'channel_id', 'product_id',
+            name='uq_csa_cost_rule_scope'
+        ),
+    )
+
+
+class CsaChannelMonthlyCost(Base):
+    """채널×월 고정비 입력 (광고비 등 channel_monthly_fixed basis 용)."""
+    __tablename__ = "csa_channel_monthly_cost"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    year = Column(Integer, nullable=False, index=True)
+    month = Column(Integer, nullable=False, index=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=False)
+    cost_item_id = Column(Integer, ForeignKey("csa_cost_item.id"), nullable=False, index=True)
+    amount = Column(Float, default=0)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('year', 'month', 'channel_id', 'cost_item_id', name='uq_csa_ch_monthly_cost'),
+    )

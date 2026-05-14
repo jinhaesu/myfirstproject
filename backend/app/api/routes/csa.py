@@ -52,6 +52,10 @@ from app.services.csa_retention import (
     run_retention_now,
     get_storage_status,
 )
+from app.services.csa_cost_service import seed_cost_items, rebuild_daily_with_costs
+from app.db_models import (
+    CsaCostItem, CsaCostRule, CsaChannelMonthlyCost,
+)
 from app.services.csa_parsers import get_parser, registered_channels
 from app.services.csa_parsers._common import file_sha256
 
@@ -104,7 +108,8 @@ def seed(db: Session = Depends(get_db)):
     p = seed_product_master(db)
     c = seed_channels(db)
     g = seed_channel_groups(db)
-    return {"products": p, "channels": c, "groups": g, "parsers": registered_channels()}
+    ci = seed_cost_items(db)
+    return {"products": p, "channels": c, "groups": g, "cost_items": ci, "parsers": registered_channels()}
 
 
 @router.get("/products", response_model=list[ProductMasterOut])
@@ -371,6 +376,176 @@ def upsert_variable_cost(payload: VariableCostIn, db: Session = Depends(get_db))
 
 
 # ──────────────────────────────────────────────────────────────
+# 세분 변동비 (Cost Items / Rules / Monthly fixed)
+# ──────────────────────────────────────────────────────────────
+
+class CostItemIn(BaseModel):
+    code: str
+    name: str
+    category: str
+    basis: str
+    description: Optional[str] = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class CostRuleIn(BaseModel):
+    cost_item_id: int
+    channel_id: Optional[str] = None
+    product_id: Optional[int] = None
+    rate: Optional[float] = None
+    amount_per_pcs: Optional[float] = None
+    amount_per_order: Optional[float] = None
+    notes: Optional[str] = None
+    is_active: bool = True
+
+
+class ChannelMonthlyCostIn(BaseModel):
+    year: int
+    month: int
+    channel_id: str
+    channel_name: str
+    cost_item_id: int
+    amount: float
+    notes: Optional[str] = None
+
+
+@router.get("/cost-items")
+def list_cost_items(db: Session = Depends(get_db)):
+    rows = db.query(CsaCostItem).order_by(CsaCostItem.sort_order, CsaCostItem.id).all()
+    return [
+        {
+            "id": r.id, "code": r.code, "name": r.name,
+            "category": r.category, "basis": r.basis,
+            "description": r.description, "is_active": r.is_active,
+            "sort_order": r.sort_order,
+        } for r in rows
+    ]
+
+
+@router.post("/cost-items")
+def upsert_cost_item(payload: CostItemIn, db: Session = Depends(get_db)):
+    existing = db.query(CsaCostItem).filter(CsaCostItem.code == payload.code).first()
+    if existing:
+        for k, v in payload.model_dump().items():
+            setattr(existing, k, v)
+        db.commit()
+        return {"id": existing.id, "updated": True}
+    item = CsaCostItem(**payload.model_dump())
+    db.add(item)
+    db.commit()
+    return {"id": item.id, "updated": False}
+
+
+@router.get("/cost-rules")
+def list_cost_rules(
+    cost_item_id: Optional[int] = None,
+    channel_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    q = db.query(CsaCostRule)
+    if cost_item_id:
+        q = q.filter(CsaCostRule.cost_item_id == cost_item_id)
+    if channel_id:
+        q = q.filter(CsaCostRule.channel_id == channel_id)
+    rows = q.order_by(CsaCostRule.cost_item_id, CsaCostRule.id).all()
+    return [
+        {
+            "id": r.id, "cost_item_id": r.cost_item_id,
+            "channel_id": r.channel_id, "product_id": r.product_id,
+            "rate": r.rate, "amount_per_pcs": r.amount_per_pcs,
+            "amount_per_order": r.amount_per_order,
+            "notes": r.notes, "is_active": r.is_active,
+        } for r in rows
+    ]
+
+
+@router.post("/cost-rules")
+def upsert_cost_rule(payload: CostRuleIn, db: Session = Depends(get_db)):
+    existing = db.query(CsaCostRule).filter(
+        CsaCostRule.cost_item_id == payload.cost_item_id,
+        CsaCostRule.channel_id == payload.channel_id,
+        CsaCostRule.product_id == payload.product_id,
+    ).first()
+    if existing:
+        for k, v in payload.model_dump().items():
+            setattr(existing, k, v)
+        db.commit()
+        rule_id = existing.id
+    else:
+        rule = CsaCostRule(**payload.model_dump())
+        db.add(rule)
+        db.commit()
+        rule_id = rule.id
+    rebuild_daily_with_costs(db)
+    return {"id": rule_id}
+
+
+@router.delete("/cost-rules/{rule_id}")
+def delete_cost_rule(rule_id: int, db: Session = Depends(get_db)):
+    db.query(CsaCostRule).filter(CsaCostRule.id == rule_id).delete()
+    db.commit()
+    rebuild_daily_with_costs(db)
+    return {"deleted": rule_id}
+
+
+@router.get("/channel-monthly-costs")
+def list_channel_monthly_costs(
+    year: Optional[int] = None,
+    channel_id: Optional[str] = None,
+    cost_item_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    q = db.query(CsaChannelMonthlyCost)
+    if year:
+        q = q.filter(CsaChannelMonthlyCost.year == year)
+    if channel_id:
+        q = q.filter(CsaChannelMonthlyCost.channel_id == channel_id)
+    if cost_item_id:
+        q = q.filter(CsaChannelMonthlyCost.cost_item_id == cost_item_id)
+    rows = q.order_by(CsaChannelMonthlyCost.year.desc(), CsaChannelMonthlyCost.month, CsaChannelMonthlyCost.channel_name).all()
+    return [
+        {
+            "id": r.id, "year": r.year, "month": r.month,
+            "channel_id": r.channel_id, "channel_name": r.channel_name,
+            "cost_item_id": r.cost_item_id, "amount": r.amount,
+            "notes": r.notes,
+        } for r in rows
+    ]
+
+
+@router.post("/channel-monthly-costs")
+def upsert_channel_monthly_cost(payload: ChannelMonthlyCostIn, db: Session = Depends(get_db)):
+    existing = db.query(CsaChannelMonthlyCost).filter(
+        CsaChannelMonthlyCost.year == payload.year,
+        CsaChannelMonthlyCost.month == payload.month,
+        CsaChannelMonthlyCost.channel_id == payload.channel_id,
+        CsaChannelMonthlyCost.cost_item_id == payload.cost_item_id,
+    ).first()
+    if existing:
+        existing.amount = payload.amount
+        existing.channel_name = payload.channel_name
+        existing.notes = payload.notes
+        db.commit()
+        eid = existing.id
+    else:
+        m = CsaChannelMonthlyCost(**payload.model_dump())
+        db.add(m)
+        db.commit()
+        eid = m.id
+    rebuild_daily_with_costs(db)
+    return {"id": eid}
+
+
+@router.delete("/channel-monthly-costs/{cost_id}")
+def delete_channel_monthly_cost(cost_id: int, db: Session = Depends(get_db)):
+    db.query(CsaChannelMonthlyCost).filter(CsaChannelMonthlyCost.id == cost_id).delete()
+    db.commit()
+    rebuild_daily_with_costs(db)
+    return {"deleted": cost_id}
+
+
+# ──────────────────────────────────────────────────────────────
 # Dashboard query
 # ──────────────────────────────────────────────────────────────
 
@@ -419,6 +594,38 @@ def dashboard(
     total_commission = sum(r.commission or 0 for r in rows)
     total_cm = sum(r.contribution_margin or 0 for r in rows)
     cm_rate = (total_cm / total_revenue * 100) if total_revenue else 0
+
+    # 변동비 카테고리별 분해
+    cost_breakdown = {
+        "cogs": sum(r.cost_cogs or 0 for r in rows),
+        "labor": sum(r.cost_labor or 0 for r in rows),
+        "overhead": sum(r.cost_overhead or 0 for r in rows),
+        "logistics_work": sum(r.cost_logistics_work or 0 for r in rows),
+        "logistics_oh": sum(r.cost_logistics_oh or 0 for r in rows),
+        "advertising": sum(r.cost_advertising or 0 for r in rows),
+        "commission_rate": sum(r.cost_commission_rate or 0 for r in rows),
+        "commission_fixed": sum(r.cost_commission_fixed or 0 for r in rows),
+        "shipping": sum(r.cost_shipping or 0 for r in rows),
+        "packaging": sum(r.cost_packaging or 0 for r in rows),
+    }
+
+    # 구분(그룹) 집계 — 3종 (온라인(위탁)/온라인(사입)/오프라인)
+    group_map = {m.channel_id: m.group_id for m in db.query(ChannelGroupMembership).all()}
+    group_names = {g.id: g.name for g in db.query(ChannelGroup).all()}
+    by_group: dict = {}
+    for r in rows:
+        gname = group_names.get(group_map.get(r.channel_id)) or "미분류"
+        slot = by_group.setdefault(gname, {
+            "group": gname, "revenue": 0, "pcs": 0,
+            "contribution_margin": 0, "orders": 0,
+        })
+        slot["revenue"] += r.net_sales or 0
+        slot["pcs"] += r.pcs_qty or 0
+        slot["orders"] += r.order_count or 0
+        slot["contribution_margin"] += r.contribution_margin or 0
+    groups_summary = sorted(by_group.values(), key=lambda x: -x["revenue"])
+    for g in groups_summary:
+        g["cm_rate"] = (g["contribution_margin"] / g["revenue"] * 100) if g["revenue"] else 0
 
     # 기간 시리즈
     series_map: dict[str, dict] = {}
@@ -489,10 +696,14 @@ def dashboard(
             "commission": total_commission,
             "contribution_margin": total_cm,
             "cm_rate": cm_rate,
+            "avg_price_per_pcs": (total_revenue / total_pcs) if total_pcs else 0,
+            "avg_price_per_order": (total_revenue / total_orders) if total_orders else 0,
         },
+        "cost_breakdown": cost_breakdown,
         "series": series,
         "channels": channels_summary,
         "products": products_summary,
+        "groups": groups_summary,
         "granularity": granularity,
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
