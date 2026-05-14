@@ -1156,10 +1156,69 @@ class CsaCostRule(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            'cost_item_id', 'channel_id', 'product_id',
-            name='uq_csa_cost_rule_scope'
+            'cost_item_id', 'channel_id', 'product_id', 'valid_from', 'valid_to',
+            name='uq_csa_cost_rule_scope_period'
         ),
     )
+
+
+# ──────────────────────────────────────────────
+# P&L 월별 엑셀 뷰 (매출/원가/판관비/이익)
+# ──────────────────────────────────────────────
+
+class CsaPnlRow(Base):
+    """P&L 행 마스터.
+
+    section:
+      revenue / cogs_var / cogs_fixed / gross_profit
+      sga_var / sga_fixed / op_profit / cm
+    """
+    __tablename__ = "csa_pnl_row"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(60), unique=True, index=True)
+    label = Column(String(120), nullable=False)
+    section = Column(String(30), nullable=False, index=True)
+    parent_id = Column(Integer, ForeignKey("csa_pnl_row.id"), nullable=True, index=True)
+    sign = Column(Integer, default=1)              # 1=가산, -1=차감
+    is_subtotal = Column(Boolean, default=False)   # 소계/합계 행
+    is_computed = Column(Boolean, default=False)   # True면 자동, False면 수동입력
+    formula_code = Column(String(60), nullable=True)  # 자동 계산 방식 키
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class CsaPnlValue(Base):
+    """P&L 셀 값 (year × month × row × scope)."""
+    __tablename__ = "csa_pnl_value"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    year = Column(Integer, nullable=False, index=True)
+    month = Column(Integer, nullable=False, index=True)
+    row_id = Column(Integer, ForeignKey("csa_pnl_row.id"), nullable=False, index=True)
+    scope = Column(String(20), nullable=False, default="actual")  # 'actual' | 'plan'
+    value = Column(Float, default=0)
+    is_manual = Column(Boolean, default=True)   # 수동 입력 여부 (자동 계산값이면 False)
+    notes = Column(Text, nullable=True)
+    updated_by = Column(String(200), nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('year', 'month', 'row_id', 'scope', name='uq_csa_pnl_value'),
+    )
+
+
+class CsaPnlConfig(Base):
+    """P&L 수정 비밀번호 (단일 행)."""
+    __tablename__ = "csa_pnl_config"
+
+    id = Column(Integer, primary_key=True, default=1)
+    owner_email = Column(String(200), nullable=False, default="lion9080@joinandjoin.com")
+    password_hash = Column(String(200), nullable=True)
+    updated_by = Column(String(200), nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
 class CsaChannelMonthlyCost(Base):

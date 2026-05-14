@@ -140,7 +140,7 @@ const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 const isoDate = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-type Tab = 'dashboard' | 'upload' | 'mapping' | 'cost' | 'plan' | 'admin';
+type Tab = 'dashboard' | 'pnl' | 'upload' | 'mapping' | 'cost' | 'plan' | 'admin';
 
 export default function ChannelsPage() {
   return (
@@ -317,7 +317,11 @@ function Content() {
         )}
 
         {activeTab === 'admin' && (
-          <AdminTab authHeaders={authHeaders} channels={channels} />
+          <AdminTab authHeaders={authHeaders} channels={channels} userEmail={user?.email || ''} />
+        )}
+
+        {activeTab === 'pnl' && (
+          <PnlTab authHeaders={authHeaders} userEmail={user?.email || ''} />
         )}
       </div>
     </div>
@@ -333,6 +337,7 @@ function Header({
   const parsersReady = channels.filter(c => c.has_parser).length;
   const tabs: Array<{ key: Tab; label: string; badge?: number }> = [
     { key: 'dashboard', label: '대시보드' },
+    { key: 'pnl', label: '월별 매출/공헌이익 차트' },
     { key: 'upload', label: '엑셀 업로드' },
     { key: 'mapping', label: '매핑 대기', badge: unmatchedCount },
     { key: 'cost', label: '변동비 설정' },
@@ -963,6 +968,8 @@ interface CostRule {
   rate: number | null;
   amount_per_pcs: number | null;
   amount_per_order: number | null;
+  valid_from: string | null;
+  valid_to: string | null;
   notes: string | null;
   is_active: boolean;
 }
@@ -1116,8 +1123,12 @@ function CostRuleEditor({
     cost_item_id: item.id,
     channel_id: null, product_id: null,
     rate: null, amount_per_pcs: null, amount_per_order: null,
+    valid_from: null, valid_to: null,
     is_active: true,
   });
+  // 기간 적용 가능 항목 (정액 수수료, 포장비, 기타 모든 항목)
+  const PERIOD_ELIGIBLE = ['commission_fixed', 'packaging', 'shipping', 'commission_rate', 'advertising'];
+  const showPeriod = PERIOD_ELIGIBLE.includes(item.code);
   const [busy, setBusy] = useState(false);
 
   const saveRule = async () => {
@@ -1133,13 +1144,16 @@ function CostRuleEditor({
           rate: newRule.rate || null,
           amount_per_pcs: newRule.amount_per_pcs || null,
           amount_per_order: newRule.amount_per_order || null,
+          valid_from: newRule.valid_from || null,
+          valid_to: newRule.valid_to || null,
           notes: newRule.notes || null,
           is_active: true,
         }),
       });
       setNewRule({
         cost_item_id: item.id, channel_id: null, product_id: null,
-        rate: null, amount_per_pcs: null, amount_per_order: null, is_active: true,
+        rate: null, amount_per_pcs: null, amount_per_order: null,
+        valid_from: null, valid_to: null, is_active: true,
       });
       onSaved();
     } finally { setBusy(false); }
@@ -1263,6 +1277,33 @@ function CostRuleEditor({
               className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium disabled:opacity-50"
             >{busy ? '저장…' : '+ 추가'}</button>
           </div>
+          {/* 유효 기간 (시즌·행사 적용) */}
+          {showPeriod && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 pt-3 border-t border-[#23252A]">
+              <div className="md:col-span-2 text-[10px] text-[#A3A9B3] flex items-center">
+                <span className="font-mono text-[#828FFF]">시즌·기간 적용</span>
+                <span className="ml-2">— 비워두면 상시 적용</span>
+              </div>
+              <div>
+                <label className="block text-[10px] text-[#7A7F8A] mb-1">시작일</label>
+                <input
+                  type="date"
+                  value={newRule.valid_from || ''}
+                  onChange={(e) => setNewRule({ ...newRule, valid_from: e.target.value || null })}
+                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-[#7A7F8A] mb-1">종료일</label>
+                <input
+                  type="date"
+                  value={newRule.valid_to || ''}
+                  onChange={(e) => setNewRule({ ...newRule, valid_to: e.target.value || null })}
+                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1284,6 +1325,11 @@ function CostRuleEditor({
                       {r.rate != null && <span>정률 {(r.rate * 100).toFixed(2)}%</span>}
                       {r.amount_per_pcs != null && <span> · ₩{fmtNum(r.amount_per_pcs)}/낱개</span>}
                       {r.amount_per_order != null && <span> · ₩{fmtNum(r.amount_per_order)}/주문</span>}
+                      {(r.valid_from || r.valid_to) && (
+                        <span className="ml-2 text-[#828FFF]">
+                          [{r.valid_from || '시작 무제한'} ~ {r.valid_to || '종료 무제한'}]
+                        </span>
+                      )}
                     </div>
                   </div>
                   <button onClick={() => deleteRule(r.id)} className="text-[#EB5757] hover:underline text-xs">삭제</button>
@@ -1713,9 +1759,9 @@ interface Group {
 }
 
 function AdminTab({
-  authHeaders, channels,
+  authHeaders, channels, userEmail,
 }: {
-  authHeaders: () => HeadersInit; channels: Channel[];
+  authHeaders: () => HeadersInit; channels: Channel[]; userEmail: string;
 }) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -1823,8 +1869,75 @@ function AdminTab({
   const dbPct = (dbBytes / SUPABASE_LIMIT_BYTES) * 100;
   const dbBarColor = dbPct < 60 ? '#27A644' : dbPct < 85 ? '#F0BF00' : '#EB5757';
 
+  // P&L 비밀번호 상태
+  const [pwStatus, setPwStatus] = useState<{ is_set: boolean; owner_email: string } | null>(null);
+  const [newPw, setNewPw] = useState('');
+  const [pwMsg, setPwMsg] = useState<string | null>(null);
+  const isOwner = userEmail.toLowerCase() === (pwStatus?.owner_email || 'lion9080@joinandjoin.com').toLowerCase();
+
+  const fetchPwStatus = useCallback(async () => {
+    const r = await fetch(`${API_BASE}/api/csa/pnl/password-status`, { headers: authHeaders() });
+    if (r.ok) setPwStatus(await r.json());
+  }, [authHeaders]);
+
+  useEffect(() => { fetchPwStatus(); }, [fetchPwStatus]);
+
+  const savePw = async () => {
+    if (!newPw || newPw.length < 4) { setPwMsg('비밀번호는 4자 이상 입력해 주세요'); return; }
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/pnl/password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ new_password: newPw, user_email: userEmail }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || '저장 실패');
+      setPwMsg('✓ 비밀번호가 저장되었습니다');
+      setNewPw('');
+      fetchPwStatus();
+    } catch (e: any) {
+      setPwMsg(`❌ ${e.message || e}`);
+    }
+  };
+
   return (
     <div className="space-y-5">
+      {/* P&L 비밀번호 설정 (관리자) */}
+      <div className={`${PANEL} p-5`}>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold">월별 P&L 차트 수정 비밀번호</h2>
+          <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+            pwStatus?.is_set ? 'bg-[#27A644]/15 text-[#27A644]' : 'bg-[#F0BF00]/15 text-[#F0BF00]'
+          }`}>{pwStatus?.is_set ? '설정 완료' : '미설정'}</span>
+        </div>
+        <p className="text-xs text-[#A3A9B3] mb-3">
+          P&L 차트의 셀 값을 수정하려면 비밀번호가 필요합니다. 비밀번호는 <span className="font-mono text-[#828FFF]">{pwStatus?.owner_email || 'lion9080@joinandjoin.com'}</span> 계정으로만 설정·변경할 수 있습니다.
+        </p>
+        {isOwner ? (
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">새 비밀번호</label>
+              <input
+                type="password" value={newPw}
+                onChange={(e) => setNewPw(e.target.value)}
+                placeholder="4자 이상"
+                className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8]"
+              />
+            </div>
+            <button
+              onClick={savePw}
+              className="px-4 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium"
+            >저장</button>
+          </div>
+        ) : (
+          <div className="text-xs text-[#A3A9B3] bg-[#08090A] border border-[#23252A] rounded p-3">
+            현재 로그인: <span className="font-mono text-[#D0D6E0]">{userEmail || '로그인 정보 없음'}</span><br/>
+            비밀번호 설정 권한이 없습니다. {pwStatus?.owner_email}로 로그인해 주세요.
+          </div>
+        )}
+        {pwMsg && <div className="mt-2 text-[11px] text-[#D0D6E0]">{pwMsg}</div>}
+      </div>
+
       {/* 저장소 관리 */}
       <div className={`${PANEL} p-5`}>
         <div className="flex items-center justify-between mb-3">
@@ -2320,6 +2433,422 @@ function MultiSelect({ label, options, value, onChange }: {
 
 function Skeleton({ h }: { h: number }) {
   return <div className="animate-pulse bg-[#1A1B1F] rounded" style={{ height: h }} />;
+}
+
+// ──────────────────────────────────────────────────────────────
+// P&L 월별 매트릭스 탭
+// ──────────────────────────────────────────────────────────────
+
+interface PnlRow {
+  id: number;
+  code: string;
+  label: string;
+  section: string;
+  parent_id: number | null;
+  sign: number;
+  is_subtotal: boolean;
+  is_computed: boolean;
+  formula_code: string | null;
+  sort_order: number;
+  actual: number[];
+  plan: number[];
+}
+
+interface PnlData {
+  year: number;
+  rows: PnlRow[];
+}
+
+const SECTION_COLOR: Record<string, string> = {
+  revenue: '#828FFF',
+  cogs_var: '#EB5757',
+  cogs_fixed: '#FC7840',
+  gross_profit: '#27A644',
+  sga_var: '#A855F7',
+  sga_fixed: '#7070FF',
+  op_profit: '#06B6D4',
+  cm: '#F0BF00',
+};
+
+const SECTION_BG: Record<string, string> = {
+  revenue: 'bg-[#828FFF]/10',
+  cogs_var: 'bg-[#EB5757]/8',
+  cogs_fixed: 'bg-[#FC7840]/8',
+  gross_profit: 'bg-[#27A644]/10',
+  sga_var: 'bg-[#A855F7]/8',
+  sga_fixed: 'bg-[#7070FF]/8',
+  op_profit: 'bg-[#06B6D4]/10',
+  cm: 'bg-[#F0BF00]/10',
+};
+
+const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
+
+function PnlTab({ authHeaders, userEmail }: { authHeaders: () => HeadersInit; userEmail: string }) {
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
+  const [data, setData] = useState<PnlData | null>(null);
+  const [scope, setScope] = useState<'actual' | 'plan' | 'both'>('both');
+  const [loading, setLoading] = useState(false);
+  const [pwStatus, setPwStatus] = useState<{ is_set: boolean; owner_email: string } | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+
+  // 셀 편집
+  const [editCell, setEditCell] = useState<{ row: PnlRow; month: number; scope: 'actual' | 'plan' } | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [editPw, setEditPw] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
+  const [editMsg, setEditMsg] = useState<string | null>(null);
+
+  // 행 추가 모달
+  const [addRowParent, setAddRowParent] = useState<PnlRow | null>(null);
+  const [newRowLabel, setNewRowLabel] = useState('');
+  const [addRowPw, setAddRowPw] = useState('');
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/pnl?year=${year}`, { headers: authHeaders() });
+      if (r.ok) setData(await r.json());
+      const pw = await fetch(`${API_BASE}/api/csa/pnl/password-status`, { headers: authHeaders() });
+      if (pw.ok) setPwStatus(await pw.json());
+    } finally { setLoading(false); }
+  }, [authHeaders, year]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const startEdit = (row: PnlRow, month: number, scopeSel: 'actual' | 'plan') => {
+    // 자동 계산 행은 수정 불가
+    if (row.is_computed && (row.formula_code === 'gross_profit' || row.formula_code === 'op_profit' || row.formula_code === 'contribution_margin')) {
+      setEditMsg('자동 계산 행은 직접 수정할 수 없습니다 (수식)');
+      return;
+    }
+    const v = scopeSel === 'actual' ? row.actual[month - 1] : row.plan[month - 1];
+    setEditCell({ row, month, scope: scopeSel });
+    setEditValue(String(Math.round(v)));
+    setEditPw('');
+    setEditMsg(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editCell) return;
+    setEditBusy(true); setEditMsg(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/pnl/value`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          year, month: editCell.month, row_id: editCell.row.id,
+          scope: editCell.scope, value: parseFloat(editValue) || 0,
+          password: editPw, user_email: userEmail,
+        }),
+      });
+      const out = await r.json();
+      if (!r.ok) throw new Error(out.detail || '저장 실패');
+      setEditCell(null);
+      fetchData();
+    } catch (e: any) {
+      setEditMsg(e.message || String(e));
+    } finally { setEditBusy(false); }
+  };
+
+  const addRow = async () => {
+    if (!addRowParent || !newRowLabel) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/pnl/row`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          parent_id: addRowParent.id, label: newRowLabel, password: addRowPw,
+        }),
+      });
+      const out = await r.json();
+      if (!r.ok) throw new Error(out.detail || '추가 실패');
+      setAddRowParent(null); setNewRowLabel(''); setAddRowPw('');
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || String(e));
+    }
+  };
+
+  const deleteRow = async (row: PnlRow) => {
+    const pw = prompt(`'${row.label}' 행 삭제 — 비밀번호 입력:`);
+    if (!pw) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/pnl/row/${row.id}?password=${encodeURIComponent(pw)}`, {
+        method: 'DELETE', headers: authHeaders(),
+      });
+      const out = await r.json();
+      if (!r.ok) throw new Error(out.detail || '삭제 실패');
+      fetchData();
+    } catch (e: any) {
+      alert(e.message || String(e));
+    }
+  };
+
+  // 계층 구조 + 펼침/접힘 처리
+  const visibleRows = useMemo(() => {
+    if (!data) return [];
+    const out: PnlRow[] = [];
+    for (const r of data.rows) {
+      if (r.parent_id && collapsed.has(r.parent_id)) continue;
+      out.push(r);
+    }
+    return out;
+  }, [data, collapsed]);
+
+  const childrenCount = useMemo(() => {
+    const m: Record<number, number> = {};
+    if (!data) return m;
+    data.rows.forEach(r => {
+      if (r.parent_id) m[r.parent_id] = (m[r.parent_id] || 0) + 1;
+    });
+    return m;
+  }, [data]);
+
+  const toggleCollapse = (id: number) => {
+    setCollapsed(c => {
+      const nc = new Set(c);
+      if (nc.has(id)) nc.delete(id); else nc.add(id);
+      return nc;
+    });
+  };
+
+  const fmtCell = (v: number) => v === 0 ? '–' : fmtKR(v);
+  const monthTotal = (key: 'actual' | 'plan', m: number) =>
+    data?.rows.find(r => r.code === 'revenue')?.[key][m - 1] || 0;
+
+  return (
+    <div className="space-y-3">
+      {/* 헤더: 연도 + scope + 안내 */}
+      <div className={`${PANEL} p-4`}>
+        <div className="flex flex-wrap gap-3 items-end justify-between">
+          <div className="flex items-end gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">연도</label>
+              <input
+                type="number" value={year}
+                onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
+                className="w-24 bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8] font-mono"
+              />
+            </div>
+            <Segment
+              label="표시"
+              options={[
+                { v: 'both', l: '실적+계획' },
+                { v: 'actual', l: '실적만' },
+                { v: 'plan', l: '계획만' },
+              ]}
+              value={scope}
+              onChange={setScope}
+            />
+          </div>
+          <div className="text-[11px] text-[#A3A9B3] max-w-md text-right">
+            <div>매출·변동비는 <span className="text-[#828FFF]">실제 업로드된 엑셀 + 변동비 규칙</span>에서 자동 산출.</div>
+            <div>원재료·부재료·고정비는 직접 입력. 셀 클릭 시 비밀번호 모달.</div>
+            {!pwStatus?.is_set && (
+              <div className="text-[#F0BF00] mt-1">⚠ 수정 비밀번호 미설정 — 직원·채널 관리 탭에서 설정</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 매트릭스 */}
+      <div className={`${PANEL} p-0 overflow-x-auto`}>
+        {loading ? <Skeleton h={500} /> : data ? (
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-[#0F1011] sticky top-0 z-10">
+                <th className="text-left py-2.5 px-3 border-b-2 border-[#2E3138] text-[10px] uppercase tracking-wider text-[#A3A9B3] sticky left-0 bg-[#0F1011] min-w-[200px]">
+                  계정과목
+                </th>
+                {scope !== 'plan' && MONTHS.map(m => (
+                  <th key={`a-${m}`} className="text-right py-2.5 px-2 border-b-2 border-[#2E3138] text-[10px] uppercase tracking-wider text-[#828FFF] min-w-[80px]">
+                    {m}월
+                  </th>
+                ))}
+                {scope === 'both' && <th className="border-b-2 border-l border-[#2E3138]" />}
+                {scope !== 'actual' && MONTHS.map(m => (
+                  <th key={`p-${m}`} className="text-right py-2.5 px-2 border-b-2 border-[#2E3138] text-[10px] uppercase tracking-wider text-[#A3A9B3] min-w-[80px]">
+                    {m}월{scope === 'both' && <span className="block text-[8px] text-[#7A7F8A]">(계획)</span>}
+                  </th>
+                ))}
+              </tr>
+              {scope === 'both' && (
+                <tr className="bg-[#0A0B0D]">
+                  <th className="border-b border-[#2E3138] sticky left-0 bg-[#0A0B0D]" />
+                  {MONTHS.map(m => (
+                    <th key={`ah-${m}`} className="text-[9px] text-[#828FFF] text-right px-2 py-1 border-b border-[#2E3138]">실적</th>
+                  ))}
+                </tr>
+              )}
+            </thead>
+            <tbody>
+              {visibleRows.map(row => {
+                const isMainSection = !row.parent_id;
+                const isCollapsed = collapsed.has(row.id);
+                const childCount = childrenCount[row.id] || 0;
+                const negative = row.sign === -1;
+                const formulaRow = row.is_computed && row.is_subtotal && (
+                  row.formula_code === 'gross_profit' || row.formula_code === 'op_profit' || row.formula_code === 'contribution_margin'
+                );
+                const isManualSubtotal = row.is_subtotal && (row.code === 'cogs_fixed' || row.code === 'sga_fixed');
+                return (
+                  <tr key={row.id} className={`border-b border-[#1A1B1F] ${isMainSection ? SECTION_BG[row.section] || '' : ''} hover:bg-[#1A1C22]`}>
+                    <td className={`py-2 px-3 sticky left-0 ${isMainSection ? (SECTION_BG[row.section] || 'bg-[#0F1011]') : 'bg-[#0F1011]'} z-[1] min-w-[200px]`}
+                        style={{ paddingLeft: row.parent_id ? 28 : 12 }}>
+                      <div className="flex items-center gap-1.5">
+                        {childCount > 0 && (
+                          <button
+                            onClick={() => toggleCollapse(row.id)}
+                            className="text-[#A3A9B3] hover:text-[#F7F8F8] w-3 text-xs leading-none"
+                          >{isCollapsed ? '▶' : '▼'}</button>
+                        )}
+                        <span className="w-1.5 h-3 rounded-sm" style={{ background: SECTION_COLOR[row.section] || '#62666D' }} />
+                        <span className={`${isMainSection ? 'font-semibold text-[#F7F8F8]' : 'text-[#D0D6E0]'} ${formulaRow ? 'text-[#27A644]' : ''}`}>
+                          {row.label}
+                          {negative && <span className="text-[#EB5757] ml-1">(−)</span>}
+                          {formulaRow && <span className="text-[9px] text-[#7A7F8A] ml-2">자동</span>}
+                          {row.parent_id && row.is_computed && <span className="text-[9px] text-[#7A7F8A] ml-2">자동</span>}
+                        </span>
+                        {/* 행 추가 버튼 (수동 sub-total: cogs_fixed, sga_fixed, cogs_var) */}
+                        {(row.code === 'cogs_fixed' || row.code === 'sga_fixed' || row.code === 'cogs_var') && (
+                          <button
+                            onClick={() => setAddRowParent(row)}
+                            className="ml-auto text-[#7A7F8A] hover:text-[#828FFF] text-[10px]"
+                            title="하위 행 추가"
+                          >+ 행</button>
+                        )}
+                        {/* custom 행 삭제 */}
+                        {row.code.startsWith('custom_') && (
+                          <button
+                            onClick={() => deleteRow(row)}
+                            className="ml-auto text-[#EB5757] text-[10px] hover:underline"
+                          >삭제</button>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* 실적 셀 */}
+                    {scope !== 'plan' && MONTHS.map(m => {
+                      const v = row.actual[m - 1];
+                      const editable = !formulaRow;
+                      return (
+                        <td key={`a-${row.id}-${m}`}
+                            onClick={editable ? () => startEdit(row, m, 'actual') : undefined}
+                            className={`text-right py-2 px-2 font-mono ${
+                              editable ? 'cursor-pointer hover:bg-[#23252A]' : ''
+                            } ${isMainSection ? 'font-semibold text-[#F7F8F8]' : 'text-[#D0D6E0]'} ${
+                              negative && v > 0 ? 'text-[#EB5757]' : ''
+                            } ${formulaRow ? 'text-[#27A644]' : ''}`}
+                        >
+                          {fmtCell(v)}
+                        </td>
+                      );
+                    })}
+                    {scope === 'both' && <td className="border-l border-[#2E3138]" />}
+
+                    {/* 계획 셀 */}
+                    {scope !== 'actual' && MONTHS.map(m => {
+                      const v = row.plan[m - 1];
+                      const a = row.actual[m - 1];
+                      const editable = !formulaRow;
+                      const ach = v ? (a / v * 100) : null;
+                      return (
+                        <td key={`p-${row.id}-${m}`}
+                            onClick={editable ? () => startEdit(row, m, 'plan') : undefined}
+                            className={`text-right py-2 px-2 font-mono text-[#A3A9B3] ${
+                              editable ? 'cursor-pointer hover:bg-[#23252A]' : ''
+                            }`}
+                        >
+                          {fmtCell(v)}
+                          {scope === 'both' && v > 0 && ach !== null && (
+                            <div className="text-[8px] mt-0.5" style={{ color: ach >= 100 ? '#27A644' : ach >= 80 ? '#F0BF00' : '#EB5757' }}>
+                              {ach.toFixed(0)}%
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : <Empty h={400} />}
+      </div>
+
+      {/* 셀 편집 모달 */}
+      {editCell && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className={`${PANEL} p-5 max-w-md w-full`}>
+            <h3 className="text-sm font-semibold mb-2">
+              {editCell.row.label} — {year}년 {editCell.month}월 ({editCell.scope === 'actual' ? '실적' : '계획'}) 수정
+            </h3>
+            <p className="text-xs text-[#A3A9B3] mb-3">변경 시 P&L 비밀번호가 필요합니다.</p>
+
+            <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">값 (원)</label>
+            <input
+              type="number"
+              value={editValue} onChange={(e) => setEditValue(e.target.value)}
+              className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-2 text-sm text-[#F7F8F8] font-mono text-right mb-3"
+              autoFocus
+            />
+
+            {pwStatus?.is_set && (
+              <>
+                <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">비밀번호</label>
+                <input
+                  type="password"
+                  value={editPw} onChange={(e) => setEditPw(e.target.value)}
+                  className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-2 text-sm text-[#F7F8F8] mb-3"
+                />
+              </>
+            )}
+
+            {!pwStatus?.is_set && (
+              <div className="text-xs text-[#F0BF00] bg-[#F0BF00]/10 border border-[#F0BF00]/30 rounded p-2 mb-3">
+                비밀번호 미설정 상태입니다. {pwStatus?.owner_email}로 로그인한 경우만 저장 가능합니다.
+              </div>
+            )}
+
+            {editMsg && <div className="text-xs text-[#EB5757] mb-2">{editMsg}</div>}
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEditCell(null)} className="px-3 py-1.5 bg-[#1A1B1F] text-[#D0D6E0] rounded text-xs">취소</button>
+              <button onClick={saveEdit} disabled={editBusy} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium disabled:opacity-50">
+                {editBusy ? '저장 중…' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 행 추가 모달 */}
+      {addRowParent && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className={`${PANEL} p-5 max-w-md w-full`}>
+            <h3 className="text-sm font-semibold mb-3">'{addRowParent.label}' 하위 행 추가</h3>
+            <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">행 이름</label>
+            <input
+              type="text" value={newRowLabel} onChange={(e) => setNewRowLabel(e.target.value)}
+              placeholder="예: 임차료, 인건비"
+              className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-2 text-sm text-[#F7F8F8] mb-3"
+              autoFocus
+            />
+            <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">비밀번호</label>
+            <input
+              type="password" value={addRowPw} onChange={(e) => setAddRowPw(e.target.value)}
+              className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-2 text-sm text-[#F7F8F8] mb-3"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setAddRowParent(null)} className="px-3 py-1.5 bg-[#1A1B1F] text-[#D0D6E0] rounded text-xs">취소</button>
+              <button onClick={addRow} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium">추가</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function Empty({ h = 300 }: { h?: number }) {
