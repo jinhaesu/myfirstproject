@@ -201,8 +201,9 @@ async def lifespan(app: FastAPI):
         init_db()
     except Exception as e:
         logger.error(f"Database init failed (server will still start): {e}")
-    # Ensure Playwright browsers are available
-    _install_playwright_browsers()
+    # Ensure Playwright browsers are available (run in background to not block startup)
+    import asyncio as _asyncio
+    _asyncio.create_task(_asyncio.to_thread(_install_playwright_browsers))
     # 룰 catch-up (백그라운드)
     import asyncio
     asyncio.create_task(_startup_catchup_rules())
