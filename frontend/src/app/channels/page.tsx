@@ -165,6 +165,7 @@ function Content() {
   const [unmatched, setUnmatched] = useState<UnmatchedItem[]>([]);
   const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [compareDashboard, setCompareDashboard] = useState<DashboardData | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   // Filters
@@ -174,6 +175,11 @@ function Content() {
   const [selChannels, setSelChannels] = useState<string[]>([]);
   const [selProducts, setSelProducts] = useState<number[]>([]);
   const [selEmployees, setSelEmployees] = useState<number[]>([]);
+
+  // 기간 비교
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareStart, setCompareStart] = useState('');
+  const [compareEnd, setCompareEnd] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [seedDone, setSeedDone] = useState(false);
@@ -211,20 +217,28 @@ function Content() {
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({
-        period_start: periodStart,
-        period_end: periodEnd,
-        granularity,
-      });
-      if (selChannels.length) qs.set('channel_ids', selChannels.join(','));
-      if (selProducts.length) qs.set('product_ids', selProducts.join(','));
-      if (selEmployees.length) qs.set('employee_ids', selEmployees.join(','));
-      const r = await fetch(`${API_BASE}/api/csa/dashboard?${qs.toString()}`, { headers: authHeaders() });
-      if (r.ok) setDashboard(await r.json());
+      const buildQs = (ps: string, pe: string) => {
+        const qs = new URLSearchParams({ period_start: ps, period_end: pe, granularity });
+        if (selChannels.length) qs.set('channel_ids', selChannels.join(','));
+        if (selProducts.length) qs.set('product_ids', selProducts.join(','));
+        if (selEmployees.length) qs.set('employee_ids', selEmployees.join(','));
+        return qs.toString();
+      };
+      const calls: Promise<Response>[] = [
+        fetch(`${API_BASE}/api/csa/dashboard?${buildQs(periodStart, periodEnd)}`, { headers: authHeaders() }),
+      ];
+      const wantCompare = compareOpen && compareStart && compareEnd;
+      if (wantCompare) {
+        calls.push(fetch(`${API_BASE}/api/csa/dashboard?${buildQs(compareStart, compareEnd)}`, { headers: authHeaders() }));
+      }
+      const results = await Promise.all(calls);
+      if (results[0].ok) setDashboard(await results[0].json());
+      if (wantCompare && results[1]?.ok) setCompareDashboard(await results[1].json());
+      else if (!wantCompare) setCompareDashboard(null);
     } finally {
       setLoading(false);
     }
-  }, [authHeaders, periodStart, periodEnd, granularity, selChannels, selProducts, selEmployees]);
+  }, [authHeaders, periodStart, periodEnd, granularity, selChannels, selProducts, selEmployees, compareOpen, compareStart, compareEnd]);
 
   const seedIfEmpty = useCallback(async () => {
     if (seedDone) return;
@@ -265,6 +279,7 @@ function Content() {
         {activeTab === 'dashboard' && (
           <DashboardTab
             data={dashboard}
+            compareData={compareDashboard}
             loading={loading}
             channels={channels}
             products={products}
@@ -281,6 +296,12 @@ function Content() {
             setSelProducts={setSelProducts}
             selEmployees={selEmployees}
             setSelEmployees={setSelEmployees}
+            compareOpen={compareOpen}
+            setCompareOpen={setCompareOpen}
+            compareStart={compareStart}
+            setCompareStart={setCompareStart}
+            compareEnd={compareEnd}
+            setCompareEnd={setCompareEnd}
           />
         )}
 
@@ -402,12 +423,16 @@ const COST_LABELS: Record<string, string> = {
 };
 
 function DashboardTab({
-  data, loading, channels, products, employees,
+  data, compareData, loading, channels, products, employees,
   periodStart, periodEnd, setPeriodStart, setPeriodEnd,
   granularity, setGranularity,
   selChannels, setSelChannels, selProducts, setSelProducts,
   selEmployees, setSelEmployees,
+  compareOpen, setCompareOpen, compareStart, setCompareStart, compareEnd, setCompareEnd,
 }: any) {
+  const hasCompare = !!(compareData && compareOpen);
+  const sparkSeries = (data?.series || []).map((s: any) => ({ x: s.bucket, revenue: s.revenue, pcs: s.pcs, cm: s.contribution_margin }));
+  const sparkKey = (k: string) => sparkSeries.map((p: any) => ({ x: p.x, v: p[k] || 0 }));
   const costBreakdown = data?.cost_breakdown
     ? Object.entries(data.cost_breakdown)
         .filter(([_, v]) => (v as number) > 0)
@@ -469,14 +494,89 @@ function DashboardTab({
         </div>
       </div>
 
-      {/* KPI 6개 (컴팩트) */}
+      {/* 기간 비교 토글 + 컨트롤 */}
+      <div className={`${PANEL} p-3`}>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <button
+            onClick={() => setCompareOpen((v: boolean) => !v)}
+            className="text-xs font-medium text-[#828FFF] hover:text-[#A8B3FF] flex items-center gap-1.5"
+          >
+            <span className={`inline-block transition-transform ${compareOpen ? 'rotate-90' : ''}`}>▶</span>
+            기간 비교 {compareOpen ? '닫기' : '열기'}
+          </button>
+          {compareOpen && (
+            <div className="flex items-end gap-2 flex-wrap">
+              <DateInput label="비교 시작" value={compareStart} onChange={setCompareStart} />
+              <DateInput label="비교 종료" value={compareEnd} onChange={setCompareEnd} />
+              <button
+                onClick={() => {
+                  // 기본값: 동일 기간 전(예: 5/1~5/14 → 4/1~4/14 자동)
+                  const s = new Date(periodStart), e = new Date(periodEnd);
+                  const dur = e.getTime() - s.getTime();
+                  const ce = new Date(s.getTime() - 24 * 3600 * 1000);
+                  const cs = new Date(ce.getTime() - dur);
+                  setCompareStart(cs.toISOString().slice(0, 10));
+                  setCompareEnd(ce.toISOString().slice(0, 10));
+                }}
+                className="text-[10px] text-[#A3A9B3] hover:text-[#F7F8F8] px-2 py-1.5 border border-[#23252A] rounded"
+                title="기준 기간 직전과 동일 길이"
+              >직전 기간 자동</button>
+              {hasCompare && (
+                <span className="text-[10px] text-[#7A7F8A] ml-2">vs 매출 ₩{fmtKR(compareData.summary.revenue)} · 공헌이익 ₩{fmtKR(compareData.summary.contribution_margin)}</span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* KPI 6개 (스파크라인 + 비교 델타) */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <CompactKpi label="순매출" value={data ? `₩${fmtKR(data.summary.revenue)}` : '—'} hint={data ? `${fmtNum(data.summary.orders)} 주문` : ''} accent="#828FFF" />
-        <CompactKpi label="낱개수량" value={data ? fmtNum(Math.round(data.summary.pcs)) : '—'} hint="입수 환산" accent="#7070FF" />
-        <CompactKpi label="공헌이익" value={data ? `₩${fmtKR(data.summary.contribution_margin)}` : '—'} hint={data ? `변동비 ₩${fmtKR(data.summary.variable_cost)}` : ''} accent="#27A644" />
-        <CompactKpi label="공헌이익률" value={data ? fmtPct(data.summary.cm_rate) : '—'} hint="" accent={data?.summary.cm_rate >= 30 ? '#27A644' : '#F0BF00'} />
-        <CompactKpi label="낱개당 객단가" value={data ? `₩${fmtKR(data.summary.avg_price_per_pcs || 0)}` : '—'} hint="" accent="#06B6D4" />
-        <CompactKpi label="주문당 객단가" value={data ? `₩${fmtKR(data.summary.avg_price_per_order || 0)}` : '—'} hint="" accent="#A855F7" />
+        <CompactKpi label="순매출"
+          value={data ? `₩${fmtKR(data.summary.revenue)}` : '—'}
+          hint={data ? `${fmtNum(data.summary.orders)} 주문` : ''}
+          accent="#828FFF"
+          spark={sparkKey('revenue')}
+          compareValue={hasCompare ? compareData.summary.revenue : undefined}
+          currentValue={data?.summary.revenue}
+        />
+        <CompactKpi label="낱개수량"
+          value={data ? fmtNum(Math.round(data.summary.pcs)) : '—'}
+          hint="입수 환산"
+          accent="#7070FF"
+          spark={sparkKey('pcs')}
+          compareValue={hasCompare ? compareData.summary.pcs : undefined}
+          currentValue={data?.summary.pcs}
+        />
+        <CompactKpi label="공헌이익"
+          value={data ? `₩${fmtKR(data.summary.contribution_margin)}` : '—'}
+          hint={data ? `변동비 ₩${fmtKR(data.summary.variable_cost)}` : ''}
+          accent="#27A644"
+          spark={sparkKey('cm')}
+          compareValue={hasCompare ? compareData.summary.contribution_margin : undefined}
+          currentValue={data?.summary.contribution_margin}
+        />
+        <CompactKpi label="공헌이익률"
+          value={data ? fmtPct(data.summary.cm_rate) : '—'}
+          hint=""
+          accent={data?.summary.cm_rate >= 30 ? '#27A644' : '#F0BF00'}
+          compareValue={hasCompare ? compareData.summary.cm_rate : undefined}
+          currentValue={data?.summary.cm_rate}
+          deltaFormat="pp"
+        />
+        <CompactKpi label="낱개당 객단가"
+          value={data ? `₩${fmtKR(data.summary.avg_price_per_pcs || 0)}` : '—'}
+          hint=""
+          accent="#06B6D4"
+          compareValue={hasCompare ? compareData.summary.avg_price_per_pcs : undefined}
+          currentValue={data?.summary.avg_price_per_pcs}
+        />
+        <CompactKpi label="주문당 객단가"
+          value={data ? `₩${fmtKR(data.summary.avg_price_per_order || 0)}` : '—'}
+          hint=""
+          accent="#A855F7"
+          compareValue={hasCompare ? compareData.summary.avg_price_per_order : undefined}
+          currentValue={data?.summary.avg_price_per_order}
+        />
       </div>
 
       {/* 도넛 3종 (구분/채널/품목) — 가로 컴팩트 */}
@@ -2460,12 +2560,51 @@ function KpiCard({ label, value, hint, accent }: { label: string; value: string;
   );
 }
 
-function CompactKpi({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
+function CompactKpi({
+  label, value, hint, accent,
+  spark, compareValue, currentValue, deltaFormat = 'pct',
+}: {
+  label: string; value: string; hint?: string; accent?: string;
+  spark?: Array<{ x: string; v: number }>;
+  compareValue?: number;
+  currentValue?: number;
+  deltaFormat?: 'pct' | 'pp';  // 'pp' = 퍼센트포인트 (이미 % 단위 값일 때)
+}) {
+  let deltaPct: number | null = null;
+  let deltaSign: 'up' | 'down' | 'flat' = 'flat';
+  if (compareValue !== undefined && currentValue !== undefined && compareValue !== null && currentValue !== null) {
+    if (deltaFormat === 'pp') {
+      deltaPct = (currentValue - compareValue);
+    } else {
+      deltaPct = compareValue !== 0 ? ((currentValue - compareValue) / Math.abs(compareValue)) * 100 : (currentValue > 0 ? 100 : 0);
+    }
+    deltaSign = deltaPct > 0.05 ? 'up' : deltaPct < -0.05 ? 'down' : 'flat';
+  }
+  const deltaColor = deltaSign === 'up' ? '#27A644' : deltaSign === 'down' ? '#EB5757' : '#7A7F8A';
+  const arrow = deltaSign === 'up' ? '▲' : deltaSign === 'down' ? '▼' : '–';
+
   return (
-    <div className={`${PANEL} p-3`}>
+    <div className={`${PANEL} p-3 relative overflow-hidden`}>
+      {/* 카드 우상단 스파크라인 */}
+      {spark && spark.length > 1 && (
+        <div className="absolute right-2 top-2 opacity-70 pointer-events-none" style={{ width: 56, height: 24 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={spark} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+              <Line type="monotone" dataKey="v" stroke={accent || '#828FFF'} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
       <div className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3] mb-1">{label}</div>
       <div className="text-lg font-semibold tracking-tight truncate" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
-      {hint && <div className="text-[10px] text-[#7A7F8A] mt-0.5 truncate">{hint}</div>}
+      <div className="flex items-center gap-2 mt-0.5">
+        {deltaPct !== null && (
+          <span className="text-[10px] font-medium" style={{ color: deltaColor }}>
+            {arrow} {Math.abs(deltaPct).toFixed(deltaFormat === 'pp' ? 1 : 1)}{deltaFormat === 'pp' ? 'pp' : '%'}
+          </span>
+        )}
+        {hint && <div className="text-[10px] text-[#7A7F8A] truncate">{hint}</div>}
+      </div>
     </div>
   );
 }
