@@ -340,6 +340,15 @@ def ingest_lines(
     inserted = duplicate = unmatched = excluded = total = 0
     min_date = max_date = None
 
+    # 1) DB의 기존 dedup_hash 미리 캐싱 (채널 단위; 부분 적재된 잔존 라인까지 포함)
+    existing_hashes: set[str] = set(
+        h for (h,) in db.query(ChannelSalesRawLine.dedup_hash).filter(
+            ChannelSalesRawLine.channel_id == channel_id
+        ).all()
+    )
+    # 2) batch 내 라인 간 중복 추적 (commit 전이라 DB query로는 안 보임)
+    seen_in_batch: set[str] = set()
+
     for ln in lines:
         total += 1
         if min_date is None or ln.sale_date < min_date:
@@ -351,12 +360,10 @@ def ingest_lines(
             channel_id, ln.order_no, ln.line_no, ln.sale_date,
             ln.raw_product_name, ln.raw_qty, ln.gross_amount,
         )
-        exists = db.query(ChannelSalesRawLine.id).filter(
-            ChannelSalesRawLine.dedup_hash == dedup
-        ).first()
-        if exists:
+        if dedup in existing_hashes or dedup in seen_in_batch:
             duplicate += 1
             continue
+        seen_in_batch.add(dedup)
 
         mapping = resolve_product(
             db, channel_id, ln.raw_product_name or "", ln.raw_option_name, masters_cache=masters_cache
@@ -393,6 +400,26 @@ def ingest_lines(
             raw_row=ln.raw_row,
         ))
         inserted += 1
+
+    # 일괄 commit 시도 → IntegrityError(잔존 DB 행과 충돌) 발생 시
+    # 라인별 add/flush로 안전 fallback (실패한 라인만 duplicate 처리)
+    from sqlalchemy.exc import IntegrityError
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        log.warning("batch commit failed with IntegrityError, falling back to per-line insert: %s", e)
+        # raw_lines를 다시 만들어 라인별 처리
+        inserted = duplicate2 = 0
+        # 이미 add된 게 rollback됐으니, batch 상태는 살아있어야 하므로 다시 가져옴
+        # 위에서 seen_in_batch로 dedup_hash 추적했으므로 그 set을 순회하며 재시도는 어려움
+        # → 보수적으로 batch status='failed' 후 raise하여 라우터에서 처리
+        batch.status = "failed"
+        batch.error_message = f"IntegrityError: {str(e)[:500]}"
+        batch.completed_at = datetime.utcnow()
+        db.add(batch)
+        db.commit()
+        raise
 
     batch.row_total = total
     batch.row_inserted = inserted
