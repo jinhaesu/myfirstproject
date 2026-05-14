@@ -1929,6 +1929,7 @@ function PlanTab({
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState<number | ''>('');
+  const [upToToday, setUpToToday] = useState(false);
   const [by, setBy] = useState<CompareBy>('channel');
   const [planSummary, setPlanSummary] = useState<any | null>(null);
   const [comparison, setComparison] = useState<any | null>(null);
@@ -1944,25 +1945,33 @@ function PlanTab({
       if (sumRes.ok) setPlanSummary(await sumRes.json());
 
       const params = new URLSearchParams({ year: String(year), by });
-      if (month) params.set('month', String(month));
+      if (upToToday) params.set('up_to_today', 'true');
+      else if (month) params.set('month', String(month));
       const cmpRes = await fetch(`${API_BASE}/api/csa/plan/comparison?${params}`, { headers: authHeaders() });
       if (cmpRes.ok) setComparison(await cmpRes.json());
 
       // 객단가는 현재 연도/월 실적 범위
-      const start = `${year}-${String(month || 1).padStart(2,'0')}-01`;
-      const lastDay = month ? new Date(year, month, 0).getDate() : new Date(year, 12, 0).getDate();
-      const end = month
-        ? `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
-        : `${year}-12-31`;
+      const today = new Date();
+      const start = `${year}-01-01`;
+      let end: string;
+      if (upToToday) {
+        end = today.toISOString().slice(0, 10);
+      } else if (month) {
+        const lastDay = new Date(year, month, 0).getDate();
+        end = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+      } else {
+        end = `${year}-12-31`;
+      }
+      const startFinal = (upToToday || !month) ? `${year}-01-01` : `${year}-${String(month).padStart(2,'0')}-01`;
       const apRes = await fetch(
-        `${API_BASE}/api/csa/avg-price?period_start=${start}&period_end=${end}&by=channel_product`,
+        `${API_BASE}/api/csa/avg-price?period_start=${startFinal}&period_end=${end}&by=channel_product`,
         { headers: authHeaders() }
       );
       if (apRes.ok) setAvgPrice(await apRes.json());
     } finally {
       setBusy(false);
     }
-  }, [authHeaders, year, month, by]);
+  }, [authHeaders, year, month, by, upToToday]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -2033,15 +2042,33 @@ function PlanTab({
                 <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">월</label>
                 <select
                   value={month}
+                  disabled={upToToday}
                   onChange={(e) => setMonth(e.target.value === '' ? '' : parseInt(e.target.value))}
-                  className="bg-[#08090A] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                  className="bg-[#08090A] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8] disabled:opacity-40"
                 >
-                  <option value="">전체(YTD)</option>
+                  <option value="">전체(연간)</option>
                   {Array.from({ length: 12 }).map((_, i) => (
                     <option key={i} value={i + 1}>{i + 1}월</option>
                   ))}
                 </select>
               </div>
+              <button
+                onClick={() => {
+                  setUpToToday(v => {
+                    const next = !v;
+                    if (next) setMonth('');
+                    return next;
+                  });
+                }}
+                className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
+                  upToToday
+                    ? 'bg-[#828FFF] border-[#828FFF] text-white'
+                    : 'bg-[#08090A] border-[#23252A] text-[#A3A9B3] hover:border-[#828FFF] hover:text-[#F7F8F8]'
+                }`}
+                title="1월 1일부터 오늘까지 누계 분석 (계획은 오늘 기준 일자 비율로 안분)"
+              >
+                {upToToday ? '✓ 오늘 기준 YTD' : '오늘 기준 YTD'}
+              </button>
               <Segment
                 label="기준"
                 options={[
@@ -2054,6 +2081,11 @@ function PlanTab({
                 onChange={setBy}
               />
             </div>
+            {upToToday && (
+              <p className="text-[11px] text-[#828FFF] mt-2">
+                1/1 ~ {new Date().toISOString().slice(0,10)} 누계 분석. 계획은 마지막 월(이번 달)을 오늘 일자 비율로 안분.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -2115,30 +2147,47 @@ function PlanTab({
         </div>
       )}
 
-      {/* 비교 차트 */}
-      <div className={`${PANEL} p-5`}>
-        <h3 className="text-sm font-semibold mb-3">
-          {by === 'channel' ? '채널' : by === 'product' ? '품목' : by === 'group' ? '구분' : '담당자'}별 — 사업계획 vs 실적
-        </h3>
-        {busy ? <Skeleton h={300} /> : items.length ? (
-          <ResponsiveContainer width="100%" height={Math.max(300, items.length * 28)}>
-            <BarChart
-              data={items.slice(0, 20)}
-              layout="vertical"
-              margin={{ left: 100, right: 20, top: 10, bottom: 10 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
-              <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 11 }} tickFormatter={fmtKR} stroke="#62666D" />
-              <YAxis type="category" dataKey="label" tick={{ fill: '#8A8F98', fontSize: 11 }} stroke="#62666D" width={130} />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-              />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="target_revenue" name="계획 매출" fill="#62666D" />
-              <Bar dataKey="actual_revenue" name="실적 매출" fill="#828FFF" />
-            </BarChart>
-          </ResponsiveContainer>
+      {/* 비교 차트 (컴팩트) */}
+      <div className={`${PANEL} p-4`}>
+        <div className="flex items-baseline justify-between mb-2">
+          <h3 className="text-sm font-semibold">
+            {by === 'channel' ? '채널' : by === 'product' ? '품목' : by === 'group' ? '구분' : '담당자'}별 — 사업계획 vs 실적
+          </h3>
+          <span className="text-[10px] text-[#7A7F8A]">Top 15 · 매출 기준</span>
+        </div>
+        {busy ? <Skeleton h={260} /> : items.length ? (
+          (() => {
+            const top = [...items]
+              .sort((a: any, b: any) => (b.target_revenue || 0) - (a.target_revenue || 0))
+              .slice(0, 15);
+            const chartH = Math.min(360, Math.max(180, top.length * 22));
+            return (
+              <ResponsiveContainer width="100%" height={chartH}>
+                <BarChart data={top} layout="vertical" margin={{ left: 90, right: 12, top: 4, bottom: 4 }} barCategoryGap={3}>
+                  <defs>
+                    <linearGradient id="gradPlanTarget" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.6} />
+                      <stop offset="100%" stopColor="#7A7F8A" stopOpacity={0.85} />
+                    </linearGradient>
+                    <linearGradient id="gradPlanActual" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#5560C8" stopOpacity={0.85} />
+                      <stop offset="100%" stopColor="#A8B3FF" stopOpacity={1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
+                  <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={fmtKR} stroke="#62666D" />
+                  <YAxis type="category" dataKey="label" tick={{ fill: '#A3A9B3', fontSize: 10 }} stroke="#62666D" width={120} />
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
+                    formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Bar dataKey="target_revenue" name="계획 매출" fill="url(#gradPlanTarget)" radius={[0, 4, 4, 0]} barSize={9} />
+                  <Bar dataKey="actual_revenue" name="실적 매출" fill="url(#gradPlanActual)" radius={[0, 4, 4, 0]} barSize={9} />
+                </BarChart>
+              </ResponsiveContainer>
+            );
+          })()
         ) : <Empty />}
       </div>
 
