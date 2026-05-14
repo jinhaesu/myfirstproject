@@ -569,16 +569,30 @@ def dashboard(
     granularity: str = Query("month", regex="^(day|month|quarter|year)$"),
     channel_ids: Optional[str] = Query(None, description="콤마구분 channel_id"),
     product_ids: Optional[str] = Query(None, description="콤마구분 product_id"),
+    employee_ids: Optional[str] = Query(None, description="콤마구분 employee_id (담당 채널로 변환)"),
     db: Session = Depends(get_db),
 ):
     q = db.query(ChannelSalesDailyProduct).filter(
         ChannelSalesDailyProduct.sale_date >= period_start,
         ChannelSalesDailyProduct.sale_date <= period_end,
     )
+
+    # 채널 필터 (직원별 담당 채널 우선 합집합)
+    selected_channels: set[str] = set()
     if channel_ids:
-        ids = [s.strip() for s in channel_ids.split(",") if s.strip()]
-        if ids:
-            q = q.filter(ChannelSalesDailyProduct.channel_id.in_(ids))
+        selected_channels.update(s.strip() for s in channel_ids.split(",") if s.strip())
+    if employee_ids:
+        emp_id_list = [int(s) for s in employee_ids.split(",") if s.strip()]
+        if emp_id_list:
+            emp_channels = db.query(EmployeeChannelAssignment.channel_id).filter(
+                EmployeeChannelAssignment.employee_id.in_(emp_id_list),
+                EmployeeChannelAssignment.is_active.is_(True),
+            ).all()
+            for (cid,) in emp_channels:
+                selected_channels.add(cid)
+    if selected_channels:
+        q = q.filter(ChannelSalesDailyProduct.channel_id.in_(list(selected_channels)))
+
     if product_ids:
         ids = [int(s) for s in product_ids.split(",") if s.strip()]
         if ids:
