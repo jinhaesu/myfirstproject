@@ -35,6 +35,10 @@ from app.db_models import (
     ChannelSalesDailyProduct,
     BusinessPlanChannelRevenue,
     BusinessPlanProductQty,
+    BusinessPlanGroupSummary,
+    CsaCostItem,
+    CsaCostRule,
+    CsaChannelMonthlyCost,
 )
 
 log = logging.getLogger(__name__)
@@ -214,16 +218,111 @@ def compute_actual(db: Session, year: int) -> dict[tuple[str, int], float]:
 
 
 def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
-    """사업계획 매출 합계만 자동 (그 외는 manual)."""
+    """사업계획 매출/수량 + 변동비 규칙으로 plan 공헌이익까지 자동 산출.
+
+    사업계획 엑셀에는 매출(채널×월)과 수량(채널×품목×월)만 들어있으므로,
+    변동비 설정(채널/품목/기간별 규칙)을 곱해 변동비 plan을 만들고
+    공헌이익 plan = 매출 − 변동비(원가+판관) 으로 산출한다.
+    """
+    from datetime import date as _date
+    from app.services.csa_cost_service import _best_rule
+
     out: dict[tuple[str, int], float] = {}
-    rows = db.query(
+
+    # 1) 채널×월 매출 plan
+    rev_rows = db.query(
+        BusinessPlanChannelRevenue.channel_id,
         BusinessPlanChannelRevenue.month,
         func.sum(BusinessPlanChannelRevenue.target_revenue),
     ).filter(BusinessPlanChannelRevenue.year == year).group_by(
-        BusinessPlanChannelRevenue.month
+        BusinessPlanChannelRevenue.channel_id, BusinessPlanChannelRevenue.month,
     ).all()
-    for month, total in rows:
-        out[("revenue", month)] = float(total or 0)
+    channel_month_rev: dict[tuple[str, int], float] = {}
+    monthly_rev: dict[int, float] = {}
+    for ch, m, total in rev_rows:
+        amt = float(total or 0)
+        channel_month_rev[(ch, m)] = amt
+        monthly_rev[m] = monthly_rev.get(m, 0) + amt
+    for m, total in monthly_rev.items():
+        out[("revenue", m)] = total
+
+    # 2) 변동비 규칙 캐시
+    items = {it.code: it for it in db.query(CsaCostItem).filter(CsaCostItem.is_active.is_(True)).all()}
+    rules_by_item: dict[int, list[CsaCostRule]] = {}
+    for r in db.query(CsaCostRule).filter(CsaCostRule.is_active.is_(True)).all():
+        rules_by_item.setdefault(r.cost_item_id, []).append(r)
+
+    def rule_for(code: str, ch: str, pid: Optional[int], ref_date):
+        it = items.get(code)
+        if not it:
+            return None
+        return _best_rule(rules_by_item.get(it.id, []), ch, pid, ref_date)
+
+    # 3) 채널×품목×월 수량 plan → 낱개 기준 (cogs, labor)
+    qty_rows = db.query(BusinessPlanProductQty).filter(
+        BusinessPlanProductQty.year == year
+    ).all()
+    cogs_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
+    labor_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
+    for q in qty_rows:
+        ref = _date(year, q.month, 15)
+        pcs = float(q.target_pcs or 0)
+        if pcs == 0:
+            continue
+        r_cogs = rule_for("cogs", q.channel_id, q.product_id, ref)
+        if r_cogs and r_cogs.amount_per_pcs:
+            cogs_by_month[q.month] += pcs * float(r_cogs.amount_per_pcs)
+        r_labor = rule_for("labor", q.channel_id, q.product_id, ref)
+        if r_labor and r_labor.amount_per_pcs:
+            labor_by_month[q.month] += pcs * float(r_labor.amount_per_pcs)
+    for m in range(1, 13):
+        out[("cogs_material", m)] = cogs_by_month[m]
+        out[("labor", m)] = labor_by_month[m]
+
+    # 4) 매출 정률 기반: overhead, logistics_work, logistics_oh, commission_rate
+    rate_codes = ("overhead", "logistics_work", "logistics_oh", "commission_rate")
+    rate_buckets: dict[str, dict[int, float]] = {c: {m: 0.0 for m in range(1, 13)} for c in rate_codes}
+    for (ch, m), rev in channel_month_rev.items():
+        if rev == 0:
+            continue
+        ref = _date(year, m, 15)
+        for code in rate_codes:
+            r = rule_for(code, ch, None, ref)
+            if r and r.rate:
+                rate_buckets[code][m] += rev * float(r.rate)
+
+    for m in range(1, 13):
+        out[("overhead", m)] = rate_buckets["overhead"][m]
+        out[("logistics", m)] = rate_buckets["logistics_work"][m] + rate_buckets["logistics_oh"][m]
+        out[("commission_all", m)] = rate_buckets["commission_rate"][m]
+
+    # 5) 광고비 plan: 사업계획 그룹별 target_marketing 합 우선, 없으면 채널 월 광고비 합
+    adv_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
+    group_rows = db.query(
+        BusinessPlanGroupSummary.month,
+        func.sum(BusinessPlanGroupSummary.target_marketing),
+    ).filter(BusinessPlanGroupSummary.year == year).group_by(
+        BusinessPlanGroupSummary.month
+    ).all()
+    if any((total or 0) > 0 for _, total in group_rows):
+        for m, total in group_rows:
+            adv_by_month[m] = float(total or 0)
+    else:
+        adv_item = items.get("advertising")
+        if adv_item:
+            adv_rows = db.query(
+                CsaChannelMonthlyCost.month,
+                func.sum(CsaChannelMonthlyCost.amount),
+            ).filter(
+                CsaChannelMonthlyCost.year == year,
+                CsaChannelMonthlyCost.cost_item_id == adv_item.id,
+            ).group_by(CsaChannelMonthlyCost.month).all()
+            for m, total in adv_rows:
+                adv_by_month[m] = float(total or 0)
+    for m in range(1, 13):
+        out[("advertising", m)] = adv_by_month[m]
+
+    # 주문건수 기반(commission_fixed, shipping order_fixed, packaging)은 plan에 주문수가 없어 0으로 둠
     return out
 
 
