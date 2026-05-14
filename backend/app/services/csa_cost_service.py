@@ -170,7 +170,7 @@ def rebuild_daily_with_costs(
 
     # 3) 캐시
     rules_by_item = _rules_by_item(db)
-    items = {it.code: it for it in db.query(CsaCostItem).filter(CsaCostItem.is_active).all()}
+    items = {it.code: it for it in db.query(CsaCostItem).filter(CsaCostItem.is_active.is_(True)).all()}
     ch_cat = {c.id: c.category for c in db.query(Channel).all()}
     prod_names = {p.id: p.name for p in db.query(ProductMaster).all()}
 

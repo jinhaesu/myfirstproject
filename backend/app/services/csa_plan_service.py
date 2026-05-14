@@ -149,8 +149,11 @@ def import_channel_revenue(
         if not group_name or group_name == "nan":
             continue
 
-        # 직원 upsert (이메일 모르면 자리값으로 생성, 추후 관리자가 매핑)
+        # 직원 upsert — 이름으로 먼저 찾고, 없으면 placeholder 이메일로도 검색 (중복 생성 방지)
         emp = db.query(Employee).filter(Employee.name == employee_name).first()
+        if not emp:
+            placeholder_email = f"{employee_name}@joinnjoin.local"
+            emp = db.query(Employee).filter(Employee.email == placeholder_email).first()
         if not emp:
             placeholder_email = f"{employee_name}@joinnjoin.local"
             emp = Employee(email=placeholder_email, name=employee_name, role="staff", is_active=True)
@@ -386,9 +389,7 @@ def import_group_summary(db: Session, file_path: str, year: int) -> int:
                 share_col = col_idx + 1
                 if share_col < df.shape[1]:
                     sv = df.iat[hdr, share_col]
-                    if sv is not None and not pd.isna(sv) and "비중" in str(sv) or (
-                        sv is not None and not pd.isna(sv) and "대비" in str(sv)
-                    ):
+                    if (sv is not None and not pd.isna(sv)) and ("비중" in str(sv) or "대비" in str(sv)):
                         sv_val = df.iat[r, share_col]
                         try:
                             share = float(sv_val) if sv_val is not None and not pd.isna(sv_val) else None
