@@ -33,6 +33,8 @@ def to_date(v: Any) -> Optional[date]:
     if not s:
         return None
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
+                "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M",
+                "%Y.%m.%d %H:%M:%S", "%Y.%m.%d %H:%M",
                 "%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d",
                 "%Y%m%d", "%m/%d/%Y", "%d/%m/%Y"):
         try:
@@ -54,8 +56,19 @@ def to_datetime(v: Any) -> Optional[datetime]:
         return datetime.combine(v, datetime.min.time())
     if pd.isna(v):
         return None
+    s = str(v).strip()
+    if not s:
+        return None
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
+                "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M",
+                "%Y.%m.%d %H:%M:%S", "%Y.%m.%d %H:%M",
+                "%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"):
+        try:
+            return datetime.strptime(s[:len(fmt)+0], fmt)
+        except Exception:
+            continue
     try:
-        return pd.to_datetime(str(v)).to_pydatetime()
+        return pd.to_datetime(s).to_pydatetime()
     except Exception:
         return None
 
