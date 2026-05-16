@@ -1,15 +1,14 @@
 """GS SHOP 홈쇼핑 파서. HTML 위장 xls (UTF-8).
 
-read_html(path, encoding='utf-8')로 직접 넘기면 lxml/BS4가 내부 재인코딩으로
-컬럼명이 깨지는 문제 발생 → 파일을 먼저 str로 읽어 StringIO로 전달.
+두 가지 컬럼 포맷 지원:
+  A) 직송주문(주문관리) — 컬럼 예시:
+       주문일자, 상품상세코드, 상품명(송장|인터넷), 협력사상품명, 주문옵션,
+       수량, 판매가, 고객결제액, 협력사지급금액, 상태(주문취소 등)
+  B) 매출집계(과거 형식) — 컬럼 예시:
+       상품명, 매출수량, 매출금액, 순매출수량, 순매출금액 (고객판매금액),
+       반품수량, 반품금액, 협력사지급액
 
-컬럼 구조 (직송주문 기준):
-  상품상세코드 / 상품코드 / 브랜드명 / 상품명 / 주문옵션 / 매입구분
-  매출수량 / 매출금액 / 반품수량 / 반품금액 / 순매출수량 / 협력사지급액
-  순매출금액 (고객판매금액)
-
-gross_amount = 순매출금액(고객판매금액)  →  실제 소비자 결제액
-net_amount   = 협력사지급액             →  GS가 협력사에 주는 금액
+원본이 HTML이라 read_html이 경로를 직접 받으면 인코딩 깨짐 → 파일을 str로 읽고 StringIO 전달.
 """
 from __future__ import annotations
 import io
@@ -22,7 +21,7 @@ import pandas as pd
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
-from app.services.csa_parsers._common import to_float, to_str
+from app.services.csa_parsers._common import to_date, to_float, to_str
 
 
 _DATE_PATTERNS = [
@@ -44,12 +43,6 @@ def _extract_date_from_filename(path: str) -> Optional[date]:
 
 
 def _read_gs(path: str) -> pd.DataFrame:
-    """GS SHOP HTML-xls 파일을 안전하게 읽는다.
-
-    pandas read_html이 파일 경로를 직접 받으면 인코딩 처리 과정에서
-    컬럼명이 깨지는 버그가 있어, 파일을 직접 str로 읽어 StringIO 전달.
-    """
-    # 1) HTML 위장 xls (UTF-8) — 대부분의 GS SHOP 직송주문 파일
     for enc in ("utf-8", "utf-8-sig", "cp949", "euc-kr"):
         try:
             with open(path, "r", encoding=enc) as f:
@@ -59,20 +52,23 @@ def _read_gs(path: str) -> pd.DataFrame:
                 return tables[0]
         except Exception:
             continue
-
-    # 2) 진짜 xls (xlrd)
     try:
         return pd.read_excel(path, engine="xlrd")
     except Exception:
         pass
-
-    # 3) xlsx (openpyxl)
     try:
         return pd.read_excel(path, engine="openpyxl")
     except Exception:
         pass
-
     return pd.DataFrame()
+
+
+def _pick(row, *names):
+    for n in names:
+        v = row.get(n)
+        if v is not None and not (isinstance(v, float) and pd.isna(v)):
+            return v
+    return None
 
 
 @register("GS샵")
@@ -84,33 +80,54 @@ def parse(path: str) -> Iterable[ParsedLine]:
     if df.empty:
         return
 
-    sale_d = _extract_date_from_filename(path) or date.today()
+    cols = set(str(c) for c in df.columns)
+    is_direct = "고객결제액" in cols or "협력사지급금액" in cols or "판매가" in cols
+
+    file_date = _extract_date_from_filename(path)
 
     for _, row in df.iterrows():
-        prod = to_str(row.get("상품명"))
+        prod = to_str(_pick(row, "상품명(송장)", "상품명(인터넷)", "협력사상품명", "상품명"))
         if not prod:
             continue
 
-        # 순매출수량 우선, 없으면 매출수량
-        qty = to_float(row.get("순매출수량") or row.get("매출수량") or 0)
+        # 주문취소 상태 제외
+        status = (to_str(_pick(row, "상태", "주문상태")) or "").strip()
+        if status in ("주문취소", "취소", "취소완료", "반품완료"):
+            continue
 
-        # gross: 소비자 결제 기준 총액 (순매출금액 > 매출금액 순)
-        gross = to_float(
-            row.get("순매출금액 (고객판매금액)")
-            or row.get("순매출금액(고객판매금액)")
-            or row.get("매출금액")
-            or 0
-        )
+        if is_direct:
+            # 직송주문 포맷
+            qty = to_float(_pick(row, "수량") or 0)
+            # gross: 판매가 (라인별 정가 총액)
+            gross = to_float(_pick(row, "판매가") or 0)
+            # net: 협력사지급금액 (당사 수령액)
+            net = to_float(_pick(row, "협력사지급금액", "고객결제액") or gross)
+            sale_d = to_date(_pick(row, "주문일자", "출하지시일자")) or file_date or date.today()
+            line_no = to_str(_pick(row, "상품상세코드", "협력사상품코드"))
+            order_no = to_str(_pick(row, "주문번호"))
+            opt = to_str(_pick(row, "주문옵션"))
+        else:
+            # 매출집계 포맷
+            qty = to_float(_pick(row, "순매출수량", "매출수량") or 0)
+            gross = to_float(
+                _pick(row, "순매출금액 (고객판매금액)", "순매출금액(고객판매금액)", "매출금액") or 0
+            )
+            net = to_float(_pick(row, "협력사지급액") or gross)
+            sale_d = file_date or date.today()
+            line_no = to_str(_pick(row, "상품코드", "상품상세코드"))
+            order_no = None
+            opt = to_str(_pick(row, "주문옵션"))
 
         if qty == 0 and gross == 0:
             continue
 
         yield ParsedLine(
             sale_date=sale_d,
-            line_no=to_str(row.get("상품코드") or row.get("상품상세코드")),
+            order_no=order_no,
+            line_no=line_no,
             raw_product_name=prod,
-            raw_option_name=to_str(row.get("주문옵션")),
+            raw_option_name=opt,
             raw_qty=qty,
             gross_amount=gross,
-            net_amount=to_float(row.get("협력사지급액") or gross),
+            net_amount=net,
         )
