@@ -1,4 +1,8 @@
-"""이지웰 파서."""
+"""이지웰 파서.
+
+집계 기준: 매입가 (공급가, 수량이 이미 반영된 총액).
+매입가가 없을 경우에만 판매가 fallback 사용.
+"""
 from __future__ import annotations
 from typing import Iterable
 
@@ -18,6 +22,11 @@ def parse(path: str) -> Iterable[ParsedLine]:
         if not prod:
             continue
         qty = to_float(row.get("주문수량") or row.get("배송(발송)수량") or 1) - to_float(row.get("취소수량") or 0)
+
+        # 집계 기준: 매입가 (이미 수량 반영 총액). fallback: 판매가
+        buy_price = to_float(row.get("매입가"))
+        gross = buy_price if buy_price else to_float(row.get("판매가"))
+
         yield ParsedLine(
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,
@@ -26,6 +35,6 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_product_name=prod,
             raw_option_name=to_str(row.get("옵션")),
             raw_qty=qty,
-            gross_amount=to_float(row.get("매입가") or row.get("결제금액") or row.get("판매가")),
-            net_amount=to_float(row.get("정산금액") or row.get("매입가")),
+            gross_amount=gross,
+            net_amount=gross,
         )
