@@ -32,8 +32,11 @@ def parse(path: str) -> Iterable[ParsedLine]:
         qty -= to_float(row.get("반품수량") or 0)
         if qty == 0:
             continue
+        # 정산금액(공급가) 우선, 없으면 매출금액(소비자가) fallback
+        # → 실제 입금 기준 금액으로 맞춤 (소비자가와 ~40만원 차이 원인)
         gross = to_float(
-            row.get("매출금액") or row.get("판매가") or row.get("정산금액")
+            row.get("정산금액") or row.get("공급금액") or row.get("공급가")
+            or row.get("매출금액") or row.get("판매가")
             or row.get("원가(VAT)별도")
         )
         # 반품금액 차감

@@ -42,11 +42,17 @@ def parse(path: str) -> Iterable[ParsedLine]:
     if df.empty:
         return
 
-    # 헤더 행 찾기
+    # 헤더 행 찾기 — 집계형(총주문금액) + B2B 납품형(납품예정 금액) 모두 대응
     header_row = None
     for i in range(min(8, len(df))):
         vals = [str(x or "").strip() for x in df.iloc[i].tolist()]
-        if "상품명" in vals and any("총주문금액" in v or "주문금액" in v or "총금액" in v for v in vals):
+        has_prod = "상품명" in vals
+        has_amount = any(
+            kw in v
+            for v in vals
+            for kw in ("총주문금액", "주문금액", "총금액", "납품예정 금액", "납품금액")
+        )
+        if has_prod and has_amount:
             header_row = i
             break
     if header_row is None:
@@ -60,13 +66,22 @@ def parse(path: str) -> Iterable[ParsedLine]:
         prod = to_str(d.get("상품명"))
         if not prod or prod == "상품명":
             continue
-        qty = to_float(d.get("총주문수량") or d.get("주문수량") or 0)
-        gross = to_float(d.get("총주문금액") or d.get("주문금액") or d.get("총금액") or 0)
+        qty = to_float(d.get("총주문수량") or d.get("주문수량") or d.get("상품 수량") or d.get("수량") or 0)
+        gross = to_float(
+            d.get("총주문금액") or d.get("주문금액") or d.get("총금액")
+            or d.get("납품예정 금액") or d.get("납품금액") or 0
+        )
         if qty == 0 and gross == 0:
             continue
+        # 날짜: 집계형은 업로드 일자, B2B형은 납품일자 우선
+        from app.services.csa_parsers._common import to_date
+        sale_d = (
+            to_date(d.get("납품일자") or d.get("발주일자") or d.get("납품예정일자"))
+            or today
+        )
         yield ParsedLine(
-            sale_date=today,
-            line_no=to_str(d.get("상품코드")),
+            sale_date=sale_d,
+            line_no=to_str(d.get("상품코드") or d.get("납품예정번호")),
             raw_product_name=prod,
             raw_qty=qty,
             gross_amount=gross,

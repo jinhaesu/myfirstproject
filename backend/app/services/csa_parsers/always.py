@@ -11,6 +11,14 @@ from app.services.csa_parsers._common import read_excel_safe, to_datetime, to_da
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
     for _, row in df.iterrows():
+        # 취소/반품 상태 주문 제외
+        status = to_str(row.get("주문 상태") or row.get("상태") or "")
+        cancel_yn = to_str(row.get("취소/반품 여부") or "")
+        if status in ("취소", "반품", "취소완료", "반품완료"):
+            continue
+        if cancel_yn in ("Y", "취소", "반품"):
+            continue
+
         sale_dt = (
             to_datetime(row.get("주문 성사 시점"))
             or to_datetime(row.get("배송 완료 시점"))

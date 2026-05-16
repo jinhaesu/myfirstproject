@@ -38,14 +38,14 @@ log = logging.getLogger(__name__)
 
 DEFAULT_PRODUCTS: list[dict[str, Any]] = [
     {"code": "MACA", "name": "마카롱", "category": "디저트", "default_unit_size": 1, "sort_order": 1},
-    {"code": "DUNG", "name": "뚱낭시에", "category": "디저트", "default_unit_size": 1, "sort_order": 2},
+    {"code": "DUNG", "name": "뚱낭시에", "aliases": ["휘낭시에", "피낭시에", "휘낭시"], "category": "디저트", "default_unit_size": 1, "sort_order": 2},
     {"code": "BAGL", "name": "베이글", "category": "베이커리", "default_unit_size": 1, "sort_order": 3},
     {"code": "NEMO", "name": "네모바게트", "category": "베이커리", "default_unit_size": 1, "sort_order": 4},
     {"code": "SCON", "name": "스콘", "category": "베이커리", "default_unit_size": 1, "sort_order": 5},
     {"code": "REVB", "name": "르뱅쿠키", "category": "쿠키", "default_unit_size": 1, "sort_order": 6},
     {"code": "FOCC", "name": "포카치아", "category": "베이커리", "default_unit_size": 1, "sort_order": 7},
     {"code": "JJON", "name": "상온 쫀득쿠키", "category": "쿠키", "default_unit_size": 1, "sort_order": 8},
-    {"code": "AMER", "name": "아메쿠키", "category": "쿠키", "default_unit_size": 1, "sort_order": 9},
+    {"code": "AMER", "name": "아메쿠키", "aliases": ["아메리칸쿠키", "아메리칸 쿠키", "American Cookie"], "category": "쿠키", "default_unit_size": 1, "sort_order": 9},
     {"code": "SLAP", "name": "슬랩", "category": "베이커리", "default_unit_size": 1, "sort_order": 10},
     {"code": "JJBR", "name": "쫀득빵", "category": "베이커리", "default_unit_size": 1, "sort_order": 11},
     {"code": "KKAM", "name": "깜빠뉴", "category": "베이커리", "default_unit_size": 1, "sort_order": 12},
@@ -116,16 +116,22 @@ def normalize_channel_name(raw: Optional[str]) -> Optional[str]:
 # ──────────────────────────────────────────────────────────────
 
 def seed_product_master(db: Session) -> dict[str, int]:
-    """표준 품목 마스터 시드. 이미 있으면 skip."""
+    """표준 품목 마스터 시드. 이미 있으면 aliases만 업데이트."""
     created = 0
+    updated = 0
     for p in DEFAULT_PRODUCTS:
         existing = db.query(ProductMaster).filter(ProductMaster.name == p["name"]).first()
         if existing:
+            # aliases가 새로 추가/변경된 경우 업데이트
+            new_aliases = p.get("aliases")
+            if new_aliases and existing.aliases != new_aliases:
+                existing.aliases = new_aliases
+                updated += 1
             continue
         db.add(ProductMaster(**p, is_active=True))
         created += 1
     db.commit()
-    return {"created": created, "total": db.query(ProductMaster).count()}
+    return {"created": created, "updated": updated, "total": db.query(ProductMaster).count()}
 
 
 def seed_channel_products(db: Session) -> int:
@@ -223,7 +229,7 @@ def resolve_product(
         prod = db.query(ProductMaster).get(m.product_id)
         return MappingResult(prod.id, prod.name, m.unit_per_set or 1, "matched")
 
-    # 2) 룰베이스 — 가장 긴 표준명이 raw에 포함되는지
+    # 2) 룰베이스 — 가장 긴 표준명이 raw에 포함되는지 (aliases 포함)
     masters = masters_cache or _get_or_cache_master(db)
     haystack = f"{raw_name} {raw_opt or ''}"
     # 공백 제거 버전도 함께
@@ -235,12 +241,19 @@ def resolve_product(
         if name in haystack or name_compact in haystack_compact:
             best = prod
             break
-        # 별칭 일부 (예: 마카롱→뚱카롱)
-        if name == "마카롱" and ("뚱카롱" in haystack_compact or "마카롱" in haystack_compact):
-            best = prod
-            break
-        if name == "베이글" and "베이글" in haystack_compact:
-            best = prod
+        # aliases 체크 (DB aliases 컬럼 + 하드코딩 별칭)
+        aliases: list[str] = list(prod.aliases or [])
+        # 하드코딩 보완 별칭 (마카롱↔뚱카롱 등 기존 로직 유지)
+        if name == "마카롱":
+            aliases += ["뚱카롱"]
+        if name == "베이글":
+            aliases += ["베이글"]
+        for alias in aliases:
+            alias_compact = alias.replace(" ", "")
+            if alias in haystack or alias_compact in haystack_compact:
+                best = prod
+                break
+        if best is not None:
             break
 
     if best is None:

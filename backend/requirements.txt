@@ -22,3 +22,4 @@ httpx
 playwright
 PyPDF2
 python-docx
+msoffcrypto-tool

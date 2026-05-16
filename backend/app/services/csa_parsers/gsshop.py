@@ -1,12 +1,21 @@
-"""GS SHOP 홈쇼핑 파서. HTML 위장 xls. 상품 단위 집계.
+"""GS SHOP 홈쇼핑 파서. HTML 위장 xls (UTF-8).
 
-엑셀 자체에 날짜 컬럼이 없어, 파일명에서 YYYY-MM-DD / YYYY.MM.DD / YYYYMMDD 패턴
-또는 'YYYY-MM-DD~YYYY-MM-DD' 기간을 추출해 sale_date로 사용. 못 찾으면 today.
+read_html(path, encoding='utf-8')로 직접 넘기면 lxml/BS4가 내부 재인코딩으로
+컬럼명이 깨지는 문제 발생 → 파일을 먼저 str로 읽어 StringIO로 전달.
+
+컬럼 구조 (직송주문 기준):
+  상품상세코드 / 상품코드 / 브랜드명 / 상품명 / 주문옵션 / 매입구분
+  매출수량 / 매출금액 / 반품수량 / 반품금액 / 순매출수량 / 협력사지급액
+  순매출금액 (고객판매금액)
+
+gross_amount = 순매출금액(고객판매금액)  →  실제 소비자 결제액
+net_amount   = 협력사지급액             →  GS가 협력사에 주는 금액
 """
 from __future__ import annotations
+import io
 import os
 import re
-from datetime import date, datetime
+from datetime import date
 from typing import Iterable, Optional
 
 import pandas as pd
@@ -34,24 +43,68 @@ def _extract_date_from_filename(path: str) -> Optional[date]:
     return None
 
 
+def _read_gs(path: str) -> pd.DataFrame:
+    """GS SHOP HTML-xls 파일을 안전하게 읽는다.
+
+    pandas read_html이 파일 경로를 직접 받으면 인코딩 처리 과정에서
+    컬럼명이 깨지는 버그가 있어, 파일을 직접 str로 읽어 StringIO 전달.
+    """
+    # 1) HTML 위장 xls (UTF-8) — 대부분의 GS SHOP 직송주문 파일
+    for enc in ("utf-8", "utf-8-sig", "cp949", "euc-kr"):
+        try:
+            with open(path, "r", encoding=enc) as f:
+                content = f.read()
+            tables = pd.read_html(io.StringIO(content), header=0)
+            if tables:
+                return tables[0]
+        except Exception:
+            continue
+
+    # 2) 진짜 xls (xlrd)
+    try:
+        return pd.read_excel(path, engine="xlrd")
+    except Exception:
+        pass
+
+    # 3) xlsx (openpyxl)
+    try:
+        return pd.read_excel(path, engine="openpyxl")
+    except Exception:
+        pass
+
+    return pd.DataFrame()
+
+
 @register("GS샵")
 @register("GS 샵")
 @register("GS SHOP")
 @register("GS샵쇼핑")
 def parse(path: str) -> Iterable[ParsedLine]:
-    tables = pd.read_html(path, encoding="utf-8", header=0)
-    if not tables:
+    df = _read_gs(path)
+    if df.empty:
         return
-    df = tables[0]
+
     sale_d = _extract_date_from_filename(path) or date.today()
+
     for _, row in df.iterrows():
         prod = to_str(row.get("상품명"))
         if not prod:
             continue
+
+        # 순매출수량 우선, 없으면 매출수량
         qty = to_float(row.get("순매출수량") or row.get("매출수량") or 0)
-        gross = to_float(row.get("순매출금액 (고객판매금액)") or row.get("매출금액") or 0)
+
+        # gross: 소비자 결제 기준 총액 (순매출금액 > 매출금액 순)
+        gross = to_float(
+            row.get("순매출금액 (고객판매금액)")
+            or row.get("순매출금액(고객판매금액)")
+            or row.get("매출금액")
+            or 0
+        )
+
         if qty == 0 and gross == 0:
             continue
+
         yield ParsedLine(
             sale_date=sale_d,
             line_no=to_str(row.get("상품코드") or row.get("상품상세코드")),
