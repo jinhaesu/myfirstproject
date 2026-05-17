@@ -322,6 +322,20 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     for m in range(1, 13):
         out[("advertising", m)] = adv_by_month[m]
 
+    # 사업계획 엑셀의 그룹별 공헌이익 합계 (대시보드 시트 '공헌이익' 섹션)
+    cm_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
+    cm_rows = db.query(
+        BusinessPlanGroupSummary.month,
+        func.sum(BusinessPlanGroupSummary.target_cm),
+    ).filter(BusinessPlanGroupSummary.year == year).group_by(
+        BusinessPlanGroupSummary.month
+    ).all()
+    for m, total in cm_rows:
+        cm_by_month[m] = float(total or 0)
+    for m in range(1, 13):
+        if cm_by_month[m]:
+            out[("contribution_margin", m)] = cm_by_month[m]
+
     # 주문건수 기반(commission_fixed, shipping order_fixed, packaging)은 plan에 주문수가 없어 0으로 둠
     return out
 
@@ -384,8 +398,13 @@ def get_pnl_matrix(db: Session, year: int) -> dict:
     subtotal_results: dict[int, dict[str, list[float]]] = {}
     by_code: dict[str, CsaPnlRow] = {r.code: r for r in rows}
 
+    # gross_profit/op_profit/cm은 별도 formula 루프에서 처리하므로 여기서는 skip
+    FORMULA_ROWS = {"gross_profit", "op_profit", "contribution_margin"}
+
     for r in rows:
         if not r.is_subtotal:
+            continue
+        if r.formula_code in FORMULA_ROWS:
             continue
         # 1) 수동 입력 우선 (월별 manual_vals)
         actuals = []; plans = []
@@ -405,8 +424,10 @@ def get_pnl_matrix(db: Session, year: int) -> dict:
 
             if mp is not None:
                 plans.append(mp)
-            elif r.is_computed and r.formula_code == "revenue":
-                plans.append(plan_calc.get(("revenue", m), 0.0))
+            elif r.is_computed and r.formula_code in ("revenue", "advertising", "labor", "overhead",
+                                                       "commission_all", "shipping", "packaging", "logistics",
+                                                       "cogs_material"):
+                plans.append(plan_calc.get((r.formula_code, m), 0.0))
             elif r.is_computed and r.formula_code in ("cogs_var_subtotal", "sga_var_subtotal"):
                 plans.append(subtotal_value(r.id, "plan", idx))
             else:
@@ -436,11 +457,14 @@ def get_pnl_matrix(db: Session, year: int) -> dict:
         r = by_code.get(code)
         if not r:
             continue
-        if r.id in subtotal_results:
-            continue
         formula_actuals = [formula_row(r.formula_code, "actual", i) for i in range(12)]
         formula_plans = [formula_row(r.formula_code, "plan", i) for i in range(12)]
-        # manual override 적용
+        # plan override: 사업계획 엑셀에 직접 들어온 공헌이익(contribution_margin) 우선
+        for i, m in enumerate(range(1, 13)):
+            pc = plan_calc.get((r.formula_code, m))
+            if pc:
+                formula_plans[i] = pc
+        # manual override 적용 (최우선)
         for i, m in enumerate(range(1, 13)):
             ma = manual_vals.get((r.id, m, "actual"))
             mp = manual_vals.get((r.id, m, "plan"))

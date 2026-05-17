@@ -104,6 +104,20 @@ def init_db():
         except Exception:
             pass
 
+        # 사업계획 그룹 요약에 공헌이익 컬럼 추가
+        try:
+            from sqlalchemy import text
+            with engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE csa_plan_group_summary ADD COLUMN IF NOT EXISTS target_cm DOUBLE PRECISION DEFAULT 0"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE csa_plan_group_summary ADD COLUMN IF NOT EXISTS cm_share DOUBLE PRECISION"
+                ))
+                conn.commit()
+        except Exception:
+            pass
+
         # CSA 변동비 분해 컬럼 (기존 daily_product 테이블에 추가)
         try:
             from sqlalchemy import text

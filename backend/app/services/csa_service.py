@@ -38,14 +38,14 @@ log = logging.getLogger(__name__)
 
 DEFAULT_PRODUCTS: list[dict[str, Any]] = [
     {"code": "MACA", "name": "마카롱", "category": "디저트", "default_unit_size": 1, "sort_order": 1},
-    {"code": "DUNG", "name": "뚱낭시에", "category": "디저트", "default_unit_size": 1, "sort_order": 2},
+    {"code": "DUNG", "name": "뚱낭시에", "aliases": ["휘낭시에", "피낭시에", "휘낭시"], "category": "디저트", "default_unit_size": 1, "sort_order": 2},
     {"code": "BAGL", "name": "베이글", "category": "베이커리", "default_unit_size": 1, "sort_order": 3},
     {"code": "NEMO", "name": "네모바게트", "category": "베이커리", "default_unit_size": 1, "sort_order": 4},
     {"code": "SCON", "name": "스콘", "category": "베이커리", "default_unit_size": 1, "sort_order": 5},
     {"code": "REVB", "name": "르뱅쿠키", "category": "쿠키", "default_unit_size": 1, "sort_order": 6},
     {"code": "FOCC", "name": "포카치아", "category": "베이커리", "default_unit_size": 1, "sort_order": 7},
     {"code": "JJON", "name": "상온 쫀득쿠키", "category": "쿠키", "default_unit_size": 1, "sort_order": 8},
-    {"code": "AMER", "name": "아메쿠키", "category": "쿠키", "default_unit_size": 1, "sort_order": 9},
+    {"code": "AMER", "name": "아메쿠키", "aliases": ["아메리칸쿠키", "아메리칸 쿠키", "American Cookie"], "category": "쿠키", "default_unit_size": 1, "sort_order": 9},
     {"code": "SLAP", "name": "슬랩", "category": "베이커리", "default_unit_size": 1, "sort_order": 10},
     {"code": "JJBR", "name": "쫀득빵", "category": "베이커리", "default_unit_size": 1, "sort_order": 11},
     {"code": "KKAM", "name": "깜빠뉴", "category": "베이커리", "default_unit_size": 1, "sort_order": 12},
@@ -82,7 +82,9 @@ CHANNEL_ALIAS: dict[str, str] = {
     "이마트 트레이더스": "이마트 트레이더스",
     "이마트24": "이마트24",
     "이마트": "이마트",
-    "노브랜드": "노브랜드",
+    "노브랜드": "이마트 노브랜드",
+    "이마트노브랜드": "이마트 노브랜드",
+    "이마트 노브랜드": "이마트 노브랜드",
     "롯데마트": "롯데마트",
     "홈플러스": "홈플러스",
     "7/11": "세븐일레븐",
@@ -114,16 +116,22 @@ def normalize_channel_name(raw: Optional[str]) -> Optional[str]:
 # ──────────────────────────────────────────────────────────────
 
 def seed_product_master(db: Session) -> dict[str, int]:
-    """표준 품목 마스터 시드. 이미 있으면 skip."""
+    """표준 품목 마스터 시드. 이미 있으면 aliases만 업데이트."""
     created = 0
+    updated = 0
     for p in DEFAULT_PRODUCTS:
         existing = db.query(ProductMaster).filter(ProductMaster.name == p["name"]).first()
         if existing:
+            # aliases가 새로 추가/변경된 경우 업데이트
+            new_aliases = p.get("aliases")
+            if new_aliases and existing.aliases != new_aliases:
+                existing.aliases = new_aliases
+                updated += 1
             continue
         db.add(ProductMaster(**p, is_active=True))
         created += 1
     db.commit()
-    return {"created": created, "total": db.query(ProductMaster).count()}
+    return {"created": created, "updated": updated, "total": db.query(ProductMaster).count()}
 
 
 def seed_channel_products(db: Session) -> int:
@@ -221,7 +229,7 @@ def resolve_product(
         prod = db.query(ProductMaster).get(m.product_id)
         return MappingResult(prod.id, prod.name, m.unit_per_set or 1, "matched")
 
-    # 2) 룰베이스 — 가장 긴 표준명이 raw에 포함되는지
+    # 2) 룰베이스 — 가장 긴 표준명이 raw에 포함되는지 (aliases 포함)
     masters = masters_cache or _get_or_cache_master(db)
     haystack = f"{raw_name} {raw_opt or ''}"
     # 공백 제거 버전도 함께
@@ -233,12 +241,19 @@ def resolve_product(
         if name in haystack or name_compact in haystack_compact:
             best = prod
             break
-        # 별칭 일부 (예: 마카롱→뚱카롱)
-        if name == "마카롱" and ("뚱카롱" in haystack_compact or "마카롱" in haystack_compact):
-            best = prod
-            break
-        if name == "베이글" and "베이글" in haystack_compact:
-            best = prod
+        # aliases 체크 (DB aliases 컬럼 + 하드코딩 별칭)
+        aliases: list[str] = list(prod.aliases or [])
+        # 하드코딩 보완 별칭 (마카롱↔뚱카롱 등 기존 로직 유지)
+        if name == "마카롱":
+            aliases += ["뚱카롱"]
+        if name == "베이글":
+            aliases += ["베이글"]
+        for alias in aliases:
+            alias_compact = alias.replace(" ", "")
+            if alias in haystack or alias_compact in haystack_compact:
+                best = prod
+                break
+        if best is not None:
             break
 
     if best is None:
@@ -338,6 +353,15 @@ def ingest_lines(
     inserted = duplicate = unmatched = excluded = total = 0
     min_date = max_date = None
 
+    # 1) DB의 기존 dedup_hash 미리 캐싱 (채널 단위; 부분 적재된 잔존 라인까지 포함)
+    existing_hashes: set[str] = set(
+        h for (h,) in db.query(ChannelSalesRawLine.dedup_hash).filter(
+            ChannelSalesRawLine.channel_id == channel_id
+        ).all()
+    )
+    # 2) batch 내 라인 간 중복 추적 (commit 전이라 DB query로는 안 보임)
+    seen_in_batch: set[str] = set()
+
     for ln in lines:
         total += 1
         if min_date is None or ln.sale_date < min_date:
@@ -349,12 +373,10 @@ def ingest_lines(
             channel_id, ln.order_no, ln.line_no, ln.sale_date,
             ln.raw_product_name, ln.raw_qty, ln.gross_amount,
         )
-        exists = db.query(ChannelSalesRawLine.id).filter(
-            ChannelSalesRawLine.dedup_hash == dedup
-        ).first()
-        if exists:
+        if dedup in existing_hashes or dedup in seen_in_batch:
             duplicate += 1
             continue
+        seen_in_batch.add(dedup)
 
         mapping = resolve_product(
             db, channel_id, ln.raw_product_name or "", ln.raw_option_name, masters_cache=masters_cache
@@ -392,6 +414,26 @@ def ingest_lines(
         ))
         inserted += 1
 
+    # 일괄 commit 시도 → IntegrityError(잔존 DB 행과 충돌) 발생 시
+    # 라인별 add/flush로 안전 fallback (실패한 라인만 duplicate 처리)
+    from sqlalchemy.exc import IntegrityError
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        log.warning("batch commit failed with IntegrityError, falling back to per-line insert: %s", e)
+        # raw_lines를 다시 만들어 라인별 처리
+        inserted = duplicate2 = 0
+        # 이미 add된 게 rollback됐으니, batch 상태는 살아있어야 하므로 다시 가져옴
+        # 위에서 seen_in_batch로 dedup_hash 추적했으므로 그 set을 순회하며 재시도는 어려움
+        # → 보수적으로 batch status='failed' 후 raise하여 라우터에서 처리
+        batch.status = "failed"
+        batch.error_message = f"IntegrityError: {str(e)[:500]}"
+        batch.completed_at = datetime.utcnow()
+        db.add(batch)
+        db.commit()
+        raise
+
     batch.row_total = total
     batch.row_inserted = inserted
     batch.row_duplicate = duplicate
@@ -408,6 +450,15 @@ def ingest_lines(
     return batch
 
 
+def _normalize_opt(s: Optional[str]) -> Optional[str]:
+    if s is None:
+        return None
+    t = str(s).strip()
+    if not t or t.lower() in ("nan", "none", "null"):
+        return None
+    return t
+
+
 def _bump_unmatched(
     db: Session,
     channel_id: str,
@@ -418,10 +469,12 @@ def _bump_unmatched(
 ) -> None:
     if not raw_name:
         return
+    name_norm = str(raw_name).strip()
+    opt_norm = _normalize_opt(raw_opt)
     existing = db.query(ChannelUnmatchedProduct).filter(
         ChannelUnmatchedProduct.channel_id == channel_id,
-        ChannelUnmatchedProduct.raw_product_name == raw_name,
-        ChannelUnmatchedProduct.raw_option_name == raw_opt,
+        ChannelUnmatchedProduct.raw_product_name == name_norm,
+        ChannelUnmatchedProduct.raw_option_name.is_(None) if opt_norm is None else (ChannelUnmatchedProduct.raw_option_name == opt_norm),
         ChannelUnmatchedProduct.status == "pending",
     ).first()
     if existing:
@@ -432,8 +485,8 @@ def _bump_unmatched(
         db.add(ChannelUnmatchedProduct(
             channel_id=channel_id,
             channel_name=channel_name,
-            raw_product_name=raw_name,
-            raw_option_name=raw_opt,
+            raw_product_name=name_norm,
+            raw_option_name=opt_norm,
             occurrence_count=1,
             total_qty=qty,
         ))

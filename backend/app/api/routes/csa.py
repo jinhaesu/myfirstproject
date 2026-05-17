@@ -340,17 +340,33 @@ async def upload_channel_file(
                 "message": "이미 업로드된 파일입니다. 새로 적재하지 않았습니다.",
             }
 
-        lines = list(parser(tmp_path))
-        batch = ingest_lines(
-            db,
-            channel_id=channel_id,
-            channel_name=channel_name,
-            file_name=file.filename or "upload",
-            file_hash=fhash,
-            file_size=fsize,
-            parser_version="v1",
-            lines=lines,
-        )
+        try:
+            lines = list(parser(tmp_path))
+            batch = ingest_lines(
+                db,
+                channel_id=channel_id,
+                channel_name=channel_name,
+                file_name=file.filename or "upload",
+                file_hash=fhash,
+                file_size=fsize,
+                parser_version="v1",
+                lines=lines,
+            )
+        except Exception as e:
+            # 부분 진행된 batch가 'parsing' 상태로 남지 않도록 failed로 마킹
+            try:
+                stuck = db.query(ChannelSalesUploadBatch).filter(
+                    ChannelSalesUploadBatch.channel_id == channel_id,
+                    ChannelSalesUploadBatch.file_hash == fhash,
+                    ChannelSalesUploadBatch.status == "parsing",
+                ).first()
+                if stuck:
+                    stuck.status = "failed"
+                    stuck.error_message = f"{type(e).__name__}: {str(e)[:500]}"
+                    db.commit()
+            except Exception:
+                db.rollback()
+            raise HTTPException(status_code=500, detail=f"파싱 실패: {type(e).__name__}: {e}")
         return {
             "batch_id": batch.id,
             "duplicate_file": False,
@@ -1100,21 +1116,41 @@ def plan_summary(year: int, db: Session = Depends(get_db)):
 def plan_comparison(
     year: int,
     month: Optional[int] = None,
+    up_to_today: bool = False,
     by: str = Query("channel", regex="^(channel|product|group|employee|category)$"),
     db: Session = Depends(get_db),
 ):
     """사업계획 vs 실적 비교.
 
-    실적: csa_sales_daily_product (해당 year/month)
-    계획: csa_plan_* 테이블
+    실적: csa_sales_daily_product (해당 year/month, 또는 up_to_today=true면 1/1~오늘 누계)
+    계획: csa_plan_* 테이블 (up_to_today=true면 1/1~오늘 비율 안분)
 
     공통 키: channel_id / product_id / group / employee / category
     """
+    from datetime import date as _date
+    from calendar import monthrange as _monthrange
+    today = _date.today()
+    # YTD 모드: 해당 연도 1/1~오늘 (해당 연도가 미래/과거면 12/31 또는 미적용)
+    ytd_last_month = None
+    ytd_partial_ratio = 1.0  # 마지막 월 안분 비율
+    if up_to_today:
+        if year < today.year:
+            ytd_last_month = 12
+            ytd_partial_ratio = 1.0
+        elif year > today.year:
+            ytd_last_month = 0  # 데이터 없음
+        else:
+            ytd_last_month = today.month
+            month_days = _monthrange(year, today.month)[1]
+            ytd_partial_ratio = today.day / month_days
+
     # 실적 집계
     actual_q = db.query(ChannelSalesDailyProduct).filter(
         ChannelSalesDailyProduct.year == year
     )
-    if month:
+    if up_to_today:
+        actual_q = actual_q.filter(ChannelSalesDailyProduct.sale_date <= today)
+    elif month:
         actual_q = actual_q.filter(ChannelSalesDailyProduct.month == month)
     actual_rows = actual_q.all()
 
@@ -1157,75 +1193,85 @@ def plan_comparison(
         slot["actual_revenue"] += r.net_sales or 0
         slot["actual_pcs"] += r.pcs_qty or 0
 
+    def plan_factor(m: int) -> Optional[float]:
+        """up_to_today 모드: 미래 월은 None(제외), 현재 월은 비율 안분, 과거 월은 1.0.
+        평시: month 필터 매칭 시 1.0, 아니면 None."""
+        if up_to_today:
+            if ytd_last_month is None or ytd_last_month == 0:
+                return None
+            if m > ytd_last_month: return None
+            if m == ytd_last_month: return ytd_partial_ratio
+            return 1.0
+        if month is not None:
+            return 1.0 if m == month else None
+        return 1.0
+
     # 계획 데이터
     if by == "channel":
-        rev_q = db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year)
-        if month: rev_q = rev_q.filter(BusinessPlanChannelRevenue.month == month)
-        for p in rev_q.all():
+        for p in db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year).all():
+            f = plan_factor(p.month)
+            if f is None: continue
             k = (p.channel_id, p.channel_name)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_revenue"] += p.target_revenue or 0
-        qty_q = db.query(BusinessPlanProductQty).filter(BusinessPlanProductQty.year == year)
-        if month: qty_q = qty_q.filter(BusinessPlanProductQty.month == month)
-        for p in qty_q.all():
+            slot["target_revenue"] += (p.target_revenue or 0) * f
+        for p in db.query(BusinessPlanProductQty).filter(BusinessPlanProductQty.year == year).all():
+            f = plan_factor(p.month)
+            if f is None: continue
             k = (p.channel_id, p.channel_name)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_pcs"] += p.target_pcs or 0
+            slot["target_pcs"] += (p.target_pcs or 0) * f
     elif by == "product":
-        qty_q = db.query(BusinessPlanProductQty).filter(BusinessPlanProductQty.year == year)
-        if month: qty_q = qty_q.filter(BusinessPlanProductQty.month == month)
-        for p in qty_q.all():
-            if p.product_id is None: continue
+        for p in db.query(BusinessPlanProductQty).filter(BusinessPlanProductQty.year == year).all():
+            f = plan_factor(p.month)
+            if f is None or p.product_id is None: continue
             k = (p.product_id, p.product_name)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_pcs"] += p.target_pcs or 0
+            slot["target_pcs"] += (p.target_pcs or 0) * f
     elif by == "group":
-        rev_q = db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year)
-        if month: rev_q = rev_q.filter(BusinessPlanChannelRevenue.month == month)
-        for p in rev_q.all():
-            if p.group_id is None: continue
+        for p in db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year).all():
+            f = plan_factor(p.month)
+            if f is None or p.group_id is None: continue
             k = (p.group_id, p.group_name)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_revenue"] += p.target_revenue or 0
+            slot["target_revenue"] += (p.target_revenue or 0) * f
     elif by == "employee":
-        rev_q = db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year)
-        if month: rev_q = rev_q.filter(BusinessPlanChannelRevenue.month == month)
-        for p in rev_q.all():
-            if p.employee_id is None: continue
+        for p in db.query(BusinessPlanChannelRevenue).filter(BusinessPlanChannelRevenue.year == year).all():
+            f = plan_factor(p.month)
+            if f is None or p.employee_id is None: continue
             k = (p.employee_id, p.employee_name)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_revenue"] += p.target_revenue or 0
+            slot["target_revenue"] += (p.target_revenue or 0) * f
     elif by == "category":
-        cat_q = db.query(BusinessPlanCategoryQty).filter(BusinessPlanCategoryQty.year == year)
-        if month: cat_q = cat_q.filter(BusinessPlanCategoryQty.month == month)
-        for p in cat_q.all():
+        for p in db.query(BusinessPlanCategoryQty).filter(BusinessPlanCategoryQty.year == year).all():
+            f = plan_factor(p.month)
+            if f is None: continue
             k = (p.product_category, p.product_category)
             slot = actual_map.setdefault(k, {
                 "key": k[0], "label": k[1],
                 "actual_revenue": 0, "actual_pcs": 0,
                 "target_revenue": 0, "target_pcs": 0,
             })
-            slot["target_pcs"] += p.target_pcs or 0
+            slot["target_pcs"] += (p.target_pcs or 0) * f
 
     items = list(actual_map.values())
     for it in items:
@@ -1368,6 +1414,439 @@ def admin_migrate_partitions(db: Session = Depends(get_db)):
 def admin_run_retention_now(db: Session = Depends(get_db)):
     """수동으로 retention 1회 실행 (스케줄 외 즉시)."""
     return run_retention_now(db)
+
+
+@router.get("/admin/diag-batches")
+def admin_diag_batches(limit: int = 50, db: Session = Depends(get_db)):
+    """업로드 batch 상태 진단.
+
+    1) status별 카운트
+    2) parsing/failed batch 상세 + 그 batch의 raw_lines 적재 수
+    3) done batch 중 daily_aggregate가 비어 있는 케이스 (재집계 필요)
+    """
+    from sqlalchemy import func as sa_func
+    counts = dict(
+        db.query(
+            ChannelSalesUploadBatch.status,
+            sa_func.count(ChannelSalesUploadBatch.id),
+        ).group_by(ChannelSalesUploadBatch.status).all()
+    )
+
+    # parsing / failed 상세
+    stuck = (
+        db.query(ChannelSalesUploadBatch)
+        .filter(ChannelSalesUploadBatch.status.in_(["parsing", "failed"]))
+        .order_by(ChannelSalesUploadBatch.created_at.desc())
+        .limit(limit).all()
+    )
+    stuck_rows = []
+    for b in stuck:
+        raw_count = db.query(sa_func.count(ChannelSalesRawLine.id)).filter(
+            ChannelSalesRawLine.batch_id == b.id
+        ).scalar() or 0
+        stuck_rows.append({
+            "id": b.id, "status": b.status,
+            "channel": b.channel_name, "file_name": b.file_name,
+            "file_size": b.file_size,
+            "created_at": b.created_at.isoformat() if b.created_at else None,
+            "row_total": b.row_total, "row_inserted": b.row_inserted,
+            "raw_lines_in_db": raw_count,
+            "error_message": (b.error_message or "")[:300],
+        })
+
+    # done batch 중 daily_aggregate 비어 있는 케이스
+    done_batches = (
+        db.query(ChannelSalesUploadBatch)
+        .filter(ChannelSalesUploadBatch.status == "done")
+        .order_by(ChannelSalesUploadBatch.created_at.desc())
+        .limit(limit).all()
+    )
+    done_empty = []
+    for b in done_batches:
+        if not b.period_start or not b.period_end:
+            continue
+        daily_count = db.query(sa_func.count(ChannelSalesDailyProduct.id)).filter(
+            ChannelSalesDailyProduct.channel_id == b.channel_id,
+            ChannelSalesDailyProduct.sale_date >= b.period_start,
+            ChannelSalesDailyProduct.sale_date <= b.period_end,
+        ).scalar() or 0
+        raw_matched = db.query(sa_func.count(ChannelSalesRawLine.id)).filter(
+            ChannelSalesRawLine.batch_id == b.id,
+            ChannelSalesRawLine.mapping_status == "matched",
+        ).scalar() or 0
+        if daily_count == 0 and raw_matched > 0:
+            done_empty.append({
+                "id": b.id, "channel": b.channel_name, "file_name": b.file_name,
+                "period": f"{b.period_start}~{b.period_end}",
+                "row_inserted": b.row_inserted,
+                "raw_matched": raw_matched,
+                "daily_aggregate_count": daily_count,
+            })
+
+    return {
+        "status_counts": counts,
+        "stuck_batches": stuck_rows,
+        "done_but_empty_daily": done_empty,
+    }
+
+
+@router.post("/admin/cleanup-stuck-batches")
+def admin_cleanup_stuck_batches(
+    mode: str = "delete",  # delete | mark_failed
+    include_done_zero: bool = True,
+    cleanup_orphans: bool = True,
+    db: Session = Depends(get_db),
+):
+    """업로드 batch 비정상 상태 종합 정리.
+
+    대상:
+    1) status='parsing' 잔존 batch
+    2) include_done_zero=True: status='done'인데 row_total=0인 비정상 batch
+    3) cleanup_orphans=True: 어떤 batch에도 연결되지 않은 orphan raw_lines
+
+    - mode=delete: batch 완전 삭제 (raw_lines도 함께)
+    - mode=mark_failed: status를 failed로 변경 (이력 보존, raw_lines는 그대로)
+    """
+    from sqlalchemy import func as sa_func
+    targets = list(db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.status == "parsing"
+    ).all())
+    if include_done_zero:
+        targets += list(db.query(ChannelSalesUploadBatch).filter(
+            ChannelSalesUploadBatch.status == "done",
+            (ChannelSalesUploadBatch.row_total == 0) | (ChannelSalesUploadBatch.row_total.is_(None)),
+        ).all())
+
+    deleted_batches = 0
+    marked_failed = 0
+    deleted_raw = 0
+    details = []
+    for b in targets:
+        raw_count = db.query(sa_func.count(ChannelSalesRawLine.id)).filter(
+            ChannelSalesRawLine.batch_id == b.id
+        ).scalar() or 0
+        if mode == "delete":
+            if raw_count > 0:
+                db.query(ChannelSalesRawLine).filter(
+                    ChannelSalesRawLine.batch_id == b.id
+                ).delete(synchronize_session=False)
+                deleted_raw += raw_count
+            details.append({"id": b.id, "status_was": b.status, "channel": b.channel_name, "file": b.file_name, "action": "deleted", "raw_lines": raw_count})
+            db.delete(b)
+            deleted_batches += 1
+        else:
+            b.status = "failed"
+            b.error_message = b.error_message or "cleanup: 비정상 상태 → failed 마킹"
+            details.append({"id": b.id, "channel": b.channel_name, "file": b.file_name, "action": "marked_failed", "raw_lines": raw_count})
+            marked_failed += 1
+    db.commit()
+
+    orphan_deleted = 0
+    if cleanup_orphans:
+        # batch_id가 더 이상 csa_upload_batches에 없는 raw_lines
+        valid_ids_subq = db.query(ChannelSalesUploadBatch.id).subquery()
+        orphan_q = db.query(ChannelSalesRawLine).filter(
+            ~ChannelSalesRawLine.batch_id.in_(db.query(valid_ids_subq.c.id))
+        )
+        orphan_deleted = orphan_q.count()
+        if orphan_deleted > 0:
+            orphan_q.delete(synchronize_session=False)
+            db.commit()
+
+    return {
+        "deleted_batches": deleted_batches,
+        "marked_failed": marked_failed,
+        "deleted_raw_lines": deleted_raw + orphan_deleted,
+        "orphan_raw_lines_deleted": orphan_deleted,
+        "details": details,
+    }
+
+
+@router.post("/admin/delete-batch/{batch_id}")
+def admin_delete_batch(batch_id: str, db: Session = Depends(get_db)):
+    """특정 batch 완전 삭제: raw_lines + daily_aggregate(그 채널/기간) + unmatched(그 채널의 pending) + batch row."""
+    b = db.query(ChannelSalesUploadBatch).filter(ChannelSalesUploadBatch.id == batch_id).first()
+    if not b:
+        raise HTTPException(404, "batch not found")
+    # raw_lines 삭제
+    raw_deleted = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.batch_id == batch_id
+    ).delete(synchronize_session=False)
+    # daily_aggregate(그 채널의 batch 기간) 삭제
+    daily_deleted = 0
+    if b.period_start and b.period_end:
+        daily_deleted = db.query(ChannelSalesDailyProduct).filter(
+            ChannelSalesDailyProduct.channel_id == b.channel_id,
+            ChannelSalesDailyProduct.sale_date >= b.period_start,
+            ChannelSalesDailyProduct.sale_date <= b.period_end,
+        ).delete(synchronize_session=False)
+    # 해당 채널의 unmatched pending 모두 삭제 (다시 빌드 시 새로 생성됨)
+    unmatched_deleted = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.channel_id == b.channel_id,
+        ChannelUnmatchedProduct.status == "pending",
+    ).delete(synchronize_session=False)
+    db.delete(b)
+    db.commit()
+    # 남은 batch가 있다면 daily_aggregate 재구성
+    other_batches = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == b.channel_id,
+        ChannelSalesUploadBatch.status == "done",
+    ).count()
+    if other_batches > 0:
+        rebuild_daily_aggregate(db, channel_id=b.channel_id)
+    return {
+        "deleted_batch": batch_id,
+        "channel": b.channel_name,
+        "raw_lines_deleted": raw_deleted,
+        "daily_aggregate_deleted": daily_deleted,
+        "unmatched_pending_deleted": unmatched_deleted,
+    }
+
+
+@router.post("/admin/dedup-unmatched")
+def admin_dedup_unmatched(db: Session = Depends(get_db)):
+    """매핑 큐 정규화: 옵션 공백/nan/빈문자 → NULL로 통일, 중복 row 병합."""
+    from sqlalchemy import func as sa_func
+    # 1) 옵션 정규화 (공백, 'nan', 'None', 빈 문자열 → NULL)
+    affected = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.status == "pending"
+    ).all()
+    normalized = 0
+    for u in affected:
+        raw = u.raw_option_name
+        if raw is None:
+            continue
+        s = str(raw).strip()
+        if not s or s.lower() in ("nan", "none", "null"):
+            u.raw_option_name = None
+            normalized += 1
+        elif raw != s:
+            u.raw_option_name = s
+            normalized += 1
+    db.commit()
+
+    # 2) 중복 병합: 같은 (channel_id, raw_product_name, raw_option_name) → 첫 row에 합산, 나머지 삭제
+    duplicates_query = db.query(
+        ChannelUnmatchedProduct.channel_id,
+        ChannelUnmatchedProduct.raw_product_name,
+        ChannelUnmatchedProduct.raw_option_name,
+        sa_func.count(ChannelUnmatchedProduct.id),
+    ).filter(
+        ChannelUnmatchedProduct.status == "pending"
+    ).group_by(
+        ChannelUnmatchedProduct.channel_id,
+        ChannelUnmatchedProduct.raw_product_name,
+        ChannelUnmatchedProduct.raw_option_name,
+    ).having(sa_func.count(ChannelUnmatchedProduct.id) > 1).all()
+
+    merged = 0
+    for ch_id, name, opt, cnt in duplicates_query:
+        q = db.query(ChannelUnmatchedProduct).filter(
+            ChannelUnmatchedProduct.channel_id == ch_id,
+            ChannelUnmatchedProduct.raw_product_name == name,
+            ChannelUnmatchedProduct.status == "pending",
+        )
+        if opt is None:
+            rows = q.filter(ChannelUnmatchedProduct.raw_option_name.is_(None)).order_by(ChannelUnmatchedProduct.id).all()
+        else:
+            rows = q.filter(ChannelUnmatchedProduct.raw_option_name == opt).order_by(ChannelUnmatchedProduct.id).all()
+        if len(rows) <= 1:
+            continue
+        keeper = rows[0]
+        for dup in rows[1:]:
+            keeper.occurrence_count = (keeper.occurrence_count or 0) + (dup.occurrence_count or 0)
+            keeper.total_qty = (keeper.total_qty or 0) + (dup.total_qty or 0)
+            db.delete(dup)
+            merged += 1
+    db.commit()
+    return {"normalized_options": normalized, "merged_duplicates": merged}
+
+
+@router.get("/admin/diag-channel-data")
+def admin_diag_channel_data(channel_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """채널별 raw_lines / batches 상태 종합 진단.
+
+    - 각 채널의 batch 카운트(상태별)
+    - 각 채널의 raw_lines 카운트 + dedup_hash 중복 의심 그룹
+    """
+    from sqlalchemy import func as sa_func
+    chs = db.query(Channel)
+    if channel_id:
+        chs = chs.filter(Channel.id == channel_id)
+    out = []
+    for ch in chs.all():
+        batches_by_status = dict(
+            db.query(
+                ChannelSalesUploadBatch.status,
+                sa_func.count(ChannelSalesUploadBatch.id),
+            ).filter(ChannelSalesUploadBatch.channel_id == ch.id)
+            .group_by(ChannelSalesUploadBatch.status).all()
+        )
+        raw_count = db.query(sa_func.count(ChannelSalesRawLine.id)).filter(
+            ChannelSalesRawLine.channel_id == ch.id
+        ).scalar() or 0
+        if sum(batches_by_status.values()) == 0 and raw_count == 0:
+            continue
+        out.append({
+            "channel_id": ch.id,
+            "channel_name": ch.name,
+            "batches": batches_by_status,
+            "raw_lines_total": raw_count,
+        })
+    return out
+
+
+@router.post("/admin/rebuild-daily/{batch_id}")
+def admin_rebuild_daily(batch_id: str, db: Session = Depends(get_db)):
+    """특정 batch 기간의 daily_aggregate를 재계산."""
+    b = db.query(ChannelSalesUploadBatch).filter(ChannelSalesUploadBatch.id == batch_id).first()
+    if not b:
+        raise HTTPException(404, "batch not found")
+    if not b.period_start or not b.period_end:
+        raise HTTPException(400, "batch has no period")
+    n = rebuild_daily_aggregate(
+        db, channel_id=b.channel_id,
+        since=b.period_start, until=b.period_end,
+    )
+    return {"batch_id": batch_id, "rows_rebuilt": n}
+
+
+@router.get("/admin/diag-pnl-plan")
+def admin_diag_pnl_plan(year: int = 2026, db: Session = Depends(get_db)):
+    """P&L plan 진단: 어떤 데이터가 비어서 0이 되는지 핀포인트.
+
+    각 leaf row의 plan 값과, 그 산출에 쓰인 원천 데이터 카운트를 함께 반환.
+    """
+    from sqlalchemy import func as sa_func
+    from app.services.csa_pnl_service import compute_plan
+
+    sources = {
+        "BusinessPlanChannelRevenue": db.query(sa_func.count(BusinessPlanChannelRevenue.id)).filter_by(year=year).scalar() or 0,
+        "BusinessPlanProductQty": db.query(sa_func.count(BusinessPlanProductQty.id)).filter_by(year=year).scalar() or 0,
+        "BusinessPlanGroupSummary": db.query(sa_func.count(BusinessPlanGroupSummary.id)).filter_by(year=year).scalar() or 0,
+        "CsaCostItem(active)": db.query(sa_func.count(CsaCostItem.id)).filter_by(is_active=True).scalar() or 0,
+        "CsaCostRule(active)": db.query(sa_func.count(CsaCostRule.id)).filter_by(is_active=True).scalar() or 0,
+        "CsaChannelMonthlyCost": db.query(sa_func.count(CsaChannelMonthlyCost.id)).filter_by(year=year).scalar() or 0,
+    }
+    # 그룹별 cm 합 (target_cm 채워졌는지)
+    cm_total = 0
+    try:
+        cm_total = float(db.query(sa_func.sum(BusinessPlanGroupSummary.target_cm)).filter_by(year=year).scalar() or 0)
+    except Exception as e:
+        cm_total = f"error: {e}"
+
+    rev_total = float(db.query(sa_func.sum(BusinessPlanChannelRevenue.target_revenue)).filter_by(year=year).scalar() or 0)
+    # '대시보드' 시트 기반 매출 합 (BusinessPlanGroupSummary)
+    rev_group_total = float(db.query(sa_func.sum(BusinessPlanGroupSummary.target_revenue)).filter_by(year=year).scalar() or 0)
+
+    # 월별 매출 비교 (두 시트가 동일해야 정상)
+    monthly_compare = []
+    for m in range(1, 13):
+        ch_m = float(db.query(sa_func.sum(BusinessPlanChannelRevenue.target_revenue)).filter_by(year=year, month=m).scalar() or 0)
+        gp_m = float(db.query(sa_func.sum(BusinessPlanGroupSummary.target_revenue)).filter_by(year=year, month=m).scalar() or 0)
+        monthly_compare.append({
+            "month": m,
+            "channel_revenue_sheet": ch_m,
+            "group_summary_sheet": gp_m,
+            "diff": ch_m - gp_m,
+        })
+
+    try:
+        plan = compute_plan(db, year)
+        plan_by_key = {}
+        for k in {key[0] for key in plan}:
+            plan_by_key[k] = {f"m{m}": plan.get((k, m), 0) for m in range(1, 13)}
+            plan_by_key[k]["sum"] = sum(plan.get((k, m), 0) for m in range(1, 13))
+    except Exception as e:
+        plan_by_key = {"error": f"{type(e).__name__}: {e}"}
+
+    # 변동비 rule별 카운트 (어떤 코드가 비어있는지)
+    items = {it.id: it.code for it in db.query(CsaCostItem).all()}
+    rule_counts = {}
+    for r in db.query(CsaCostRule).filter_by(is_active=True).all():
+        code = items.get(r.cost_item_id, "?")
+        rule_counts[code] = rule_counts.get(code, 0) + 1
+
+    return {
+        "year": year,
+        "data_sources": sources,
+        "totals": {
+            "channel_revenue_sheet_year": rev_total,
+            "group_summary_sheet_revenue_year": rev_group_total,
+            "group_summary_sheet_cm_year": cm_total,
+        },
+        "monthly_revenue_comparison": monthly_compare,
+        "cost_rule_counts_by_code": rule_counts,
+        "compute_plan": plan_by_key,
+        "_note": (
+            "compute_plan.revenue 값은 channel_revenue_sheet 합계 기반. "
+            "사업계획 엑셀의 '대시보드' 시트 합계는 group_summary_sheet에 들어감. "
+            "둘이 다르면 시트 간 합산 차이. "
+            "공헌이익 plan은 group_summary.target_cm이 0이면 0으로 표시됨 (사업계획 재import 필요)."
+        ),
+    }
+
+
+@router.post("/admin/migrate-pnl-plan-cm")
+def admin_migrate_pnl_plan_cm(year: int = 2026, db: Session = Depends(get_db)):
+    """target_cm/cm_share 컬럼 강제 추가 + 현재 plan/group summary 진단.
+
+    1) ALTER TABLE ADD COLUMN IF NOT EXISTS — 멱등
+    2) BusinessPlanGroupSummary 데이터 진단 (월별 cm 합계 등)
+    3) get_pnl_matrix의 plan 컬럼 표시값 미리보기
+    """
+    from sqlalchemy import text
+    from app.db_models import BusinessPlanGroupSummary
+    from app.services.csa_pnl_service import compute_plan
+
+    alter_result = {}
+    try:
+        with db.bind.connect() as conn:
+            conn.execute(text(
+                "ALTER TABLE csa_plan_group_summary ADD COLUMN IF NOT EXISTS target_cm DOUBLE PRECISION DEFAULT 0"
+            ))
+            conn.execute(text(
+                "ALTER TABLE csa_plan_group_summary ADD COLUMN IF NOT EXISTS cm_share DOUBLE PRECISION"
+            ))
+            conn.commit()
+        alter_result["status"] = "ok"
+    except Exception as e:
+        alter_result["status"] = "failed"
+        alter_result["error"] = str(e)
+
+    rows = db.query(BusinessPlanGroupSummary).filter_by(year=year).all()
+    by_month: dict[int, dict] = {}
+    for r in rows:
+        b = by_month.setdefault(r.month, {"revenue": 0, "marketing": 0, "cm": 0, "groups": []})
+        b["revenue"] += float(r.target_revenue or 0)
+        b["marketing"] += float(r.target_marketing or 0)
+        b["cm"] += float(getattr(r, "target_cm", 0) or 0)
+        b["groups"].append({
+            "group": r.group_name,
+            "revenue": float(r.target_revenue or 0),
+            "marketing": float(r.target_marketing or 0),
+            "cm": float(getattr(r, "target_cm", 0) or 0),
+        })
+
+    try:
+        plan = compute_plan(db, year)
+        plan_preview = {
+            f"month_{m}": {
+                "revenue": plan.get(("revenue", m), 0),
+                "advertising": plan.get(("advertising", m), 0),
+                "contribution_margin": plan.get(("contribution_margin", m), 0),
+            } for m in range(1, 13)
+        }
+    except Exception as e:
+        plan_preview = {"error": str(e)}
+
+    return {
+        "year": year,
+        "alter": alter_result,
+        "group_summary_count": len(rows),
+        "monthly_totals": by_month,
+        "compute_plan_preview": plan_preview,
+    }
 
 
 # ──────────────────────────────────────────────────────────────

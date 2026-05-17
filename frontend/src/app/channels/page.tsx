@@ -165,6 +165,7 @@ function Content() {
   const [unmatched, setUnmatched] = useState<UnmatchedItem[]>([]);
   const [variableCosts, setVariableCosts] = useState<VariableCost[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [compareDashboard, setCompareDashboard] = useState<DashboardData | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   // Filters
@@ -174,6 +175,25 @@ function Content() {
   const [selChannels, setSelChannels] = useState<string[]>([]);
   const [selProducts, setSelProducts] = useState<number[]>([]);
   const [selEmployees, setSelEmployees] = useState<number[]>([]);
+
+  // 기간 비교
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareStart, setCompareStart] = useState('');
+  const [compareEnd, setCompareEnd] = useState('');
+  const [compareManual, setCompareManual] = useState(false);  // 사용자가 직접 수정했는지
+
+  // 토글 켜졌을 때 기준 기간 직전 동일 길이를 자동 계산 (수동 수정 안 한 경우만)
+  useEffect(() => {
+    if (!compareOpen || compareManual) return;
+    if (!periodStart || !periodEnd) return;
+    const s = new Date(periodStart), e = new Date(periodEnd);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return;
+    const dur = e.getTime() - s.getTime();
+    const ce = new Date(s.getTime() - 24 * 3600 * 1000);
+    const cs = new Date(ce.getTime() - dur);
+    setCompareStart(cs.toISOString().slice(0, 10));
+    setCompareEnd(ce.toISOString().slice(0, 10));
+  }, [compareOpen, compareManual, periodStart, periodEnd]);
 
   const [loading, setLoading] = useState(false);
   const [seedDone, setSeedDone] = useState(false);
@@ -211,20 +231,28 @@ function Content() {
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({
-        period_start: periodStart,
-        period_end: periodEnd,
-        granularity,
-      });
-      if (selChannels.length) qs.set('channel_ids', selChannels.join(','));
-      if (selProducts.length) qs.set('product_ids', selProducts.join(','));
-      if (selEmployees.length) qs.set('employee_ids', selEmployees.join(','));
-      const r = await fetch(`${API_BASE}/api/csa/dashboard?${qs.toString()}`, { headers: authHeaders() });
-      if (r.ok) setDashboard(await r.json());
+      const buildQs = (ps: string, pe: string) => {
+        const qs = new URLSearchParams({ period_start: ps, period_end: pe, granularity });
+        if (selChannels.length) qs.set('channel_ids', selChannels.join(','));
+        if (selProducts.length) qs.set('product_ids', selProducts.join(','));
+        if (selEmployees.length) qs.set('employee_ids', selEmployees.join(','));
+        return qs.toString();
+      };
+      const calls: Promise<Response>[] = [
+        fetch(`${API_BASE}/api/csa/dashboard?${buildQs(periodStart, periodEnd)}`, { headers: authHeaders() }),
+      ];
+      const wantCompare = compareOpen && compareStart && compareEnd;
+      if (wantCompare) {
+        calls.push(fetch(`${API_BASE}/api/csa/dashboard?${buildQs(compareStart, compareEnd)}`, { headers: authHeaders() }));
+      }
+      const results = await Promise.all(calls);
+      if (results[0].ok) setDashboard(await results[0].json());
+      if (wantCompare && results[1]?.ok) setCompareDashboard(await results[1].json());
+      else if (!wantCompare) setCompareDashboard(null);
     } finally {
       setLoading(false);
     }
-  }, [authHeaders, periodStart, periodEnd, granularity, selChannels, selProducts, selEmployees]);
+  }, [authHeaders, periodStart, periodEnd, granularity, selChannels, selProducts, selEmployees, compareOpen, compareStart, compareEnd]);
 
   const seedIfEmpty = useCallback(async () => {
     if (seedDone) return;
@@ -265,6 +293,7 @@ function Content() {
         {activeTab === 'dashboard' && (
           <DashboardTab
             data={dashboard}
+            compareData={compareDashboard}
             loading={loading}
             channels={channels}
             products={products}
@@ -281,6 +310,14 @@ function Content() {
             setSelProducts={setSelProducts}
             selEmployees={selEmployees}
             setSelEmployees={setSelEmployees}
+            compareOpen={compareOpen}
+            setCompareOpen={setCompareOpen}
+            compareStart={compareStart}
+            setCompareStart={setCompareStart}
+            compareEnd={compareEnd}
+            setCompareEnd={setCompareEnd}
+            compareManual={compareManual}
+            setCompareManual={setCompareManual}
           />
         )}
 
@@ -402,12 +439,59 @@ const COST_LABELS: Record<string, string> = {
 };
 
 function DashboardTab({
-  data, loading, channels, products, employees,
+  data, compareData, loading, channels, products, employees,
   periodStart, periodEnd, setPeriodStart, setPeriodEnd,
   granularity, setGranularity,
   selChannels, setSelChannels, selProducts, setSelProducts,
   selEmployees, setSelEmployees,
+  compareOpen, setCompareOpen, compareStart, setCompareStart, compareEnd, setCompareEnd,
+  compareManual, setCompareManual,
 }: any) {
+  const hasCompare = !!(compareData && compareOpen);
+  // 기준 기간 길이(일)
+  const periodDays = (() => {
+    if (!periodStart || !periodEnd) return 0;
+    const s = new Date(periodStart), e = new Date(periodEnd);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
+    return Math.round((e.getTime() - s.getTime()) / (24 * 3600 * 1000)) + 1;
+  })();
+  const sparkSeries = (data?.series || []).map((s: any) => ({ x: s.bucket, revenue: s.revenue, pcs: s.pcs, cm: s.contribution_margin }));
+  const sparkKey = (k: string) => sparkSeries.map((p: any) => ({ x: p.x, v: p[k] || 0 }));
+
+  // 비교 시리즈/채널/품목 매핑
+  const seriesWithCompare = (() => {
+    if (!data?.series) return [];
+    if (!hasCompare || !compareData?.series) return data.series;
+    const cmp = compareData.series;
+    return data.series.map((s: any, i: number) => ({
+      ...s,
+      compare_revenue: cmp[i]?.revenue ?? null,
+      compare_cm: cmp[i]?.contribution_margin ?? null,
+      compare_period: cmp[i]?.period,
+    }));
+  })();
+  const channelsCmpMap: Record<string, any> = hasCompare
+    ? Object.fromEntries((compareData?.channels || []).map((c: any) => [c.channel_id, c]))
+    : {};
+  const productsCmpMap: Record<string | number, any> = hasCompare
+    ? Object.fromEntries((compareData?.products || []).map((p: any) => [p.product_id, p]))
+    : {};
+  const channelsWithCmp = (data?.channels || []).map((c: any) => ({
+    ...c,
+    compare_revenue: channelsCmpMap[c.channel_id]?.revenue ?? null,
+    compare_cm: channelsCmpMap[c.channel_id]?.contribution_margin ?? null,
+  }));
+  const productsWithCmp = (data?.products || []).map((p: any) => ({
+    ...p,
+    compare_revenue: productsCmpMap[p.product_id]?.revenue ?? null,
+    compare_cm: productsCmpMap[p.product_id]?.contribution_margin ?? null,
+  }));
+  const fmtDelta = (cur: number | null | undefined, cmp: number | null | undefined) => {
+    if (cur === null || cur === undefined || cmp === null || cmp === undefined) return null;
+    if (cmp === 0) return cur > 0 ? { pct: 100, sign: 'up' as const } : null;
+    const pct = ((cur - cmp) / Math.abs(cmp)) * 100;
+    return { pct, sign: pct > 0.05 ? 'up' as const : pct < -0.05 ? 'down' as const : 'flat' as const };
+  };
   const costBreakdown = data?.cost_breakdown
     ? Object.entries(data.cost_breakdown)
         .filter(([_, v]) => (v as number) > 0)
@@ -469,14 +553,89 @@ function DashboardTab({
         </div>
       </div>
 
-      {/* KPI 6개 (컴팩트) */}
+      {/* 기간 비교 토글 + 컨트롤 */}
+      <div className={`${PANEL} p-3`}>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <button
+            onClick={() => setCompareOpen((v: boolean) => !v)}
+            className="text-xs font-medium text-[#828FFF] hover:text-[#A8B3FF] flex items-center gap-1.5"
+          >
+            <span className={`inline-block transition-transform ${compareOpen ? 'rotate-90' : ''}`}>▶</span>
+            기간 비교 {compareOpen ? '닫기' : '열기'}
+          </button>
+          {compareOpen && (
+            <div className="flex items-end gap-2 flex-wrap">
+              <span className="text-[11px] text-[#A3A9B3] pb-1.5">
+                기준 기간({periodDays}일)의 <span className="text-[#F7F8F8] font-medium">직전 동일 길이</span>와 자동 비교됩니다.
+                {compareManual && <span className="ml-1 text-[#F0BF00]">(수동 조정됨)</span>}
+              </span>
+              <DateInput label="직전 시작" value={compareStart} onChange={(v: string) => { setCompareStart(v); setCompareManual(true); }} />
+              <DateInput label="직전 종료" value={compareEnd} onChange={(v: string) => { setCompareEnd(v); setCompareManual(true); }} />
+              {compareManual && (
+                <button
+                  onClick={() => setCompareManual(false)}
+                  className="text-[10px] text-[#A3A9B3] hover:text-[#F7F8F8] px-2 py-1.5 border border-[#23252A] rounded"
+                  title="기준 기간 직전 동일 길이로 재설정"
+                >자동으로 복귀</button>
+              )}
+              {hasCompare && (
+                <span className="text-[10px] text-[#7A7F8A] ml-2">
+                  비교: 매출 ₩{fmtKR(compareData.summary.revenue)} · 공헌이익 ₩{fmtKR(compareData.summary.contribution_margin)}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* KPI 6개 (스파크라인 + 비교 델타) */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <CompactKpi label="순매출" value={data ? `₩${fmtKR(data.summary.revenue)}` : '—'} hint={data ? `${fmtNum(data.summary.orders)} 주문` : ''} accent="#828FFF" />
-        <CompactKpi label="낱개수량" value={data ? fmtNum(Math.round(data.summary.pcs)) : '—'} hint="입수 환산" accent="#7070FF" />
-        <CompactKpi label="공헌이익" value={data ? `₩${fmtKR(data.summary.contribution_margin)}` : '—'} hint={data ? `변동비 ₩${fmtKR(data.summary.variable_cost)}` : ''} accent="#27A644" />
-        <CompactKpi label="공헌이익률" value={data ? fmtPct(data.summary.cm_rate) : '—'} hint="" accent={data?.summary.cm_rate >= 30 ? '#27A644' : '#F0BF00'} />
-        <CompactKpi label="낱개당 객단가" value={data ? `₩${fmtKR(data.summary.avg_price_per_pcs || 0)}` : '—'} hint="" accent="#06B6D4" />
-        <CompactKpi label="주문당 객단가" value={data ? `₩${fmtKR(data.summary.avg_price_per_order || 0)}` : '—'} hint="" accent="#A855F7" />
+        <CompactKpi label="순매출"
+          value={data ? `₩${fmtKR(data.summary.revenue)}` : '—'}
+          hint={data ? `${fmtNum(data.summary.orders)} 주문` : ''}
+          accent="#828FFF"
+          spark={sparkKey('revenue')}
+          compareValue={hasCompare ? compareData.summary.revenue : undefined}
+          currentValue={data?.summary.revenue}
+        />
+        <CompactKpi label="낱개수량"
+          value={data ? fmtNum(Math.round(data.summary.pcs)) : '—'}
+          hint="입수 환산"
+          accent="#7070FF"
+          spark={sparkKey('pcs')}
+          compareValue={hasCompare ? compareData.summary.pcs : undefined}
+          currentValue={data?.summary.pcs}
+        />
+        <CompactKpi label="공헌이익"
+          value={data ? `₩${fmtKR(data.summary.contribution_margin)}` : '—'}
+          hint={data ? `변동비 ₩${fmtKR(data.summary.variable_cost)}` : ''}
+          accent="#27A644"
+          spark={sparkKey('cm')}
+          compareValue={hasCompare ? compareData.summary.contribution_margin : undefined}
+          currentValue={data?.summary.contribution_margin}
+        />
+        <CompactKpi label="공헌이익률"
+          value={data ? fmtPct(data.summary.cm_rate) : '—'}
+          hint=""
+          accent={data?.summary.cm_rate >= 30 ? '#27A644' : '#F0BF00'}
+          compareValue={hasCompare ? compareData.summary.cm_rate : undefined}
+          currentValue={data?.summary.cm_rate}
+          deltaFormat="pp"
+        />
+        <CompactKpi label="낱개당 객단가"
+          value={data ? `₩${fmtKR(data.summary.avg_price_per_pcs || 0)}` : '—'}
+          hint=""
+          accent="#06B6D4"
+          compareValue={hasCompare ? compareData.summary.avg_price_per_pcs : undefined}
+          currentValue={data?.summary.avg_price_per_pcs}
+        />
+        <CompactKpi label="주문당 객단가"
+          value={data ? `₩${fmtKR(data.summary.avg_price_per_order || 0)}` : '—'}
+          hint=""
+          accent="#A855F7"
+          compareValue={hasCompare ? compareData.summary.avg_price_per_order : undefined}
+          currentValue={data?.summary.avg_price_per_order}
+        />
       </div>
 
       {/* 도넛 3종 (구분/채널/품목) — 가로 컴팩트 */}
@@ -510,17 +669,42 @@ function DashboardTab({
           </div>
           {loading ? <Skeleton h={240} /> : data && data.series.length ? (
             <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart data={data.series} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+              <ComposedChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#A8B3FF" stopOpacity={0.95} />
+                    <stop offset="100%" stopColor="#5560C8" stopOpacity={0.55} />
+                  </linearGradient>
+                  <linearGradient id="gradRevenueCmp" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#7A7F8A" stopOpacity={0.55} />
+                    <stop offset="100%" stopColor="#3A3D45" stopOpacity={0.25} />
+                  </linearGradient>
+                  <linearGradient id="gradCmArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#27A644" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#27A644" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis dataKey="period" tick={AXIS_TICK} stroke="#62666D" />
                 <YAxis tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                   formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
+                  labelFormatter={(label: any, payload: any) => {
+                    if (!payload?.[0]) return label;
+                    const cp = payload[0].payload?.compare_period;
+                    return cp ? `${label}  (비교: ${cp})` : label;
+                  }}
                 />
                 <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey="revenue" name="순매출" fill="#828FFF" opacity={0.65} radius={[4, 4, 0, 0]} />
-                <Line type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="#27A644" strokeWidth={2.5} dot={{ r: 3 }} />
+                {hasCompare && (
+                  <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradRevenueCmp)" radius={[6, 6, 0, 0]} />
+                )}
+                <Bar dataKey="revenue" name="순매출" fill="url(#gradRevenue)" radius={[6, 6, 0, 0]} />
+                {hasCompare && (
+                  <Line type="monotone" dataKey="compare_cm" name="비교 공헌이익" stroke="#A3A9B3" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
+                )}
+                <Area type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="#27A644" strokeWidth={2.5} fill="url(#gradCmArea)" dot={{ r: 3, stroke: '#27A644', strokeWidth: 2, fill: '#0F1011' }} activeDot={{ r: 5 }} />
               </ComposedChart>
             </ResponsiveContainer>
           ) : <Empty h={240} />}
@@ -530,6 +714,12 @@ function DashboardTab({
           {costBreakdown.length ? (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={costBreakdown} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="gradCost" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#C03030" stopOpacity={0.85} />
+                    <stop offset="100%" stopColor="#FF7A7A" stopOpacity={1} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
                 <YAxis type="category" dataKey="name" tick={AXIS_TICK} stroke="#62666D" width={70} />
@@ -537,7 +727,7 @@ function DashboardTab({
                   contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                   formatter={(v: number) => `₩${fmtKR(v)}`}
                 />
-                <Bar dataKey="value" fill="#EB5757" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="value" fill="url(#gradCost)" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -556,8 +746,26 @@ function DashboardTab({
             <h3 className="text-sm font-semibold text-[#F7F8F8]">채널별 매출/공헌이익 Top 10</h3>
           </div>
           {data && data.channels.length ? (
-            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.channels.length, 10) * 26)}>
-              <BarChart data={data.channels.slice(0, 10)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.channels.length, 10) * (hasCompare ? 38 : 26))}>
+              <BarChart data={channelsWithCmp.slice(0, 10)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="gradTopRev" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#5560C8" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#A8B3FF" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="gradTopRevCmp" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#7A7F8A" stopOpacity={0.7} />
+                  </linearGradient>
+                  <linearGradient id="gradTopCm" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#1F7A38" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#3DD971" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="gradTopCmCmp" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#1A4023" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#3F6E4D" stopOpacity={0.6} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
                 <YAxis type="category" dataKey="channel_name" tick={AXIS_TICK} stroke="#62666D" width={80} />
@@ -566,8 +774,10 @@ function DashboardTab({
                   formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
                 />
                 <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey="revenue" name="매출" fill="#828FFF" radius={[0, 3, 3, 0]} />
-                <Bar dataKey="contribution_margin" name="공헌이익" fill="#27A644" radius={[0, 3, 3, 0]} />
+                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev)" radius={[0, 6, 6, 0]} />
+                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRevCmp)" radius={[0, 6, 6, 0]} />}
+                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm)" radius={[0, 6, 6, 0]} />
+                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCmCmp)" radius={[0, 6, 6, 0]} />}
               </BarChart>
             </ResponsiveContainer>
           ) : <Empty h={220} />}
@@ -575,8 +785,26 @@ function DashboardTab({
         <div className={`${PANEL} p-4`}>
           <h3 className="text-sm font-semibold text-[#F7F8F8] mb-2">품목별 매출/공헌이익 Top 12</h3>
           {data && data.products.length ? (
-            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.products.length, 12) * 26)}>
-              <BarChart data={data.products.slice(0, 12)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.products.length, 12) * (hasCompare ? 38 : 26))}>
+              <BarChart data={productsWithCmp.slice(0, 12)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="gradTopRev2" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#5560C8" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#A8B3FF" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="gradTopRev2Cmp" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#7A7F8A" stopOpacity={0.7} />
+                  </linearGradient>
+                  <linearGradient id="gradTopCm2" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#1F7A38" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#3DD971" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="gradTopCm2Cmp" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#1A4023" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#3F6E4D" stopOpacity={0.6} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
                 <YAxis type="category" dataKey="product_name" tick={AXIS_TICK} stroke="#62666D" width={70} />
@@ -585,8 +813,10 @@ function DashboardTab({
                   formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
                 />
                 <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey="revenue" name="매출" fill="#828FFF" radius={[0, 3, 3, 0]} />
-                <Bar dataKey="contribution_margin" name="공헌이익" fill="#27A644" radius={[0, 3, 3, 0]} />
+                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev2)" radius={[0, 6, 6, 0]} />
+                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRev2Cmp)" radius={[0, 6, 6, 0]} />}
+                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm2)" radius={[0, 6, 6, 0]} />
+                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCm2Cmp)" radius={[0, 6, 6, 0]} />}
               </BarChart>
             </ResponsiveContainer>
           ) : <Empty h={220} />}
@@ -595,7 +825,9 @@ function DashboardTab({
 
       {/* 품목 테이블 */}
       <div className={`${PANEL} p-5 mb-5`}>
-        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">품목별 상세</h2>
+        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">
+          품목별 상세{hasCompare && <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+        </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -610,16 +842,26 @@ function DashboardTab({
             </thead>
             <tbody>
               {data && data.products.length ? (
-                data.products.map((p: any) => (
-                  <tr key={p.product_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                    <td className="py-2 px-2 text-[#F7F8F8]">{p.product_name}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(p.pcs))}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(p.orders)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(p.revenue)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#27A644]">₩{fmtKR(p.contribution_margin)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(p.cm_rate)}</td>
-                  </tr>
-                ))
+                productsWithCmp.map((p: any) => {
+                  const revDelta = hasCompare ? fmtDelta(p.revenue, p.compare_revenue) : null;
+                  const cmDelta = hasCompare ? fmtDelta(p.contribution_margin, p.compare_cm) : null;
+                  return (
+                    <tr key={p.product_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
+                      <td className="py-2 px-2 text-[#F7F8F8]">{p.product_name}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(p.pcs))}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(p.orders)}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">
+                        ₩{fmtKR(p.revenue)}
+                        {revDelta && <DeltaBadge delta={revDelta} />}
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono text-[#27A644]">
+                        ₩{fmtKR(p.contribution_margin)}
+                        {cmDelta && <DeltaBadge delta={cmDelta} />}
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(p.cm_rate)}</td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr><td colSpan={6} className="py-8 text-center text-[#62666D]">데이터가 없습니다. 엑셀을 업로드해보세요.</td></tr>
               )}
@@ -630,7 +872,9 @@ function DashboardTab({
 
       {/* 채널 테이블 */}
       <div className={`${PANEL} p-5`}>
-        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">채널별 상세</h2>
+        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">
+          채널별 상세{hasCompare && <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+        </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -646,17 +890,27 @@ function DashboardTab({
             </thead>
             <tbody>
               {data && data.channels.length ? (
-                data.channels.map((c: any) => (
-                  <tr key={c.channel_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                    <td className="py-2 px-2 text-[#F7F8F8]">{c.channel_name}</td>
-                    <td className="py-2 px-2 text-[#8A8F98]">{c.channel_category || '-'}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(c.pcs))}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(c.orders)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(c.revenue)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#27A644]">₩{fmtKR(c.contribution_margin)}</td>
-                    <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(c.cm_rate)}</td>
-                  </tr>
-                ))
+                channelsWithCmp.map((c: any) => {
+                  const revDelta = hasCompare ? fmtDelta(c.revenue, c.compare_revenue) : null;
+                  const cmDelta = hasCompare ? fmtDelta(c.contribution_margin, c.compare_cm) : null;
+                  return (
+                    <tr key={c.channel_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
+                      <td className="py-2 px-2 text-[#F7F8F8]">{c.channel_name}</td>
+                      <td className="py-2 px-2 text-[#8A8F98]">{c.channel_category || '-'}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(c.pcs))}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(c.orders)}</td>
+                      <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">
+                        ₩{fmtKR(c.revenue)}
+                        {revDelta && <DeltaBadge delta={revDelta} />}
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono text-[#27A644]">
+                        ₩{fmtKR(c.contribution_margin)}
+                        {cmDelta && <DeltaBadge delta={cmDelta} />}
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(c.cm_rate)}</td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr><td colSpan={7} className="py-8 text-center text-[#62666D]">데이터가 없습니다.</td></tr>
               )}
@@ -840,53 +1094,267 @@ function MappingTab({
   authHeaders: () => HeadersInit; onResolved: () => void;
 }) {
   const [busy, setBusy] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkProductId, setBulkProductId] = useState<number | ''>('');
+  const [bulkUnitPerSet, setBulkUnitPerSet] = useState<number>(1);
+  const [bulkExcluded, setBulkExcluded] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const resolveOne = async (it: UnmatchedItem, productId: number | null, unitPerSet: number, isExcluded: boolean) => {
+    const r = await fetch(`${API_BASE}/api/csa/mapping`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({
+        channel_id: it.channel_id,
+        channel_name: it.channel_name,
+        raw_product_name: it.raw_product_name,
+        raw_option_name: it.raw_option_name,
+        product_id: productId,
+        unit_per_set: unitPerSet,
+        is_excluded: isExcluded,
+      }),
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || r.statusText);
+    }
+  };
 
   const resolve = async (it: UnmatchedItem, productId: number | null, unitPerSet: number, isExcluded: boolean) => {
     setBusy(it.id);
     try {
-      const r = await fetch(`${API_BASE}/api/csa/mapping`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({
-          channel_id: it.channel_id,
-          channel_name: it.channel_name,
-          raw_product_name: it.raw_product_name,
-          raw_option_name: it.raw_option_name,
-          product_id: productId,
-          unit_per_set: unitPerSet,
-          is_excluded: isExcluded,
-        }),
-      });
-      if (!r.ok) {
-        const data = await r.json().catch(() => ({}));
-        alert(`매핑 저장 실패: ${data.detail || r.statusText}`);
-        return;
-      }
+      await resolveOne(it, productId, unitPerSet, isExcluded);
       onResolved();
+    } catch (e: any) {
+      alert(`매핑 저장 실패: ${e.message || e}`);
     } finally {
       setBusy(null);
     }
   };
 
+  const toggleAll = () => {
+    if (selected.size === unmatched.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(unmatched.map(u => u.id)));
+    }
+  };
+
+  const toggleOne = (id: number) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const applyBulk = async () => {
+    if (selected.size === 0) {
+      alert('선택된 항목이 없습니다.'); return;
+    }
+    if (!bulkExcluded && !bulkProductId) {
+      alert('적용할 표준 품목을 선택하거나, "제외"를 체크해주세요.'); return;
+    }
+    if (!confirm(`선택된 ${selected.size}개 항목에 일괄 적용하시겠습니까?\n  · 품목: ${bulkExcluded ? '제외 처리' : products.find(p => p.id === bulkProductId)?.name}\n  · 입수: ${bulkUnitPerSet}개`)) return;
+    setBulkBusy(true);
+    const targets = unmatched.filter(u => selected.has(u.id));
+    let ok = 0, fail = 0;
+    const errors: string[] = [];
+    for (const it of targets) {
+      try {
+        await resolveOne(
+          it,
+          bulkExcluded ? null : (bulkProductId as number),
+          bulkUnitPerSet,
+          bulkExcluded,
+        );
+        ok++;
+      } catch (e: any) {
+        fail++;
+        errors.push(`${it.raw_product_name}: ${e.message || e}`);
+      }
+    }
+    setBulkBusy(false);
+    setSelected(new Set());
+    if (fail > 0) {
+      alert(`완료: ${ok}건 성공, ${fail}건 실패\n\n${errors.slice(0, 5).join('\n')}`);
+    }
+    onResolved();
+  };
+
+  // 채널 필터 + 페이지네이션
+  const [filterChannel, setFilterChannel] = useState<string>('');
+  const [filterText, setFilterText] = useState<string>('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 500;
+
+  const channelOpts = useMemo(() => {
+    const m = new Map<string, string>();
+    unmatched.forEach(u => m.set(u.channel_id, u.channel_name));
+    return Array.from(m.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [unmatched]);
+
+  const filtered = useMemo(() => {
+    const ft = filterText.trim().toLowerCase();
+    return unmatched.filter(u => {
+      if (filterChannel && u.channel_id !== filterChannel) return false;
+      if (ft && !((u.raw_product_name || '').toLowerCase().includes(ft) || (u.raw_option_name || '').toLowerCase().includes(ft))) return false;
+      return true;
+    });
+  }, [unmatched, filterChannel, filterText]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pageItems = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+
+  // 페이지 단위 전체선택
+  const toggleAllInPage = () => {
+    const ids = pageItems.map(u => u.id);
+    const allInPage = ids.every(id => selected.has(id));
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (allInPage) ids.forEach(id => next.delete(id));
+      else ids.forEach(id => next.add(id));
+      return next;
+    });
+  };
+  const allChecked = pageItems.length > 0 && pageItems.every(u => selected.has(u.id));
+  const someChecked = pageItems.some(u => selected.has(u.id)) && !allChecked;
+
   return (
-    <div className={`${PANEL} p-5`}>
-      <h2 className="text-sm font-semibold mb-3">매핑 대기 큐 ({unmatched.length})</h2>
-      <p className="text-xs text-[#62666D] mb-4">
-        각 채널의 원본 상품명을 자사 표준 품목으로 매핑하고, 1세트당 낱개 수(입수)를 입력하세요. 카운트 대상이 아니면 "제외"로 처리합니다.
-      </p>
-      {unmatched.length === 0 ? (
+    <div className={`${PANEL} p-4`}>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div>
+          <h2 className="text-sm font-semibold">매핑 대기 큐 ({filtered.length.toLocaleString()}건{filtered.length !== unmatched.length && ` / 전체 ${unmatched.length.toLocaleString()}`})</h2>
+          <p className="text-[11px] text-[#62666D] mt-0.5">한 번 매핑하면 동일 (채널·상품명·옵션) 조합은 다음 업로드부터 자동 매핑됩니다.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={filterChannel}
+            onChange={(e) => { setFilterChannel(e.target.value); setPage(1); }}
+            className="bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-xs text-[#F7F8F8] max-w-[160px]"
+          >
+            <option value="">전체 채널</option>
+            {channelOpts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <input
+            type="search"
+            placeholder="상품명/옵션 검색"
+            value={filterText}
+            onChange={(e) => { setFilterText(e.target.value); setPage(1); }}
+            className="bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-xs text-[#F7F8F8] w-40"
+          />
+        </div>
+      </div>
+
+      {/* 일괄 처리 바 */}
+      {selected.size > 0 && (
+        <div className={`${SUBPANEL} p-2 mb-2 flex items-center gap-2 text-xs border-[#828FFF]/40`}>
+          <span className="text-[#828FFF] font-medium whitespace-nowrap">선택 {selected.size}건</span>
+          <select
+            value={bulkProductId}
+            onChange={(e) => setBulkProductId(e.target.value ? parseInt(e.target.value) : '')}
+            disabled={bulkExcluded}
+            className="flex-1 bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-[#F7F8F8] disabled:opacity-40"
+          >
+            <option value="">품목 선택…</option>
+            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <input
+            type="number" min={1} value={bulkUnitPerSet}
+            onChange={(e) => setBulkUnitPerSet(parseInt(e.target.value) || 1)}
+            disabled={bulkExcluded}
+            title="1세트당 낱개 수(입수)"
+            className="w-14 bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-[#F7F8F8] font-mono text-right disabled:opacity-40"
+          />
+          <label className="flex items-center gap-1 text-[#8A8F98] cursor-pointer whitespace-nowrap">
+            <input type="checkbox" checked={bulkExcluded} onChange={(e) => setBulkExcluded(e.target.checked)} className="accent-[#EB5757]" />
+            제외
+          </label>
+          <button
+            onClick={applyBulk}
+            disabled={bulkBusy || (!bulkExcluded && !bulkProductId)}
+            className="px-3 py-1 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-xs font-medium whitespace-nowrap"
+          >
+            {bulkBusy ? '적용 중…' : `${selected.size}건 적용`}
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            disabled={bulkBusy}
+            className="px-2 py-1 bg-[#23252A] hover:bg-[#2A2D33] text-[#8A8F98] rounded text-xs"
+          >해제</button>
+        </div>
+      )}
+
+      {/* 헤더 (sticky) */}
+      {pageItems.length > 0 && (
+        <div className="sticky top-0 z-10 bg-[#0F1011] border-b border-[#23252A] flex items-center gap-2 px-2 py-1.5 text-[9px] uppercase tracking-wider text-[#62666D]">
+          <input
+            type="checkbox"
+            checked={allChecked}
+            ref={el => { if (el) el.indeterminate = someChecked; }}
+            onChange={toggleAllInPage}
+            className="accent-[#828FFF]"
+          />
+          <span className="w-20">채널</span>
+          <span className="flex-1">원본 상품 / 옵션</span>
+          <span className="w-20 text-right">발견/수량</span>
+          <span className="w-40">표준 품목</span>
+          <span className="w-12 text-center">입수</span>
+          <span className="w-10 text-center">제외</span>
+          <span className="w-14 text-center">액션</span>
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
         <div className="text-center py-10 text-[#62666D] text-sm">매핑 대기 항목이 없습니다.</div>
       ) : (
-        <div className="space-y-2">
-          {unmatched.map(it => (
+        <div className="divide-y divide-[#1A1C22]">
+          {pageItems.map(it => (
             <UnmatchedRow
               key={it.id}
               item={it}
               products={products}
               busy={busy === it.id}
+              selected={selected.has(it.id)}
+              onToggle={() => toggleOne(it.id)}
               onResolve={resolve}
             />
           ))}
+        </div>
+      )}
+
+      {/* 페이지네이션 */}
+      {filtered.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#23252A] text-xs">
+          <span className="text-[#7A7F8A]">
+            {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} / {filtered.length.toLocaleString()}건
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(1)} disabled={safePage === 1}
+              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+            >« 처음</button>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+            >‹ 이전</button>
+            <input
+              type="number" min={1} max={totalPages} value={safePage}
+              onChange={(e) => setPage(Math.max(1, Math.min(totalPages, parseInt(e.target.value) || 1)))}
+              className="w-12 px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#F7F8F8] text-center font-mono"
+            />
+            <span className="text-[#7A7F8A]">/ {totalPages}</span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+            >다음 ›</button>
+            <button
+              onClick={() => setPage(totalPages)} disabled={safePage === totalPages}
+              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+            >끝 »</button>
+          </div>
         </div>
       )}
     </div>
@@ -894,9 +1362,10 @@ function MappingTab({
 }
 
 function UnmatchedRow({
-  item, products, busy, onResolve,
+  item, products, busy, selected, onToggle, onResolve,
 }: {
   item: UnmatchedItem; products: Product[]; busy: boolean;
+  selected: boolean; onToggle: () => void;
   onResolve: (it: UnmatchedItem, productId: number | null, unitPerSet: number, isExcluded: boolean) => void;
 }) {
   const [productId, setProductId] = useState<number | ''>(item.llm_suggested_product_id || '');
@@ -904,58 +1373,53 @@ function UnmatchedRow({
   const [excluded, setExcluded] = useState(false);
 
   return (
-    <div className={`${SUBPANEL} p-3 grid grid-cols-12 gap-3 items-center text-xs`}>
-      <div className="col-span-4">
-        <div className="text-[10px] uppercase tracking-wider text-[#62666D]">{item.channel_name}</div>
-        <div className="text-[#F7F8F8] font-medium truncate">{item.raw_product_name}</div>
+    <div className={`flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-[#1A1C22] ${selected ? 'bg-[#828FFF]/5' : ''}`}>
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={onToggle}
+        className="accent-[#828FFF] flex-shrink-0"
+      />
+      <span className="w-20 text-[10px] text-[#62666D] truncate" title={item.channel_name}>{item.channel_name}</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[#F7F8F8] truncate" title={item.raw_product_name}>{item.raw_product_name}</div>
         {item.raw_option_name && (
-          <div className="text-[#8A8F98] text-[11px] truncate">{item.raw_option_name}</div>
+          <div className="text-[#7A7F8A] text-[10px] truncate" title={item.raw_option_name}>{item.raw_option_name}</div>
         )}
-        <div className="text-[10px] text-[#62666D] mt-0.5">
-          발견 {item.occurrence_count}회 · 누적수량 {fmtNum(Math.round(item.total_qty))}
-        </div>
       </div>
-      <div className="col-span-3">
-        <label className="block text-[10px] text-[#62666D] uppercase tracking-wider mb-1">표준 품목</label>
-        <select
-          value={productId}
-          onChange={(e) => setProductId(e.target.value ? parseInt(e.target.value) : '')}
-          disabled={excluded}
-          className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] disabled:opacity-50"
-        >
-          <option value="">— 선택 —</option>
-          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+      <div className="w-20 text-right text-[10px] text-[#7A7F8A] font-mono whitespace-nowrap">
+        {item.occurrence_count}회<br/>{fmtNum(Math.round(item.total_qty))}
       </div>
-      <div className="col-span-2">
-        <label className="block text-[10px] text-[#62666D] uppercase tracking-wider mb-1">1세트=N개입</label>
+      <select
+        value={productId}
+        onChange={(e) => setProductId(e.target.value ? parseInt(e.target.value) : '')}
+        disabled={excluded}
+        className="w-40 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[11px] text-[#F7F8F8] disabled:opacity-40"
+      >
+        <option value="">—</option>
+        {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+      <input
+        type="number" min={1} value={unitPerSet}
+        onChange={(e) => setUnitPerSet(parseInt(e.target.value) || 1)}
+        disabled={excluded}
+        className="w-12 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[#F7F8F8] disabled:opacity-40 font-mono text-right text-[11px]"
+      />
+      <label className="w-10 flex items-center justify-center cursor-pointer">
         <input
-          type="number"
-          min={1}
-          value={unitPerSet}
-          onChange={(e) => setUnitPerSet(parseInt(e.target.value) || 1)}
-          disabled={excluded}
-          className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-[#F7F8F8] disabled:opacity-50 font-mono text-right"
+          type="checkbox"
+          checked={excluded}
+          onChange={(e) => setExcluded(e.target.checked)}
+          className="accent-[#EB5757]"
         />
-      </div>
-      <div className="col-span-3 flex items-center gap-2 justify-end">
-        <label className="flex items-center gap-1.5 text-[#8A8F98] cursor-pointer">
-          <input
-            type="checkbox"
-            checked={excluded}
-            onChange={(e) => setExcluded(e.target.checked)}
-            className="accent-[#EB5757]"
-          />
-          제외
-        </label>
-        <button
-          onClick={() => onResolve(item, excluded ? null : (productId || null) as any, unitPerSet, excluded)}
-          disabled={busy || (!excluded && !productId)}
-          className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-xs font-medium"
-        >
-          {busy ? '저장 중…' : '저장'}
-        </button>
-      </div>
+      </label>
+      <button
+        onClick={() => onResolve(item, excluded ? null : (productId || null) as any, unitPerSet, excluded)}
+        disabled={busy || (!excluded && !productId)}
+        className="w-14 px-2 py-1 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-[11px] font-medium"
+      >
+        {busy ? '…' : '저장'}
+      </button>
     </div>
   );
 }
@@ -1465,6 +1929,7 @@ function PlanTab({
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState<number | ''>('');
+  const [upToToday, setUpToToday] = useState(false);
   const [by, setBy] = useState<CompareBy>('channel');
   const [planSummary, setPlanSummary] = useState<any | null>(null);
   const [comparison, setComparison] = useState<any | null>(null);
@@ -1480,25 +1945,33 @@ function PlanTab({
       if (sumRes.ok) setPlanSummary(await sumRes.json());
 
       const params = new URLSearchParams({ year: String(year), by });
-      if (month) params.set('month', String(month));
+      if (upToToday) params.set('up_to_today', 'true');
+      else if (month) params.set('month', String(month));
       const cmpRes = await fetch(`${API_BASE}/api/csa/plan/comparison?${params}`, { headers: authHeaders() });
       if (cmpRes.ok) setComparison(await cmpRes.json());
 
       // 객단가는 현재 연도/월 실적 범위
-      const start = `${year}-${String(month || 1).padStart(2,'0')}-01`;
-      const lastDay = month ? new Date(year, month, 0).getDate() : new Date(year, 12, 0).getDate();
-      const end = month
-        ? `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
-        : `${year}-12-31`;
+      const today = new Date();
+      const start = `${year}-01-01`;
+      let end: string;
+      if (upToToday) {
+        end = today.toISOString().slice(0, 10);
+      } else if (month) {
+        const lastDay = new Date(year, month, 0).getDate();
+        end = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+      } else {
+        end = `${year}-12-31`;
+      }
+      const startFinal = (upToToday || !month) ? `${year}-01-01` : `${year}-${String(month).padStart(2,'0')}-01`;
       const apRes = await fetch(
-        `${API_BASE}/api/csa/avg-price?period_start=${start}&period_end=${end}&by=channel_product`,
+        `${API_BASE}/api/csa/avg-price?period_start=${startFinal}&period_end=${end}&by=channel_product`,
         { headers: authHeaders() }
       );
       if (apRes.ok) setAvgPrice(await apRes.json());
     } finally {
       setBusy(false);
     }
-  }, [authHeaders, year, month, by]);
+  }, [authHeaders, year, month, by, upToToday]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -1569,15 +2042,33 @@ function PlanTab({
                 <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">월</label>
                 <select
                   value={month}
+                  disabled={upToToday}
                   onChange={(e) => setMonth(e.target.value === '' ? '' : parseInt(e.target.value))}
-                  className="bg-[#08090A] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                  className="bg-[#08090A] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8] disabled:opacity-40"
                 >
-                  <option value="">전체(YTD)</option>
+                  <option value="">전체(연간)</option>
                   {Array.from({ length: 12 }).map((_, i) => (
                     <option key={i} value={i + 1}>{i + 1}월</option>
                   ))}
                 </select>
               </div>
+              <button
+                onClick={() => {
+                  setUpToToday(v => {
+                    const next = !v;
+                    if (next) setMonth('');
+                    return next;
+                  });
+                }}
+                className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
+                  upToToday
+                    ? 'bg-[#828FFF] border-[#828FFF] text-white'
+                    : 'bg-[#08090A] border-[#23252A] text-[#A3A9B3] hover:border-[#828FFF] hover:text-[#F7F8F8]'
+                }`}
+                title="1월 1일부터 오늘까지 누계 분석 (계획은 오늘 기준 일자 비율로 안분)"
+              >
+                {upToToday ? '✓ 오늘 기준 YTD' : '오늘 기준 YTD'}
+              </button>
               <Segment
                 label="기준"
                 options={[
@@ -1590,6 +2081,11 @@ function PlanTab({
                 onChange={setBy}
               />
             </div>
+            {upToToday && (
+              <p className="text-[11px] text-[#828FFF] mt-2">
+                1/1 ~ {new Date().toISOString().slice(0,10)} 누계 분석. 계획은 마지막 월(이번 달)을 오늘 일자 비율로 안분.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -1651,30 +2147,47 @@ function PlanTab({
         </div>
       )}
 
-      {/* 비교 차트 */}
-      <div className={`${PANEL} p-5`}>
-        <h3 className="text-sm font-semibold mb-3">
-          {by === 'channel' ? '채널' : by === 'product' ? '품목' : by === 'group' ? '구분' : '담당자'}별 — 사업계획 vs 실적
-        </h3>
-        {busy ? <Skeleton h={300} /> : items.length ? (
-          <ResponsiveContainer width="100%" height={Math.max(300, items.length * 28)}>
-            <BarChart
-              data={items.slice(0, 20)}
-              layout="vertical"
-              margin={{ left: 100, right: 20, top: 10, bottom: 10 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
-              <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 11 }} tickFormatter={fmtKR} stroke="#62666D" />
-              <YAxis type="category" dataKey="label" tick={{ fill: '#8A8F98', fontSize: 11 }} stroke="#62666D" width={130} />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-              />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="target_revenue" name="계획 매출" fill="#62666D" />
-              <Bar dataKey="actual_revenue" name="실적 매출" fill="#828FFF" />
-            </BarChart>
-          </ResponsiveContainer>
+      {/* 비교 차트 (컴팩트) */}
+      <div className={`${PANEL} p-4`}>
+        <div className="flex items-baseline justify-between mb-2">
+          <h3 className="text-sm font-semibold">
+            {by === 'channel' ? '채널' : by === 'product' ? '품목' : by === 'group' ? '구분' : '담당자'}별 — 사업계획 vs 실적
+          </h3>
+          <span className="text-[10px] text-[#7A7F8A]">Top 15 · 매출 기준</span>
+        </div>
+        {busy ? <Skeleton h={260} /> : items.length ? (
+          (() => {
+            const top = [...items]
+              .sort((a: any, b: any) => (b.target_revenue || 0) - (a.target_revenue || 0))
+              .slice(0, 15);
+            const chartH = Math.min(360, Math.max(180, top.length * 22));
+            return (
+              <ResponsiveContainer width="100%" height={chartH}>
+                <BarChart data={top} layout="vertical" margin={{ left: 90, right: 12, top: 4, bottom: 4 }} barCategoryGap={3}>
+                  <defs>
+                    <linearGradient id="gradPlanTarget" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.6} />
+                      <stop offset="100%" stopColor="#7A7F8A" stopOpacity={0.85} />
+                    </linearGradient>
+                    <linearGradient id="gradPlanActual" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#5560C8" stopOpacity={0.85} />
+                      <stop offset="100%" stopColor="#A8B3FF" stopOpacity={1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
+                  <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={fmtKR} stroke="#62666D" />
+                  <YAxis type="category" dataKey="label" tick={{ fill: '#A3A9B3', fontSize: 10 }} stroke="#62666D" width={120} />
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
+                    formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Bar dataKey="target_revenue" name="계획 매출" fill="url(#gradPlanTarget)" radius={[0, 4, 4, 0]} barSize={9} />
+                  <Bar dataKey="actual_revenue" name="실적 매출" fill="url(#gradPlanActual)" radius={[0, 4, 4, 0]} barSize={9} />
+                </BarChart>
+              </ResponsiveContainer>
+            );
+          })()
         ) : <Empty />}
       </div>
 
@@ -2314,12 +2827,90 @@ function KpiCard({ label, value, hint, accent }: { label: string; value: string;
   );
 }
 
-function CompactKpi({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
+function DeltaBadge({ delta }: { delta: { pct: number; sign: 'up' | 'down' | 'flat' } }) {
+  const styles =
+    delta.sign === 'up'
+      ? { bg: 'rgba(39,166,68,0.15)', color: '#3DD971', border: 'rgba(39,166,68,0.35)' }
+      : delta.sign === 'down'
+        ? { bg: 'rgba(235,87,87,0.15)', color: '#FF7A7A', border: 'rgba(235,87,87,0.35)' }
+        : { bg: 'rgba(122,127,138,0.12)', color: '#A3A9B3', border: 'rgba(122,127,138,0.25)' };
+  const arrow = delta.sign === 'up' ? '▲' : delta.sign === 'down' ? '▼' : '–';
   return (
-    <div className={`${PANEL} p-3`}>
-      <div className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3] mb-1">{label}</div>
-      <div className="text-lg font-semibold tracking-tight truncate" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
-      {hint && <div className="text-[10px] text-[#7A7F8A] mt-0.5 truncate">{hint}</div>}
+    <span
+      className="text-[9px] ml-1.5 font-semibold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 border"
+      style={{ backgroundColor: styles.bg, color: styles.color, borderColor: styles.border }}
+    >
+      {arrow} {Math.abs(delta.pct).toFixed(1)}%
+    </span>
+  );
+}
+
+
+function CompactKpi({
+  label, value, hint, accent,
+  spark, compareValue, currentValue, deltaFormat = 'pct',
+}: {
+  label: string; value: string; hint?: string; accent?: string;
+  spark?: Array<{ x: string; v: number }>;
+  compareValue?: number;
+  currentValue?: number;
+  deltaFormat?: 'pct' | 'pp';  // 'pp' = 퍼센트포인트 (이미 % 단위 값일 때)
+}) {
+  let deltaPct: number | null = null;
+  let deltaSign: 'up' | 'down' | 'flat' = 'flat';
+  if (compareValue !== undefined && currentValue !== undefined && compareValue !== null && currentValue !== null) {
+    if (deltaFormat === 'pp') {
+      deltaPct = (currentValue - compareValue);
+    } else {
+      deltaPct = compareValue !== 0 ? ((currentValue - compareValue) / Math.abs(compareValue)) * 100 : (currentValue > 0 ? 100 : 0);
+    }
+    deltaSign = deltaPct > 0.05 ? 'up' : deltaPct < -0.05 ? 'down' : 'flat';
+  }
+  const deltaColor = deltaSign === 'up' ? '#27A644' : deltaSign === 'down' ? '#EB5757' : '#7A7F8A';
+  const arrow = deltaSign === 'up' ? '▲' : deltaSign === 'down' ? '▼' : '–';
+
+  const accentColor = accent || TEXT_PRIMARY;
+  const gradId = `kpi-grad-${label.replace(/\s/g, '')}-${(accent || 'def').replace('#', '')}`;
+  const deltaBadgeStyle =
+    deltaSign === 'up'
+      ? { bg: 'rgba(39,166,68,0.18)', color: '#3DD971', border: 'rgba(39,166,68,0.4)' }
+      : deltaSign === 'down'
+        ? { bg: 'rgba(235,87,87,0.18)', color: '#FF7A7A', border: 'rgba(235,87,87,0.4)' }
+        : { bg: 'rgba(122,127,138,0.15)', color: '#A3A9B3', border: 'rgba(122,127,138,0.3)' };
+
+  return (
+    <div className={`${PANEL} p-3 relative overflow-hidden`}>
+      {/* 좌측 accent 라인 */}
+      <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: `linear-gradient(180deg, ${accentColor}, transparent)` }} />
+      {/* 카드 우상단 스파크라인 (Area + 그라데이션) */}
+      {spark && spark.length > 1 && (
+        <div className="absolute right-2 top-2 opacity-90 pointer-events-none" style={{ width: 64, height: 28 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={spark} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={accentColor} stopOpacity={0.6} />
+                  <stop offset="100%" stopColor={accentColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area type="monotone" dataKey="v" stroke={accentColor} strokeWidth={1.5} fill={`url(#${gradId})`} isAnimationActive={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      <div className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3] mb-1 pl-1.5">{label}</div>
+      <div className="text-lg font-semibold tracking-tight truncate pl-1.5" style={{ color: accentColor }}>{value}</div>
+      <div className="flex items-center gap-1.5 mt-1 pl-1.5">
+        {deltaPct !== null && (
+          <span
+            className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border inline-flex items-center"
+            style={{ backgroundColor: deltaBadgeStyle.bg, color: deltaBadgeStyle.color, borderColor: deltaBadgeStyle.border }}
+          >
+            {arrow} {Math.abs(deltaPct).toFixed(1)}{deltaFormat === 'pp' ? 'pp' : '%'}
+          </span>
+        )}
+        {hint && <div className="text-[10px] text-[#7A7F8A] truncate">{hint}</div>}
+      </div>
     </div>
   );
 }
