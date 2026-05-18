@@ -31,8 +31,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright with all dependencies (handles system libs automatically)
-RUN python -m playwright install --with-deps chromium
+# Playwright Chromium은 런타임에 백그라운드로 다운로드 (app/main.py 참고).
+# 빌드 단계에서 112MB Chromium 다운로드를 수행하면 Railway activity heartbeat
+# timeout이 발생할 수 있어 의도적으로 제거.
 
 # Copy application code
 COPY . .
