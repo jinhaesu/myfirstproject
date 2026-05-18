@@ -1711,6 +1711,17 @@ def admin_rebuild_daily(batch_id: str, db: Session = Depends(get_db)):
     return {"batch_id": batch_id, "rows_rebuilt": n}
 
 
+@router.post("/admin/rebuild-daily-all")
+def admin_rebuild_daily_all(db: Session = Depends(get_db)):
+    """모든 채널·모든 기간의 daily_aggregate를 통째로 재계산.
+
+    코드 변경(예: unmatched 포함, unit_per_set 환산 변경)이 있을 때 호출.
+    raw_lines는 그대로 두고 ChannelSalesDailyProduct만 다시 build.
+    """
+    n = rebuild_daily_aggregate(db)
+    return {"rows_rebuilt": n}
+
+
 @router.get("/admin/diag-pnl-plan")
 def admin_diag_pnl_plan(year: int = 2026, db: Session = Depends(get_db)):
     """P&L plan 진단: 어떤 데이터가 비어서 0이 되는지 핀포인트.
