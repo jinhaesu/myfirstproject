@@ -141,7 +141,13 @@ def rebuild_daily_with_costs(
         func.sum(ChannelSalesRawLine.commission).label("commission_raw"),
         func.sum(ChannelSalesRawLine.refund_amount).label("refund"),
         func.count(func.distinct(ChannelSalesRawLine.order_no)).label("order_count"),
-    ).filter(ChannelSalesRawLine.mapping_status == "matched")
+    # NOTE: 과거에는 mapping_status == 'matched' 만 집계했으나, 그 결과
+    # 미매핑 라인의 매출/수량이 대시보드 summary에서 통째로 빠지는 문제
+    # (세븐일레븐 매출 0, 삼성웰스토리·CU 매출 -20% 등) 가 발생.
+    # 이제는 unmatched(product_id NULL)도 함께 집계해 daily에 적재한다.
+    # 변동비 규칙은 product_id별로 매칭되므로 미매핑 라인엔 자연스럽게 0이 적용.
+    # 'excluded' 상태는 의도적으로 제외 유지.
+    ).filter(ChannelSalesRawLine.mapping_status != "excluded")
 
     if channel_id:
         rq = rq.filter(ChannelSalesRawLine.channel_id == channel_id)
