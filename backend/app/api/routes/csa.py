@@ -2075,3 +2075,47 @@ def admin_unexclude_mappings(
             })
     db.commit()
     return {"updated_count": len(updated), "updated": updated}
+
+
+class SetMappingProductIn(BaseModel):
+    mapping_id: int
+    product_code: str
+    unit_per_set: int = 1
+
+
+@router.post("/admin/set-mapping-product")
+def admin_set_mapping_product(
+    payload: SetMappingProductIn,
+    db: Session = Depends(get_db),
+):
+    """특정 ChannelProductMapping에 ProductMaster.code 기준으로 product_id를 설정.
+
+    is_excluded=False 도 함께 보장.
+    """
+    product = db.query(ProductMaster).filter(
+        ProductMaster.code == payload.product_code
+    ).first()
+    if not product:
+        raise HTTPException(404, f"ProductMaster with code='{payload.product_code}' not found")
+
+    mapping = db.query(ChannelProductMapping).filter(
+        ChannelProductMapping.id == payload.mapping_id
+    ).first()
+    if not mapping:
+        raise HTTPException(404, f"ChannelProductMapping id={payload.mapping_id} not found")
+
+    mapping.product_id = product.id
+    mapping.unit_per_set = payload.unit_per_set
+    mapping.is_excluded = False
+    mapping.confidence = "manual"
+    db.commit()
+    db.refresh(mapping)
+    return {
+        "mapping_id": mapping.id,
+        "raw_product_name": mapping.raw_product_name,
+        "product_id": product.id,
+        "product_code": product.code,
+        "product_name": product.name,
+        "unit_per_set": mapping.unit_per_set,
+        "is_excluded": mapping.is_excluded,
+    }
