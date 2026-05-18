@@ -259,28 +259,36 @@ def resolve_product(
     if best is None:
         return MappingResult(None, None, 1, "unmatched")
 
-    # 3) 입수 추출
-    unit = _extract_unit_per_set(haystack)
-    return MappingResult(best.id, best.name, unit, "matched")
+    # 3) 입수 추출 — 룰베이스 매칭은 채널 raw 수량을 그대로 사용 (안전 기본값 1).
+    # 입수 환산이 필요한 SKU는 관리자가 ChannelProductMapping에 명시적으로 unit_per_set을 등록해야 한다.
+    # (raw_product_name에서 "16개입(8ea x 2box, 8장)" 같은 표기를 max()로 잡아 수량이 과대계상되는 문제 방지)
+    return MappingResult(best.id, best.name, 1, "matched")
 
 
 def _extract_unit_per_set(text: str) -> int:
-    """'8개', '8구', '8입', 'x8', '8ea', '8 ea' 등에서 입수 추출. 못 찾으면 1."""
+    """[DEPRECATED] 안전한 보수적 추출만 수행.
+
+    아래 두 가지 매우 명확한 경우에만 입수를 반환한다:
+      1) 텍스트 전체(좌우 공백 제외)가 "Nㄴ" 또는 "N개입" 단일 토큰일 때
+      2) 그 외에는 무조건 1 (수량 과대계상 방지)
+
+    이전엔 상품명 곳곳에서 (\\d+)(?:개입|개|구|입|봉|병|박스|ea|EA) 패턴을
+    max()로 골랐으나, "마카롱 8개입 16개입 박스" / "(8ea x 2box, 8장)" 같은
+    표기에서 의도와 다른 큰 값이 선택되어 B마트/세븐일레븐/삼성웰스토리에서
+    pcs_qty가 +50~+118% 부풀려지는 버그 발생.
+    """
     import re
     if not text:
         return 1
-    candidates = re.findall(r"(\d+)\s*(?:개입|개|구|입|봉|병|박스|ea|EA)", text)
-    if candidates:
-        # 가장 큰 값 (8개입 vs 1세트 → 8 선택)
-        try:
-            return max(int(c) for c in candidates)
-        except Exception:
-            pass
-    # 'x8', '×8' 패턴
-    m = re.search(r"[x×X]\s*(\d+)", text)
+    t = text.strip()
+    # case 1: 전체가 "Nㄴ" 또는 "N개입" 단일 토큰
+    m = re.fullmatch(r"\s*(\d+)\s*(?:개입|개|구|입|봉|병|박스|ea|EA|장|매)\s*", t)
     if m:
         try:
-            return int(m.group(1))
+            v = int(m.group(1))
+            # 비현실적 값 차단 (1000개입 같은 광고문구)
+            if 1 <= v <= 200:
+                return v
         except Exception:
             pass
     return 1
