@@ -467,6 +467,7 @@ function DashboardTab({
       ...s,
       compare_revenue: cmp[i]?.revenue ?? null,
       compare_cm: cmp[i]?.contribution_margin ?? null,
+      compare_pcs: cmp[i]?.pcs ?? null,
       compare_period: cmp[i]?.period,
     }));
   })();
@@ -737,6 +738,52 @@ function DashboardTab({
             </div>
           )}
         </div>
+      </div>
+
+      {/* 기간별 판매수량 추이 (낱개) */}
+      <div className={`${PANEL} p-4`}>
+        <div className="flex items-baseline justify-between mb-2">
+          <h3 className="text-sm font-semibold text-[#F7F8F8]">
+            판매수량 추이
+            {selProducts.length > 0 && (
+              <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">
+                ({selProducts.length}개 품목 선택)
+              </span>
+            )}
+          </h3>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3]">
+            {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
+          </span>
+        </div>
+        {loading ? <Skeleton h={220} /> : data && data.series.length ? (
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gradPcsLine" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#A8B3FF" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#5560C8" stopOpacity={1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid {...CHART_GRID} />
+              <XAxis dataKey="period" tick={AXIS_TICK} stroke="#62666D" />
+              <YAxis tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtNum} />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
+                formatter={(v: number, n: string) => [`${fmtNum(Math.round(v))}개`, n]}
+                labelFormatter={(label: any, payload: any) => {
+                  if (!payload?.[0]) return label;
+                  const cp = payload[0].payload?.compare_period;
+                  return cp ? `${label}  (비교: ${cp})` : label;
+                }}
+              />
+              <Legend wrapperStyle={LEGEND_STYLE} />
+              {hasCompare && (
+                <Line type="monotone" dataKey="compare_pcs" name="비교 판매수량" stroke="#7A7F8A" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
+              )}
+              <Line type="monotone" dataKey="pcs" name="판매수량 (낱개)" stroke="url(#gradPcsLine)" strokeWidth={2.5} dot={{ r: 3, stroke: '#A8B3FF', strokeWidth: 2, fill: '#0F1011' }} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : <Empty h={220} />}
       </div>
 
       {/* Top10 채널 + Top12 품목 가로 막대 */}
