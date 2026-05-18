@@ -5,7 +5,7 @@ import logging
 import os
 import tempfile
 from datetime import date, datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
@@ -2002,3 +2002,76 @@ def avg_price_analysis(
     items.sort(key=lambda x: -x["revenue"])
     return {"by": by, "period_start": period_start.isoformat(),
             "period_end": period_end.isoformat(), "items": items[:200]}
+
+
+@router.get("/admin/diag-excluded-mappings")
+def admin_diag_excluded_mappings(
+    channel_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """is_excluded=True 매핑 + 그 매핑이 적용된 raw_lines 통계.
+
+    잘못 excluded 처리된 매핑을 자동 탐지하기 위함.
+    avg_line_gross가 큰 매핑일수록 식품일 가능성이 높아 의심됨.
+    """
+    from sqlalchemy import func as sa_func
+
+    q = db.query(ChannelProductMapping).filter(ChannelProductMapping.is_excluded.is_(True))
+    if channel_id:
+        q = q.filter(ChannelProductMapping.channel_id == channel_id)
+
+    results = []
+    for m in q.all():
+        stats = db.query(
+            sa_func.count(ChannelSalesRawLine.id).label("lines"),
+            sa_func.sum(ChannelSalesRawLine.raw_qty).label("qty"),
+            sa_func.sum(ChannelSalesRawLine.gross_amount).label("gross"),
+        ).filter(
+            ChannelSalesRawLine.channel_id == m.channel_id,
+            ChannelSalesRawLine.raw_product_name == m.raw_product_name,
+            ChannelSalesRawLine.mapping_status == "excluded",
+        ).first()
+        lines = int(stats.lines or 0)
+        gross = float(stats.gross or 0)
+        results.append({
+            "mapping_id": m.id,
+            "channel_id": m.channel_id,
+            "channel_name": m.channel_name,
+            "raw_product_name": m.raw_product_name,
+            "raw_option_name": m.raw_option_name,
+            "notes": m.notes,
+            "lines": lines,
+            "qty": float(stats.qty or 0),
+            "gross": gross,
+            "avg_line_gross": (gross / lines) if lines else 0,
+        })
+    results.sort(key=lambda r: -r["avg_line_gross"])
+    return results
+
+
+@router.post("/admin/unexclude-mappings")
+def admin_unexclude_mappings(
+    mapping_ids: List[int] = Body(..., embed=True),
+    db: Session = Depends(get_db),
+):
+    """잘못 excluded 처리된 매핑들을 is_excluded=False로 일괄 해제.
+
+    호출 후에는 /admin/remap-raw-lines 로 raw_lines를 재매핑하고
+    /admin/rebuild-daily-all 로 daily aggregate를 다시 계산해야 함.
+    """
+    if not mapping_ids:
+        raise HTTPException(400, "mapping_ids is empty")
+    rows = db.query(ChannelProductMapping).filter(
+        ChannelProductMapping.id.in_(mapping_ids)
+    ).all()
+    updated = []
+    for m in rows:
+        if m.is_excluded:
+            m.is_excluded = False
+            updated.append({
+                "mapping_id": m.id,
+                "channel_id": m.channel_id,
+                "raw_product_name": m.raw_product_name,
+            })
+    db.commit()
+    return {"updated_count": len(updated), "updated": updated}
