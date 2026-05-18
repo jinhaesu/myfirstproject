@@ -1722,6 +1722,58 @@ def admin_rebuild_daily_all(db: Session = Depends(get_db)):
     return {"rows_rebuilt": n}
 
 
+@router.post("/admin/remap-raw-lines")
+def admin_remap_raw_lines(
+    channel_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """모든(또는 특정 채널) raw_lines에 대해 resolve_product를 재실행하여
+    product_id / pcs_qty / mapping_status를 새 매핑 규칙으로 갱신.
+
+    pcs_qty 환산 로직 변경(예: unit_per_set 자동 추출 비활성)이 있을 때
+    과거 적재된 raw_lines를 다시 매핑해 daily 재계산까지 함께 진행.
+    """
+    from app.services.csa_service import resolve_product
+    from app.db_models import ChannelSalesRawLine, ProductMaster
+
+    masters = db.query(ProductMaster).filter(ProductMaster.is_active.is_(True)).all()
+
+    q = db.query(ChannelSalesRawLine)
+    if channel_id:
+        q = q.filter(ChannelSalesRawLine.channel_id == channel_id)
+
+    total = 0
+    changed = 0
+    BATCH = 500
+    offset = 0
+    while True:
+        rows = q.order_by(ChannelSalesRawLine.id).offset(offset).limit(BATCH).all()
+        if not rows:
+            break
+        for r in rows:
+            total += 1
+            mapping = resolve_product(
+                db, r.channel_id, r.raw_product_name or "", r.raw_option_name,
+                masters_cache=masters,
+            )
+            new_pcs = (r.raw_qty or 0) * mapping.unit_per_set
+            if (
+                r.product_id != mapping.product_id
+                or r.pcs_qty != new_pcs
+                or r.mapping_status != mapping.status
+            ):
+                r.product_id = mapping.product_id
+                r.pcs_qty = new_pcs
+                r.mapping_status = mapping.status
+                changed += 1
+        db.commit()
+        offset += BATCH
+
+    # raw_lines 갱신 후 daily 재계산
+    rebuilt = rebuild_daily_aggregate(db, channel_id=channel_id)
+    return {"total": total, "changed": changed, "daily_rebuilt": rebuilt}
+
+
 @router.get("/admin/diag-pnl-plan")
 def admin_diag_pnl_plan(year: int = 2026, db: Session = Depends(get_db)):
     """P&L plan 진단: 어떤 데이터가 비어서 0이 되는지 핀포인트.
