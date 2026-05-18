@@ -1722,6 +1722,49 @@ def admin_rebuild_daily_all(db: Session = Depends(get_db)):
     return {"rows_rebuilt": n}
 
 
+@router.get("/admin/diag-raw-sums")
+def admin_diag_raw_sums(
+    channel_id: str,
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+):
+    """raw_lines 합계(매출/수량)를 직접 조회 — daily 집계와 비교하여 누락 원인 파악."""
+    from app.db_models import ChannelSalesRawLine
+    from sqlalchemy import func as sa_func, case
+    q = db.query(
+        sa_func.count(ChannelSalesRawLine.id).label("lines"),
+        sa_func.sum(ChannelSalesRawLine.raw_qty).label("raw_qty"),
+        sa_func.sum(ChannelSalesRawLine.pcs_qty).label("pcs_qty"),
+        sa_func.sum(ChannelSalesRawLine.gross_amount).label("gross"),
+        sa_func.sum(ChannelSalesRawLine.net_amount).label("net"),
+        ChannelSalesRawLine.mapping_status,
+    ).filter(
+        ChannelSalesRawLine.channel_id == channel_id,
+        ChannelSalesRawLine.sale_date >= period_start,
+        ChannelSalesRawLine.sale_date <= period_end,
+    ).group_by(ChannelSalesRawLine.mapping_status)
+    by_status = [
+        {
+            "status": r.mapping_status,
+            "lines": r.lines,
+            "raw_qty": float(r.raw_qty or 0),
+            "pcs_qty": float(r.pcs_qty or 0),
+            "gross": float(r.gross or 0),
+            "net": float(r.net or 0),
+        }
+        for r in q.all()
+    ]
+    totals = {
+        "lines": sum(b["lines"] for b in by_status),
+        "raw_qty": sum(b["raw_qty"] for b in by_status),
+        "pcs_qty": sum(b["pcs_qty"] for b in by_status),
+        "gross": sum(b["gross"] for b in by_status),
+        "net": sum(b["net"] for b in by_status),
+    }
+    return {"by_status": by_status, "totals": totals}
+
+
 @router.post("/admin/remap-raw-lines")
 def admin_remap_raw_lines(
     channel_id: Optional[str] = None,
