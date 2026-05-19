@@ -42,7 +42,7 @@ DEFAULT_PRODUCTS: list[dict[str, Any]] = [
     {"code": "BAGL", "name": "베이글", "category": "베이커리", "default_unit_size": 1, "sort_order": 3},
     {"code": "NEMO", "name": "네모바게트", "category": "베이커리", "default_unit_size": 1, "sort_order": 4},
     {"code": "SCON", "name": "스콘", "category": "베이커리", "default_unit_size": 1, "sort_order": 5},
-    {"code": "REVB", "name": "르뱅쿠키", "category": "쿠키", "default_unit_size": 1, "sort_order": 6},
+    {"code": "REVB", "name": "르뱅쿠키", "aliases": ["크럼블쿠키", "크럼블 쿠키", "두바이초코크럼블쿠키", "초코볼크럼블쿠키"], "category": "쿠키", "default_unit_size": 1, "sort_order": 6},
     {"code": "FOCC", "name": "포카치아", "category": "베이커리", "default_unit_size": 1, "sort_order": 7},
     {"code": "JJON", "name": "상온 쫀득쿠키", "category": "쿠키", "default_unit_size": 1, "sort_order": 8},
     {"code": "AMER", "name": "아메쿠키", "aliases": ["아메리칸쿠키", "아메리칸 쿠키", "American Cookie"], "category": "쿠키", "default_unit_size": 1, "sort_order": 9},
