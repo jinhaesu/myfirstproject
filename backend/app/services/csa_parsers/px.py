@@ -32,6 +32,7 @@ from app.services.csa_parsers._common import read_excel_safe, to_float, to_str
 
 
 _YM_RE = re.compile(r"(\d{4})\D+(\d{1,2})")
+_YMD_RE = re.compile(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})")
 
 
 # PX는 raw 엑셀에 매출(원) 정보가 없으므로 SKU별 표준 단가로 매출을 산정한다.
@@ -53,8 +54,32 @@ def _gross_for(sku: Optional[str], qty: float) -> float:
     return qty * price_incl / 1.1
 
 
+def _extract_print_date(df: pd.DataFrame) -> Optional[date]:
+    """footer의 '출력일자: 2026년05월19일' 패턴 추출 (우선순위 1)."""
+    # 끝부분부터 역방향 탐색
+    start = max(0, len(df) - 15)
+    for i in range(len(df) - 1, start - 1, -1):
+        for j in range(df.shape[1]):
+            v = df.iat[i, j]
+            if pd.isna(v):
+                continue
+            if "출력일자" in str(v):
+                # 같은 행의 다음 셀들에서 YYYY/MM/DD 찾기
+                for k in range(j + 1, min(j + 6, df.shape[1])):
+                    nx = df.iat[i, k]
+                    if pd.isna(nx):
+                        continue
+                    m = _YMD_RE.search(str(nx))
+                    if m:
+                        try:
+                            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                        except Exception:
+                            continue
+    return None
+
+
 def _extract_month_end(df: pd.DataFrame) -> Optional[date]:
-    """row 5 부근 셀에서 '조회년월 : 2026년 05월' 패턴 추출."""
+    """row 5 부근 셀에서 '조회년월 : 2026년 05월' 패턴 추출 (fallback)."""
     for i in range(min(10, len(df))):
         for j in range(df.shape[1]):
             v = df.iat[i, j]
@@ -113,7 +138,8 @@ def _looks_like_meta(s: Optional[str]) -> bool:
 @register("국군복지단")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=None)
-    sale_d = _extract_month_end(df) or date.today()
+    # sale_date 우선순위: footer의 '출력일자' → 조회년월의 말일 → 오늘
+    sale_d = _extract_print_date(df) or _extract_month_end(df) or date.today()
 
     # row 7은 총계, row 8부터 데이터. 2페이지 구조라 페이지 사이에
     # 메타/페이지헤더가 다시 등장하므로 명시적으로 skip.
