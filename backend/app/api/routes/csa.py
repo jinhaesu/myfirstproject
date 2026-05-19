@@ -1810,6 +1810,67 @@ def admin_auto_map_unmatched(
     }
 
 
+@router.get("/admin/list-mappings")
+def admin_list_mappings(channel_id: str, db: Session = Depends(get_db)):
+    """채널의 ChannelProductMapping 전체 조회 (product 이름 join)."""
+    from app.db_models import ChannelProductMapping, ProductMaster, ChannelSalesRawLine
+    from sqlalchemy import func as sa_func
+    rows = db.query(
+        ChannelProductMapping.id,
+        ChannelProductMapping.raw_product_name,
+        ChannelProductMapping.raw_option_name,
+        ChannelProductMapping.product_id,
+        ChannelProductMapping.unit_per_set,
+        ChannelProductMapping.is_excluded,
+        ProductMaster.name.label("product_name"),
+    ).outerjoin(
+        ProductMaster, ProductMaster.id == ChannelProductMapping.product_id
+    ).filter(
+        ChannelProductMapping.channel_id == channel_id,
+    ).all()
+    out = []
+    for r in rows:
+        # 라인 수와 매출 합계 추가
+        stats = db.query(
+            sa_func.count(ChannelSalesRawLine.id).label("lines"),
+            sa_func.sum(ChannelSalesRawLine.raw_qty).label("qty"),
+            sa_func.sum(ChannelSalesRawLine.gross_amount).label("gross"),
+        ).filter(
+            ChannelSalesRawLine.channel_id == channel_id,
+            ChannelSalesRawLine.raw_product_name == r.raw_product_name,
+        ).first()
+        out.append({
+            "id": r.id,
+            "raw_product_name": r.raw_product_name,
+            "raw_option_name": r.raw_option_name,
+            "product_id": r.product_id,
+            "product_name": r.product_name,
+            "unit_per_set": r.unit_per_set,
+            "is_excluded": r.is_excluded,
+            "lines": stats.lines or 0,
+            "raw_qty": float(stats.qty or 0),
+            "gross": float(stats.gross or 0),
+        })
+    return out
+
+
+@router.post("/admin/set-mapping-unit")
+def admin_set_mapping_unit(
+    mapping_id: int,
+    unit_per_set: int,
+    db: Session = Depends(get_db),
+):
+    """단일 매핑의 unit_per_set 변경."""
+    from app.db_models import ChannelProductMapping
+    m = db.query(ChannelProductMapping).filter(ChannelProductMapping.id == mapping_id).first()
+    if not m:
+        raise HTTPException(404, "mapping not found")
+    old = m.unit_per_set
+    m.unit_per_set = unit_per_set
+    db.commit()
+    return {"mapping_id": mapping_id, "old": old, "new": unit_per_set}
+
+
 @router.get("/admin/list-unmatched-raw")
 def admin_list_unmatched_raw(
     channel_id: str,
