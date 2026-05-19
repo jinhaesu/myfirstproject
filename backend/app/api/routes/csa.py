@@ -2080,6 +2080,70 @@ def admin_merge_channels(
     }
 
 
+@router.post("/admin/cleanup-vat-incl-channels")
+def admin_cleanup_vat_incl_channels(db: Session = Depends(get_db)):
+    """B2C(부가세 포함) 채널들의 모든 raw/daily/batches/큐를 일괄 cleanup.
+
+    부가세 별도 통일 정책 도입 후 신규 ingest는 자동 환산되지만,
+    기존 적재 데이터는 환산 안 된 상태라 cleanup 후 재업로드 필요.
+    매핑은 보존.
+    """
+    from app.db_models import (
+        Channel,
+        ChannelSalesRawLine,
+        ChannelSalesUploadBatch,
+        ChannelSalesDailyProduct,
+        ChannelUnmatchedProduct,
+    )
+    from app.services.csa_service import VAT_INCLUDED_CHANNELS
+
+    # 채널명이 VAT_INCLUDED_CHANNELS에 속하는 채널들의 id 모두 추출
+    channels = db.query(Channel).filter(
+        Channel.name.in_(list(VAT_INCLUDED_CHANNELS))
+    ).all()
+
+    results = []
+    total_raw = total_daily = total_batch = total_unm = 0
+    for ch in channels:
+        raw_n = db.query(ChannelSalesRawLine).filter(
+            ChannelSalesRawLine.channel_id == ch.id
+        ).delete(synchronize_session=False)
+        daily_n = db.query(ChannelSalesDailyProduct).filter(
+            ChannelSalesDailyProduct.channel_id == ch.id
+        ).delete(synchronize_session=False)
+        batch_n = db.query(ChannelSalesUploadBatch).filter(
+            ChannelSalesUploadBatch.channel_id == ch.id
+        ).delete(synchronize_session=False)
+        unm_n = db.query(ChannelUnmatchedProduct).filter(
+            ChannelUnmatchedProduct.channel_id == ch.id
+        ).delete(synchronize_session=False)
+        if raw_n or daily_n or batch_n or unm_n:
+            results.append({
+                "channel_id": ch.id,
+                "channel_name": ch.name,
+                "raw_lines": raw_n,
+                "daily_rows": daily_n,
+                "batches": batch_n,
+                "unmatched": unm_n,
+            })
+        total_raw += raw_n
+        total_daily += daily_n
+        total_batch += batch_n
+        total_unm += unm_n
+    db.commit()
+    return {
+        "channels_processed": len(channels),
+        "channels_with_data": len(results),
+        "totals": {
+            "raw_lines": total_raw,
+            "daily_rows": total_daily,
+            "batches": total_batch,
+            "unmatched_queue": total_unm,
+        },
+        "details": results,
+    }
+
+
 @router.post("/admin/cleanup-channel")
 def admin_cleanup_channel(channel_id: str, db: Session = Depends(get_db)):
     """채널의 batch + raw_lines + daily 모두 삭제. 재업로드 전 깨끗한 상태로.

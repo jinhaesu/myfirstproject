@@ -111,6 +111,50 @@ def normalize_channel_name(raw: Optional[str]) -> Optional[str]:
     return CHANNEL_ALIAS.get(raw.strip(), raw.strip())
 
 
+# B2C 채널 — raw 매출 컬럼이 부가세 포함 소비자가. 매출 적재는
+# 부가세 별도(공급가) 기준으로 통일하기 위해 ingest 시점에 1/1.1 환산.
+# B2B/정산형(CU/GS25/비마트/쿠팡로켓/B2B급식/PX 등)은 이미 공급가라 변환 X.
+VAT_INCLUDED_CHANNELS: set[str] = {
+    # 오픈마켓
+    "카페24", "자사몰",
+    "스마트스토어",
+    "쿠팡 WING",
+    "11번가",
+    "지마켓", "G마켓",
+    "옥션",
+    "에이블리",
+    "알리익스프레스",
+    "테무",
+    # 소셜커머스
+    "카카오선물하기", "카카오톡스토어", "카카오스타일",
+    "토스",
+    # 버티컬
+    "올리브영",
+    "올웨이즈",
+    "마켓컬리", "컬리",
+    "크림",
+    # 홈쇼핑
+    "롯데 홈쇼핑", "롯데홈쇼핑",
+    "GS샵", "GS 샵", "GS SHOP", "GS샵쇼핑",
+    "NS MALL", "NS",
+    "신세계 TV 쇼핑", "신세계TV쇼핑", "신세계TV",
+    "신세계 라이브쇼핑", "신세계라이브쇼핑",
+    "CJ온스타일", "CJ 온스타일", "CJ ON STYLE",
+    # 백화점
+    "롯데온",
+    "SSG", "SSG닷컴",
+}
+
+
+def is_vat_included(channel_name: Optional[str]) -> bool:
+    if not channel_name:
+        return False
+    return channel_name.strip() in VAT_INCLUDED_CHANNELS
+
+
+_VAT_EXCL_FACTOR = 1.0 / 1.1  # 부가세 10% 별도 환산
+
+
 # ──────────────────────────────────────────────────────────────
 # 시드
 # ──────────────────────────────────────────────────────────────
@@ -397,6 +441,15 @@ def ingest_lines(
         elif status == "excluded":
             excluded += 1
 
+        # B2C 채널은 raw 매출이 부가세 포함이므로 부가세 별도(공급가)로 환산해 적재.
+        # 매출 인식 표준이 공급가 기준이고, B2B 채널과의 일관성 확보.
+        if is_vat_included(channel_name):
+            adj_gross = ln.gross_amount * _VAT_EXCL_FACTOR
+            adj_net = (ln.net_amount or ln.gross_amount) * _VAT_EXCL_FACTOR
+        else:
+            adj_gross = ln.gross_amount
+            adj_net = ln.net_amount or ln.gross_amount
+
         db.add(ChannelSalesRawLine(
             batch_id=batch_id,
             channel_id=channel_id,
@@ -409,8 +462,8 @@ def ingest_lines(
             raw_product_name=ln.raw_product_name,
             raw_option_name=ln.raw_option_name,
             raw_qty=ln.raw_qty,
-            gross_amount=ln.gross_amount,
-            net_amount=ln.net_amount or ln.gross_amount,
+            gross_amount=adj_gross,
+            net_amount=adj_net,
             settlement_amount=ln.settlement_amount,
             commission=ln.commission,
             shipping_fee=ln.shipping_fee,
