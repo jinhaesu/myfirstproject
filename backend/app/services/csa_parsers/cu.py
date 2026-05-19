@@ -5,6 +5,12 @@
   - 영문 빅쿼리 raw: Date/ProductName/TotalQuantity/TotalSales
 
 납품금액(=TotalSales)은 총액(단가×수량) 기준. 결측 시 단가×수량으로 fallback.
+
+dedup 주의: CU 사방넷 raw는 같은 일자에 같은 SKU가 여러 점포로 납품된
+라인을 별도 row로 나열하는데 '전표번호'가 NaN이라 점포 식별 불가.
+같은 (날짜/SKU/수량/금액) 조합이 정상적으로 여러 번 등장하므로
+line_no에 파일 내 row index를 포함해 dedup_hash를 unique하게 만든다.
+같은 파일을 재업로드하면 idx가 일정하게 재생산되어 정상 dedup 동작.
 """
 from __future__ import annotations
 from typing import Iterable
@@ -18,10 +24,9 @@ from app.services.csa_parsers._common import read_excel_safe, to_date, to_float,
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
     cols = set(str(c) for c in df.columns)
-    # 한글 포맷 vs 영문 포맷 자동 감지
     is_eng = "TotalSales" in cols or "ProductName" in cols or "Date" in cols
 
-    for _, row in df.iterrows():
+    for idx, (_, row) in enumerate(df.iterrows()):
         if is_eng:
             sale_d = to_date(row.get("Date"))
             prod = to_str(row.get("ProductName"))
@@ -31,7 +36,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
                 unit_price = to_float(row.get("supplyPrice") or row.get("SeperatePrice"))
                 amount = unit_price * qty
             order_no = to_str(row.get("ProductCode"))
-            line_no = to_str(row.get("ProductCode"))
+            base_line = to_str(row.get("ProductCode")) or ""
             opt = to_str(row.get("weigt"))
         else:
             sale_d = to_date(row.get("입고일자") or row.get("납품예정일자"))
@@ -42,11 +47,13 @@ def parse(path: str) -> Iterable[ParsedLine]:
                 unit_price = to_float(row.get("원가"))
                 amount = unit_price * qty
             order_no = to_str(row.get("전표번호"))
-            line_no = to_str(row.get("상품코드"))
+            base_line = to_str(row.get("상품코드")) or ""
             opt = to_str(row.get("규격"))
 
         if not sale_d or not prod:
             continue
+
+        line_no = f"{base_line}#L{idx}"
 
         yield ParsedLine(
             sale_date=sale_d,
