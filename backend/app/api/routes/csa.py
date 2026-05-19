@@ -1810,6 +1810,82 @@ def admin_auto_map_unmatched(
     }
 
 
+@router.get("/admin/diag-product-units")
+def admin_diag_product_units(
+    channel_id: str,
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+):
+    """채널/기간의 SKU(product_id)별 raw_qty/매출/평균단가 집계.
+
+    낱개 단가가 비현실적이면 unit_per_set 환산이 잘못된 신호.
+    """
+    from app.db_models import ChannelSalesRawLine, ProductMaster
+    from sqlalchemy import func as sa_func
+    rows = db.query(
+        ChannelSalesRawLine.product_id,
+        ProductMaster.name.label("product_name"),
+        sa_func.count(ChannelSalesRawLine.id).label("lines"),
+        sa_func.sum(ChannelSalesRawLine.raw_qty).label("qty"),
+        sa_func.sum(ChannelSalesRawLine.pcs_qty).label("pcs"),
+        sa_func.sum(ChannelSalesRawLine.gross_amount).label("gross"),
+    ).outerjoin(
+        ProductMaster, ProductMaster.id == ChannelSalesRawLine.product_id
+    ).filter(
+        ChannelSalesRawLine.channel_id == channel_id,
+        ChannelSalesRawLine.sale_date >= period_start,
+        ChannelSalesRawLine.sale_date <= period_end,
+        ChannelSalesRawLine.mapping_status == "matched",
+    ).group_by(
+        ChannelSalesRawLine.product_id, ProductMaster.name,
+    ).order_by(sa_func.sum(ChannelSalesRawLine.gross_amount).desc()).all()
+    return [
+        {
+            "product_id": r.product_id,
+            "product_name": r.product_name,
+            "lines": r.lines,
+            "raw_qty": float(r.qty or 0),
+            "pcs_qty": float(r.pcs or 0),
+            "gross": float(r.gross or 0),
+            "unit_price_per_raw": float(r.gross or 0) / float(r.qty or 1) if r.qty else 0,
+            "unit_price_per_pcs": float(r.gross or 0) / float(r.pcs or 1) if r.pcs else 0,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/admin/bulk-set-unit-by-product")
+def admin_bulk_set_unit_by_product(
+    channel_id: str,
+    product_id: int,
+    unit_per_set: int,
+    db: Session = Depends(get_db),
+):
+    """채널의 특정 product_id에 해당하는 모든 매핑의 unit_per_set 일괄 변경.
+
+    매핑이 없으면 자동 생성하지 않음(이미 매칭된 raw_lines에는 영향 없음).
+    raw_lines.pcs_qty도 함께 재계산.
+    """
+    from app.db_models import ChannelProductMapping, ChannelSalesRawLine
+    n_map = db.query(ChannelProductMapping).filter(
+        ChannelProductMapping.channel_id == channel_id,
+        ChannelProductMapping.product_id == product_id,
+    ).update({"unit_per_set": unit_per_set}, synchronize_session=False)
+    n_raw = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == channel_id,
+        ChannelSalesRawLine.product_id == product_id,
+        ChannelSalesRawLine.mapping_status == "matched",
+    ).update({"pcs_qty": ChannelSalesRawLine.raw_qty * unit_per_set}, synchronize_session=False)
+    db.commit()
+    rebuilt = rebuild_daily_aggregate(db, channel_id=channel_id)
+    return {
+        "mappings_updated": n_map,
+        "raw_lines_pcs_updated": n_raw,
+        "daily_rebuilt": rebuilt,
+    }
+
+
 @router.get("/admin/list-mappings")
 def admin_list_mappings(channel_id: str, db: Session = Depends(get_db)):
     """채널의 ChannelProductMapping 전체 조회 (product 이름 join)."""
