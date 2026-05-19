@@ -1064,7 +1064,7 @@ function UploadTab({
             <input
               ref={fileRef}
               type="file"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx,.xls,.csv,.pdf"
               onChange={(e) => e.target.files && e.target.files[0] && upload(e.target.files[0])}
               disabled={uploading || !selChannel.has_parser}
               className="w-full text-sm text-[#D0D6E0] file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-[#828FFF] file:text-white file:cursor-pointer hover:file:bg-[#7070FF] disabled:opacity-50"
@@ -2071,7 +2071,7 @@ function PlanTab({
               </div>
               <input
                 ref={fileRef}
-                type="file" accept=".xlsx,.xls"
+                type="file" accept=".xlsx,.xls,.csv,.pdf"
                 onChange={(e) => e.target.files && e.target.files[0] && upload(e.target.files[0])}
                 disabled={busy}
                 className="flex-1 text-sm text-[#D0D6E0] file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-[#828FFF] file:text-white file:cursor-pointer hover:file:bg-[#7070FF] disabled:opacity-50"
