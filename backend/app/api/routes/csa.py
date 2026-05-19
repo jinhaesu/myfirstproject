@@ -1979,6 +1979,107 @@ def admin_list_unmatched_raw(
     ]
 
 
+@router.delete("/admin/delete-channel/{channel_id}")
+def admin_delete_channel(channel_id: str, db: Session = Depends(get_db)):
+    """채널 자체와 그에 딸린 모든 데이터를 완전 삭제 (raw/daily/batches/매핑/큐).
+
+    중복 채널 정리용. DEFAULT_CHANNELS 시드에 있는 채널은 다음 시드 시 재생성됨.
+    """
+    from app.db_models import (
+        Channel,
+        ChannelSalesRawLine,
+        ChannelSalesUploadBatch,
+        ChannelSalesDailyProduct,
+        ChannelUnmatchedProduct,
+        ChannelProductMapping,
+    )
+    raw_n = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    daily_n = db.query(ChannelSalesDailyProduct).filter(
+        ChannelSalesDailyProduct.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    batch_n = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    unm_n = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    map_n = db.query(ChannelProductMapping).filter(
+        ChannelProductMapping.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    ch = db.query(Channel).filter(Channel.id == channel_id).first()
+    name = ch.name if ch else None
+    if ch:
+        db.delete(ch)
+    db.commit()
+    return {
+        "channel_id": channel_id,
+        "channel_name": name,
+        "channel_deleted": ch is not None,
+        "raw_lines_deleted": raw_n,
+        "daily_rows_deleted": daily_n,
+        "batches_deleted": batch_n,
+        "unmatched_queue_deleted": unm_n,
+        "mappings_deleted": map_n,
+    }
+
+
+@router.post("/admin/merge-channels")
+def admin_merge_channels(
+    src_channel_id: str,
+    dst_channel_id: str,
+    db: Session = Depends(get_db),
+):
+    """src 채널의 모든 데이터(raw/daily/batches/매핑/큐)를 dst 채널로 이전 후 src 삭제."""
+    from app.db_models import (
+        Channel,
+        ChannelSalesRawLine,
+        ChannelSalesUploadBatch,
+        ChannelSalesDailyProduct,
+        ChannelUnmatchedProduct,
+        ChannelProductMapping,
+    )
+    dst = db.query(Channel).filter(Channel.id == dst_channel_id).first()
+    if not dst:
+        raise HTTPException(404, "dst channel not found")
+
+    # channel_id를 dst로 갱신
+    raw_n = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == src_channel_id
+    ).update({"channel_id": dst_channel_id, "channel_name": dst.name}, synchronize_session=False)
+    daily_n = db.query(ChannelSalesDailyProduct).filter(
+        ChannelSalesDailyProduct.channel_id == src_channel_id
+    ).update({"channel_id": dst_channel_id, "channel_name": dst.name}, synchronize_session=False)
+    batch_n = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == src_channel_id
+    ).update({"channel_id": dst_channel_id, "channel_name": dst.name}, synchronize_session=False)
+    unm_n = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.channel_id == src_channel_id
+    ).update({"channel_id": dst_channel_id, "channel_name": dst.name}, synchronize_session=False)
+    map_n = db.query(ChannelProductMapping).filter(
+        ChannelProductMapping.channel_id == src_channel_id
+    ).update({"channel_id": dst_channel_id, "channel_name": dst.name}, synchronize_session=False)
+
+    src = db.query(Channel).filter(Channel.id == src_channel_id).first()
+    if src:
+        db.delete(src)
+    db.commit()
+
+    rebuilt = rebuild_daily_aggregate(db, channel_id=dst_channel_id)
+    return {
+        "src_channel_id": src_channel_id,
+        "dst_channel_id": dst_channel_id,
+        "raw_lines_moved": raw_n,
+        "daily_rows_moved": daily_n,
+        "batches_moved": batch_n,
+        "unmatched_moved": unm_n,
+        "mappings_moved": map_n,
+        "src_channel_deleted": src is not None,
+        "daily_rebuilt": rebuilt,
+    }
+
+
 @router.post("/admin/cleanup-channel")
 def admin_cleanup_channel(channel_id: str, db: Session = Depends(get_db)):
     """채널의 batch + raw_lines + daily 모두 삭제. 재업로드 전 깨끗한 상태로.
