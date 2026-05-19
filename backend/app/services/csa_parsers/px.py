@@ -34,6 +34,25 @@ from app.services.csa_parsers._common import read_excel_safe, to_float, to_str
 _YM_RE = re.compile(r"(\d{4})\D+(\d{1,2})")
 
 
+# PX는 raw 엑셀에 매출(원) 정보가 없으므로 SKU별 표준 단가로 매출을 산정한다.
+# 단가는 "부가세 포함" 소비자가. 매출 적재 시 부가세 별도(=공급가)로 환산.
+#   gross_amount = raw_qty × (vat_incl_price / 1.1)
+# 키는 PX 엑셀의 SKU코드(col 1)를 문자열로 변환한 값.
+PX_PRICES_VAT_INCL: dict[str, float] = {
+    "260499": 4800.0,  # 널담뚱카롱 6구 (1구당 4,800원, 부가세 포함)
+}
+
+
+def _gross_for(sku: Optional[str], qty: float) -> float:
+    """SKU의 부가세 포함 단가를 부가세 별도(공급가)로 환산해 매출 계산."""
+    if not sku:
+        return 0.0
+    price_incl = PX_PRICES_VAT_INCL.get(str(sku).strip())
+    if price_incl is None:
+        return 0.0
+    return qty * price_incl / 1.1
+
+
 def _extract_month_end(df: pd.DataFrame) -> Optional[date]:
     """row 5 부근 셀에서 '조회년월 : 2026년 05월' 패턴 추출."""
     for i in range(min(10, len(df))):
@@ -136,12 +155,14 @@ def parse(path: str) -> Iterable[ParsedLine]:
         option = " ".join(p for p in (cur_region_g, cell_region) if p) or None
         line_no = f"{cur_sku or ''}@{cur_region_g or ''}-{cell_region}#L{idx}"
 
+        gross = _gross_for(cur_sku, qty)
+
         yield ParsedLine(
             sale_date=sale_d,
             line_no=line_no,
             raw_product_name=cur_prod,
             raw_option_name=option,
             raw_qty=qty,
-            gross_amount=0,  # PX raw에는 매출(원) 정보가 없음
-            net_amount=0,
+            gross_amount=gross,
+            net_amount=gross,
         )
