@@ -1810,6 +1810,38 @@ def admin_auto_map_unmatched(
     }
 
 
+@router.get("/admin/list-unmatched-raw")
+def admin_list_unmatched_raw(
+    channel_id: str,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """채널의 unmatched raw_product_name 목록 (집계)."""
+    from app.db_models import ChannelSalesRawLine
+    from sqlalchemy import func as sa_func
+    q = db.query(
+        ChannelSalesRawLine.raw_product_name,
+        ChannelSalesRawLine.raw_option_name,
+        sa_func.count(ChannelSalesRawLine.id).label("lines"),
+        sa_func.sum(ChannelSalesRawLine.gross_amount).label("gross"),
+    ).filter(
+        ChannelSalesRawLine.channel_id == channel_id,
+        ChannelSalesRawLine.mapping_status == "unmatched",
+    ).group_by(
+        ChannelSalesRawLine.raw_product_name,
+        ChannelSalesRawLine.raw_option_name,
+    ).order_by(sa_func.sum(ChannelSalesRawLine.gross_amount).desc()).limit(limit)
+    return [
+        {
+            "raw_product_name": r.raw_product_name,
+            "raw_option_name": r.raw_option_name,
+            "lines": r.lines,
+            "gross": float(r.gross or 0),
+        }
+        for r in q.all()
+    ]
+
+
 @router.post("/admin/cleanup-channel")
 def admin_cleanup_channel(channel_id: str, db: Session = Depends(get_db)):
     """채널의 batch + raw_lines + daily 모두 삭제. 재업로드 전 깨끗한 상태로.
