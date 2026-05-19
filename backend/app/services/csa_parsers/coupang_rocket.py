@@ -20,6 +20,9 @@ from app.services.csa_parsers._common import read_excel_safe, to_datetime, to_fl
 @register("쿠팡 로켓")
 @register("쿠팡 로켓프레시")
 @register("쿠팡 (로켓프레시)")
+@register("쿠팡(로켓프레시)")
+@register("쿠팡로켓프레시")
+@register("쿠팡로켓")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
     for idx, (_, row) in enumerate(df.iterrows()):
