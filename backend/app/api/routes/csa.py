@@ -1711,6 +1711,135 @@ def admin_rebuild_daily(batch_id: str, db: Session = Depends(get_db)):
     return {"batch_id": batch_id, "rows_rebuilt": n}
 
 
+@router.post("/admin/auto-map-unmatched")
+def admin_auto_map_unmatched(
+    channel_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """unmatched 상태 raw_lines를 표준 SKU/alias 기반으로 자동 매핑.
+
+    각 unique (channel, raw_product_name, raw_option_name)에 대해
+    resolve_product 호출 → matched이면 ChannelProductMapping 등록 +
+    raw_lines 갱신. 마지막에 daily 재build.
+    """
+    from app.services.csa_service import resolve_product
+    from app.db_models import ChannelSalesRawLine, ChannelProductMapping, ProductMaster
+    from sqlalchemy import func as sa_func
+
+    masters = db.query(ProductMaster).filter(ProductMaster.is_active.is_(True)).all()
+
+    q = db.query(
+        ChannelSalesRawLine.channel_id,
+        ChannelSalesRawLine.channel_name,
+        ChannelSalesRawLine.raw_product_name,
+        ChannelSalesRawLine.raw_option_name,
+        sa_func.count(ChannelSalesRawLine.id).label("lines"),
+    ).filter(ChannelSalesRawLine.mapping_status == "unmatched")
+    if channel_id:
+        q = q.filter(ChannelSalesRawLine.channel_id == channel_id)
+    q = q.group_by(
+        ChannelSalesRawLine.channel_id,
+        ChannelSalesRawLine.channel_name,
+        ChannelSalesRawLine.raw_product_name,
+        ChannelSalesRawLine.raw_option_name,
+    )
+    groups = q.all()
+
+    matched_keys = 0
+    matched_lines = 0
+    samples = []
+    for g in groups:
+        result = resolve_product(
+            db, g.channel_id, g.raw_product_name or "", g.raw_option_name,
+            masters_cache=masters,
+        )
+        if result.status != "matched" or result.product_id is None:
+            continue
+
+        existing = db.query(ChannelProductMapping).filter(
+            ChannelProductMapping.channel_id == g.channel_id,
+            ChannelProductMapping.raw_product_name == g.raw_product_name,
+            ChannelProductMapping.raw_option_name == g.raw_option_name,
+        ).first()
+        if existing:
+            existing.product_id = result.product_id
+            existing.is_excluded = False
+            existing.confidence = "auto"
+        else:
+            db.add(ChannelProductMapping(
+                channel_id=g.channel_id,
+                channel_name=g.channel_name,
+                raw_product_name=g.raw_product_name,
+                raw_option_name=g.raw_option_name,
+                product_id=result.product_id,
+                unit_per_set=result.unit_per_set or 1,
+                confidence="auto",
+                is_excluded=False,
+            ))
+
+        upd = db.query(ChannelSalesRawLine).filter(
+            ChannelSalesRawLine.channel_id == g.channel_id,
+            ChannelSalesRawLine.raw_product_name == g.raw_product_name,
+            ChannelSalesRawLine.mapping_status == "unmatched",
+        )
+        if g.raw_option_name is None:
+            upd = upd.filter(ChannelSalesRawLine.raw_option_name.is_(None))
+        else:
+            upd = upd.filter(ChannelSalesRawLine.raw_option_name == g.raw_option_name)
+        n = upd.update({
+            "product_id": result.product_id,
+            "pcs_qty": ChannelSalesRawLine.raw_qty * (result.unit_per_set or 1),
+            "mapping_status": "matched",
+        }, synchronize_session=False)
+        matched_keys += 1
+        matched_lines += n
+        if len(samples) < 20:
+            samples.append({
+                "raw": g.raw_product_name,
+                "product": result.product_name,
+                "lines": n,
+            })
+    db.commit()
+
+    rebuilt = rebuild_daily_aggregate(db, channel_id=channel_id)
+    return {
+        "matched_keys": matched_keys,
+        "matched_lines": matched_lines,
+        "samples": samples,
+        "daily_rebuilt": rebuilt,
+    }
+
+
+@router.post("/admin/cleanup-channel")
+def admin_cleanup_channel(channel_id: str, db: Session = Depends(get_db)):
+    """채널의 batch + raw_lines + daily 모두 삭제. 재업로드 전 깨끗한 상태로.
+
+    Channel/Mapping 자체는 보존. 운영자가 같은 raw 파일을 재업로드할 때
+    중복 적재(서로 다른 dedup_hash로 인식)나 잔여 daily 행과의 충돌을 방지.
+    """
+    from app.db_models import (
+        ChannelSalesRawLine,
+        ChannelSalesUploadBatch,
+        ChannelSalesDailyProduct,
+    )
+    raw_n = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    daily_n = db.query(ChannelSalesDailyProduct).filter(
+        ChannelSalesDailyProduct.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    batch_n = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {
+        "channel_id": channel_id,
+        "raw_lines_deleted": raw_n,
+        "daily_rows_deleted": daily_n,
+        "batches_deleted": batch_n,
+    }
+
+
 @router.post("/admin/rebuild-daily-all")
 def admin_rebuild_daily_all(db: Session = Depends(get_db)):
     """모든 채널·모든 기간의 daily_aggregate를 통째로 재계산.
