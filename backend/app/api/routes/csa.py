@@ -1853,6 +1853,7 @@ def admin_cleanup_channel(channel_id: str, db: Session = Depends(get_db)):
         ChannelSalesRawLine,
         ChannelSalesUploadBatch,
         ChannelSalesDailyProduct,
+        ChannelUnmatchedProduct,
     )
     raw_n = db.query(ChannelSalesRawLine).filter(
         ChannelSalesRawLine.channel_id == channel_id
@@ -1863,12 +1864,17 @@ def admin_cleanup_channel(channel_id: str, db: Session = Depends(get_db)):
     batch_n = db.query(ChannelSalesUploadBatch).filter(
         ChannelSalesUploadBatch.channel_id == channel_id
     ).delete(synchronize_session=False)
+    # 미매핑 큐도 함께 정리 (이전에 잘못 적재된 raw_lines의 깨진 값이 큐에 남는 문제 방지)
+    unm_n = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.channel_id == channel_id
+    ).delete(synchronize_session=False)
     db.commit()
     return {
         "channel_id": channel_id,
         "raw_lines_deleted": raw_n,
         "daily_rows_deleted": daily_n,
         "batches_deleted": batch_n,
+        "unmatched_queue_deleted": unm_n,
     }
 
 
