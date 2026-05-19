@@ -67,6 +67,9 @@ DEFAULT_CHANNELS = [
     {"name": "삼성웰스토리", "category": "B2B", "integration_type": "manual"},
     {"name": "CJ프레시웨이", "category": "B2B", "integration_type": "manual"},
     {"name": "아워홈", "category": "B2B", "integration_type": "manual"},
+    {"name": "제로스토어", "category": "B2B", "integration_type": "manual"},
+    {"name": "파르나스", "category": "B2B", "integration_type": "manual"},
+    {"name": "B2B파트너스", "category": "B2B", "integration_type": "manual"},
 ]
 
 
