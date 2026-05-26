@@ -183,21 +183,24 @@ const app = express();
 
 app.get("/health", (_, res) => res.json({ ok: true, name: "joinandjoin-analytics-mcp", version: "1.0.0" }));
 
-app.use("/mcp", (req, res, next) => {
+// Auth — only on the SSE handshake. The MCP SDK does NOT pass ?key= when
+// POSTing to /mcp/messages (it uses the endpoint URL emitted by the
+// SSEServerTransport, registered as bare "/mcp/messages"), so a blanket
+// app.use("/mcp", auth) middleware blocks every message POST with 401.
+// Authentication still happens at handshake time, and the messages
+// endpoint is protected by sessionId lookup (transports map), matching
+// the pattern used by the attendance backend.
+const transports = new Map();
+app.get("/mcp/sse", async (req, res) => {
   const key = req.query.key || req.headers["x-mcp-key"];
   if (key !== MCP_API_KEY) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  req.apiToken = req.query.token || req.headers["x-api-token"] || "";
-  next();
-});
-
-const transports = new Map();
-app.get("/mcp/sse", async (req, res) => {
+  const apiToken = req.query.token || req.headers["x-api-token"] || "";
   const transport = new SSEServerTransport("/mcp/messages", res);
   transports.set(transport.sessionId, transport);
   res.on("close", () => transports.delete(transport.sessionId));
-  const server = createServer(req.apiToken);
+  const server = createServer(apiToken);
   await server.connect(transport);
 });
 
