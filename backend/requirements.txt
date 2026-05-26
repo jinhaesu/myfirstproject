@@ -21,5 +21,6 @@ lxml
 httpx
 playwright
 PyPDF2
+pdfplumber
 python-docx
 msoffcrypto-tool

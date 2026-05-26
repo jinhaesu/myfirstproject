@@ -42,7 +42,7 @@ DEFAULT_PRODUCTS: list[dict[str, Any]] = [
     {"code": "BAGL", "name": "베이글", "category": "베이커리", "default_unit_size": 1, "sort_order": 3},
     {"code": "NEMO", "name": "네모바게트", "category": "베이커리", "default_unit_size": 1, "sort_order": 4},
     {"code": "SCON", "name": "스콘", "category": "베이커리", "default_unit_size": 1, "sort_order": 5},
-    {"code": "REVB", "name": "르뱅쿠키", "category": "쿠키", "default_unit_size": 1, "sort_order": 6},
+    {"code": "REVB", "name": "르뱅쿠키", "aliases": ["크럼블쿠키", "크럼블 쿠키", "두바이초코크럼블쿠키", "초코볼크럼블쿠키"], "category": "쿠키", "default_unit_size": 1, "sort_order": 6},
     {"code": "FOCC", "name": "포카치아", "category": "베이커리", "default_unit_size": 1, "sort_order": 7},
     {"code": "JJON", "name": "상온 쫀득쿠키", "category": "쿠키", "default_unit_size": 1, "sort_order": 8},
     {"code": "AMER", "name": "아메쿠키", "aliases": ["아메리칸쿠키", "아메리칸 쿠키", "American Cookie"], "category": "쿠키", "default_unit_size": 1, "sort_order": 9},
@@ -109,6 +109,50 @@ def normalize_channel_name(raw: Optional[str]) -> Optional[str]:
     if not raw:
         return None
     return CHANNEL_ALIAS.get(raw.strip(), raw.strip())
+
+
+# B2C 채널 — raw 매출 컬럼이 부가세 포함 소비자가. 매출 적재는
+# 부가세 별도(공급가) 기준으로 통일하기 위해 ingest 시점에 1/1.1 환산.
+# B2B/정산형(CU/GS25/비마트/쿠팡로켓/B2B급식/PX 등)은 이미 공급가라 변환 X.
+VAT_INCLUDED_CHANNELS: set[str] = {
+    # 오픈마켓
+    "카페24", "자사몰",
+    "스마트스토어",
+    "쿠팡 WING",
+    "11번가",
+    "지마켓", "G마켓",
+    "옥션",
+    "에이블리",
+    "알리익스프레스",
+    "테무",
+    # 소셜커머스
+    "카카오선물하기", "카카오톡스토어", "카카오스타일",
+    "토스",
+    # 버티컬
+    "올리브영",
+    "올웨이즈",
+    "마켓컬리", "컬리",
+    "크림",
+    # 홈쇼핑
+    "롯데 홈쇼핑", "롯데홈쇼핑",
+    "GS샵", "GS 샵", "GS SHOP", "GS샵쇼핑",
+    "NS MALL", "NS",
+    "신세계 TV 쇼핑", "신세계TV쇼핑", "신세계TV",
+    "신세계 라이브쇼핑", "신세계라이브쇼핑",
+    "CJ온스타일", "CJ 온스타일", "CJ ON STYLE",
+    # 백화점
+    "롯데온",
+    "SSG", "SSG닷컴",
+}
+
+
+def is_vat_included(channel_name: Optional[str]) -> bool:
+    if not channel_name:
+        return False
+    return channel_name.strip() in VAT_INCLUDED_CHANNELS
+
+
+_VAT_EXCL_FACTOR = 1.0 / 1.1  # 부가세 10% 별도 환산
 
 
 # ──────────────────────────────────────────────────────────────
@@ -259,28 +303,36 @@ def resolve_product(
     if best is None:
         return MappingResult(None, None, 1, "unmatched")
 
-    # 3) 입수 추출
-    unit = _extract_unit_per_set(haystack)
-    return MappingResult(best.id, best.name, unit, "matched")
+    # 3) 입수 추출 — 룰베이스 매칭은 채널 raw 수량을 그대로 사용 (안전 기본값 1).
+    # 입수 환산이 필요한 SKU는 관리자가 ChannelProductMapping에 명시적으로 unit_per_set을 등록해야 한다.
+    # (raw_product_name에서 "16개입(8ea x 2box, 8장)" 같은 표기를 max()로 잡아 수량이 과대계상되는 문제 방지)
+    return MappingResult(best.id, best.name, 1, "matched")
 
 
 def _extract_unit_per_set(text: str) -> int:
-    """'8개', '8구', '8입', 'x8', '8ea', '8 ea' 등에서 입수 추출. 못 찾으면 1."""
+    """[DEPRECATED] 안전한 보수적 추출만 수행.
+
+    아래 두 가지 매우 명확한 경우에만 입수를 반환한다:
+      1) 텍스트 전체(좌우 공백 제외)가 "Nㄴ" 또는 "N개입" 단일 토큰일 때
+      2) 그 외에는 무조건 1 (수량 과대계상 방지)
+
+    이전엔 상품명 곳곳에서 (\\d+)(?:개입|개|구|입|봉|병|박스|ea|EA) 패턴을
+    max()로 골랐으나, "마카롱 8개입 16개입 박스" / "(8ea x 2box, 8장)" 같은
+    표기에서 의도와 다른 큰 값이 선택되어 B마트/세븐일레븐/삼성웰스토리에서
+    pcs_qty가 +50~+118% 부풀려지는 버그 발생.
+    """
     import re
     if not text:
         return 1
-    candidates = re.findall(r"(\d+)\s*(?:개입|개|구|입|봉|병|박스|ea|EA)", text)
-    if candidates:
-        # 가장 큰 값 (8개입 vs 1세트 → 8 선택)
-        try:
-            return max(int(c) for c in candidates)
-        except Exception:
-            pass
-    # 'x8', '×8' 패턴
-    m = re.search(r"[x×X]\s*(\d+)", text)
+    t = text.strip()
+    # case 1: 전체가 "Nㄴ" 또는 "N개입" 단일 토큰
+    m = re.fullmatch(r"\s*(\d+)\s*(?:개입|개|구|입|봉|병|박스|ea|EA|장|매)\s*", t)
     if m:
         try:
-            return int(m.group(1))
+            v = int(m.group(1))
+            # 비현실적 값 차단 (1000개입 같은 광고문구)
+            if 1 <= v <= 200:
+                return v
         except Exception:
             pass
     return 1
@@ -389,6 +441,15 @@ def ingest_lines(
         elif status == "excluded":
             excluded += 1
 
+        # B2C 채널은 raw 매출이 부가세 포함이므로 부가세 별도(공급가)로 환산해 적재.
+        # 매출 인식 표준이 공급가 기준이고, B2B 채널과의 일관성 확보.
+        if is_vat_included(channel_name):
+            adj_gross = ln.gross_amount * _VAT_EXCL_FACTOR
+            adj_net = (ln.net_amount or ln.gross_amount) * _VAT_EXCL_FACTOR
+        else:
+            adj_gross = ln.gross_amount
+            adj_net = ln.net_amount or ln.gross_amount
+
         db.add(ChannelSalesRawLine(
             batch_id=batch_id,
             channel_id=channel_id,
@@ -401,8 +462,8 @@ def ingest_lines(
             raw_product_name=ln.raw_product_name,
             raw_option_name=ln.raw_option_name,
             raw_qty=ln.raw_qty,
-            gross_amount=ln.gross_amount,
-            net_amount=ln.net_amount or ln.gross_amount,
+            gross_amount=adj_gross,
+            net_amount=adj_net,
             settlement_amount=ln.settlement_amount,
             commission=ln.commission,
             shipping_fee=ln.shipping_fee,

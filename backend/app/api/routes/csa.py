@@ -5,7 +5,7 @@ import logging
 import os
 import tempfile
 from datetime import date, datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
@@ -1711,6 +1711,581 @@ def admin_rebuild_daily(batch_id: str, db: Session = Depends(get_db)):
     return {"batch_id": batch_id, "rows_rebuilt": n}
 
 
+@router.post("/admin/auto-map-unmatched")
+def admin_auto_map_unmatched(
+    channel_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """unmatched 상태 raw_lines를 표준 SKU/alias 기반으로 자동 매핑.
+
+    각 unique (channel, raw_product_name, raw_option_name)에 대해
+    resolve_product 호출 → matched이면 ChannelProductMapping 등록 +
+    raw_lines 갱신. 마지막에 daily 재build.
+    """
+    from app.services.csa_service import resolve_product
+    from app.db_models import ChannelSalesRawLine, ChannelProductMapping, ProductMaster
+    from sqlalchemy import func as sa_func
+
+    masters = db.query(ProductMaster).filter(ProductMaster.is_active.is_(True)).all()
+
+    q = db.query(
+        ChannelSalesRawLine.channel_id,
+        ChannelSalesRawLine.channel_name,
+        ChannelSalesRawLine.raw_product_name,
+        ChannelSalesRawLine.raw_option_name,
+        sa_func.count(ChannelSalesRawLine.id).label("lines"),
+    ).filter(ChannelSalesRawLine.mapping_status == "unmatched")
+    if channel_id:
+        q = q.filter(ChannelSalesRawLine.channel_id == channel_id)
+    q = q.group_by(
+        ChannelSalesRawLine.channel_id,
+        ChannelSalesRawLine.channel_name,
+        ChannelSalesRawLine.raw_product_name,
+        ChannelSalesRawLine.raw_option_name,
+    )
+    groups = q.all()
+
+    matched_keys = 0
+    matched_lines = 0
+    samples = []
+    for g in groups:
+        result = resolve_product(
+            db, g.channel_id, g.raw_product_name or "", g.raw_option_name,
+            masters_cache=masters,
+        )
+        if result.status != "matched" or result.product_id is None:
+            continue
+
+        existing = db.query(ChannelProductMapping).filter(
+            ChannelProductMapping.channel_id == g.channel_id,
+            ChannelProductMapping.raw_product_name == g.raw_product_name,
+            ChannelProductMapping.raw_option_name == g.raw_option_name,
+        ).first()
+        if existing:
+            existing.product_id = result.product_id
+            existing.is_excluded = False
+            existing.confidence = "auto"
+        else:
+            db.add(ChannelProductMapping(
+                channel_id=g.channel_id,
+                channel_name=g.channel_name,
+                raw_product_name=g.raw_product_name,
+                raw_option_name=g.raw_option_name,
+                product_id=result.product_id,
+                unit_per_set=result.unit_per_set or 1,
+                confidence="auto",
+                is_excluded=False,
+            ))
+
+        upd = db.query(ChannelSalesRawLine).filter(
+            ChannelSalesRawLine.channel_id == g.channel_id,
+            ChannelSalesRawLine.raw_product_name == g.raw_product_name,
+            ChannelSalesRawLine.mapping_status == "unmatched",
+        )
+        if g.raw_option_name is None:
+            upd = upd.filter(ChannelSalesRawLine.raw_option_name.is_(None))
+        else:
+            upd = upd.filter(ChannelSalesRawLine.raw_option_name == g.raw_option_name)
+        n = upd.update({
+            "product_id": result.product_id,
+            "pcs_qty": ChannelSalesRawLine.raw_qty * (result.unit_per_set or 1),
+            "mapping_status": "matched",
+        }, synchronize_session=False)
+        matched_keys += 1
+        matched_lines += n
+        if len(samples) < 20:
+            samples.append({
+                "raw": g.raw_product_name,
+                "product": result.product_name,
+                "lines": n,
+            })
+    db.commit()
+
+    rebuilt = rebuild_daily_aggregate(db, channel_id=channel_id)
+    return {
+        "matched_keys": matched_keys,
+        "matched_lines": matched_lines,
+        "samples": samples,
+        "daily_rebuilt": rebuilt,
+    }
+
+
+@router.get("/admin/diag-product-units")
+def admin_diag_product_units(
+    channel_id: str,
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+):
+    """채널/기간의 SKU(product_id)별 raw_qty/매출/평균단가 집계.
+
+    낱개 단가가 비현실적이면 unit_per_set 환산이 잘못된 신호.
+    """
+    from app.db_models import ChannelSalesRawLine, ProductMaster
+    from sqlalchemy import func as sa_func
+    rows = db.query(
+        ChannelSalesRawLine.product_id,
+        ProductMaster.name.label("product_name"),
+        sa_func.count(ChannelSalesRawLine.id).label("lines"),
+        sa_func.sum(ChannelSalesRawLine.raw_qty).label("qty"),
+        sa_func.sum(ChannelSalesRawLine.pcs_qty).label("pcs"),
+        sa_func.sum(ChannelSalesRawLine.gross_amount).label("gross"),
+    ).outerjoin(
+        ProductMaster, ProductMaster.id == ChannelSalesRawLine.product_id
+    ).filter(
+        ChannelSalesRawLine.channel_id == channel_id,
+        ChannelSalesRawLine.sale_date >= period_start,
+        ChannelSalesRawLine.sale_date <= period_end,
+        ChannelSalesRawLine.mapping_status == "matched",
+    ).group_by(
+        ChannelSalesRawLine.product_id, ProductMaster.name,
+    ).order_by(sa_func.sum(ChannelSalesRawLine.gross_amount).desc()).all()
+    return [
+        {
+            "product_id": r.product_id,
+            "product_name": r.product_name,
+            "lines": r.lines,
+            "raw_qty": float(r.qty or 0),
+            "pcs_qty": float(r.pcs or 0),
+            "gross": float(r.gross or 0),
+            "unit_price_per_raw": float(r.gross or 0) / float(r.qty or 1) if r.qty else 0,
+            "unit_price_per_pcs": float(r.gross or 0) / float(r.pcs or 1) if r.pcs else 0,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/admin/bulk-set-unit-by-product")
+def admin_bulk_set_unit_by_product(
+    channel_id: str,
+    product_id: int,
+    unit_per_set: int,
+    db: Session = Depends(get_db),
+):
+    """채널의 특정 product_id에 해당하는 모든 매핑의 unit_per_set 일괄 변경.
+
+    매핑이 없으면 자동 생성하지 않음(이미 매칭된 raw_lines에는 영향 없음).
+    raw_lines.pcs_qty도 함께 재계산.
+    """
+    from app.db_models import ChannelProductMapping, ChannelSalesRawLine
+    n_map = db.query(ChannelProductMapping).filter(
+        ChannelProductMapping.channel_id == channel_id,
+        ChannelProductMapping.product_id == product_id,
+    ).update({"unit_per_set": unit_per_set}, synchronize_session=False)
+    n_raw = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == channel_id,
+        ChannelSalesRawLine.product_id == product_id,
+        ChannelSalesRawLine.mapping_status == "matched",
+    ).update({"pcs_qty": ChannelSalesRawLine.raw_qty * unit_per_set}, synchronize_session=False)
+    db.commit()
+    rebuilt = rebuild_daily_aggregate(db, channel_id=channel_id)
+    return {
+        "mappings_updated": n_map,
+        "raw_lines_pcs_updated": n_raw,
+        "daily_rebuilt": rebuilt,
+    }
+
+
+@router.get("/admin/list-mappings")
+def admin_list_mappings(channel_id: str, db: Session = Depends(get_db)):
+    """채널의 ChannelProductMapping 전체 조회 (product 이름 join)."""
+    from app.db_models import ChannelProductMapping, ProductMaster, ChannelSalesRawLine
+    from sqlalchemy import func as sa_func
+    rows = db.query(
+        ChannelProductMapping.id,
+        ChannelProductMapping.raw_product_name,
+        ChannelProductMapping.raw_option_name,
+        ChannelProductMapping.product_id,
+        ChannelProductMapping.unit_per_set,
+        ChannelProductMapping.is_excluded,
+        ProductMaster.name.label("product_name"),
+    ).outerjoin(
+        ProductMaster, ProductMaster.id == ChannelProductMapping.product_id
+    ).filter(
+        ChannelProductMapping.channel_id == channel_id,
+    ).all()
+    out = []
+    for r in rows:
+        # 라인 수와 매출 합계 추가
+        stats = db.query(
+            sa_func.count(ChannelSalesRawLine.id).label("lines"),
+            sa_func.sum(ChannelSalesRawLine.raw_qty).label("qty"),
+            sa_func.sum(ChannelSalesRawLine.gross_amount).label("gross"),
+        ).filter(
+            ChannelSalesRawLine.channel_id == channel_id,
+            ChannelSalesRawLine.raw_product_name == r.raw_product_name,
+        ).first()
+        out.append({
+            "id": r.id,
+            "raw_product_name": r.raw_product_name,
+            "raw_option_name": r.raw_option_name,
+            "product_id": r.product_id,
+            "product_name": r.product_name,
+            "unit_per_set": r.unit_per_set,
+            "is_excluded": r.is_excluded,
+            "lines": stats.lines or 0,
+            "raw_qty": float(stats.qty or 0),
+            "gross": float(stats.gross or 0),
+        })
+    return out
+
+
+@router.post("/admin/set-mapping-unit")
+def admin_set_mapping_unit(
+    mapping_id: int,
+    unit_per_set: int,
+    db: Session = Depends(get_db),
+):
+    """단일 매핑의 unit_per_set 변경."""
+    from app.db_models import ChannelProductMapping
+    m = db.query(ChannelProductMapping).filter(ChannelProductMapping.id == mapping_id).first()
+    if not m:
+        raise HTTPException(404, "mapping not found")
+    old = m.unit_per_set
+    m.unit_per_set = unit_per_set
+    db.commit()
+    return {"mapping_id": mapping_id, "old": old, "new": unit_per_set}
+
+
+@router.get("/admin/list-unmatched-raw")
+def admin_list_unmatched_raw(
+    channel_id: str,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """채널의 unmatched raw_product_name 목록 (집계)."""
+    from app.db_models import ChannelSalesRawLine
+    from sqlalchemy import func as sa_func
+    q = db.query(
+        ChannelSalesRawLine.raw_product_name,
+        ChannelSalesRawLine.raw_option_name,
+        sa_func.count(ChannelSalesRawLine.id).label("lines"),
+        sa_func.sum(ChannelSalesRawLine.gross_amount).label("gross"),
+    ).filter(
+        ChannelSalesRawLine.channel_id == channel_id,
+        ChannelSalesRawLine.mapping_status == "unmatched",
+    ).group_by(
+        ChannelSalesRawLine.raw_product_name,
+        ChannelSalesRawLine.raw_option_name,
+    ).order_by(sa_func.sum(ChannelSalesRawLine.gross_amount).desc()).limit(limit)
+    return [
+        {
+            "raw_product_name": r.raw_product_name,
+            "raw_option_name": r.raw_option_name,
+            "lines": r.lines,
+            "gross": float(r.gross or 0),
+        }
+        for r in q.all()
+    ]
+
+
+@router.delete("/admin/delete-channel/{channel_id}")
+def admin_delete_channel(channel_id: str, db: Session = Depends(get_db)):
+    """채널 자체와 그에 딸린 모든 데이터를 완전 삭제 (raw/daily/batches/매핑/큐).
+
+    중복 채널 정리용. DEFAULT_CHANNELS 시드에 있는 채널은 다음 시드 시 재생성됨.
+    """
+    from app.db_models import (
+        Channel,
+        ChannelSalesRawLine,
+        ChannelSalesUploadBatch,
+        ChannelSalesDailyProduct,
+        ChannelUnmatchedProduct,
+        ChannelProductMapping,
+    )
+    raw_n = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    daily_n = db.query(ChannelSalesDailyProduct).filter(
+        ChannelSalesDailyProduct.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    batch_n = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    unm_n = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    map_n = db.query(ChannelProductMapping).filter(
+        ChannelProductMapping.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    ch = db.query(Channel).filter(Channel.id == channel_id).first()
+    name = ch.name if ch else None
+    if ch:
+        db.delete(ch)
+    db.commit()
+    return {
+        "channel_id": channel_id,
+        "channel_name": name,
+        "channel_deleted": ch is not None,
+        "raw_lines_deleted": raw_n,
+        "daily_rows_deleted": daily_n,
+        "batches_deleted": batch_n,
+        "unmatched_queue_deleted": unm_n,
+        "mappings_deleted": map_n,
+    }
+
+
+@router.post("/admin/merge-channels")
+def admin_merge_channels(
+    src_channel_id: str,
+    dst_channel_id: str,
+    db: Session = Depends(get_db),
+):
+    """src 채널의 모든 데이터(raw/daily/batches/매핑/큐)를 dst 채널로 이전 후 src 삭제."""
+    from app.db_models import (
+        Channel,
+        ChannelSalesRawLine,
+        ChannelSalesUploadBatch,
+        ChannelSalesDailyProduct,
+        ChannelUnmatchedProduct,
+        ChannelProductMapping,
+    )
+    dst = db.query(Channel).filter(Channel.id == dst_channel_id).first()
+    if not dst:
+        raise HTTPException(404, "dst channel not found")
+
+    # channel_id를 dst로 갱신
+    raw_n = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == src_channel_id
+    ).update({"channel_id": dst_channel_id, "channel_name": dst.name}, synchronize_session=False)
+    daily_n = db.query(ChannelSalesDailyProduct).filter(
+        ChannelSalesDailyProduct.channel_id == src_channel_id
+    ).update({"channel_id": dst_channel_id, "channel_name": dst.name}, synchronize_session=False)
+    batch_n = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == src_channel_id
+    ).update({"channel_id": dst_channel_id, "channel_name": dst.name}, synchronize_session=False)
+    unm_n = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.channel_id == src_channel_id
+    ).update({"channel_id": dst_channel_id, "channel_name": dst.name}, synchronize_session=False)
+    map_n = db.query(ChannelProductMapping).filter(
+        ChannelProductMapping.channel_id == src_channel_id
+    ).update({"channel_id": dst_channel_id, "channel_name": dst.name}, synchronize_session=False)
+
+    src = db.query(Channel).filter(Channel.id == src_channel_id).first()
+    if src:
+        db.delete(src)
+    db.commit()
+
+    rebuilt = rebuild_daily_aggregate(db, channel_id=dst_channel_id)
+    return {
+        "src_channel_id": src_channel_id,
+        "dst_channel_id": dst_channel_id,
+        "raw_lines_moved": raw_n,
+        "daily_rows_moved": daily_n,
+        "batches_moved": batch_n,
+        "unmatched_moved": unm_n,
+        "mappings_moved": map_n,
+        "src_channel_deleted": src is not None,
+        "daily_rebuilt": rebuilt,
+    }
+
+
+@router.post("/admin/cleanup-vat-incl-channels")
+def admin_cleanup_vat_incl_channels(db: Session = Depends(get_db)):
+    """B2C(부가세 포함) 채널들의 모든 raw/daily/batches/큐를 일괄 cleanup.
+
+    부가세 별도 통일 정책 도입 후 신규 ingest는 자동 환산되지만,
+    기존 적재 데이터는 환산 안 된 상태라 cleanup 후 재업로드 필요.
+    매핑은 보존.
+    """
+    from app.db_models import (
+        Channel,
+        ChannelSalesRawLine,
+        ChannelSalesUploadBatch,
+        ChannelSalesDailyProduct,
+        ChannelUnmatchedProduct,
+    )
+    from app.services.csa_service import VAT_INCLUDED_CHANNELS
+
+    # 채널명이 VAT_INCLUDED_CHANNELS에 속하는 채널들의 id 모두 추출
+    channels = db.query(Channel).filter(
+        Channel.name.in_(list(VAT_INCLUDED_CHANNELS))
+    ).all()
+
+    results = []
+    total_raw = total_daily = total_batch = total_unm = 0
+    for ch in channels:
+        raw_n = db.query(ChannelSalesRawLine).filter(
+            ChannelSalesRawLine.channel_id == ch.id
+        ).delete(synchronize_session=False)
+        daily_n = db.query(ChannelSalesDailyProduct).filter(
+            ChannelSalesDailyProduct.channel_id == ch.id
+        ).delete(synchronize_session=False)
+        batch_n = db.query(ChannelSalesUploadBatch).filter(
+            ChannelSalesUploadBatch.channel_id == ch.id
+        ).delete(synchronize_session=False)
+        unm_n = db.query(ChannelUnmatchedProduct).filter(
+            ChannelUnmatchedProduct.channel_id == ch.id
+        ).delete(synchronize_session=False)
+        if raw_n or daily_n or batch_n or unm_n:
+            results.append({
+                "channel_id": ch.id,
+                "channel_name": ch.name,
+                "raw_lines": raw_n,
+                "daily_rows": daily_n,
+                "batches": batch_n,
+                "unmatched": unm_n,
+            })
+        total_raw += raw_n
+        total_daily += daily_n
+        total_batch += batch_n
+        total_unm += unm_n
+    db.commit()
+    return {
+        "channels_processed": len(channels),
+        "channels_with_data": len(results),
+        "totals": {
+            "raw_lines": total_raw,
+            "daily_rows": total_daily,
+            "batches": total_batch,
+            "unmatched_queue": total_unm,
+        },
+        "details": results,
+    }
+
+
+@router.post("/admin/cleanup-channel")
+def admin_cleanup_channel(channel_id: str, db: Session = Depends(get_db)):
+    """채널의 batch + raw_lines + daily 모두 삭제. 재업로드 전 깨끗한 상태로.
+
+    Channel/Mapping 자체는 보존. 운영자가 같은 raw 파일을 재업로드할 때
+    중복 적재(서로 다른 dedup_hash로 인식)나 잔여 daily 행과의 충돌을 방지.
+    """
+    from app.db_models import (
+        ChannelSalesRawLine,
+        ChannelSalesUploadBatch,
+        ChannelSalesDailyProduct,
+        ChannelUnmatchedProduct,
+    )
+    raw_n = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    daily_n = db.query(ChannelSalesDailyProduct).filter(
+        ChannelSalesDailyProduct.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    batch_n = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    # 미매핑 큐도 함께 정리 (이전에 잘못 적재된 raw_lines의 깨진 값이 큐에 남는 문제 방지)
+    unm_n = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.channel_id == channel_id
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {
+        "channel_id": channel_id,
+        "raw_lines_deleted": raw_n,
+        "daily_rows_deleted": daily_n,
+        "batches_deleted": batch_n,
+        "unmatched_queue_deleted": unm_n,
+    }
+
+
+@router.post("/admin/rebuild-daily-all")
+def admin_rebuild_daily_all(db: Session = Depends(get_db)):
+    """모든 채널·모든 기간의 daily_aggregate를 통째로 재계산.
+
+    코드 변경(예: unmatched 포함, unit_per_set 환산 변경)이 있을 때 호출.
+    raw_lines는 그대로 두고 ChannelSalesDailyProduct만 다시 build.
+    """
+    n = rebuild_daily_aggregate(db)
+    return {"rows_rebuilt": n}
+
+
+@router.get("/admin/diag-raw-sums")
+def admin_diag_raw_sums(
+    channel_id: str,
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+):
+    """raw_lines 합계(매출/수량)를 직접 조회 — daily 집계와 비교하여 누락 원인 파악."""
+    from app.db_models import ChannelSalesRawLine
+    from sqlalchemy import func as sa_func, case
+    q = db.query(
+        sa_func.count(ChannelSalesRawLine.id).label("lines"),
+        sa_func.sum(ChannelSalesRawLine.raw_qty).label("raw_qty"),
+        sa_func.sum(ChannelSalesRawLine.pcs_qty).label("pcs_qty"),
+        sa_func.sum(ChannelSalesRawLine.gross_amount).label("gross"),
+        sa_func.sum(ChannelSalesRawLine.net_amount).label("net"),
+        ChannelSalesRawLine.mapping_status,
+    ).filter(
+        ChannelSalesRawLine.channel_id == channel_id,
+        ChannelSalesRawLine.sale_date >= period_start,
+        ChannelSalesRawLine.sale_date <= period_end,
+    ).group_by(ChannelSalesRawLine.mapping_status)
+    by_status = [
+        {
+            "status": r.mapping_status,
+            "lines": r.lines,
+            "raw_qty": float(r.raw_qty or 0),
+            "pcs_qty": float(r.pcs_qty or 0),
+            "gross": float(r.gross or 0),
+            "net": float(r.net or 0),
+        }
+        for r in q.all()
+    ]
+    totals = {
+        "lines": sum(b["lines"] for b in by_status),
+        "raw_qty": sum(b["raw_qty"] for b in by_status),
+        "pcs_qty": sum(b["pcs_qty"] for b in by_status),
+        "gross": sum(b["gross"] for b in by_status),
+        "net": sum(b["net"] for b in by_status),
+    }
+    return {"by_status": by_status, "totals": totals}
+
+
+@router.post("/admin/remap-raw-lines")
+def admin_remap_raw_lines(
+    channel_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """모든(또는 특정 채널) raw_lines에 대해 resolve_product를 재실행하여
+    product_id / pcs_qty / mapping_status를 새 매핑 규칙으로 갱신.
+
+    pcs_qty 환산 로직 변경(예: unit_per_set 자동 추출 비활성)이 있을 때
+    과거 적재된 raw_lines를 다시 매핑해 daily 재계산까지 함께 진행.
+    """
+    from app.services.csa_service import resolve_product
+    from app.db_models import ChannelSalesRawLine, ProductMaster
+
+    masters = db.query(ProductMaster).filter(ProductMaster.is_active.is_(True)).all()
+
+    q = db.query(ChannelSalesRawLine)
+    if channel_id:
+        q = q.filter(ChannelSalesRawLine.channel_id == channel_id)
+
+    total = 0
+    changed = 0
+    BATCH = 500
+    offset = 0
+    while True:
+        rows = q.order_by(ChannelSalesRawLine.id).offset(offset).limit(BATCH).all()
+        if not rows:
+            break
+        for r in rows:
+            total += 1
+            mapping = resolve_product(
+                db, r.channel_id, r.raw_product_name or "", r.raw_option_name,
+                masters_cache=masters,
+            )
+            new_pcs = (r.raw_qty or 0) * mapping.unit_per_set
+            if (
+                r.product_id != mapping.product_id
+                or r.pcs_qty != new_pcs
+                or r.mapping_status != mapping.status
+            ):
+                r.product_id = mapping.product_id
+                r.pcs_qty = new_pcs
+                r.mapping_status = mapping.status
+                changed += 1
+        db.commit()
+        offset += BATCH
+
+    # raw_lines 갱신 후 daily 재계산
+    rebuilt = rebuild_daily_aggregate(db, channel_id=channel_id)
+    return {"total": total, "changed": changed, "daily_rebuilt": rebuilt}
+
+
 @router.get("/admin/diag-pnl-plan")
 def admin_diag_pnl_plan(year: int = 2026, db: Session = Depends(get_db)):
     """P&L plan 진단: 어떤 데이터가 비어서 0이 되는지 핀포인트.
@@ -1896,3 +2471,120 @@ def avg_price_analysis(
     items.sort(key=lambda x: -x["revenue"])
     return {"by": by, "period_start": period_start.isoformat(),
             "period_end": period_end.isoformat(), "items": items[:200]}
+
+
+@router.get("/admin/diag-excluded-mappings")
+def admin_diag_excluded_mappings(
+    channel_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """is_excluded=True 매핑 + 그 매핑이 적용된 raw_lines 통계.
+
+    잘못 excluded 처리된 매핑을 자동 탐지하기 위함.
+    avg_line_gross가 큰 매핑일수록 식품일 가능성이 높아 의심됨.
+    """
+    from sqlalchemy import func as sa_func
+
+    q = db.query(ChannelProductMapping).filter(ChannelProductMapping.is_excluded.is_(True))
+    if channel_id:
+        q = q.filter(ChannelProductMapping.channel_id == channel_id)
+
+    results = []
+    for m in q.all():
+        stats = db.query(
+            sa_func.count(ChannelSalesRawLine.id).label("lines"),
+            sa_func.sum(ChannelSalesRawLine.raw_qty).label("qty"),
+            sa_func.sum(ChannelSalesRawLine.gross_amount).label("gross"),
+        ).filter(
+            ChannelSalesRawLine.channel_id == m.channel_id,
+            ChannelSalesRawLine.raw_product_name == m.raw_product_name,
+            ChannelSalesRawLine.mapping_status == "excluded",
+        ).first()
+        lines = int(stats.lines or 0)
+        gross = float(stats.gross or 0)
+        results.append({
+            "mapping_id": m.id,
+            "channel_id": m.channel_id,
+            "channel_name": m.channel_name,
+            "raw_product_name": m.raw_product_name,
+            "raw_option_name": m.raw_option_name,
+            "notes": m.notes,
+            "lines": lines,
+            "qty": float(stats.qty or 0),
+            "gross": gross,
+            "avg_line_gross": (gross / lines) if lines else 0,
+        })
+    results.sort(key=lambda r: -r["avg_line_gross"])
+    return results
+
+
+@router.post("/admin/unexclude-mappings")
+def admin_unexclude_mappings(
+    mapping_ids: List[int] = Body(..., embed=True),
+    db: Session = Depends(get_db),
+):
+    """잘못 excluded 처리된 매핑들을 is_excluded=False로 일괄 해제.
+
+    호출 후에는 /admin/remap-raw-lines 로 raw_lines를 재매핑하고
+    /admin/rebuild-daily-all 로 daily aggregate를 다시 계산해야 함.
+    """
+    if not mapping_ids:
+        raise HTTPException(400, "mapping_ids is empty")
+    rows = db.query(ChannelProductMapping).filter(
+        ChannelProductMapping.id.in_(mapping_ids)
+    ).all()
+    updated = []
+    for m in rows:
+        if m.is_excluded:
+            m.is_excluded = False
+            updated.append({
+                "mapping_id": m.id,
+                "channel_id": m.channel_id,
+                "raw_product_name": m.raw_product_name,
+            })
+    db.commit()
+    return {"updated_count": len(updated), "updated": updated}
+
+
+class SetMappingProductIn(BaseModel):
+    mapping_id: int
+    product_code: str
+    unit_per_set: int = 1
+
+
+@router.post("/admin/set-mapping-product")
+def admin_set_mapping_product(
+    payload: SetMappingProductIn,
+    db: Session = Depends(get_db),
+):
+    """특정 ChannelProductMapping에 ProductMaster.code 기준으로 product_id를 설정.
+
+    is_excluded=False 도 함께 보장.
+    """
+    product = db.query(ProductMaster).filter(
+        ProductMaster.code == payload.product_code
+    ).first()
+    if not product:
+        raise HTTPException(404, f"ProductMaster with code='{payload.product_code}' not found")
+
+    mapping = db.query(ChannelProductMapping).filter(
+        ChannelProductMapping.id == payload.mapping_id
+    ).first()
+    if not mapping:
+        raise HTTPException(404, f"ChannelProductMapping id={payload.mapping_id} not found")
+
+    mapping.product_id = product.id
+    mapping.unit_per_set = payload.unit_per_set
+    mapping.is_excluded = False
+    mapping.confidence = "manual"
+    db.commit()
+    db.refresh(mapping)
+    return {
+        "mapping_id": mapping.id,
+        "raw_product_name": mapping.raw_product_name,
+        "product_id": product.id,
+        "product_code": product.code,
+        "product_name": product.name,
+        "unit_per_set": mapping.unit_per_set,
+        "is_excluded": mapping.is_excluded,
+    }
