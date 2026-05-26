@@ -1,4 +1,4 @@
-# myfirstproject MCP 서버 Railway 자동 배포 스크립트
+﻿# myfirstproject MCP 서버 Railway 자동 배포 스크립트
 # 사용법:
 #   1. 먼저 `! railway login` 으로 인증
 #   2. .\deploy.ps1 실행
