@@ -1,0 +1,20 @@
+{
+  "name": "myfirstproject-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for BigQuery Chat Analytics & Channel Operations (조인앤조인)",
+  "main": "index.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "start:stdio": "node index.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "keywords": ["mcp", "bigquery", "channel-analytics", "joinandjoin"],
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^5.2.1",
+    "node-fetch": "^3.3.2",
+    "zod": "^4.3.6"
+  }
+}
