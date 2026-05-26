@@ -83,6 +83,32 @@ node server.mjs
 
 ## Railway 배포
 
+### 자동 (권장) — `deploy.ps1`
+
+```powershell
+# 1) 한 번만: 메인 채팅에서 ! railway login 실행
+# 2) PowerShell에서 mcp-server 폴더로 이동
+cd C:\Users\lion9\myfirstproject\mcp-server
+
+# 3) 스크립트 실행
+.\deploy.ps1 -BackendUrl "https://your-backend.up.railway.app" -McpApiKey "your-secret"
+# 인수 없이 실행 시 대화형 입력
+.\deploy.ps1
+```
+
+스크립트 자동 수행:
+- 새 프로젝트 생성 (`myfirstproject-mcp`)
+- 환경변수 설정 (`ANALYTICS_API_URL`, `MCP_API_KEY`, `PORT=3002`)
+- Dockerfile 빌드 + 배포
+- 도메인 생성
+
+실행 정책 오류:
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+### 수동
+
 1. 새 서비스 생성 → GitHub `jinhaesu/myfirstproject` 연결
 2. **Root directory**: `mcp-server`
 3. **Dockerfile** 자동 감지
