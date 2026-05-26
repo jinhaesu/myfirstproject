@@ -215,3 +215,4 @@ app.listen(PORT, () => {
   console.log(`Analytics MCP server listening on :${PORT}`);
   console.log(`Backend: ${BACKEND_URL}`);
 });
+
