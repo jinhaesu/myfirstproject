@@ -176,7 +176,10 @@ function createServer(apiToken) {
 }
 
 const app = express();
-app.use(express.json({ limit: "10mb" }));
+// NOTE: do NOT mount express.json() globally — SSEServerTransport reads
+// the raw POST body on /mcp/messages, and a json middleware in front
+// consumes the stream and causes 400 Bad Request on every message.
+// This server only exposes MCP endpoints, so no other route needs json.
 
 app.get("/health", (_, res) => res.json({ ok: true, name: "joinandjoin-analytics-mcp", version: "1.0.0" }));
 
@@ -201,7 +204,8 @@ app.get("/mcp/sse", async (req, res) => {
 app.post("/mcp/messages", async (req, res) => {
   const transport = transports.get(req.query.sessionId);
   if (!transport) return res.status(404).json({ error: "Session not found" });
-  await transport.handlePostMessage(req, res, req.body);
+  // Pass req/res only — the SDK reads the raw body itself.
+  await transport.handlePostMessage(req, res);
 });
 
 app.listen(PORT, () => {
