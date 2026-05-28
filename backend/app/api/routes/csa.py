@@ -324,10 +324,12 @@ async def upload_channel_file(
         fsize = len(content)
         fhash = file_sha256(tmp_path)
 
-        # 동일 파일 재업로드 감지
+        # 동일 파일 재업로드 감지 — failed/canceled batch는 dup으로 잡지 않음
+        # (실패한 batch를 사용자가 재시도할 수 있게)
         dup_batch = db.query(ChannelSalesUploadBatch).filter(
             ChannelSalesUploadBatch.channel_id == channel_id,
             ChannelSalesUploadBatch.file_hash == fhash,
+            ChannelSalesUploadBatch.status.notin_(["failed", "canceled"]),
         ).first()
         if dup_batch:
             return {
