@@ -370,7 +370,7 @@ def get_pnl_matrix(db: Session, year: int) -> dict:
     _t0 = _time.time()
     def _lap(label):
         nonlocal _t0
-        log.info(f"[pnl_matrix] {label}: {(_time.time()-_t0)*1000:.0f}ms")
+        print(f"[pnl_matrix] {label}: {(_time.time()-_t0)*1000:.0f}ms", flush=True)
         _t0 = _time.time()
 
     existing_count = db.query(func.count(CsaPnlRow.id)).filter(
