@@ -189,31 +189,52 @@ def _sum_daily_field(db: Session, year: int, month: int, field: str) -> float:
 
 
 def compute_actual(db: Session, year: int) -> dict[tuple[str, int], float]:
-    """{(formula_code, month): value} 형태로 자동 계산값 반환."""
-    out: dict[tuple[str, int], float] = {}
-    for month in range(1, 13):
-        rev = _sum_daily_field(db, year, month, "net_sales")
-        labor = _sum_daily_field(db, year, month, "cost_labor")
-        overhead = _sum_daily_field(db, year, month, "cost_overhead")
-        cogs_basic = _sum_daily_field(db, year, month, "cost_cogs")  # 원가 항목 (rule 기준)
-        adv = _sum_daily_field(db, year, month, "cost_advertising")
-        commr = _sum_daily_field(db, year, month, "cost_commission_rate")
-        commf = _sum_daily_field(db, year, month, "cost_commission_fixed")
-        ship = _sum_daily_field(db, year, month, "cost_shipping")
-        pack = _sum_daily_field(db, year, month, "cost_packaging")
-        lw = _sum_daily_field(db, year, month, "cost_logistics_work")
-        lo = _sum_daily_field(db, year, month, "cost_logistics_oh")
+    """{(formula_code, month): value} 형태로 자동 계산값 반환.
 
-        out[("revenue", month)] = rev
+    이전엔 (12개월 × 11개 컬럼 = 132개) 개별 SUM query를 순차 호출했으나
+    Supabase pooler RTT × 132 ≈ 30~60초로 PNL endpoint timeout. 단일 GROUP BY 1회 호출로 통합.
+    """
+    rows = db.query(
+        ChannelSalesDailyProduct.month,
+        func.coalesce(func.sum(ChannelSalesDailyProduct.net_sales), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_labor), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_overhead), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_cogs), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_advertising), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_commission_rate), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_commission_fixed), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_shipping), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_packaging), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_logistics_work), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_logistics_oh), 0),
+    ).filter(
+        ChannelSalesDailyProduct.year == year,
+    ).group_by(ChannelSalesDailyProduct.month).all()
+
+    out: dict[tuple[str, int], float] = {}
+    # 데이터 없는 월은 0으로 채움 (frontend는 12개월 전체 노출)
+    for m in range(1, 13):
+        out[("revenue", m)] = 0.0
+        out[("cogs_material", m)] = 0.0
+        out[("labor", m)] = 0.0
+        out[("overhead", m)] = 0.0
+        out[("advertising", m)] = 0.0
+        out[("commission_all", m)] = 0.0
+        out[("shipping", m)] = 0.0
+        out[("packaging", m)] = 0.0
+        out[("logistics", m)] = 0.0
+    for r in rows:
+        m = int(r[0])
+        out[("revenue", m)] = float(r[1] or 0)
+        out[("labor", m)] = float(r[2] or 0)
+        out[("overhead", m)] = float(r[3] or 0)
         # cost_cogs = 변동비 설정의 '원가' 규칙 합 (원재료+부재료 통합)
-        out[("cogs_material", month)] = cogs_basic
-        out[("labor", month)] = labor
-        out[("overhead", month)] = overhead
-        out[("advertising", month)] = adv
-        out[("commission_all", month)] = commr + commf
-        out[("shipping", month)] = ship
-        out[("packaging", month)] = pack
-        out[("logistics", month)] = lw + lo
+        out[("cogs_material", m)] = float(r[4] or 0)
+        out[("advertising", m)] = float(r[5] or 0)
+        out[("commission_all", m)] = float(r[6] or 0) + float(r[7] or 0)
+        out[("shipping", m)] = float(r[8] or 0)
+        out[("packaging", m)] = float(r[9] or 0)
+        out[("logistics", m)] = float(r[10] or 0) + float(r[11] or 0)
     return out
 
 
