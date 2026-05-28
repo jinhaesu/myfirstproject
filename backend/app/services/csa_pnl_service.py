@@ -366,7 +366,14 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
 # ──────────────────────────────────────────────────────────────
 
 def get_pnl_matrix(db: Session, year: int) -> dict:
-    seed_pnl_rows(db)
+    # seed_pnl_rows는 매 요청당 16 row × SELECT+UPDATE = ~30 query 발생.
+    # Supabase pooler RTT × 30 ≈ 15초 누적 → endpoint 호출당 비용 큼.
+    # 한 번에 모든 row 개수만 확인하고 미충족 시에만 seed 호출 (멱등).
+    existing_count = db.query(func.count(CsaPnlRow.id)).filter(
+        CsaPnlRow.code.in_([r[0] for r in ROW_SEED])
+    ).scalar() or 0
+    if existing_count < len(ROW_SEED):
+        seed_pnl_rows(db)
     rows = db.query(CsaPnlRow).filter(CsaPnlRow.is_active.is_(True)).order_by(CsaPnlRow.sort_order).all()
     actual_calc = compute_actual(db, year)
     plan_calc = compute_plan(db, year)
