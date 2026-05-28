@@ -10,8 +10,17 @@ if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 # 데이터베이스 연결이 설정되어 있는 경우에만 엔진 생성
+# Supabase pooler 연결의 stale 소켓이 풀에 남아 모든 CSA endpoint가 8초 후 500으로
+# 떨어지는 사고를 막기 위해 pre_ping + recycle + 짧은 connect_timeout 적용.
 if DATABASE_URL:
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+        pool_size=10,
+        max_overflow=20,
+        connect_args={"connect_timeout": 5} if "postgresql" in DATABASE_URL else {},
+    )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 else:
     engine = None
