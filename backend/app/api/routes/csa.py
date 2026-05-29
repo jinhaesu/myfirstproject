@@ -1317,7 +1317,13 @@ class PnlVerifyIn(BaseModel):
 
 @router.get("/pnl")
 def pnl_matrix(year: int, db: Session = Depends(get_db)):
-    return get_pnl_matrix(db, year)
+    import time as _time
+    _t0 = _time.time()
+    result = get_pnl_matrix(db, year)
+    elapsed_ms = int((_time.time() - _t0) * 1000)
+    if isinstance(result, dict):
+        result["_timing_ms"] = elapsed_ms
+    return result
 
 
 @router.post("/pnl/value")
