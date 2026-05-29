@@ -417,7 +417,7 @@ async def summarize_call(call_id: str, db: Session = Depends(get_db)):
 
             client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
             message = client.messages.create(
-                model="claude-opus-4-5",
+                model="claude-opus-4-8",
                 max_tokens=500,
                 messages=[
                     {
@@ -839,7 +839,7 @@ async def webhook_call_completed(body: dict, db: Session = Depends(get_db)):
                 settings = get_settings()
                 client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
                 message = client.messages.create(
-                    model="claude-opus-4-5",
+                    model="claude-opus-4-8",
                     max_tokens=500,
                     messages=[
                         {

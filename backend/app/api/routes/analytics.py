@@ -279,7 +279,7 @@ JSON 배열만 반환하세요. 마크다운 코드블록 없이 순수 JSON만 
 
     try:
         message = client.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-opus-4-8",
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
