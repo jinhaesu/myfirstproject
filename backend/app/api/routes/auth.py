@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
@@ -8,6 +10,11 @@ from app.services.otp_service import OTPService
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 security = HTTPBearer()
+
+
+# Synthetic user returned when the request authenticates with the
+# JARVIS service key instead of a real user JWT.
+_JARVIS_USER = {"email": "jarvis@joinandjoin.com", "name": "JARVIS"}
 
 
 class LoginRequest(BaseModel):
@@ -52,8 +59,21 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     auth_service: AuthService = Depends(get_auth_service)
 ) -> dict:
-    """현재 로그인한 사용자 조회"""
+    """현재 로그인한 사용자 조회.
+
+    Auth resolution order:
+      1. If JARVIS_API_KEY env var is set AND the incoming Bearer token
+         matches it exactly, return a synthetic JARVIS service user.
+         This lets the JARVIS orchestrator call the API with one static
+         key instead of juggling JWT renewal.
+      2. Otherwise verify the token as a regular user JWT.
+    """
     token = credentials.credentials
+
+    jarvis_key = os.getenv("JARVIS_API_KEY")
+    if jarvis_key and token == jarvis_key:
+        return _JARVIS_USER
+
     payload = auth_service.verify_token(token)
 
     if payload is None:

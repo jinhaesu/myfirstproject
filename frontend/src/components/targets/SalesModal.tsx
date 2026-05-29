@@ -133,15 +133,15 @@ export function SalesModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* 헤더 */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-800">
+        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-[#F7F8F8]">
             {initialData ? '매출 현황 수정' : '새 매출 현황 기입'}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+            className="p-2 text-[#62666D] hover:text-[#D0D6E0] transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -153,11 +153,11 @@ export function SalesModal({
         <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-6">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">기준 년도</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">기준 년도</label>
               <select
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}년</option>
@@ -165,11 +165,11 @@ export function SalesModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">월</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">월</label>
               <select
                 value={month}
                 onChange={(e) => setMonth(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
               >
                 {months.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
@@ -177,33 +177,33 @@ export function SalesModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">제목</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">제목</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
                 placeholder="1월 매출 현황"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">책임자</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">책임자</label>
               <input
                 type="text"
                 value={manager}
                 onChange={(e) => setManager(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
                 placeholder="홍길동"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">KPI 구분</label>
+              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">KPI 구분</label>
               <select
                 value={kpiType}
                 onChange={(e) => setKpiType(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
               >
                 {kpiTypes.map((type) => (
                   <option key={type} value={type}>{type}</option>
@@ -213,7 +213,7 @@ export function SalesModal({
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-[#D0D6E0] mb-2">
               일별 데이터 입력 ({year}년 {month}월 - {dayColumns.length}일)
             </label>
             <ExcelGrid
@@ -227,17 +227,17 @@ export function SalesModal({
         </form>
 
         {/* 푸터 */}
-        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-[#23252A] flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-[#8A8F98] hover:bg-white/5/5 rounded-lg transition-colors"
           >
             취소
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+            className="px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-[#27A644] transition-colors"
           >
             저장
           </button>

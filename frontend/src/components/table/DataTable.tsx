@@ -25,7 +25,7 @@ export function DataTable({ columns, rows }: DataTableProps) {
           cell: (info) => {
             const value = info.getValue();
             if (value === null || value === undefined) {
-              return <span className="text-gray-400">NULL</span>;
+              return <span className="text-[#62666D]">NULL</span>;
             }
             if (typeof value === 'object') {
               return JSON.stringify(value);
@@ -51,7 +51,7 @@ export function DataTable({ columns, rows }: DataTableProps) {
 
   if (rows.length === 0) {
     return (
-      <div className="text-center text-gray-500 py-8">
+      <div className="text-center text-[#8A8F98] py-8">
         결과가 없습니다
       </div>
     );
@@ -59,14 +59,14 @@ export function DataTable({ columns, rows }: DataTableProps) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="min-w-full divide-y divide-[#23252A]">
+        <thead className="bg-[#08090A]">
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  className="px-4 py-3 text-left text-xs font-medium text-[#8A8F98] uppercase tracking-wider"
                 >
                   {flexRender(header.column.columnDef.header, header.getContext())}
                 </th>
@@ -74,13 +74,13 @@ export function DataTable({ columns, rows }: DataTableProps) {
             </tr>
           ))}
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-[#0F1011] divide-y divide-[#23252A]">
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="hover:bg-gray-50">
+            <tr key={row.id} className="hover:bg-white/5/5">
               {row.getVisibleCells().map((cell) => (
                 <td
                   key={cell.id}
-                  className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap max-w-xs truncate"
+                  className="px-4 py-2 text-sm text-[#F7F8F8] whitespace-nowrap max-w-xs truncate"
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
@@ -92,7 +92,7 @@ export function DataTable({ columns, rows }: DataTableProps) {
 
       {/* 페이지네이션 */}
       <div className="flex items-center justify-between px-4 py-3 border-t">
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-[#8A8F98]">
           {rows.length}개 중 {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}-
           {Math.min(
             (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
@@ -104,14 +104,14 @@ export function DataTable({ columns, rows }: DataTableProps) {
           <button
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
-            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/5/5"
           >
             이전
           </button>
           <button
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
-            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/5/5"
           >
             다음
           </button>

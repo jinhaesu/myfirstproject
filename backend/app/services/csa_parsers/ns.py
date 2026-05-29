@@ -1,0 +1,53 @@
+"""NS 홈쇼핑 파서. 일자 컬럼이 없는 집계 파일 → 업로드 시점의 일자로 임시 적재.
+
+추후 NS측 일자 컬럼이 있는 파일이 들어오면 우선 사용.
+"""
+from __future__ import annotations
+from datetime import date
+from typing import Iterable
+
+from app.services.csa_service import ParsedLine
+from app.services.csa_parsers import register
+from app.services.csa_parsers._common import read_excel_safe, to_date, to_float, to_str
+
+
+@register("NS MALL")
+@register("NS")
+def parse(path: str) -> Iterable[ParsedLine]:
+    df = read_excel_safe(path, header=0)
+    today = date.today()
+    for _, row in df.iterrows():
+        sale_d = (
+            to_date(row.get("주문일자"))
+            or to_date(row.get("입고일자"))
+            or to_date(row.get("정산일"))
+            or to_date(row.get("매출일자"))
+            or today  # 일자 컬럼이 없는 집계 파일 — 업로드 일자로
+        )
+        prod = to_str(row.get("상품명") or row.get("단품명"))
+        if not prod:
+            continue
+        qty = to_float(row.get("매출수량") or row.get("수량") or row.get("주문수량") or 1)
+        # 반품수량은 음수 보정
+        qty -= to_float(row.get("반품수량") or 0)
+        if qty == 0:
+            continue
+        # 정산금액(공급가) 우선, 없으면 매출금액(소비자가) fallback
+        # → 실제 입금 기준 금액으로 맞춤 (소비자가와 ~40만원 차이 원인)
+        gross = to_float(
+            row.get("정산금액") or row.get("공급금액") or row.get("공급가")
+            or row.get("매출금액") or row.get("판매가")
+            or row.get("원가(VAT)별도")
+        )
+        # 반품금액 차감
+        gross -= to_float(row.get("반품금액") or 0)
+        yield ParsedLine(
+            sale_date=sale_d,
+            order_no=to_str(row.get("주문번호") or row.get("발주번호")),
+            line_no=to_str(row.get("상품코드") or row.get("단품코드")),
+            raw_product_name=prod,
+            raw_option_name=to_str(row.get("단품명")),
+            raw_qty=qty,
+            gross_amount=gross,
+            net_amount=gross,
+        )

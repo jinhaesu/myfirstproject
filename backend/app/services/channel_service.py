@@ -23,6 +23,7 @@ DEFAULT_CHANNELS = [
     {"name": "옥션", "category": "오픈마켓", "integration_type": "api"},
     {"name": "에이블리", "category": "오픈마켓", "integration_type": "api"},
     {"name": "알리익스프레스", "category": "오픈마켓", "integration_type": "api"},
+    {"name": "테무", "category": "오픈마켓", "integration_type": "manual"},
 
     # 소셜커머스/버티컬
     {"name": "카카오선물하기", "category": "소셜커머스", "integration_type": "api"},
@@ -32,22 +33,23 @@ DEFAULT_CHANNELS = [
     {"name": "올리브영", "category": "버티컬", "integration_type": "rpa"},
     {"name": "올웨이즈", "category": "버티컬", "integration_type": "rpa"},
     {"name": "마켓컬리", "category": "버티컬", "integration_type": "rpa"},
+    {"name": "비마트", "category": "버티컬", "integration_type": "rpa"},
+    {"name": "크림", "category": "버티컬", "integration_type": "manual"},
 
     # 홈쇼핑/TV
     {"name": "롯데 홈쇼핑", "category": "홈쇼핑", "integration_type": "rpa"},
     {"name": "GS 샵", "category": "홈쇼핑", "integration_type": "rpa"},
     {"name": "NS MALL", "category": "홈쇼핑", "integration_type": "rpa"},
     {"name": "신세계 TV 쇼핑", "category": "홈쇼핑", "integration_type": "rpa"},
+    {"name": "신세계 라이브쇼핑", "category": "홈쇼핑", "integration_type": "rpa"},
     {"name": "CJ온스타일", "category": "홈쇼핑", "integration_type": "rpa"},
 
     # 백화점/오프라인
     {"name": "롯데온", "category": "백화점", "integration_type": "rpa"},
-    {"name": "롯데 백화점", "category": "백화점", "integration_type": "manual"},
+    {"name": "SSG", "category": "백화점", "integration_type": "manual"},
 
     # 복지몰
-    {"name": "팔도감", "category": "복지몰", "integration_type": "manual"},
     {"name": "이지웰", "category": "복지몰", "integration_type": "manual"},
-    {"name": "라이프케어", "category": "복지몰", "integration_type": "manual"},
     {"name": "삼성카드쇼핑", "category": "복지몰", "integration_type": "manual"},
     {"name": "농협몰", "category": "복지몰", "integration_type": "manual"},
     {"name": "베네피아", "category": "복지몰", "integration_type": "manual"},
@@ -56,13 +58,18 @@ DEFAULT_CHANNELS = [
     {"name": "홈플러스", "category": "대형마트", "integration_type": "manual"},
     {"name": "메가마트", "category": "대형마트", "integration_type": "manual"},
     {"name": "이마트", "category": "대형마트", "integration_type": "manual"},
+    {"name": "이마트 노브랜드", "category": "대형마트", "integration_type": "manual"},
     {"name": "GS25", "category": "편의점", "integration_type": "manual"},
     {"name": "CU", "category": "편의점", "integration_type": "manual"},
+    {"name": "세븐일레븐", "category": "편의점", "integration_type": "manual"},
 
     # B2B/급식
     {"name": "삼성웰스토리", "category": "B2B", "integration_type": "manual"},
     {"name": "CJ프레시웨이", "category": "B2B", "integration_type": "manual"},
     {"name": "아워홈", "category": "B2B", "integration_type": "manual"},
+    {"name": "제로스토어", "category": "B2B", "integration_type": "manual"},
+    {"name": "파르나스", "category": "B2B", "integration_type": "manual"},
+    {"name": "B2B파트너스", "category": "B2B", "integration_type": "manual"},
 ]
 
 
@@ -443,6 +450,15 @@ class ChannelService:
 
             db.commit()
             db.refresh(log)
+            return self._sync_log_to_dict(log)
+        finally:
+            self._close_db(db)
+
+    def get_sync_log(self, log_id: str) -> Optional[dict]:
+        """동기화 로그 단건 조회"""
+        db = self._get_db()
+        try:
+            log = db.query(ChannelSyncLog).filter(ChannelSyncLog.id == log_id).first()
             return self._sync_log_to_dict(log)
         finally:
             self._close_db(db)

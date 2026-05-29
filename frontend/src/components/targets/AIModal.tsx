@@ -79,33 +79,33 @@ export function AIModal({ isOpen, onClose, data, mode }: AIModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="relative bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         {/* 헤더 */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-              mode === 'summary' ? 'bg-purple-100' : 'bg-emerald-100'
+              mode === 'summary' ? 'bg-[#5E6AD2]/15' : 'bg-[#27A644]/15'
             }`}>
               {mode === 'summary' ? (
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6 text-[#7070FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               ) : (
-                <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6 text-[#27A644]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               )}
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-800">
+              <h2 className="text-lg font-semibold text-[#F7F8F8]">
                 {mode === 'summary' ? 'AI 요약' : 'AI 조언'}
               </h2>
-              <p className="text-sm text-slate-500">{data.title}</p>
+              <p className="text-sm text-[#8A8F98]">{data.title}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+            className="p-2 text-[#62666D] hover:text-[#D0D6E0] transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -117,16 +117,16 @@ export function AIModal({ isOpen, onClose, data, mode }: AIModalProps) {
         <div className="flex-1 overflow-auto p-6">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="text-slate-500">AI가 분석 중입니다...</p>
+              <div className="w-10 h-10 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin mb-4" />
+              <p className="text-[#8A8F98]">AI가 분석 중입니다...</p>
             </div>
           ) : error ? (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
+            <div className="p-4 bg-[#EB5757]/10 border border-[#EB5757]/30 rounded-xl text-[#EB5757]">
               {error}
             </div>
           ) : (
             <div className="prose prose-slate max-w-none">
-              <div className="whitespace-pre-wrap text-slate-700 leading-relaxed">
+              <div className="whitespace-pre-wrap text-[#D0D6E0] leading-relaxed">
                 {response}
               </div>
             </div>
@@ -134,11 +134,11 @@ export function AIModal({ isOpen, onClose, data, mode }: AIModalProps) {
         </div>
 
         {/* 푸터 */}
-        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-[#23252A] flex items-center justify-between">
           <button
             onClick={fetchAIResponse}
             disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 text-[#7070FF] hover:bg-[#5E6AD2]/10 rounded-lg transition-colors disabled:opacity-50"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -147,7 +147,7 @@ export function AIModal({ isOpen, onClose, data, mode }: AIModalProps) {
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+            className="px-4 py-2 bg-[#141516] text-[#D0D6E0] rounded-lg hover:bg-white/5/7 transition-colors"
           >
             닫기
           </button>

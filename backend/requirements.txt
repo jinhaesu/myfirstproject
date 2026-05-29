@@ -14,5 +14,13 @@ sqlalchemy
 psycopg2-binary
 pandas
 openpyxl
+xlrd
+python-calamine
+html5lib
+lxml
 httpx
 playwright
+PyPDF2
+pdfplumber
+python-docx
+msoffcrypto-tool

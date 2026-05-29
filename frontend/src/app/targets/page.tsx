@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import { TargetListSection } from '@/components/targets/TargetListSection';
 import { SalesStatusSection } from '@/components/targets/SalesStatusSection';
+import { ReportSection } from '@/components/targets/ReportSection';
 
 export default function TargetsPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -22,10 +23,10 @@ export default function TargetsPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-600">로딩 중...</p>
+          <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[#8A8F98]">로딩 중...</p>
         </div>
       </div>
     );
@@ -36,26 +37,33 @@ export default function TargetsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <main className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">목표 영업 지표</h1>
-            <p className="text-slate-500 mt-1">연간/월간 목표를 설정하고 실적을 관리하세요</p>
+            <h1 className="text-2xl font-bold text-[#F7F8F8]">목표 영업 지표</h1>
+            <p className="text-[#8A8F98] mt-1">연간/월간 목표를 설정하고 실적을 관리하세요</p>
           </div>
           {/* 부가세 토글 - 전체 적용 */}
-          <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
+          <label className="flex items-center gap-2 cursor-pointer bg-[#0F1011] px-4 py-2 rounded-lg border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
             <input
               type="checkbox"
               checked={excludeVat}
               onChange={(e) => setExcludeVat(e.target.checked)}
-              className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+              className="w-4 h-4 text-[#7070FF] rounded border-[#23252A] focus:ring-[#5E6AD2]"
             />
-            <span className="text-sm font-medium text-slate-700">부가세 별도</span>
+            <span className="text-sm font-medium text-[#D0D6E0]">부가세 별도</span>
           </label>
         </div>
+
+        {/* 리포트 섹션 */}
+        <ReportSection
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          excludeVat={excludeVat}
+        />
 
         {/* 목표 리스트 섹션 */}
         <TargetListSection
