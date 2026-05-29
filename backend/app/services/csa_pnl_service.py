@@ -245,6 +245,12 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     변동비 설정(채널/품목/기간별 규칙)을 곱해 변동비 plan을 만들고
     공헌이익 plan = 매출 − 변동비(원가+판관) 으로 산출한다.
     """
+    import time as _time
+    _tp0 = _time.time()
+    def _plap(label):
+        nonlocal _tp0
+        print(f"[compute_plan] {label}: {(_time.time()-_tp0)*1000:.0f}ms", flush=True)
+        _tp0 = _time.time()
     from datetime import date as _date
     from app.services.csa_cost_service import _best_rule
 
@@ -258,6 +264,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     ).filter(BusinessPlanChannelRevenue.year == year).group_by(
         BusinessPlanChannelRevenue.channel_id, BusinessPlanChannelRevenue.month,
     ).all()
+    _plap("rev_rows")
     channel_month_rev: dict[tuple[str, int], float] = {}
     monthly_rev: dict[int, float] = {}
     for ch, m, total in rev_rows:
@@ -272,6 +279,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     rules_by_item: dict[int, list[CsaCostRule]] = {}
     for r in db.query(CsaCostRule).filter(CsaCostRule.is_active.is_(True)).all():
         rules_by_item.setdefault(r.cost_item_id, []).append(r)
+    _plap("rules_cache")
 
     def rule_for(code: str, ch: str, pid: Optional[int], ref_date):
         it = items.get(code)
@@ -283,6 +291,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     qty_rows = db.query(BusinessPlanProductQty).filter(
         BusinessPlanProductQty.year == year
     ).all()
+    _plap(f"qty_rows({len(qty_rows)})")
     cogs_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
     labor_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
     for q in qty_rows:
@@ -299,6 +308,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     for m in range(1, 13):
         out[("cogs_material", m)] = cogs_by_month[m]
         out[("labor", m)] = labor_by_month[m]
+    _plap("qty_loop")
 
     # 4) 매출 정률 기반: overhead, logistics_work, logistics_oh, commission_rate
     rate_codes = ("overhead", "logistics_work", "logistics_oh", "commission_rate")
@@ -316,6 +326,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
         out[("overhead", m)] = rate_buckets["overhead"][m]
         out[("logistics", m)] = rate_buckets["logistics_work"][m] + rate_buckets["logistics_oh"][m]
         out[("commission_all", m)] = rate_buckets["commission_rate"][m]
+    _plap("rate_loop")
 
     # 5) 광고비 plan: 사업계획 그룹별 target_marketing 합 우선, 없으면 채널 월 광고비 합
     adv_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
@@ -342,6 +353,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
                 adv_by_month[m] = float(total or 0)
     for m in range(1, 13):
         out[("advertising", m)] = adv_by_month[m]
+    _plap("advertising")
 
     # 사업계획 엑셀의 그룹별 공헌이익 합계 (대시보드 시트 '공헌이익' 섹션)
     cm_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
@@ -356,6 +368,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     for m in range(1, 13):
         if cm_by_month[m]:
             out[("contribution_margin", m)] = cm_by_month[m]
+    _plap("cm_rows")
 
     # 주문건수 기반(commission_fixed, shipping order_fixed, packaging)은 plan에 주문수가 없어 0으로 둠
     return out
