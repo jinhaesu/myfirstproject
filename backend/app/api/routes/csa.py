@@ -126,6 +126,98 @@ def seed(db: Session = Depends(get_db)):
     }
 
 
+# ──────────────────────────────────────────────────────────────
+# Bootstrap (모든 master endpoint 통합 + 60s 메모리 캐시)
+# ──────────────────────────────────────────────────────────────
+
+import time as _btime
+_BOOT_CACHE: dict = {"data": None, "expires": 0.0}
+_BOOT_TTL_SEC = 30  # master 데이터는 자주 안 바뀜
+
+
+@router.get("/bootstrap")
+def bootstrap(force: bool = False, db: Session = Depends(get_db)):
+    """전체 master 데이터 단일 응답 — channels/products/groups/cost-items/variable-costs/employees/batches/unmatched.
+
+    frontend의 fetchAll 6 라운드트립 → 1 라운드트립으로 압축.
+    30초 TTL 메모리 캐시: 같은 인스턴스 내 다음 호출은 DB hit 없이 즉시 반환.
+    force=true로 캐시 무시 가능.
+    """
+    now = _btime.time()
+    if not force and _BOOT_CACHE["data"] and _BOOT_CACHE["expires"] > now:
+        return {**_BOOT_CACHE["data"], "_cached": True, "_ttl_left": int(_BOOT_CACHE["expires"] - now)}
+
+    parsers = set(registered_channels())
+    channels = [
+        {"id": c.id, "name": c.name, "category": c.category,
+         "integration_type": c.integration_type, "is_active": c.is_active,
+         "has_parser": c.name in parsers}
+        for c in db.query(Channel).order_by(Channel.category, Channel.name).all()
+    ]
+    products = [
+        {"id": p.id, "code": p.code, "name": p.name, "category": p.category,
+         "default_unit_size": p.default_unit_size, "is_active": p.is_active,
+         "sort_order": p.sort_order}
+        for p in db.query(ProductMaster).filter(ProductMaster.is_active.is_(True))
+                  .order_by(ProductMaster.sort_order, ProductMaster.id).all()
+    ]
+    groups = [
+        {"id": g.id, "code": g.code, "name": g.name, "big_group": g.big_group,
+         "channels": []}
+        for g in db.query(ChannelGroup).order_by(ChannelGroup.id).all()
+    ]
+    cost_items = [
+        {"id": ci.id, "code": ci.code, "name": ci.name, "category": ci.category,
+         "basis": ci.basis, "description": ci.description,
+         "is_active": ci.is_active, "sort_order": ci.sort_order}
+        for ci in db.query(__import__('app.db_models', fromlist=['CsaCostItem']).CsaCostItem)
+                    .order_by('sort_order').all()
+    ]
+    variable_costs = [
+        {"id": v.id, "product_id": v.product_id, "channel_id": v.channel_id,
+         "cost_per_pcs": v.cost_per_pcs, "valid_from": v.valid_from.isoformat() if v.valid_from else None,
+         "valid_to": v.valid_to.isoformat() if v.valid_to else None,
+         "notes": v.notes}
+        for v in db.query(ProductVariableCost).all()
+    ]
+    employees = [
+        {"id": e.id, "name": e.name, "email": e.email, "role": e.role, "is_active": e.is_active}
+        for e in db.query(Employee).order_by(Employee.name).all()
+    ]
+    batches = [
+        {"id": b.id, "channel_id": b.channel_id, "channel_name": b.channel_name,
+         "file_name": b.file_name, "status": b.status,
+         "period_start": b.period_start.isoformat() if b.period_start else None,
+         "period_end": b.period_end.isoformat() if b.period_end else None,
+         "row_total": b.row_total, "row_inserted": b.row_inserted,
+         "row_duplicate": b.row_duplicate, "row_unmatched": b.row_unmatched,
+         "created_at": b.created_at.isoformat() if b.created_at else None}
+        for b in db.query(ChannelSalesUploadBatch).order_by(ChannelSalesUploadBatch.created_at.desc()).limit(50).all()
+    ]
+    unmatched = [
+        {"id": u.id, "channel_id": u.channel_id, "channel_name": u.channel_name,
+         "raw_product_name": u.raw_product_name, "raw_option_name": u.raw_option_name,
+         "occurrence_count": u.occurrence_count, "total_qty": u.total_qty,
+         "llm_suggested_product_id": u.llm_suggested_product_id,
+         "llm_suggested_unit_per_set": u.llm_suggested_unit_per_set,
+         "llm_confidence": u.llm_confidence, "llm_reason": u.llm_reason}
+        for u in db.query(ChannelUnmatchedProduct).filter(ChannelUnmatchedProduct.status == "pending").all()
+    ]
+    data = {
+        "channels": channels, "products": products, "groups": groups,
+        "cost_items": cost_items, "variable_costs": variable_costs,
+        "employees": employees, "batches": batches, "unmatched": unmatched,
+    }
+    _BOOT_CACHE["data"] = data
+    _BOOT_CACHE["expires"] = now + _BOOT_TTL_SEC
+    return {**data, "_cached": False, "_ttl_sec": _BOOT_TTL_SEC}
+
+
+def _bust_bootstrap_cache():
+    _BOOT_CACHE["data"] = None
+    _BOOT_CACHE["expires"] = 0.0
+
+
 @router.get("/products", response_model=list[ProductMasterOut])
 def list_products(db: Session = Depends(get_db)):
     return (
@@ -805,6 +897,10 @@ def _granularity_columns(g: str):
     raise HTTPException(400, "invalid granularity")
 
 
+_DASH_CACHE: dict = {}
+_DASH_TTL_SEC = 30
+
+
 @router.get("/dashboard")
 def dashboard(
     period_start: date,
@@ -813,8 +909,18 @@ def dashboard(
     channel_ids: Optional[str] = Query(None, description="콤마구분 channel_id"),
     product_ids: Optional[str] = Query(None, description="콤마구분 product_id"),
     employee_ids: Optional[str] = Query(None, description="콤마구분 employee_id (담당 채널로 변환)"),
+    force: bool = False,
     db: Session = Depends(get_db),
 ):
+    import time as _time
+    cache_key = (str(period_start), str(period_end), granularity,
+                 channel_ids or "", product_ids or "", employee_ids or "")
+    now = _time.time()
+    if not force:
+        cached = _DASH_CACHE.get(cache_key)
+        if cached and cached["expires"] > now:
+            return {**cached["data"], "_cached": True}
+
     q = db.query(ChannelSalesDailyProduct).filter(
         ChannelSalesDailyProduct.sale_date >= period_start,
         ChannelSalesDailyProduct.sale_date <= period_end,
@@ -965,6 +1071,8 @@ def dashboard(
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
     }
+    _DASH_CACHE[cache_key] = {"data": resp, "expires": now + _DASH_TTL_SEC}
+    return resp
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1373,15 +1481,30 @@ class PnlVerifyIn(BaseModel):
     password: str
 
 
+_PNL_CACHE: dict = {}  # year -> {"data":..., "expires":...}
+_PNL_TTL_SEC = 30
+
+
 @router.get("/pnl")
-def pnl_matrix(year: int, db: Session = Depends(get_db)):
+def pnl_matrix(year: int, force: bool = False, db: Session = Depends(get_db)):
     import time as _time
+    now = _time.time()
+    cached = _PNL_CACHE.get(year)
+    if not force and cached and cached["expires"] > now:
+        return {**cached["data"], "_timing_ms": 0, "_cached": True}
     _t0 = _time.time()
     result = get_pnl_matrix(db, year)
     elapsed_ms = int((_time.time() - _t0) * 1000)
     if isinstance(result, dict):
         result["_timing_ms"] = elapsed_ms
+        result["_cached"] = False
+        _PNL_CACHE[year] = {"data": {k: v for k, v in result.items() if not k.startswith("_")},
+                            "expires": now + _PNL_TTL_SEC}
     return result
+
+
+def _bust_pnl_cache():
+    _PNL_CACHE.clear()
 
 
 @router.post("/pnl/value")
