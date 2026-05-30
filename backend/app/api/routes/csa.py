@@ -7,7 +7,7 @@ import tempfile
 from datetime import date, datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import Session
@@ -303,59 +303,40 @@ def list_channels(db: Session = Depends(get_db)):
 # Upload + Parse
 # ──────────────────────────────────────────────────────────────
 
-@router.post("/upload")
-async def upload_channel_file(
-    channel_id: str = Form(...),
-    channel_name: str = Form(...),
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+def _run_ingest_background(
+    tmp_path: str,
+    channel_id: str,
+    channel_name: str,
+    file_name: str,
+    fsize: int,
+    fhash: str,
+    parser_name: str,
 ):
-    parser = get_parser(channel_name)
-    if not parser:
-        raise HTTPException(status_code=400, detail=f"채널 '{channel_name}' 파서가 아직 구현되지 않았습니다")
+    """BackgroundTask로 실행되는 ingest 워커.
 
-    suffix = os.path.splitext(file.filename or "")[1] or ".xlsx"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        content = await file.read()
-        tmp.write(content)
-        tmp_path = tmp.name
-
+    별도 DB 세션을 열고 ingest_lines를 실행. 예외는 batch.status='failed'로 마킹.
+    """
+    from app.database import SessionLocal
+    db = SessionLocal()
     try:
-        fsize = len(content)
-        fhash = file_sha256(tmp_path)
-
-        # 동일 파일 재업로드 감지 — failed/canceled batch는 dup으로 잡지 않음
-        # (실패한 batch를 사용자가 재시도할 수 있게)
-        dup_batch = db.query(ChannelSalesUploadBatch).filter(
-            ChannelSalesUploadBatch.channel_id == channel_id,
-            ChannelSalesUploadBatch.file_hash == fhash,
-            ChannelSalesUploadBatch.status.notin_(["failed", "canceled"]),
-        ).first()
-        if dup_batch:
-            return {
-                "batch_id": dup_batch.id,
-                "duplicate_file": True,
-                "row_total": dup_batch.row_total,
-                "row_inserted": dup_batch.row_inserted,
-                "row_duplicate": dup_batch.row_duplicate,
-                "row_unmatched": dup_batch.row_unmatched,
-                "message": "이미 업로드된 파일입니다. 새로 적재하지 않았습니다.",
-            }
-
+        parser = get_parser(parser_name)
+        if not parser:
+            return
         try:
             lines = list(parser(tmp_path))
-            batch = ingest_lines(
+            ingest_lines(
                 db,
                 channel_id=channel_id,
                 channel_name=channel_name,
-                file_name=file.filename or "upload",
+                file_name=file_name,
                 file_hash=fhash,
                 file_size=fsize,
                 parser_version="v1",
                 lines=lines,
             )
         except Exception as e:
-            # 부분 진행된 batch가 'parsing' 상태로 남지 않도록 failed로 마킹
+            log = logging.getLogger(__name__)
+            log.exception("background ingest failed")
             try:
                 stuck = db.query(ChannelSalesUploadBatch).filter(
                     ChannelSalesUploadBatch.channel_id == channel_id,
@@ -368,23 +349,100 @@ async def upload_channel_file(
                     db.commit()
             except Exception:
                 db.rollback()
-            raise HTTPException(status_code=500, detail=f"파싱 실패: {type(e).__name__}: {e}")
-        return {
-            "batch_id": batch.id,
-            "duplicate_file": False,
-            "row_total": batch.row_total,
-            "row_inserted": batch.row_inserted,
-            "row_duplicate": batch.row_duplicate,
-            "row_unmatched": batch.row_unmatched,
-            "row_excluded": batch.row_excluded,
-            "period_start": batch.period_start.isoformat() if batch.period_start else None,
-            "period_end": batch.period_end.isoformat() if batch.period_end else None,
-        }
     finally:
         try:
             os.unlink(tmp_path)
         except Exception:
             pass
+        db.close()
+
+
+def _cleanup_stale_parsing_batches(db: Session, channel_id: str, ttl_minutes: int = 30):
+    """업로드 시 진입 시 같은 채널의 오래된 parsing 잔존 batch를 failed로 마킹.
+
+    Railway/uvicorn restart로 워커가 죽으면 parsing 상태가 영원히 stuck됨.
+    /upload 호출 때마다 자기 채널의 ttl 지난 parsing batch를 정리.
+    """
+    from datetime import timedelta
+    cutoff = datetime.utcnow() - timedelta(minutes=ttl_minutes)
+    stale = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == channel_id,
+        ChannelSalesUploadBatch.status == "parsing",
+        ChannelSalesUploadBatch.created_at < cutoff,
+    ).all()
+    for b in stale:
+        b.status = "failed"
+        b.error_message = (b.error_message or "") + f" | auto: stale parsing >{ttl_minutes}min"
+    if stale:
+        db.commit()
+
+
+@router.post("/upload")
+async def upload_channel_file(
+    background_tasks: BackgroundTasks,
+    channel_id: str = Form(...),
+    channel_name: str = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    parser = get_parser(channel_name)
+    if not parser:
+        raise HTTPException(status_code=400, detail=f"채널 '{channel_name}' 파서가 아직 구현되지 않았습니다")
+
+    # 같은 채널의 오래된 parsing stuck batch 자동 정리 (TTL 30분)
+    _cleanup_stale_parsing_batches(db, channel_id)
+
+    suffix = os.path.splitext(file.filename or "")[1] or ".xlsx"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    fsize = len(content)
+    fhash = file_sha256(tmp_path)
+
+    # 동일 파일 재업로드 감지 — failed/canceled batch는 dup으로 잡지 않음
+    dup_batch = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == channel_id,
+        ChannelSalesUploadBatch.file_hash == fhash,
+        ChannelSalesUploadBatch.status.notin_(["failed", "canceled"]),
+    ).first()
+    if dup_batch:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+        return {
+            "batch_id": dup_batch.id,
+            "duplicate_file": True,
+            "row_total": dup_batch.row_total,
+            "row_inserted": dup_batch.row_inserted,
+            "row_duplicate": dup_batch.row_duplicate,
+            "row_unmatched": dup_batch.row_unmatched,
+            "status": dup_batch.status,
+            "message": "이미 업로드된 파일입니다. 새로 적재하지 않았습니다.",
+        }
+
+    # BackgroundTask로 ingest 위임 — ingest_lines 내부에서 batch 생성/commit.
+    # 대용량 엑셀(95k+ 라인)도 워커 timeout 없이 처리 가능.
+    background_tasks.add_task(
+        _run_ingest_background,
+        tmp_path,
+        channel_id,
+        channel_name,
+        file.filename or "upload",
+        fsize,
+        fhash,
+        channel_name,
+    )
+
+    return {
+        "duplicate_file": False,
+        "status": "queued",
+        "channel_id": channel_id,
+        "file_hash": fhash,
+        "message": "업로드를 큐에 넣었습니다. 잠시 후 'batches' 목록에서 진행 상황을 확인하세요.",
+    }
 
 
 @router.get("/batches")
