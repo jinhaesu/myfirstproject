@@ -209,20 +209,15 @@ function Content() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [cRes, pRes, bRes, uRes, vRes, eRes] = await Promise.all([
-        fetch(`${API_BASE}/api/csa/channels`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/api/csa/products`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/api/csa/batches?limit=20`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/api/csa/unmatched`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/api/csa/variable-costs`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/api/csa/employees`, { headers: authHeaders() }),
-      ]);
-      if (cRes.ok) setChannels(await cRes.json());
-      if (pRes.ok) setProducts(await pRes.json());
-      if (bRes.ok) setBatches(await bRes.json());
-      if (uRes.ok) setUnmatched(await uRes.json());
-      if (vRes.ok) setVariableCosts(await vRes.json());
-      if (eRes.ok) setEmployees(await eRes.json());
+      const r = await fetch(`${API_BASE}/api/csa/bootstrap`, { headers: authHeaders() });
+      if (!r.ok) return;
+      const d = await r.json();
+      setChannels(d.channels || []);
+      setProducts(d.products || []);
+      setBatches(d.batches || []);
+      setUnmatched(d.unmatched || []);
+      setVariableCosts(d.variable_costs || []);
+      setEmployees(d.employees || []);
     } catch (e) {
       console.error(e);
     }
