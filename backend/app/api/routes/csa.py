@@ -1050,7 +1050,7 @@ def dashboard(
     for c in channels_summary:
         c["cm_rate"] = (c["contribution_margin"] / c["revenue"] * 100) if c["revenue"] else 0
 
-    return {
+    resp = {
         "summary": {
             "revenue": total_revenue,
             "pcs": total_pcs,
@@ -1070,8 +1070,10 @@ def dashboard(
         "granularity": granularity,
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
+        "_cached": False,
     }
-    _DASH_CACHE[cache_key] = {"data": resp, "expires": now + _DASH_TTL_SEC}
+    _DASH_CACHE[cache_key] = {"data": {k: v for k, v in resp.items() if k != "_cached"},
+                              "expires": now + _DASH_TTL_SEC}
     return resp
 
 
