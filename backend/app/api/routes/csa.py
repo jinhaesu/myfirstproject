@@ -265,14 +265,11 @@ def _bust_all_caches():
     """
     _bust_bootstrap_cache()
     _bust_master_cache()
-    try:
-        _DASH_CACHE.clear()
-    except Exception:
-        pass
-    try:
-        _PNL_CACHE.clear()
-    except Exception:
-        pass
+    for _c in ("_DASH_CACHE", "_PNL_CACHE", "_PLAN_CACHE"):
+        try:
+            globals()[_c].clear()
+        except Exception:
+            pass
 
 
 @router.get("/products", response_model=list[ProductMasterOut])
@@ -979,11 +976,8 @@ def dashboard(
     db: Session = Depends(get_db),
 ):
     import time as _time
-    _dt0 = _time.time()
     def _dlap(label):
-        nonlocal _dt0
-        print(f"[dashboard] {label}: {(_time.time()-_dt0)*1000:.0f}ms", flush=True)
-        _dt0 = _time.time()
+        pass
     cache_key = (str(period_start), str(period_end), granularity,
                  channel_ids or "", product_ids or "", employee_ids or "")
     now = _time.time()
@@ -1363,6 +1357,10 @@ def plan_summary(year: int, db: Session = Depends(get_db)):
     }
 
 
+_PLAN_CACHE: dict = {}
+_PLAN_TTL_SEC = 300
+
+
 @router.get("/plan/comparison")
 def plan_comparison(
     year: int,
@@ -1378,6 +1376,13 @@ def plan_comparison(
 
     공통 키: channel_id / product_id / group / employee / category
     """
+    import time as _time
+    _pc_key = (year, month, up_to_today, by)
+    _pc_now = _time.time()
+    _pc_cached = _PLAN_CACHE.get(_pc_key)
+    if _pc_cached and _pc_cached["expires"] > _pc_now:
+        return {**_pc_cached["data"], "_cached": True}
+
     from datetime import date as _date
     from calendar import monthrange as _monthrange
     today = _date.today()
@@ -1531,7 +1536,10 @@ def plan_comparison(
         it["actual_avg_price"] = (it["actual_revenue"] / it["actual_pcs"]) if it["actual_pcs"] else 0
         it["target_avg_price"] = (it["target_revenue"] / it["target_pcs"]) if it["target_pcs"] else 0
     items.sort(key=lambda x: -(x["target_revenue"] or 0))
-    return {"year": year, "month": month, "by": by, "items": items}
+    _pc_resp = {"year": year, "month": month, "by": by, "items": items, "_cached": False}
+    _PLAN_CACHE[_pc_key] = {"data": {k: v for k, v in _pc_resp.items() if k != "_cached"},
+                            "expires": _pc_now + _PLAN_TTL_SEC}
+    return _pc_resp
 
 
 # ──────────────────────────────────────────────────────────────
@@ -2749,12 +2757,20 @@ def avg_price_analysis(
     db: Session = Depends(get_db),
 ):
     """객단가(매출/낱개) 분석. 실적 기준."""
+    import time as _time
+    _ap_key = (str(period_start), str(period_end), by)
+    _ap_now = _time.time()
+    _ap_cached = _PLAN_CACHE.get(_ap_key)
+    if _ap_cached and _ap_cached["expires"] > _ap_now:
+        return {**_ap_cached["data"], "_cached": True}
     rows = db.query(ChannelSalesDailyProduct).filter(
         ChannelSalesDailyProduct.sale_date >= period_start,
         ChannelSalesDailyProduct.sale_date <= period_end,
     ).all()
-    group_map = {m.channel_id: m.group_id for m in db.query(ChannelGroupMembership).all()}
-    group_names = {g.id: g.name for g in db.query(ChannelGroup).all()}
+    # 마스터 맵 메모리 캐시 사용 (그룹 2쿼리 제거)
+    _mm = _get_master_maps(db)
+    group_map = _mm["group_map"]
+    group_names = _mm["group_names"]
 
     bucket: dict = {}
     for r in rows:
@@ -2782,8 +2798,11 @@ def avg_price_analysis(
         it["avg_price_per_pcs"] = (it["revenue"] / it["pcs"]) if it["pcs"] else 0
         it["avg_price_per_order"] = (it["revenue"] / it["orders"]) if it["orders"] else 0
     items.sort(key=lambda x: -x["revenue"])
-    return {"by": by, "period_start": period_start.isoformat(),
-            "period_end": period_end.isoformat(), "items": items[:200]}
+    _ap_resp = {"by": by, "period_start": period_start.isoformat(),
+                "period_end": period_end.isoformat(), "items": items[:200], "_cached": False}
+    _PLAN_CACHE[_ap_key] = {"data": {k: v for k, v in _ap_resp.items() if k != "_cached"},
+                            "expires": _ap_now + _PLAN_TTL_SEC}
+    return _ap_resp
 
 
 @router.get("/admin/diag-excluded-mappings")
