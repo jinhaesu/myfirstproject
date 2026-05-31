@@ -132,7 +132,7 @@ def seed(db: Session = Depends(get_db)):
 
 import time as _btime
 _BOOT_CACHE: dict = {"data": None, "expires": 0.0}
-_BOOT_TTL_SEC = 30  # master 데이터는 자주 안 바뀜
+_BOOT_TTL_SEC = 300  # master 데이터는 자주 안 바뀜 — 업로드/수정 시 _bust_bootstrap_cache()로 무효화
 
 
 @router.get("/bootstrap")
@@ -216,6 +216,22 @@ def bootstrap(force: bool = False, db: Session = Depends(get_db)):
 def _bust_bootstrap_cache():
     _BOOT_CACHE["data"] = None
     _BOOT_CACHE["expires"] = 0.0
+
+
+def _bust_all_caches():
+    """데이터 변경(업로드/매핑/PNL값/변동비) 시 모든 응답 캐시 무효화.
+
+    TTL을 5분으로 늘린 대신, 실제 변경 시 즉시 무효화해 stale 방지.
+    """
+    _bust_bootstrap_cache()
+    try:
+        _DASH_CACHE.clear()
+    except Exception:
+        pass
+    try:
+        _PNL_CACHE.clear()
+    except Exception:
+        pass
 
 
 @router.get("/products", response_model=list[ProductMasterOut])
@@ -426,6 +442,8 @@ def _run_ingest_background(
                 parser_version="v1",
                 lines=lines,
             )
+            # 새 매출 적재 완료 → 모든 응답 캐시 무효화 (대시보드/PNL/batches 즉시 반영)
+            _bust_all_caches()
         except Exception as e:
             log = logging.getLogger(__name__)
             log.exception("background ingest failed")
@@ -898,7 +916,7 @@ def _granularity_columns(g: str):
 
 
 _DASH_CACHE: dict = {}
-_DASH_TTL_SEC = 30
+_DASH_TTL_SEC = 300  # 업로드/매핑 변경 시 _bust_dash_cache()로 무효화
 
 
 @router.get("/dashboard")
@@ -1484,7 +1502,7 @@ class PnlVerifyIn(BaseModel):
 
 
 _PNL_CACHE: dict = {}  # year -> {"data":..., "expires":...}
-_PNL_TTL_SEC = 30
+_PNL_TTL_SEC = 300  # 업로드/PNL값 수정 시 _bust_pnl_cache()로 무효화
 
 
 @router.get("/pnl")
@@ -1525,6 +1543,7 @@ def pnl_save_value(payload: PnlValueIn, db: Session = Depends(get_db)):
         db, year=payload.year, month=payload.month, row_id=payload.row_id,
         scope=payload.scope, value=payload.value, updated_by=payload.user_email,
     )
+    _bust_pnl_cache()  # PNL 값 수정 → 캐시 무효화
     return {"id": vid}
 
 
@@ -1577,6 +1596,32 @@ def pnl_verify(payload: PnlVerifyIn, db: Session = Depends(get_db)):
 # ──────────────────────────────────────────────────────────────
 # 저장 효율화 (Phase 3) — retention + 월 파티션
 # ──────────────────────────────────────────────────────────────
+
+@router.get("/admin/db-latency")
+def admin_db_latency(n: int = 8, db: Session = Depends(get_db)):
+    """백엔드↔Supabase 순수 네트워크 RTT 측정.
+
+    SELECT 1을 n회 반복해 쿼리당 왕복 시간을 잰다.
+    - 같은 지역(예: Railway Singapore ↔ Supabase Seoul): 보통 1쿼리 70~90ms
+    - 다른 대륙(예: Railway US ↔ Supabase Seoul): 250~350ms
+    첫 쿼리는 pool_pre_ping + 연결 수립 비용이 포함되어 더 느릴 수 있음.
+    """
+    import time as _time
+    from sqlalchemy import text as _text
+    timings = []
+    for i in range(max(1, min(n, 30))):
+        t = _time.time()
+        db.execute(_text("SELECT 1")).scalar()
+        timings.append(round((_time.time() - t) * 1000, 1))
+    warm = timings[1:] if len(timings) > 1 else timings
+    return {
+        "per_query_ms": timings,
+        "first_ms": timings[0],
+        "warm_avg_ms": round(sum(warm) / len(warm), 1),
+        "warm_min_ms": min(warm),
+        "note": "warm_min_ms가 순수 1쿼리 RTT. ~80ms면 동일지역, ~300ms면 대륙간.",
+    }
+
 
 @router.get("/admin/storage")
 def admin_storage(db: Session = Depends(get_db)):
