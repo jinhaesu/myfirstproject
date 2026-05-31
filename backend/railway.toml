@@ -4,5 +4,8 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "sh -c 'uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'"
+# Supabase(서울 ap-northeast-2)와 동일 권역으로 백엔드 배치 — 쿼리 RTT 311ms→~80ms.
+# config-as-code 미지원 시 무시되며, 그때는 Railway 콘솔 Settings→Regions에서 수동 설정.
+region = "asia-southeast1-eqsg3a"
 
 # trigger redeploy 2026-05-14
