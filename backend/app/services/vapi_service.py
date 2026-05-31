@@ -90,7 +90,7 @@ class VapiService:
             "name": name,
             "model": {
                 "provider": "anthropic",
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-opus-4-8",
                 "messages": [{"role": "system", "content": system_prompt}],
             },
             "voice": voice_config,

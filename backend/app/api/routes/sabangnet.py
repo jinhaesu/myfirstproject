@@ -331,7 +331,7 @@ async def generate_ai_response(inquiry: CsInquiry, reference_data_list: list, db
                     "content-type": "application/json",
                 },
                 json={
-                    "model": "claude-sonnet-4-20250514",
+                    "model": "claude-opus-4-8",
                     "max_tokens": 1024,
                     "messages": [{"role": "user", "content": prompt}],
                 },
@@ -624,7 +624,7 @@ async def debug_api_test():
             _r = await _c.post(
                 "https://api.anthropic.com/v1/messages",
                 headers={"x-api-key": _s.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                json={"model": "claude-sonnet-4-20250514", "max_tokens": 50, "messages": [{"role": "user", "content": "Say OK"}]},
+                json={"model": "claude-opus-4-8", "max_tokens": 50, "messages": [{"role": "user", "content": "Say OK"}]},
                 timeout=10.0,
             )
             result["claude_test_status"] = _r.status_code
@@ -2446,7 +2446,7 @@ async def get_inquiry_keywords(
                         "content-type": "application/json",
                     },
                     json={
-                        "model": "claude-sonnet-4-20250514",
+                        "model": "claude-opus-4-8",
                         "max_tokens": 3000,
                         "messages": [{"role": "user", "content": _build_keywords_prompt(analysis_count, contents)}],
                     },
@@ -2477,7 +2477,7 @@ async def get_inquiry_keywords(
                             "content-type": "application/json",
                         },
                         json={
-                            "model": "claude-sonnet-4-20250514",
+                            "model": "claude-opus-4-8",
                             "max_tokens": 2048,
                             "messages": [{"role": "user", "content": retry_prompt}],
                         },
@@ -2609,7 +2609,7 @@ async def get_action_items(
                         "content-type": "application/json",
                     },
                     json={
-                        "model": "claude-sonnet-4-20250514",
+                        "model": "claude-opus-4-8",
                         "max_tokens": 2048,
                         "messages": [{"role": "user", "content": kw_prompt}],
                     },
@@ -2708,7 +2708,7 @@ async def get_action_items(
                         "content-type": "application/json",
                     },
                     json={
-                        "model": "claude-sonnet-4-20250514",
+                        "model": "claude-opus-4-8",
                         "max_tokens": 3000,
                         "messages": [{"role": "user", "content": prompt}],
                     },
