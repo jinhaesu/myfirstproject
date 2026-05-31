@@ -207,26 +207,48 @@ function Content() {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
 
+  // 개별 master endpoint 병렬 호출 (bootstrap 없는 구버전 백엔드 폴백)
+  const fetchAllIndividual = useCallback(async () => {
+    const [cRes, pRes, bRes, uRes, vRes, eRes] = await Promise.all([
+      fetch(`${API_BASE}/api/csa/channels`, { headers: authHeaders() }),
+      fetch(`${API_BASE}/api/csa/products`, { headers: authHeaders() }),
+      fetch(`${API_BASE}/api/csa/batches?limit=50`, { headers: authHeaders() }),
+      fetch(`${API_BASE}/api/csa/unmatched`, { headers: authHeaders() }),
+      fetch(`${API_BASE}/api/csa/variable-costs`, { headers: authHeaders() }),
+      fetch(`${API_BASE}/api/csa/employees`, { headers: authHeaders() }),
+    ]);
+    if (cRes.ok) setChannels(await cRes.json());
+    if (pRes.ok) setProducts(await pRes.json());
+    if (bRes.ok) setBatches(await bRes.json());
+    if (uRes.ok) setUnmatched(await uRes.json());
+    if (vRes.ok) setVariableCosts(await vRes.json());
+    if (eRes.ok) setEmployees(await eRes.json());
+  }, [authHeaders]);
+
   const fetchAll = useCallback(async () => {
     try {
-      const [cRes, pRes, bRes, uRes, vRes, eRes] = await Promise.all([
-        fetch(`${API_BASE}/api/csa/channels`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/api/csa/products`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/api/csa/batches?limit=20`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/api/csa/unmatched`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/api/csa/variable-costs`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/api/csa/employees`, { headers: authHeaders() }),
-      ]);
-      if (cRes.ok) setChannels(await cRes.json());
-      if (pRes.ok) setProducts(await pRes.json());
-      if (bRes.ok) setBatches(await bRes.json());
-      if (uRes.ok) setUnmatched(await uRes.json());
-      if (vRes.ok) setVariableCosts(await vRes.json());
-      if (eRes.ok) setEmployees(await eRes.json());
+      // bootstrap 통합 endpoint 우선 (신버전 백엔드 — 1 라운드트립, 캐시)
+      const r = await fetch(`${API_BASE}/api/csa/bootstrap`, { headers: authHeaders() });
+      if (r.ok) {
+        const d = await r.json();
+        // bootstrap 응답이 정상 구조인지 검증
+        if (d && Array.isArray(d.channels)) {
+          setChannels(d.channels || []);
+          setProducts(d.products || []);
+          setBatches(d.batches || []);
+          setUnmatched(d.unmatched || []);
+          setVariableCosts(d.variable_costs || []);
+          setEmployees(d.employees || []);
+          return;
+        }
+      }
+      // bootstrap 미지원(404)·이상 응답 → 개별 endpoint 폴백
+      await fetchAllIndividual();
     } catch (e) {
-      console.error(e);
+      console.error('fetchAll bootstrap failed, falling back', e);
+      try { await fetchAllIndividual(); } catch (e2) { console.error(e2); }
     }
-  }, [authHeaders]);
+  }, [authHeaders, fetchAllIndividual]);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);

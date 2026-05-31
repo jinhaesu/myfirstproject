@@ -189,31 +189,52 @@ def _sum_daily_field(db: Session, year: int, month: int, field: str) -> float:
 
 
 def compute_actual(db: Session, year: int) -> dict[tuple[str, int], float]:
-    """{(formula_code, month): value} 형태로 자동 계산값 반환."""
-    out: dict[tuple[str, int], float] = {}
-    for month in range(1, 13):
-        rev = _sum_daily_field(db, year, month, "net_sales")
-        labor = _sum_daily_field(db, year, month, "cost_labor")
-        overhead = _sum_daily_field(db, year, month, "cost_overhead")
-        cogs_basic = _sum_daily_field(db, year, month, "cost_cogs")  # 원가 항목 (rule 기준)
-        adv = _sum_daily_field(db, year, month, "cost_advertising")
-        commr = _sum_daily_field(db, year, month, "cost_commission_rate")
-        commf = _sum_daily_field(db, year, month, "cost_commission_fixed")
-        ship = _sum_daily_field(db, year, month, "cost_shipping")
-        pack = _sum_daily_field(db, year, month, "cost_packaging")
-        lw = _sum_daily_field(db, year, month, "cost_logistics_work")
-        lo = _sum_daily_field(db, year, month, "cost_logistics_oh")
+    """{(formula_code, month): value} 형태로 자동 계산값 반환.
 
-        out[("revenue", month)] = rev
+    이전엔 (12개월 × 11개 컬럼 = 132개) 개별 SUM query를 순차 호출했으나
+    Supabase pooler RTT × 132 ≈ 30~60초로 PNL endpoint timeout. 단일 GROUP BY 1회 호출로 통합.
+    """
+    rows = db.query(
+        ChannelSalesDailyProduct.month,
+        func.coalesce(func.sum(ChannelSalesDailyProduct.net_sales), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_labor), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_overhead), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_cogs), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_advertising), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_commission_rate), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_commission_fixed), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_shipping), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_packaging), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_logistics_work), 0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.cost_logistics_oh), 0),
+    ).filter(
+        ChannelSalesDailyProduct.year == year,
+    ).group_by(ChannelSalesDailyProduct.month).all()
+
+    out: dict[tuple[str, int], float] = {}
+    # 데이터 없는 월은 0으로 채움 (frontend는 12개월 전체 노출)
+    for m in range(1, 13):
+        out[("revenue", m)] = 0.0
+        out[("cogs_material", m)] = 0.0
+        out[("labor", m)] = 0.0
+        out[("overhead", m)] = 0.0
+        out[("advertising", m)] = 0.0
+        out[("commission_all", m)] = 0.0
+        out[("shipping", m)] = 0.0
+        out[("packaging", m)] = 0.0
+        out[("logistics", m)] = 0.0
+    for r in rows:
+        m = int(r[0])
+        out[("revenue", m)] = float(r[1] or 0)
+        out[("labor", m)] = float(r[2] or 0)
+        out[("overhead", m)] = float(r[3] or 0)
         # cost_cogs = 변동비 설정의 '원가' 규칙 합 (원재료+부재료 통합)
-        out[("cogs_material", month)] = cogs_basic
-        out[("labor", month)] = labor
-        out[("overhead", month)] = overhead
-        out[("advertising", month)] = adv
-        out[("commission_all", month)] = commr + commf
-        out[("shipping", month)] = ship
-        out[("packaging", month)] = pack
-        out[("logistics", month)] = lw + lo
+        out[("cogs_material", m)] = float(r[4] or 0)
+        out[("advertising", m)] = float(r[5] or 0)
+        out[("commission_all", m)] = float(r[6] or 0) + float(r[7] or 0)
+        out[("shipping", m)] = float(r[8] or 0)
+        out[("packaging", m)] = float(r[9] or 0)
+        out[("logistics", m)] = float(r[10] or 0) + float(r[11] or 0)
     return out
 
 
@@ -224,6 +245,12 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     변동비 설정(채널/품목/기간별 규칙)을 곱해 변동비 plan을 만들고
     공헌이익 plan = 매출 − 변동비(원가+판관) 으로 산출한다.
     """
+    import time as _time
+    _tp0 = _time.time()
+    def _plap(label):
+        nonlocal _tp0
+        print(f"[compute_plan] {label}: {(_time.time()-_tp0)*1000:.0f}ms", flush=True)
+        _tp0 = _time.time()
     from datetime import date as _date
     from app.services.csa_cost_service import _best_rule
 
@@ -237,6 +264,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     ).filter(BusinessPlanChannelRevenue.year == year).group_by(
         BusinessPlanChannelRevenue.channel_id, BusinessPlanChannelRevenue.month,
     ).all()
+    _plap("rev_rows")
     channel_month_rev: dict[tuple[str, int], float] = {}
     monthly_rev: dict[int, float] = {}
     for ch, m, total in rev_rows:
@@ -251,6 +279,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     rules_by_item: dict[int, list[CsaCostRule]] = {}
     for r in db.query(CsaCostRule).filter(CsaCostRule.is_active.is_(True)).all():
         rules_by_item.setdefault(r.cost_item_id, []).append(r)
+    _plap("rules_cache")
 
     def rule_for(code: str, ch: str, pid: Optional[int], ref_date):
         it = items.get(code)
@@ -262,6 +291,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     qty_rows = db.query(BusinessPlanProductQty).filter(
         BusinessPlanProductQty.year == year
     ).all()
+    _plap(f"qty_rows({len(qty_rows)})")
     cogs_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
     labor_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
     for q in qty_rows:
@@ -278,6 +308,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     for m in range(1, 13):
         out[("cogs_material", m)] = cogs_by_month[m]
         out[("labor", m)] = labor_by_month[m]
+    _plap("qty_loop")
 
     # 4) 매출 정률 기반: overhead, logistics_work, logistics_oh, commission_rate
     rate_codes = ("overhead", "logistics_work", "logistics_oh", "commission_rate")
@@ -295,6 +326,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
         out[("overhead", m)] = rate_buckets["overhead"][m]
         out[("logistics", m)] = rate_buckets["logistics_work"][m] + rate_buckets["logistics_oh"][m]
         out[("commission_all", m)] = rate_buckets["commission_rate"][m]
+    _plap("rate_loop")
 
     # 5) 광고비 plan: 사업계획 그룹별 target_marketing 합 우선, 없으면 채널 월 광고비 합
     adv_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
@@ -321,6 +353,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
                 adv_by_month[m] = float(total or 0)
     for m in range(1, 13):
         out[("advertising", m)] = adv_by_month[m]
+    _plap("advertising")
 
     # 사업계획 엑셀의 그룹별 공헌이익 합계 (대시보드 시트 '공헌이익' 섹션)
     cm_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
@@ -335,6 +368,7 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     for m in range(1, 13):
         if cm_by_month[m]:
             out[("contribution_margin", m)] = cm_by_month[m]
+    _plap("cm_rows")
 
     # 주문건수 기반(commission_fixed, shipping order_fixed, packaging)은 plan에 주문수가 없어 0으로 둠
     return out
@@ -345,15 +379,32 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
 # ──────────────────────────────────────────────────────────────
 
 def get_pnl_matrix(db: Session, year: int) -> dict:
-    seed_pnl_rows(db)
+    import time as _time
+    _t0 = _time.time()
+    def _lap(label):
+        nonlocal _t0
+        print(f"[pnl_matrix] {label}: {(_time.time()-_t0)*1000:.0f}ms", flush=True)
+        _t0 = _time.time()
+
+    existing_count = db.query(func.count(CsaPnlRow.id)).filter(
+        CsaPnlRow.code.in_([r[0] for r in ROW_SEED])
+    ).scalar() or 0
+    _lap("count")
+    if existing_count < len(ROW_SEED):
+        seed_pnl_rows(db)
+        _lap("seed")
     rows = db.query(CsaPnlRow).filter(CsaPnlRow.is_active.is_(True)).order_by(CsaPnlRow.sort_order).all()
+    _lap("rows")
     actual_calc = compute_actual(db, year)
+    _lap("compute_actual")
     plan_calc = compute_plan(db, year)
+    _lap("compute_plan")
 
     # DB에 저장된 manual 값
     manual_vals: dict[tuple[int, int, str], float] = {}
     for v in db.query(CsaPnlValue).filter(CsaPnlValue.year == year).all():
         manual_vals[(v.row_id, v.month, v.scope)] = v.value
+    _lap("manual_vals")
 
     # 행별 월 값 계산 (자동 우선, manual override 가능)
     matrix: dict[int, dict] = {}  # row_id → {actual: [..12..], plan: [..12..]}

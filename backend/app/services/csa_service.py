@@ -236,6 +236,22 @@ def _get_or_cache_master(db: Session, _cache: dict | None = None) -> list[Produc
     return db.query(ProductMaster).filter(ProductMaster.is_active.is_(True)).all()
 
 
+def _build_mapping_cache(
+    db: Session, channel_id: str
+) -> dict[tuple[str, Optional[str]], ChannelProductMapping]:
+    """채널의 모든 ChannelProductMapping을 (raw_product_name, raw_option_name) 키로 캐싱.
+
+    Supabase pooler처럼 query 1회당 latency가 큰 환경에서 ingest_lines가 라인마다
+    DB query하면 N+1로 GS25 95k 라인 적재가 timeout. 한 번만 가져와서 dict로 검색.
+    """
+    cache: dict[tuple[str, Optional[str]], ChannelProductMapping] = {}
+    for m in db.query(ChannelProductMapping).filter(
+        ChannelProductMapping.channel_id == channel_id
+    ).all():
+        cache[(m.raw_product_name, m.raw_option_name)] = m
+    return cache
+
+
 def resolve_product(
     db: Session,
     channel_id: str,
@@ -243,6 +259,8 @@ def resolve_product(
     raw_option_name: Optional[str] = None,
     *,
     masters_cache: Optional[list[ProductMaster]] = None,
+    mappings_cache: Optional[dict[tuple[str, Optional[str]], ChannelProductMapping]] = None,
+    product_by_id: Optional[dict[int, ProductMaster]] = None,
 ) -> MappingResult:
     """채널 원본 상품명 → 표준 품목 매핑.
 
@@ -253,24 +271,36 @@ def resolve_product(
     raw_name = (raw_product_name or "").strip()
     raw_opt = (raw_option_name or "").strip() if raw_option_name else None
 
-    # 1) 정확 매핑
-    q = db.query(ChannelProductMapping).filter(
-        ChannelProductMapping.channel_id == channel_id,
-        ChannelProductMapping.raw_product_name == raw_name,
-    )
-    if raw_opt:
-        m = q.filter(ChannelProductMapping.raw_option_name == raw_opt).first()
-        if m is None:
-            m = q.filter(ChannelProductMapping.raw_option_name.is_(None)).first()
+    # 1) 정확 매핑 — 캐시 우선, 없으면 DB query (단건 호출 fallback)
+    m: Optional[ChannelProductMapping] = None
+    if mappings_cache is not None:
+        if raw_opt:
+            m = mappings_cache.get((raw_name, raw_opt)) or mappings_cache.get((raw_name, None))
+        else:
+            m = mappings_cache.get((raw_name, None))
     else:
-        m = q.filter(ChannelProductMapping.raw_option_name.is_(None)).first()
+        q = db.query(ChannelProductMapping).filter(
+            ChannelProductMapping.channel_id == channel_id,
+            ChannelProductMapping.raw_product_name == raw_name,
+        )
+        if raw_opt:
+            m = q.filter(ChannelProductMapping.raw_option_name == raw_opt).first()
+            if m is None:
+                m = q.filter(ChannelProductMapping.raw_option_name.is_(None)).first()
+        else:
+            m = q.filter(ChannelProductMapping.raw_option_name.is_(None)).first()
 
     if m is not None:
         if m.is_excluded:
             return MappingResult(None, None, 1, "excluded")
         if m.product_id is None:
             return MappingResult(None, None, m.unit_per_set or 1, "unmatched")
-        prod = db.query(ProductMaster).get(m.product_id)
+        if product_by_id is not None:
+            prod = product_by_id.get(m.product_id)
+        else:
+            prod = db.query(ProductMaster).get(m.product_id)
+        if prod is None:
+            return MappingResult(None, None, m.unit_per_set or 1, "unmatched")
         return MappingResult(prod.id, prod.name, m.unit_per_set or 1, "matched")
 
     # 2) 룰베이스 — 가장 긴 표준명이 raw에 포함되는지 (aliases 포함)
@@ -402,6 +432,10 @@ def ingest_lines(
     db.commit()
 
     masters_cache = _get_or_cache_master(db)
+    product_by_id = {p.id: p for p in masters_cache}
+    # ChannelProductMapping 전체를 한 번에 메모리에 캐시.
+    # Supabase pooler 환경에서 라인마다 DB query하면 95k 라인 적재가 수 시간.
+    mappings_cache = _build_mapping_cache(db, channel_id)
     inserted = duplicate = unmatched = excluded = total = 0
     min_date = max_date = None
 
@@ -413,6 +447,9 @@ def ingest_lines(
     )
     # 2) batch 내 라인 간 중복 추적 (commit 전이라 DB query로는 안 보임)
     seen_in_batch: set[str] = set()
+    # 3) unmatched aggregation buffer — 라인마다 SELECT/UPDATE하면 N+1.
+    #    in-memory에서 집계 후 batch end에 한 번에 upsert.
+    unmatched_agg: dict[tuple[str, Optional[str]], dict] = {}
 
     for ln in lines:
         total += 1
@@ -431,13 +468,26 @@ def ingest_lines(
         seen_in_batch.add(dedup)
 
         mapping = resolve_product(
-            db, channel_id, ln.raw_product_name or "", ln.raw_option_name, masters_cache=masters_cache
+            db, channel_id, ln.raw_product_name or "", ln.raw_option_name,
+            masters_cache=masters_cache,
+            mappings_cache=mappings_cache,
+            product_by_id=product_by_id,
         )
         pcs = ln.raw_qty * mapping.unit_per_set
         status = mapping.status
         if status == "unmatched":
             unmatched += 1
-            _bump_unmatched(db, channel_id, channel_name, ln.raw_product_name, ln.raw_option_name, ln.raw_qty)
+            # in-memory 집계만 (DB query는 batch end에서 한 번에)
+            name_norm = (ln.raw_product_name or "").strip()
+            if name_norm:
+                opt_norm = _normalize_opt(ln.raw_option_name)
+                key = (name_norm, opt_norm)
+                agg = unmatched_agg.get(key)
+                if agg is None:
+                    unmatched_agg[key] = {"count": 1, "qty": ln.raw_qty}
+                else:
+                    agg["count"] += 1
+                    agg["qty"] += ln.raw_qty
         elif status == "excluded":
             excluded += 1
 
@@ -474,6 +524,10 @@ def ingest_lines(
             raw_row=ln.raw_row,
         ))
         inserted += 1
+
+    # 라인 loop 종료 — unmatched 집계를 bulk upsert (라인마다 SELECT/UPDATE 제거).
+    if unmatched_agg:
+        _flush_unmatched_agg(db, channel_id, channel_name, unmatched_agg)
 
     # 일괄 commit 시도 → IntegrityError(잔존 DB 행과 충돌) 발생 시
     # 라인별 add/flush로 안전 fallback (실패한 라인만 duplicate 처리)
@@ -518,6 +572,44 @@ def _normalize_opt(s: Optional[str]) -> Optional[str]:
     if not t or t.lower() in ("nan", "none", "null"):
         return None
     return t
+
+
+def _flush_unmatched_agg(
+    db: Session,
+    channel_id: str,
+    channel_name: str,
+    agg: dict[tuple[str, Optional[str]], dict],
+) -> None:
+    """in-memory로 집계된 unmatched (key=(name, opt)) → 한 번의 DB query로 기존 pending row 조회
+    + 일괄 update / insert. ingest_lines 내 라인마다 SELECT/UPDATE를 했을 때의 N+1 제거.
+    """
+    if not agg:
+        return
+    # 이 채널의 pending unmatched 한 번에 가져오기
+    existing = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.channel_id == channel_id,
+        ChannelUnmatchedProduct.status == "pending",
+    ).all()
+    by_key: dict[tuple[str, Optional[str]], ChannelUnmatchedProduct] = {
+        (row.raw_product_name, row.raw_option_name): row for row in existing
+    }
+    now = datetime.utcnow()
+    for (name, opt), info in agg.items():
+        row = by_key.get((name, opt))
+        if row is not None:
+            row.occurrence_count = (row.occurrence_count or 0) + info["count"]
+            row.total_qty = (row.total_qty or 0) + info["qty"]
+            row.last_seen_at = now
+        else:
+            db.add(ChannelUnmatchedProduct(
+                channel_id=channel_id,
+                channel_name=channel_name,
+                raw_product_name=name,
+                raw_option_name=opt,
+                occurrence_count=info["count"],
+                total_qty=info["qty"],
+                last_seen_at=now,
+            ))
 
 
 def _bump_unmatched(

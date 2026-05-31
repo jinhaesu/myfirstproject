@@ -223,12 +223,15 @@ app = FastAPI(
 )
 
 # CORS 설정 — 모든 오리진 허용 (JWT 인증으로 보안 유지)
+# max_age로 브라우저가 OPTIONS preflight를 10분간 캐싱 → 메뉴 진입 시 endpoint당
+# 라운드트립이 절반으로 감소 (Supabase 이전 후 Railway↔Seoul 왕복이 누적 비용)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    max_age=600,
 )
 
 # 라우터 등록

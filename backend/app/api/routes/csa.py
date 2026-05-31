@@ -7,7 +7,7 @@ import tempfile
 from datetime import date, datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import Session
@@ -124,6 +124,98 @@ def seed(db: Session = Depends(get_db)):
         "cost_items": ci, "channel_products_created": cp,
         "parsers": registered_channels(),
     }
+
+
+# ──────────────────────────────────────────────────────────────
+# Bootstrap (모든 master endpoint 통합 + 60s 메모리 캐시)
+# ──────────────────────────────────────────────────────────────
+
+import time as _btime
+_BOOT_CACHE: dict = {"data": None, "expires": 0.0}
+_BOOT_TTL_SEC = 30  # master 데이터는 자주 안 바뀜
+
+
+@router.get("/bootstrap")
+def bootstrap(force: bool = False, db: Session = Depends(get_db)):
+    """전체 master 데이터 단일 응답 — channels/products/groups/cost-items/variable-costs/employees/batches/unmatched.
+
+    frontend의 fetchAll 6 라운드트립 → 1 라운드트립으로 압축.
+    30초 TTL 메모리 캐시: 같은 인스턴스 내 다음 호출은 DB hit 없이 즉시 반환.
+    force=true로 캐시 무시 가능.
+    """
+    now = _btime.time()
+    if not force and _BOOT_CACHE["data"] and _BOOT_CACHE["expires"] > now:
+        return {**_BOOT_CACHE["data"], "_cached": True, "_ttl_left": int(_BOOT_CACHE["expires"] - now)}
+
+    parsers = set(registered_channels())
+    channels = [
+        {"id": c.id, "name": c.name, "category": c.category,
+         "integration_type": c.integration_type, "is_active": c.is_active,
+         "has_parser": c.name in parsers}
+        for c in db.query(Channel).order_by(Channel.category, Channel.name).all()
+    ]
+    products = [
+        {"id": p.id, "code": p.code, "name": p.name, "category": p.category,
+         "default_unit_size": p.default_unit_size, "is_active": p.is_active,
+         "sort_order": p.sort_order}
+        for p in db.query(ProductMaster).filter(ProductMaster.is_active.is_(True))
+                  .order_by(ProductMaster.sort_order, ProductMaster.id).all()
+    ]
+    groups = [
+        {"id": g.id, "code": g.code, "name": g.name, "big_group": g.big_group,
+         "channels": []}
+        for g in db.query(ChannelGroup).order_by(ChannelGroup.id).all()
+    ]
+    cost_items = [
+        {"id": ci.id, "code": ci.code, "name": ci.name, "category": ci.category,
+         "basis": ci.basis, "description": ci.description,
+         "is_active": ci.is_active, "sort_order": ci.sort_order}
+        for ci in db.query(__import__('app.db_models', fromlist=['CsaCostItem']).CsaCostItem)
+                    .order_by('sort_order').all()
+    ]
+    variable_costs = [
+        {"id": v.id, "product_id": v.product_id, "channel_id": v.channel_id,
+         "cost_per_pcs": v.cost_per_pcs, "valid_from": v.valid_from.isoformat() if v.valid_from else None,
+         "valid_to": v.valid_to.isoformat() if v.valid_to else None,
+         "notes": v.notes}
+        for v in db.query(ProductVariableCost).all()
+    ]
+    employees = [
+        {"id": e.id, "name": e.name, "email": e.email, "role": e.role, "is_active": e.is_active}
+        for e in db.query(Employee).order_by(Employee.name).all()
+    ]
+    batches = [
+        {"id": b.id, "channel_id": b.channel_id, "channel_name": b.channel_name,
+         "file_name": b.file_name, "status": b.status,
+         "period_start": b.period_start.isoformat() if b.period_start else None,
+         "period_end": b.period_end.isoformat() if b.period_end else None,
+         "row_total": b.row_total, "row_inserted": b.row_inserted,
+         "row_duplicate": b.row_duplicate, "row_unmatched": b.row_unmatched,
+         "created_at": b.created_at.isoformat() if b.created_at else None}
+        for b in db.query(ChannelSalesUploadBatch).order_by(ChannelSalesUploadBatch.created_at.desc()).limit(50).all()
+    ]
+    unmatched = [
+        {"id": u.id, "channel_id": u.channel_id, "channel_name": u.channel_name,
+         "raw_product_name": u.raw_product_name, "raw_option_name": u.raw_option_name,
+         "occurrence_count": u.occurrence_count, "total_qty": u.total_qty,
+         "llm_suggested_product_id": u.llm_suggested_product_id,
+         "llm_suggested_unit_per_set": u.llm_suggested_unit_per_set,
+         "llm_confidence": u.llm_confidence, "llm_reason": u.llm_reason}
+        for u in db.query(ChannelUnmatchedProduct).filter(ChannelUnmatchedProduct.status == "pending").all()
+    ]
+    data = {
+        "channels": channels, "products": products, "groups": groups,
+        "cost_items": cost_items, "variable_costs": variable_costs,
+        "employees": employees, "batches": batches, "unmatched": unmatched,
+    }
+    _BOOT_CACHE["data"] = data
+    _BOOT_CACHE["expires"] = now + _BOOT_TTL_SEC
+    return {**data, "_cached": False, "_ttl_sec": _BOOT_TTL_SEC}
+
+
+def _bust_bootstrap_cache():
+    _BOOT_CACHE["data"] = None
+    _BOOT_CACHE["expires"] = 0.0
 
 
 @router.get("/products", response_model=list[ProductMasterOut])
@@ -303,57 +395,40 @@ def list_channels(db: Session = Depends(get_db)):
 # Upload + Parse
 # ──────────────────────────────────────────────────────────────
 
-@router.post("/upload")
-async def upload_channel_file(
-    channel_id: str = Form(...),
-    channel_name: str = Form(...),
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+def _run_ingest_background(
+    tmp_path: str,
+    channel_id: str,
+    channel_name: str,
+    file_name: str,
+    fsize: int,
+    fhash: str,
+    parser_name: str,
 ):
-    parser = get_parser(channel_name)
-    if not parser:
-        raise HTTPException(status_code=400, detail=f"채널 '{channel_name}' 파서가 아직 구현되지 않았습니다")
+    """BackgroundTask로 실행되는 ingest 워커.
 
-    suffix = os.path.splitext(file.filename or "")[1] or ".xlsx"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        content = await file.read()
-        tmp.write(content)
-        tmp_path = tmp.name
-
+    별도 DB 세션을 열고 ingest_lines를 실행. 예외는 batch.status='failed'로 마킹.
+    """
+    from app.database import SessionLocal
+    db = SessionLocal()
     try:
-        fsize = len(content)
-        fhash = file_sha256(tmp_path)
-
-        # 동일 파일 재업로드 감지
-        dup_batch = db.query(ChannelSalesUploadBatch).filter(
-            ChannelSalesUploadBatch.channel_id == channel_id,
-            ChannelSalesUploadBatch.file_hash == fhash,
-        ).first()
-        if dup_batch:
-            return {
-                "batch_id": dup_batch.id,
-                "duplicate_file": True,
-                "row_total": dup_batch.row_total,
-                "row_inserted": dup_batch.row_inserted,
-                "row_duplicate": dup_batch.row_duplicate,
-                "row_unmatched": dup_batch.row_unmatched,
-                "message": "이미 업로드된 파일입니다. 새로 적재하지 않았습니다.",
-            }
-
+        parser = get_parser(parser_name)
+        if not parser:
+            return
         try:
             lines = list(parser(tmp_path))
-            batch = ingest_lines(
+            ingest_lines(
                 db,
                 channel_id=channel_id,
                 channel_name=channel_name,
-                file_name=file.filename or "upload",
+                file_name=file_name,
                 file_hash=fhash,
                 file_size=fsize,
                 parser_version="v1",
                 lines=lines,
             )
         except Exception as e:
-            # 부분 진행된 batch가 'parsing' 상태로 남지 않도록 failed로 마킹
+            log = logging.getLogger(__name__)
+            log.exception("background ingest failed")
             try:
                 stuck = db.query(ChannelSalesUploadBatch).filter(
                     ChannelSalesUploadBatch.channel_id == channel_id,
@@ -366,23 +441,100 @@ async def upload_channel_file(
                     db.commit()
             except Exception:
                 db.rollback()
-            raise HTTPException(status_code=500, detail=f"파싱 실패: {type(e).__name__}: {e}")
-        return {
-            "batch_id": batch.id,
-            "duplicate_file": False,
-            "row_total": batch.row_total,
-            "row_inserted": batch.row_inserted,
-            "row_duplicate": batch.row_duplicate,
-            "row_unmatched": batch.row_unmatched,
-            "row_excluded": batch.row_excluded,
-            "period_start": batch.period_start.isoformat() if batch.period_start else None,
-            "period_end": batch.period_end.isoformat() if batch.period_end else None,
-        }
     finally:
         try:
             os.unlink(tmp_path)
         except Exception:
             pass
+        db.close()
+
+
+def _cleanup_stale_parsing_batches(db: Session, channel_id: str, ttl_minutes: int = 30):
+    """업로드 시 진입 시 같은 채널의 오래된 parsing 잔존 batch를 failed로 마킹.
+
+    Railway/uvicorn restart로 워커가 죽으면 parsing 상태가 영원히 stuck됨.
+    /upload 호출 때마다 자기 채널의 ttl 지난 parsing batch를 정리.
+    """
+    from datetime import timedelta
+    cutoff = datetime.utcnow() - timedelta(minutes=ttl_minutes)
+    stale = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == channel_id,
+        ChannelSalesUploadBatch.status == "parsing",
+        ChannelSalesUploadBatch.created_at < cutoff,
+    ).all()
+    for b in stale:
+        b.status = "failed"
+        b.error_message = (b.error_message or "") + f" | auto: stale parsing >{ttl_minutes}min"
+    if stale:
+        db.commit()
+
+
+@router.post("/upload")
+async def upload_channel_file(
+    background_tasks: BackgroundTasks,
+    channel_id: str = Form(...),
+    channel_name: str = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    parser = get_parser(channel_name)
+    if not parser:
+        raise HTTPException(status_code=400, detail=f"채널 '{channel_name}' 파서가 아직 구현되지 않았습니다")
+
+    # 같은 채널의 오래된 parsing stuck batch 자동 정리 (TTL 30분)
+    _cleanup_stale_parsing_batches(db, channel_id)
+
+    suffix = os.path.splitext(file.filename or "")[1] or ".xlsx"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    fsize = len(content)
+    fhash = file_sha256(tmp_path)
+
+    # 동일 파일 재업로드 감지 — failed/canceled batch는 dup으로 잡지 않음
+    dup_batch = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == channel_id,
+        ChannelSalesUploadBatch.file_hash == fhash,
+        ChannelSalesUploadBatch.status.notin_(["failed", "canceled"]),
+    ).first()
+    if dup_batch:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+        return {
+            "batch_id": dup_batch.id,
+            "duplicate_file": True,
+            "row_total": dup_batch.row_total,
+            "row_inserted": dup_batch.row_inserted,
+            "row_duplicate": dup_batch.row_duplicate,
+            "row_unmatched": dup_batch.row_unmatched,
+            "status": dup_batch.status,
+            "message": "이미 업로드된 파일입니다. 새로 적재하지 않았습니다.",
+        }
+
+    # BackgroundTask로 ingest 위임 — ingest_lines 내부에서 batch 생성/commit.
+    # 대용량 엑셀(95k+ 라인)도 워커 timeout 없이 처리 가능.
+    background_tasks.add_task(
+        _run_ingest_background,
+        tmp_path,
+        channel_id,
+        channel_name,
+        file.filename or "upload",
+        fsize,
+        fhash,
+        channel_name,
+    )
+
+    return {
+        "duplicate_file": False,
+        "status": "queued",
+        "channel_id": channel_id,
+        "file_hash": fhash,
+        "message": "업로드를 큐에 넣었습니다. 잠시 후 'batches' 목록에서 진행 상황을 확인하세요.",
+    }
 
 
 @router.get("/batches")
@@ -745,6 +897,10 @@ def _granularity_columns(g: str):
     raise HTTPException(400, "invalid granularity")
 
 
+_DASH_CACHE: dict = {}
+_DASH_TTL_SEC = 30
+
+
 @router.get("/dashboard")
 def dashboard(
     period_start: date,
@@ -753,8 +909,18 @@ def dashboard(
     channel_ids: Optional[str] = Query(None, description="콤마구분 channel_id"),
     product_ids: Optional[str] = Query(None, description="콤마구분 product_id"),
     employee_ids: Optional[str] = Query(None, description="콤마구분 employee_id (담당 채널로 변환)"),
+    force: bool = False,
     db: Session = Depends(get_db),
 ):
+    import time as _time
+    cache_key = (str(period_start), str(period_end), granularity,
+                 channel_ids or "", product_ids or "", employee_ids or "")
+    now = _time.time()
+    if not force:
+        cached = _DASH_CACHE.get(cache_key)
+        if cached and cached["expires"] > now:
+            return {**cached["data"], "_cached": True}
+
     q = db.query(ChannelSalesDailyProduct).filter(
         ChannelSalesDailyProduct.sale_date >= period_start,
         ChannelSalesDailyProduct.sale_date <= period_end,
@@ -884,7 +1050,7 @@ def dashboard(
     for c in channels_summary:
         c["cm_rate"] = (c["contribution_margin"] / c["revenue"] * 100) if c["revenue"] else 0
 
-    return {
+    resp = {
         "summary": {
             "revenue": total_revenue,
             "pcs": total_pcs,
@@ -904,7 +1070,11 @@ def dashboard(
         "granularity": granularity,
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
+        "_cached": False,
     }
+    _DASH_CACHE[cache_key] = {"data": {k: v for k, v in resp.items() if k != "_cached"},
+                              "expires": now + _DASH_TTL_SEC}
+    return resp
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1313,9 +1483,30 @@ class PnlVerifyIn(BaseModel):
     password: str
 
 
+_PNL_CACHE: dict = {}  # year -> {"data":..., "expires":...}
+_PNL_TTL_SEC = 30
+
+
 @router.get("/pnl")
-def pnl_matrix(year: int, db: Session = Depends(get_db)):
-    return get_pnl_matrix(db, year)
+def pnl_matrix(year: int, force: bool = False, db: Session = Depends(get_db)):
+    import time as _time
+    now = _time.time()
+    cached = _PNL_CACHE.get(year)
+    if not force and cached and cached["expires"] > now:
+        return {**cached["data"], "_timing_ms": 0, "_cached": True}
+    _t0 = _time.time()
+    result = get_pnl_matrix(db, year)
+    elapsed_ms = int((_time.time() - _t0) * 1000)
+    if isinstance(result, dict):
+        result["_timing_ms"] = elapsed_ms
+        result["_cached"] = False
+        _PNL_CACHE[year] = {"data": {k: v for k, v in result.items() if not k.startswith("_")},
+                            "expires": now + _PNL_TTL_SEC}
+    return result
+
+
+def _bust_pnl_cache():
+    _PNL_CACHE.clear()
 
 
 @router.post("/pnl/value")
