@@ -979,6 +979,11 @@ def dashboard(
     db: Session = Depends(get_db),
 ):
     import time as _time
+    _dt0 = _time.time()
+    def _dlap(label):
+        nonlocal _dt0
+        print(f"[dashboard] {label}: {(_time.time()-_dt0)*1000:.0f}ms", flush=True)
+        _dt0 = _time.time()
     cache_key = (str(period_start), str(period_end), granularity,
                  channel_ids or "", product_ids or "", employee_ids or "")
     now = _time.time()
@@ -1008,12 +1013,14 @@ def dashboard(
     if selected_channels:
         q = q.filter(ChannelSalesDailyProduct.channel_id.in_(list(selected_channels)))
 
+    _dlap("filters")
     if product_ids:
         ids = [int(s) for s in product_ids.split(",") if s.strip()]
         if ids:
             q = q.filter(ChannelSalesDailyProduct.product_id.in_(ids))
 
     rows = q.all()
+    _dlap(f"main_query({len(rows)} rows)")
 
     # 집계
     total_revenue = sum(r.net_sales or 0 for r in rows)
@@ -1041,6 +1048,7 @@ def dashboard(
     # 구분(그룹) 집계 — 3종 (온라인(위탁)/온라인(사입)/오프라인)
     # 마스터 맵은 메모리 캐시(5분)에서 — 매 요청 2쿼리(×309ms) 제거
     _mm = _get_master_maps(db)
+    _dlap("master_maps")
     group_map = _mm["group_map"]
     group_names = _mm["group_names"]
     by_group: dict = {}
