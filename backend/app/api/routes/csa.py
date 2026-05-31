@@ -265,11 +265,15 @@ def _bust_all_caches():
     """
     _bust_bootstrap_cache()
     _bust_master_cache()
-    for _c in ("_DASH_CACHE", "_PNL_CACHE", "_PLAN_CACHE"):
+    for _c in ("_DASH_CACHE", "_PNL_CACHE", "_PLAN_CACHE", "_CHPROD_CACHE"):
         try:
             globals()[_c].clear()
         except Exception:
             pass
+
+
+_CHPROD_CACHE: dict = {}
+_CHPROD_TTL_SEC = 300
 
 
 @router.get("/products", response_model=list[ProductMasterOut])
@@ -340,6 +344,12 @@ def list_channel_products(
     only_active: bool = True,
     db: Session = Depends(get_db),
 ):
+    import time as _time
+    _cp_key = (channel_id or "", product_id or 0, only_active)
+    _cp_now = _time.time()
+    _cp_cached = _CHPROD_CACHE.get(_cp_key)
+    if _cp_cached and _cp_cached["expires"] > _cp_now:
+        return _cp_cached["data"]
     q = db.query(CsaChannelProduct)
     if channel_id:
         q = q.filter(CsaChannelProduct.channel_id == channel_id)
@@ -348,13 +358,15 @@ def list_channel_products(
     if only_active:
         q = q.filter(CsaChannelProduct.is_active.is_(True))
     rows = q.order_by(CsaChannelProduct.channel_name, CsaChannelProduct.product_name).all()
-    return [
+    out = [
         {
             "id": r.id, "channel_id": r.channel_id, "channel_name": r.channel_name,
             "product_id": r.product_id, "product_name": r.product_name,
             "is_active": r.is_active, "added_by": r.added_by,
         } for r in rows
     ]
+    _CHPROD_CACHE[_cp_key] = {"data": out, "expires": _cp_now + _CHPROD_TTL_SEC}
+    return out
 
 
 @router.post("/channel-products")
@@ -373,6 +385,7 @@ def upsert_channel_product(payload: ChannelProductIn, db: Session = Depends(get_
         existing.is_active = payload.is_active
         existing.notes = payload.notes
         db.commit()
+        _bust_all_caches()
         return {"id": existing.id, "updated": True}
     item = CsaChannelProduct(
         channel_id=ch.id, channel_name=ch.name,
@@ -381,6 +394,7 @@ def upsert_channel_product(payload: ChannelProductIn, db: Session = Depends(get_
         added_by="manual",
     )
     db.add(item); db.commit()
+    _bust_all_caches()
     return {"id": item.id, "updated": False}
 
 
@@ -391,6 +405,7 @@ def delete_channel_product(cp_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "not found")
     item.is_active = False
     db.commit()
+    _bust_all_caches()
     return {"deactivated": cp_id}
 
 
@@ -428,6 +443,7 @@ def bulk_set_channel_products(
         if pid not in pid_set and r.is_active:
             r.is_active = False; changed += 1
     db.commit()
+    _bust_all_caches()
     return {"channel_id": channel_id, "active_count": len(pid_set), "changed": changed}
 
 
@@ -1326,6 +1342,12 @@ async def upload_business_plan(
 @router.get("/plan/summary")
 def plan_summary(year: int, db: Session = Depends(get_db)):
     """사업계획 요약 (연간 총합)."""
+    import time as _time
+    _ps_key = ("summary", year)
+    _ps_now = _time.time()
+    _ps_cached = _PLAN_CACHE.get(_ps_key)
+    if _ps_cached and _ps_cached["expires"] > _ps_now:
+        return {**_ps_cached["data"], "_cached": True}
     rev_total = db.query(func.sum(BusinessPlanChannelRevenue.target_revenue)).filter(
         BusinessPlanChannelRevenue.year == year
     ).scalar() or 0
@@ -1345,7 +1367,7 @@ def plan_summary(year: int, db: Session = Depends(get_db)):
     ).filter(BusinessPlanChannelRevenue.year == year).group_by(
         BusinessPlanChannelRevenue.employee_id, BusinessPlanChannelRevenue.employee_name,
     ).all()
-    return {
+    _ps_resp = {
         "year": year,
         "total_revenue_target": rev_total,
         "total_pcs_target": qty_total,
@@ -1354,11 +1376,11 @@ def plan_summary(year: int, db: Session = Depends(get_db)):
             {"employee_id": eid, "employee": en or "미배정", "target_revenue": float(v or 0)}
             for eid, en, v in by_employee
         ],
+        "_cached": False,
     }
-
-
-_PLAN_CACHE: dict = {}
-_PLAN_TTL_SEC = 300
+    _PLAN_CACHE[_ps_key] = {"data": {k: v for k, v in _ps_resp.items() if k != "_cached"},
+                            "expires": _ps_now + _PLAN_TTL_SEC}
+    return _ps_resp
 
 
 @router.get("/plan/comparison")
