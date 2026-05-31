@@ -218,12 +218,53 @@ def _bust_bootstrap_cache():
     _BOOT_CACHE["expires"] = 0.0
 
 
+# ── 마스터 맵 메모리 캐시 ──────────────────────────────────
+# 채널그룹/멤버십/직원/담당/품목카테고리 — 거의 안 바뀌는 마스터.
+# 매 요청마다 5개 쿼리(×309ms RTT) 날리던 걸 5분에 1회로 압축.
+_MASTER_CACHE: dict = {"data": None, "expires": 0.0}
+_MASTER_TTL_SEC = 300
+
+
+def _get_master_maps(db: Session) -> dict:
+    """dashboard/plan_comparison/pnl이 공통으로 쓰는 마스터 맵을 한 번에 캐싱."""
+    import time as _t
+    now = _t.time()
+    c = _MASTER_CACHE
+    if c["data"] is not None and c["expires"] > now:
+        return c["data"]
+    group_map = {m.channel_id: m.group_id for m in db.query(ChannelGroupMembership).all()}
+    group_names = {g.id: g.name for g in db.query(ChannelGroup).all()}
+    emp_names = {e.id: e.name for e in db.query(Employee).all()}
+    emp_channel: dict = {}
+    for a in db.query(EmployeeChannelAssignment).filter(
+        EmployeeChannelAssignment.is_active.is_(True)
+    ).all():
+        emp_channel.setdefault(a.channel_id, []).append((a.employee_id, ""))
+    prod_categories = {p.id: p.category for p in db.query(ProductMaster).all()}
+    data = {
+        "group_map": group_map,
+        "group_names": group_names,
+        "emp_names": emp_names,
+        "emp_channel": emp_channel,
+        "prod_categories": prod_categories,
+    }
+    c["data"] = data
+    c["expires"] = now + _MASTER_TTL_SEC
+    return data
+
+
+def _bust_master_cache():
+    _MASTER_CACHE["data"] = None
+    _MASTER_CACHE["expires"] = 0.0
+
+
 def _bust_all_caches():
     """데이터 변경(업로드/매핑/PNL값/변동비) 시 모든 응답 캐시 무효화.
 
     TTL을 5분으로 늘린 대신, 실제 변경 시 즉시 무효화해 stale 방지.
     """
     _bust_bootstrap_cache()
+    _bust_master_cache()
     try:
         _DASH_CACHE.clear()
     except Exception:
@@ -263,10 +304,12 @@ def upsert_product(payload: ProductMasterIn, db: Session = Depends(get_db)):
         db.commit()
         # 모든 활성 채널에 신규 매핑 자동 생성 (멱등)
         seed_channel_products(db)
+        _bust_all_caches()
         return {"id": existing.id, "updated": True}
     item = ProductMaster(**payload.model_dump())
     db.add(item); db.commit()
     seed_channel_products(db)
+    _bust_all_caches()
     return {"id": item.id, "updated": False}
 
 
@@ -278,6 +321,7 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     # soft delete (is_active=False) — 매핑/매출 데이터 보존
     p.is_active = False
     db.commit()
+    _bust_all_caches()
     return {"deactivated": product_id}
 
 
@@ -677,6 +721,7 @@ def upsert_mapping(payload: MappingIn, db: Session = Depends(get_db)):
 
     if updated:
         rebuild_daily_aggregate(db, channel_id=payload.channel_id, since=min_d, until=max_d)
+        _bust_all_caches()
 
     return {"mapping_id": mapping_id, "raw_lines_updated": updated}
 
@@ -718,6 +763,7 @@ def upsert_variable_cost(payload: VariableCostIn, db: Session = Depends(get_db))
         db.add(existing)
     db.commit()
     rebuild_daily_aggregate(db)
+    _bust_all_caches()
     return {"id": existing.id}
 
 
@@ -831,6 +877,7 @@ def upsert_cost_rule(payload: CostRuleIn, db: Session = Depends(get_db)):
         db.commit()
         rule_id = rule.id
     rebuild_daily_with_costs(db)
+    _bust_all_caches()
     return {"id": rule_id}
 
 
@@ -887,6 +934,7 @@ def upsert_channel_monthly_cost(payload: ChannelMonthlyCostIn, db: Session = Dep
         db.commit()
         eid = m.id
     rebuild_daily_with_costs(db)
+    _bust_all_caches()
     return {"id": eid}
 
 
@@ -991,8 +1039,10 @@ def dashboard(
     }
 
     # 구분(그룹) 집계 — 3종 (온라인(위탁)/온라인(사입)/오프라인)
-    group_map = {m.channel_id: m.group_id for m in db.query(ChannelGroupMembership).all()}
-    group_names = {g.id: g.name for g in db.query(ChannelGroup).all()}
+    # 마스터 맵은 메모리 캐시(5분)에서 — 매 요청 2쿼리(×309ms) 제거
+    _mm = _get_master_maps(db)
+    group_map = _mm["group_map"]
+    group_names = _mm["group_names"]
     by_group: dict = {}
     for r in rows:
         gname = group_names.get(group_map.get(r.channel_id)) or "미분류"
@@ -1139,10 +1189,12 @@ def upsert_employee(payload: EmployeeIn, db: Session = Depends(get_db)):
         existing.role = payload.role
         existing.is_active = payload.is_active
         db.commit()
+        _bust_all_caches()
         return {"id": existing.id, "updated": True}
     e = Employee(**payload.model_dump())
     db.add(e)
     db.commit()
+    _bust_all_caches()
     return {"id": e.id, "updated": False}
 
 
@@ -1165,6 +1217,7 @@ def delete_employee(emp_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.delete(emp)
     db.commit()
+    _bust_all_caches()
     return {"deleted": emp_id}
 
 
@@ -1185,6 +1238,7 @@ def assign_employee_channels(payload: EmployeeChannelIn, db: Session = Depends(g
             is_active=True,
         ))
     db.commit()
+    _bust_all_caches()
     return {"employee_id": payload.employee_id, "channel_count": len(payload.channel_ids)}
 
 
@@ -1227,6 +1281,7 @@ def assign_channel_group(payload: GroupAssignIn, db: Session = Depends(get_db)):
             group_id=payload.group_id,
         ))
     db.commit()
+    _bust_all_caches()
     return {"channel_id": payload.channel_id, "group_id": payload.group_id}
 
 
@@ -1342,14 +1397,13 @@ def plan_comparison(
         actual_q = actual_q.filter(ChannelSalesDailyProduct.month == month)
     actual_rows = actual_q.all()
 
-    # 채널-그룹/직원 매핑
-    group_map = {m.channel_id: m.group_id for m in db.query(ChannelGroupMembership).all()}
-    group_names = {g.id: g.name for g in db.query(ChannelGroup).all()}
-    emp_channel = {}  # channel_id -> [(emp_id, emp_name)]
-    for a in db.query(EmployeeChannelAssignment).filter(EmployeeChannelAssignment.is_active.is_(True)).all():
-        emp_channel.setdefault(a.channel_id, []).append((a.employee_id, ""))
-    emp_names = {e.id: e.name for e in db.query(Employee).all()}
-    prod_categories = {p.id: p.category for p in db.query(ProductMaster).all()}
+    # 채널-그룹/직원 매핑 — 메모리 캐시(5분)에서 (매 요청 5쿼리×309ms 제거)
+    _mm = _get_master_maps(db)
+    group_map = _mm["group_map"]
+    group_names = _mm["group_names"]
+    emp_channel = _mm["emp_channel"]
+    emp_names = _mm["emp_names"]
+    prod_categories = _mm["prod_categories"]
 
     def key_actual(r):
         if by == "channel":
