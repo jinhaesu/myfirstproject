@@ -1614,12 +1614,27 @@ def admin_db_latency(n: int = 8, db: Session = Depends(get_db)):
         db.execute(_text("SELECT 1")).scalar()
         timings.append(round((_time.time() - t) * 1000, 1))
     warm = timings[1:] if len(timings) > 1 else timings
+    import os as _os
+    region_env = {k: v for k, v in _os.environ.items()
+                  if "REGION" in k.upper() or "RAILWAY_REPLICA" in k.upper()}
+    # 컨테이너 외부 IP geolocation (실제 물리 위치 확인)
+    geo = {}
+    try:
+        import httpx as _httpx
+        r = _httpx.get("https://ipinfo.io/json", timeout=4.0)
+        if r.status_code == 200:
+            j = r.json()
+            geo = {"ip": j.get("ip"), "city": j.get("city"), "region": j.get("region"), "country": j.get("country"), "org": j.get("org")}
+    except Exception as _e:
+        geo = {"error": str(_e)[:100]}
     return {
         "per_query_ms": timings,
         "first_ms": timings[0],
         "warm_avg_ms": round(sum(warm) / len(warm), 1),
         "warm_min_ms": min(warm),
-        "note": "warm_min_ms가 순수 1쿼리 RTT. ~80ms면 동일지역, ~300ms면 대륙간.",
+        "railway_region_env": region_env,
+        "container_geo": geo,
+        "note": "warm_min_ms가 순수 1쿼리 RTT. container_geo.country로 실제 위치 확인.",
     }
 
 
