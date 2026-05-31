@@ -36,6 +36,7 @@ from app.db_models import (
     BusinessPlanChannelRevenue,
     BusinessPlanProductQty,
     BusinessPlanGroupSummary,
+    BusinessPlanUploadBatch,
     CsaCostItem,
     CsaCostRule,
     CsaChannelMonthlyCost,
@@ -256,6 +257,16 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
 
     out: dict[tuple[str, int], float] = {}
 
+    # 0) 사업계획 업로드 이력이 없으면 plan 테이블 전체가 비어있음 — 아래 6개 쿼리 스킵.
+    #    Railway↔Supabase cross-region RTT 313ms × 6 ≈ 1.9s 낭비 방지.
+    plan_exists = db.query(BusinessPlanUploadBatch.id).filter(
+        BusinessPlanUploadBatch.year == year,
+        BusinessPlanUploadBatch.status == "done",
+    ).first()
+    if not plan_exists:
+        _plap("plan_empty_shortcut")
+        return out
+
     # 1) 채널×월 매출 plan
     rev_rows = db.query(
         BusinessPlanChannelRevenue.channel_id,
@@ -386,15 +397,15 @@ def get_pnl_matrix(db: Session, year: int) -> dict:
         print(f"[pnl_matrix] {label}: {(_time.time()-_t0)*1000:.0f}ms", flush=True)
         _t0 = _time.time()
 
-    existing_count = db.query(func.count(CsaPnlRow.id)).filter(
-        CsaPnlRow.code.in_([r[0] for r in ROW_SEED])
-    ).scalar() or 0
-    _lap("count")
-    if existing_count < len(ROW_SEED):
-        seed_pnl_rows(db)
-        _lap("seed")
+    # rows를 먼저 1회 조회하고, seed 필요 여부는 그 결과에서 판단 (count 쿼리 1회 제거).
     rows = db.query(CsaPnlRow).filter(CsaPnlRow.is_active.is_(True)).order_by(CsaPnlRow.sort_order).all()
     _lap("rows")
+    seed_codes = {r[0] for r in ROW_SEED}
+    existing_seed = sum(1 for r in rows if r.code in seed_codes)
+    if existing_seed < len(ROW_SEED):
+        seed_pnl_rows(db)
+        rows = db.query(CsaPnlRow).filter(CsaPnlRow.is_active.is_(True)).order_by(CsaPnlRow.sort_order).all()
+        _lap("seed+reload")
     actual_calc = compute_actual(db, year)
     _lap("compute_actual")
     plan_calc = compute_plan(db, year)
