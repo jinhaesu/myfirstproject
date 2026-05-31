@@ -13,13 +13,26 @@ if DATABASE_URL.startswith("postgres://"):
 # Supabase pooler 연결의 stale 소켓이 풀에 남아 모든 CSA endpoint가 8초 후 500으로
 # 떨어지는 사고를 막기 위해 pre_ping + recycle + 짧은 connect_timeout 적용.
 if DATABASE_URL:
+    # cross-region(백엔드 US ↔ Supabase 서울, RTT ~309ms) 환경 최적화:
+    # - Supabase 풀러가 idle 소켓을 끊으면 매 요청 TLS 재핸드셰이크(태평양 2~3왕복 ~1.5s)가 발생.
+    # - TCP keepalive로 소켓을 살려두고, LIFO로 hot 커넥션을 집중 재사용해 재연결을 막는다.
+    # - pool_recycle을 풀러 idle timeout보다 짧게(4분) 둬 죽기 전에 재활용.
+    _pg_connect_args = {
+        "connect_timeout": 5,
+        "keepalives": 1,
+        "keepalives_idle": 30,     # 30초마다 keepalive 전송
+        "keepalives_interval": 10,
+        "keepalives_count": 5,
+        "options": "-c statement_timeout=30000",  # 30s 쿼리 타임아웃 (행오프 방지)
+    }
     engine = create_engine(
         DATABASE_URL,
         pool_pre_ping=True,
-        pool_recycle=1800,
-        pool_size=10,
-        max_overflow=20,
-        connect_args={"connect_timeout": 5} if "postgresql" in DATABASE_URL else {},
+        pool_recycle=240,          # 4분 — Supabase 풀러 idle 종료 전에 재활용
+        pool_size=5,               # 소수 커넥션을 집중 재사용 (cross-region 핸드셰이크 최소화)
+        max_overflow=10,
+        pool_use_lifo=True,        # 가장 최근 쓴(=hot) 커넥션 우선 재사용
+        connect_args=_pg_connect_args if "postgresql" in DATABASE_URL else {},
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 else:

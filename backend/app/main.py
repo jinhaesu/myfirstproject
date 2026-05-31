@@ -194,6 +194,28 @@ async def _startup_setup_csa_retention():
         db.close()
 
 
+async def _db_keepalive_loop():
+    """DB 커넥션을 hot하게 유지 — cross-region(US↔서울 RTT 309ms) 환경에서
+    idle로 끊긴 소켓을 매 요청마다 재핸드셰이크(~1.5s)하는 비용을 방지.
+
+    90초마다 SELECT 1로 풀의 커넥션을 살려둔다. (traffic 뜸한 시간에도 warm 유지)
+    """
+    import asyncio
+    from sqlalchemy import text as _text
+    from app.database import engine as _engine
+    if _engine is None:
+        return
+    # 시작 직후 한 번 워밍업 (첫 사용자 요청이 cold 핸드셰이크 안 맞도록)
+    await asyncio.sleep(5)
+    while True:
+        try:
+            with _engine.connect() as conn:
+                conn.execute(_text("SELECT 1"))
+        except Exception as e:
+            logger.warning(f"db keepalive ping failed: {e}")
+        await asyncio.sleep(90)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """앱 시작 시 데이터베이스 테이블 초기화"""
@@ -211,6 +233,8 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_startup_report_scheduler())
     # CSA 보존 정책 등록 (백그라운드, 멱등)
     asyncio.create_task(_startup_setup_csa_retention())
+    # DB 커넥션 keepalive (cross-region warm 유지)
+    asyncio.create_task(_db_keepalive_loop())
     yield
 
 
