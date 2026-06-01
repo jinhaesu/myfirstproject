@@ -70,6 +70,7 @@ interface Batch {
   channel_id: string;
   channel_name: string;
   file_name: string;
+  file_hash?: string | null;
   status: string;
   period_start: string | null;
   period_end: string | null;
@@ -77,6 +78,7 @@ interface Batch {
   row_inserted: number;
   row_duplicate: number;
   row_unmatched: number;
+  error_message?: string | null;
   created_at: string | null;
 }
 
@@ -1004,7 +1006,26 @@ function UploadTab({
   const [selChannel, setSelChannel] = useState<Channel | null>(null);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [liveBatches, setLiveBatches] = useState<Batch[]>(batches);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // 캐시 안 타는 /batches 직접 조회 (업로드 직후 최신 상태 확인용)
+  const refreshBatches = useCallback(async (): Promise<Batch[]> => {
+    try {
+      const r = await fetch(`${API_BASE}/api/csa/batches?limit=50`, { headers: authHeaders() });
+      if (r.ok) {
+        const list = await r.json();
+        setLiveBatches(list);
+        return list;
+      }
+    } catch {}
+    return [];
+  }, [authHeaders]);
+
+  // 탭 진입 시 한 번 최신 이력 로드
+  useEffect(() => { refreshBatches(); }, [refreshBatches]);
+  // 부모(bootstrap)에서 batches가 갱신되면 반영
+  useEffect(() => { setLiveBatches(batches); }, [batches]);
 
   const upload = async (file: File) => {
     if (!selChannel) return;
@@ -1019,11 +1040,43 @@ function UploadTab({
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.detail || 'upload failed');
-      setResult(data);
-      onUploaded();
+
+      // 이미 적재된 동일 파일 — 카운트가 바로 옴
+      if (data.duplicate_file) {
+        setResult({ ...data, processing: false });
+        setUploading(false);
+        if (fileRef.current) fileRef.current.value = '';
+        refreshBatches();
+        return;
+      }
+
+      // 비동기 처리(queued) — batches를 폴링해 완료까지 추적
+      const fhash = data.file_hash;
+      const chId = data.channel_id || selChannel.id;
+      setResult({ status: 'queued', processing: true });
+      const started = Date.now();
+      const poll = async (): Promise<void> => {
+        await new Promise((res) => setTimeout(res, 1500));
+        const list = await refreshBatches();
+        const b = list.find((x: any) => fhash && x.file_hash === fhash)
+               || list.find((x: any) => x.channel_id === chId);
+        if (b) {
+          const done = b.status === 'done' || b.status === 'failed';
+          setResult({ ...b, processing: !done });
+          if (done) {
+            setUploading(false);
+            if (fileRef.current) fileRef.current.value = '';
+            onUploaded();
+            return;
+          }
+        }
+        if (Date.now() - started < 180000) return poll();  // 최대 3분
+        setUploading(false);  // 타임아웃 — 처리 중일 수 있음
+        if (fileRef.current) fileRef.current.value = '';
+      };
+      poll();
     } catch (e: any) {
       setResult({ error: e.message || String(e) });
-    } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
     }
@@ -1100,7 +1153,7 @@ function UploadTab({
             {uploading && (
               <div className="mt-4 text-sm text-[#828FFF] flex items-center gap-2">
                 <div className="w-4 h-4 border-2 border-[#828FFF] border-t-transparent rounded-full animate-spin" />
-                업로드 및 파싱 중...
+                {result?.status === 'queued' ? '업로드 완료 — 적재 처리 중...' : '업로드 및 파싱 중...'}
               </div>
             )}
 
@@ -1108,15 +1161,25 @@ function UploadTab({
               <div className={`${SUBPANEL} p-3 mt-4 text-xs`}>
                 {result.duplicate_file ? (
                   <div className="text-[#F0BF00] mb-1">⚠ 이미 업로드된 파일입니다.</div>
+                ) : result.status === 'failed' ? (
+                  <div className="text-[#EB5757] mb-1">❌ 처리 실패{result.error_message ? `: ${result.error_message}` : ''}</div>
+                ) : result.processing ? (
+                  <div className="text-[#828FFF] mb-1 flex items-center gap-1.5">
+                    <div className="w-3 h-3 border-2 border-[#828FFF] border-t-transparent rounded-full animate-spin" />
+                    적재 처리 중... (대용량은 수십 초 걸릴 수 있어요)
+                  </div>
                 ) : (
                   <div className="text-[#27A644] mb-1">✓ 업로드 성공</div>
                 )}
                 <div className="grid grid-cols-4 gap-2 text-[#D0D6E0] font-mono">
-                  <div><span className="text-[#62666D]">총행: </span>{result.row_total}</div>
-                  <div><span className="text-[#62666D]">신규: </span>{result.row_inserted}</div>
-                  <div><span className="text-[#62666D]">중복: </span>{result.row_duplicate}</div>
-                  <div><span className="text-[#62666D]">미매핑: </span>{result.row_unmatched}</div>
+                  <div><span className="text-[#62666D]">총행: </span>{result.row_total ?? '–'}</div>
+                  <div><span className="text-[#62666D]">신규: </span>{result.row_inserted ?? '–'}</div>
+                  <div><span className="text-[#62666D]">중복: </span>{result.row_duplicate ?? '–'}</div>
+                  <div><span className="text-[#62666D]">미매핑: </span>{result.row_unmatched ?? '–'}</div>
                 </div>
+                {result.period_start && (
+                  <div className="text-[10px] text-[#62666D] mt-1.5 font-mono">기간: {result.period_start} ~ {result.period_end}</div>
+                )}
               </div>
             )}
             {result?.error && (
@@ -1128,21 +1191,26 @@ function UploadTab({
         )}
 
         <div className="mt-6 pt-4 border-t border-[#23252A]">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#62666D] mb-3">최근 업로드 이력</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#62666D]">최근 업로드 이력</h3>
+            <button onClick={() => refreshBatches()} className="text-[10px] text-[#828FFF] hover:underline">새로고침</button>
+          </div>
           <div className="space-y-1.5 max-h-[260px] overflow-y-auto">
-            {batches.length === 0 ? (
+            {liveBatches.length === 0 ? (
               <div className="text-xs text-[#62666D]">업로드 이력이 없습니다.</div>
-            ) : batches.map(b => (
+            ) : liveBatches.map(b => (
               <div key={b.id} className={`${SUBPANEL} p-2.5 text-xs flex items-center justify-between`}>
                 <div className="min-w-0 flex-1">
                   <div className="text-[#F7F8F8] truncate">{b.channel_name} · <span className="text-[#8A8F98]">{b.file_name}</span></div>
                   <div className="text-[10px] text-[#62666D] font-mono mt-0.5">
-                    {b.period_start} ~ {b.period_end} · 신규 {b.row_inserted} · 중복 {b.row_duplicate} · 미매핑 {b.row_unmatched}
+                    {b.period_start ? `${b.period_start} ~ ${b.period_end} · ` : ''}신규 {b.row_inserted} · 중복 {b.row_duplicate} · 미매핑 {b.row_unmatched}
                   </div>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-                  b.status === 'done' ? 'bg-[#27A644]/15 text-[#27A644]' : 'bg-[#F0BF00]/15 text-[#F0BF00]'
-                }`}>{b.status}</span>
+                  b.status === 'done' ? 'bg-[#27A644]/15 text-[#27A644]'
+                  : b.status === 'failed' ? 'bg-[#EB5757]/15 text-[#EB5757]'
+                  : 'bg-[#F0BF00]/15 text-[#F0BF00]'
+                }`}>{b.status === 'parsing' || b.status === 'queued' ? '처리중' : b.status}</span>
               </div>
             ))}
           </div>

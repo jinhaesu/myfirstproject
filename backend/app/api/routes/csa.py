@@ -628,6 +628,7 @@ def list_batches(
             "channel_id": b.channel_id,
             "channel_name": b.channel_name,
             "file_name": b.file_name,
+            "file_hash": b.file_hash,
             "status": b.status,
             "period_start": b.period_start.isoformat() if b.period_start else None,
             "period_end": b.period_end.isoformat() if b.period_end else None,
@@ -635,6 +636,7 @@ def list_batches(
             "row_inserted": b.row_inserted,
             "row_duplicate": b.row_duplicate,
             "row_unmatched": b.row_unmatched,
+            "error_message": b.error_message,
             "created_at": b.created_at.isoformat() if b.created_at else None,
         }
         for b in rows
