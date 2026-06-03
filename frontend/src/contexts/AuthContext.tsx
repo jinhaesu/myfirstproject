@@ -18,7 +18,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE = '/api';
+// 대시보드 등 나머지 화면과 동일하게 백엔드 절대주소를 직접 호출한다.
+// (로그인만 '/api' rewrite 프록시에 의존하면, 프록시 경로만 깨졌을 때
+//  대시보드는 되는데 로그인만 "서버 연결에 실패"가 나는 문제가 생긴다.)
+// 환경변수가 없으면(로컬 dev) '/api' 상대경로로 폴백 → next dev rewrite 사용.
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '') + '/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);

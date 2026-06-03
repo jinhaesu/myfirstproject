@@ -4,7 +4,9 @@ import { useState, FormEvent, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
-const API_BASE = '/api';
+// 대시보드와 동일하게 백엔드 절대주소를 직접 호출(검증된 경로).
+// 프록시(rewrite)만 깨졌을 때 로그인이 "서버 연결에 실패"로 막히는 것을 방지.
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '') + '/api';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
