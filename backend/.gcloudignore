@@ -1,0 +1,12 @@
+# Cloud Build 업로드 제외 목록
+.git
+.gitignore
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+.venv
+venv
+.env
+.env.*
+*.log
+fly.toml

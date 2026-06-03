@@ -1,3 +1,4 @@
+import os
 import subprocess
 import logging
 from contextlib import asynccontextmanager
@@ -16,6 +17,11 @@ logger = logging.getLogger(__name__)
 
 def _install_playwright_browsers():
     """Ensure Playwright chromium browser is installed for RPA features"""
+    # Cloud Run 등 읽기전용 FS/메모리 제약 환경에선 시작 시 112MB chromium 다운로드를
+    # 건너뛴다(정산 RPA는 부차 기능). SKIP_PLAYWRIGHT_INSTALL=1 로 비활성화.
+    if os.getenv("SKIP_PLAYWRIGHT_INSTALL"):
+        logger.info("Playwright install skipped (SKIP_PLAYWRIGHT_INSTALL set)")
+        return
     try:
         result = subprocess.run(
             ["python", "-m", "playwright", "install", "chromium"],
