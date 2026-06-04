@@ -32,15 +32,20 @@ def parse(path: str) -> Iterable[ParsedLine]:
         prod = to_str(row.get("SKU명"))
         if not prod:
             continue
-        sign = -1 if str(row.get("구분") or "").strip() == "반출" else 1
-        qty = to_float(row.get("수량") or 0) * sign
+        # 반출(반품)은 매출 차감. 단, 파일이 금액을 이미 음수("-88,400")로 주는
+        # 경우가 있어 sign 곱셈을 또 하면 양수로 뒤집힌다(이중부호 버그).
+        # → 반출이면 수량·금액을 -abs()로 강제 음수화(파일 부호 무관).
+        is_return = str(row.get("구분") or "").strip() == "반출"
+        qty = to_float(row.get("수량") or 0)
 
         # 매출: 총공급가액(=수량×공급가액) 우선, 결측이면 수량×단가 fallback
         gross = to_float(row.get("총공급가액") or 0)
         if gross == 0:
             unit_supply = to_float(row.get("공급가액") or 0)
             gross = unit_supply * abs(qty)
-        gross *= sign
+        if is_return:
+            qty = -abs(qty)
+            gross = -abs(gross)
 
         sku = to_str(row.get("SKU번호")) or ""
         line_no = f"{sku}#L{idx}"
