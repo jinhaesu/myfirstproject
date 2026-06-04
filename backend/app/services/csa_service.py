@@ -414,6 +414,7 @@ class ParsedLine:
     shipping_fee: float = 0
     refund_amount: float = 0
     is_cancelled: bool = False  # 취소/환불 확정 행 — 매출엔 미반영, 건수·금액만 표시
+    unit_per_set: Optional[float] = None  # 파서가 낱개 입수를 직접 지정(상품명 기반 등). None이면 매핑값 사용
     raw_row: Optional[dict] = None
 
 
@@ -516,7 +517,9 @@ def ingest_lines(
             mappings_cache=mappings_cache,
             product_by_id=product_by_id,
         )
-        pcs = ln.raw_qty * mapping.unit_per_set
+        # 파서가 입수를 직접 지정했으면(상품명 기반 등) 그 값 우선, 아니면 매핑값.
+        _ups = ln.unit_per_set if ln.unit_per_set is not None else mapping.unit_per_set
+        pcs = ln.raw_qty * _ups
         status = mapping.status
         if status == "unmatched":
             unmatched += 1

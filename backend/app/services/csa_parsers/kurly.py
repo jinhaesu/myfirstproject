@@ -1,13 +1,32 @@
 """마켓컬리 (정산상세) 파서. CSV."""
 from __future__ import annotations
 
-from typing import Iterable
+import re
+from typing import Iterable, Optional
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
 from app.services.csa_parsers._common import (
     read_excel_safe, to_date, to_float, to_str,
 )
+
+
+def _kurly_unit_per_set(name: Optional[str]) -> Optional[float]:
+    """컬리 낱개 입수 산출 — 상품명 기반.
+      · 상품명에 '(N개입)' 등 N개입 → N
+      · 개입 정보 없고 '파운드' 포함 → 기본 3개입
+      · 그 외 → None (매핑 기본값 사용)
+    """
+    if not name:
+        return None
+    m = re.search(r"(\d+)\s*개입", name)
+    if m:
+        v = int(m.group(1))
+        if 1 <= v <= 200:
+            return float(v)
+    if "파운드" in name:
+        return 3.0
+    return None
 
 
 @register("마켓컬리")
@@ -25,8 +44,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
         prod = to_str(row.get("상품명"))
         if not prod:
             continue
-        unit_price = to_float(row.get("공급단가"))
         gross = to_float(row.get("공급가액"))
+        # 낱개 = 수량 × 개입(상품명에서 추출, 파운드는 기본 3)
+        unit = _kurly_unit_per_set(prod)
         yield ParsedLine(
             sale_date=sale_d,
             order_no=to_str(row.get("발주/반품 코드")),
@@ -36,4 +56,5 @@ def parse(path: str) -> Iterable[ParsedLine]:
             gross_amount=gross,
             net_amount=gross,
             settlement_amount=to_float(row.get("정산합계")),
+            unit_per_set=unit,
         )
