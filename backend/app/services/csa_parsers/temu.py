@@ -42,6 +42,20 @@ def parse(path: str) -> Iterable[ParsedLine]:
         prod = to_str(row.get("제품 이름") or row.get("고객 주문별 제품 이름") or row.get("상품명"))
         if not prod:
             continue
+
+        # 주문 상태 '취소됨' — 매출/수량에서 제외(is_cancelled로 표시)
+        status = to_str(row.get("주문 상태") or row.get("주문 상품 상태") or "") or ""
+        is_cancel = "취소" in status
+
+        # 매출(net) = 할인 후 기본 가격 총액 (AM). to_float가 '원'·콤마 제거.
+        net = to_float(
+            row.get("할인 후 기본 가격 총액") or row.get("기본 가격 총액")
+            or row.get("주문 금액")
+        )
+        gross = to_float(
+            row.get("기본 가격 총액") or row.get("할인 후 기본 가격 총액")
+            or row.get("주문 금액") or row.get("상품 기본 가격")
+        )
         yield ParsedLine(
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,
@@ -50,12 +64,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_product_name=prod,
             raw_option_name=to_str(row.get("선택 사항")),
             raw_qty=to_float(row.get("구매 수량") or row.get("수량") or 1),
-            gross_amount=to_float(
-                row.get("기본 가격 총액") or row.get("할인 후 기본 가격 총액")
-                or row.get("주문 금액") or row.get("상품 기본 가격")
-            ),
-            net_amount=to_float(
-                row.get("할인 후 기본 가격 총액") or row.get("기본 가격 총액")
-                or row.get("주문 금액")
-            ),
+            gross_amount=0 if is_cancel else gross,
+            net_amount=0 if is_cancel else net,
+            refund_amount=net if is_cancel else 0,
+            is_cancelled=is_cancel,
         )
