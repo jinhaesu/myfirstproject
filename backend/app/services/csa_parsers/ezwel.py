@@ -23,7 +23,11 @@ def parse(path: str) -> Iterable[ParsedLine]:
             continue
         qty = to_float(row.get("주문수량") or row.get("배송(발송)수량") or 1) - to_float(row.get("취소수량") or 0)
 
-        # 집계 기준: 매입가 (이미 수량 반영 총액). fallback: 판매가
+        # 주문취소/배송취소 — is_cancelled로 표시(매출/수량 제외, 건수·금액 보존)
+        status = (to_str(row.get("주문상태")) or "") + " " + (to_str(row.get("배송(발송)상태")) or "")
+        is_cancel = "취소" in status
+
+        # 집계 기준: 매입가(M, 이미 수량 반영 총액). fallback: 판매가
         buy_price = to_float(row.get("매입가"))
         gross = buy_price if buy_price else to_float(row.get("판매가"))
 
@@ -35,6 +39,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_product_name=prod,
             raw_option_name=to_str(row.get("옵션")),
             raw_qty=qty,
-            gross_amount=gross,
-            net_amount=gross,
+            gross_amount=0 if is_cancel else gross,
+            net_amount=0 if is_cancel else gross,
+            refund_amount=gross if is_cancel else 0,
+            is_cancelled=is_cancel,
         )
