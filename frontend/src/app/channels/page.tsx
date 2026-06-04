@@ -217,7 +217,7 @@ function Content() {
     const [cRes, pRes, bRes, uRes, vRes, eRes] = await Promise.all([
       fetch(`${API_BASE}/api/csa/channels`, { headers: authHeaders() }),
       fetch(`${API_BASE}/api/csa/products`, { headers: authHeaders() }),
-      fetch(`${API_BASE}/api/csa/batches?limit=50`, { headers: authHeaders() }),
+      fetch(`${API_BASE}/api/csa/batches?limit=200`, { headers: authHeaders() }),
       fetch(`${API_BASE}/api/csa/unmatched`, { headers: authHeaders() }),
       fetch(`${API_BASE}/api/csa/variable-costs`, { headers: authHeaders() }),
       fetch(`${API_BASE}/api/csa/employees`, { headers: authHeaders() }),
@@ -1020,6 +1020,47 @@ function UploadTab({
   const [dlBusy, setDlBusy] = useState(false);
   const [dlError, setDlError] = useState<string | null>(null);
 
+  // 데이터 삭제 (채널 + 선택 기간)
+  const [delChannelId, setDelChannelId] = useState<string>('');
+  const [delStart, setDelStart] = useState<string>('');
+  const [delEnd, setDelEnd] = useState<string>('');
+  const [delBusy, setDelBusy] = useState(false);
+  const [delError, setDelError] = useState<string | null>(null);
+  const [delResult, setDelResult] = useState<any>(null);
+
+  const deleteChannelData = async () => {
+    setDelError(null); setDelResult(null);
+    if (!delChannelId) { setDelError('채널을 선택하세요.'); return; }
+    if ((delStart && !delEnd) || (!delStart && delEnd)) {
+      setDelError('기간은 시작·종료를 모두 입력하거나 모두 비워야 합니다.'); return;
+    }
+    const ch = channels.find(c => c.id === delChannelId);
+    const scopeMsg = (delStart && delEnd)
+      ? `${ch?.name || delChannelId}\n기간: ${delStart} ~ ${delEnd}`
+      : `${ch?.name || delChannelId}\n전체 기간 (이 채널의 모든 데이터)`;
+    if (!confirm(`정말 삭제하시겠습니까?\n\n${scopeMsg}\n\n삭제 후 되돌릴 수 없습니다.`)) return;
+    setDelBusy(true);
+    try {
+      const params = new URLSearchParams({ channel_id: delChannelId });
+      if (delStart && delEnd) {
+        params.set('period_start', delStart);
+        params.set('period_end', delEnd);
+      }
+      const r = await fetch(`${API_BASE}/api/csa/channel-data?${params}`, {
+        method: 'DELETE', headers: authHeaders(),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || '삭제 실패');
+      setDelResult(data);
+      refreshBatches();
+      onUploaded();  // 대시보드/마스터 캐시 리프레시
+    } catch (e: any) {
+      setDelError(e.message || String(e));
+    } finally {
+      setDelBusy(false);
+    }
+  };
+
   const downloadExcel = async () => {
     if (!dlChannelId || !dlStart || !dlEnd) {
       setDlError('채널과 기간(시작·종료)을 모두 선택하세요.');
@@ -1059,7 +1100,7 @@ function UploadTab({
   // 캐시 안 타는 /batches 직접 조회 (업로드 직후 최신 상태 확인용)
   const refreshBatches = useCallback(async (): Promise<Batch[]> => {
     try {
-      const r = await fetch(`${API_BASE}/api/csa/batches?limit=50`, { headers: authHeaders() });
+      const r = await fetch(`${API_BASE}/api/csa/batches?limit=200`, { headers: authHeaders() });
       if (r.ok) {
         const list = await r.json();
         setLiveBatches(list);
@@ -1315,6 +1356,62 @@ function UploadTab({
             >{dlBusy ? '준비 중…' : '다운로드'}</button>
             {dlError && <span className="text-[11px] text-[#EB5757]">{dlError}</span>}
           </div>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-[#3A2326]">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#EB5757] mb-1">데이터 삭제</h3>
+          <div className="text-[11px] text-[#62666D] mb-3 leading-relaxed">
+            잘못/중복 업로드한 데이터를 정리할 때 사용합니다. 채널을 선택하고 <span className="text-[#D0D6E0]">기간을 비우면 그 채널의 전체 데이터</span>,
+            기간을 지정하면 해당 기간 데이터만 삭제합니다. <span className="text-[#EB5757]">삭제 후 되돌릴 수 없습니다.</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+            <div className="sm:col-span-2">
+              <label className="block text-[10px] text-[#7A7F8A] mb-1">채널</label>
+              <select
+                value={delChannelId}
+                onChange={(e) => setDelChannelId(e.target.value)}
+                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+              >
+                <option value="">채널 선택</option>
+                {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] text-[#7A7F8A] mb-1">시작일 (선택)</label>
+              <input
+                type="date" value={delStart}
+                onChange={(e) => setDelStart(e.target.value)}
+                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-[#7A7F8A] mb-1">종료일 (선택)</label>
+              <input
+                type="date" value={delEnd}
+                onChange={(e) => setDelEnd(e.target.value)}
+                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 mt-3">
+            <button
+              onClick={deleteChannelData} disabled={delBusy}
+              className="px-4 py-1.5 bg-[#EB5757] hover:bg-[#D14545] text-white rounded text-xs font-medium disabled:opacity-50"
+            >{delBusy ? '삭제 중…' : '데이터 삭제'}</button>
+            {delError && <span className="text-[11px] text-[#EB5757]">{delError}</span>}
+          </div>
+          {delResult && (
+            <div className={`${SUBPANEL} p-3 mt-3 text-xs text-[#D0D6E0]`}>
+              <div className="text-[#27A644] mb-1.5">✓ 삭제 완료 — {delResult.channel_name}{delResult.scoped ? ` (${delResult.period_start} ~ ${delResult.period_end})` : ' (전체)'}</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono">
+                <div><span className="text-[#62666D]">원본행: </span>{delResult.raw_lines_deleted}</div>
+                <div><span className="text-[#62666D]">집계행: </span>{delResult.daily_rows_deleted}</div>
+                <div><span className="text-[#62666D]">배치: </span>{delResult.batches_deleted}</div>
+                <div><span className="text-[#62666D]">원본파일: </span>{delResult.files_deleted}</div>
+                <div><span className="text-[#62666D]">미매핑큐: </span>{delResult.unmatched_queue_deleted}</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -34,15 +34,16 @@ def parse(path: str) -> Iterable[ParsedLine]:
         if not prod:
             continue
 
-        # 집계 기준: 최종 상품별 총 주문금액 (할인 반영 실결제액)
-        # fallback: 정산예정금액, 최초 상품별 총 주문금액, 상품가격
-        gross = (
+        # 매출 집계 기준 = 최종 상품별 총 주문금액(AC). (할인 반영 실주문금액)
+        # fallback: 최초 상품별 총 주문금액 → 정산예정금액 → 상품가격
+        amt = (
             to_float(row.get("최종 상품별 총 주문금액"))
-            or to_float(row.get("정산예정금액"))
             or to_float(row.get("최초 상품별 총 주문금액"))
+            or to_float(row.get("정산예정금액"))
             or to_float(row.get("상품가격"))
         )
-        net = to_float(row.get("정산예정금액")) or gross
+        gross = amt
+        net = amt
 
         yield ParsedLine(
             sale_date=sale_dt.date(),

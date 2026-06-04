@@ -201,7 +201,7 @@ def bootstrap(force: bool = False, db: Session = Depends(get_db)):
          "row_duplicate": b.row_duplicate, "row_unmatched": b.row_unmatched,
          "row_excluded": b.row_excluded, "row_cancelled": b.row_cancelled,
          "created_at": b.created_at.isoformat() if b.created_at else None}
-        for b in db.query(ChannelSalesUploadBatch).order_by(ChannelSalesUploadBatch.created_at.desc()).limit(50).all()
+        for b in db.query(ChannelSalesUploadBatch).order_by(ChannelSalesUploadBatch.created_at.desc()).limit(200).all()
     ]
     unmatched = [
         {"id": u.id, "channel_id": u.channel_id, "channel_name": u.channel_name,
@@ -659,7 +659,7 @@ async def upload_channel_file(
 @router.get("/batches")
 def list_batches(
     channel_id: Optional[str] = None,
-    limit: int = 50,
+    limit: int = 200,
     db: Session = Depends(get_db),
 ):
     q = db.query(ChannelSalesUploadBatch).order_by(ChannelSalesUploadBatch.created_at.desc())
@@ -687,6 +687,131 @@ def list_batches(
         }
         for b in rows
     ]
+
+
+# ──────────────────────────────────────────────────────────────
+# 채널 데이터 삭제 (운영자용 — 잘못/중복 업로드 정리 후 재업로드)
+# ──────────────────────────────────────────────────────────────
+
+@router.delete("/channel-data")
+def delete_channel_data(
+    channel_id: str = Query(..., description="삭제 대상 채널 id (필수)"),
+    period_start: Optional[date] = Query(None, description="기간 시작(미지정 시 채널 전체 삭제)"),
+    period_end: Optional[date] = Query(None, description="기간 종료"),
+    db: Session = Depends(get_db),
+):
+    """채널의 매출 데이터(raw_lines·daily_product·upload_batches·upload_files)를 삭제.
+
+    - period_start/period_end 둘 다 주어지면 해당 기간만, 아니면 채널 전체 삭제.
+    - raw_lines·daily_product는 sale_date 기준으로 기간 필터.
+    - batches·files는 channel 전체(기간 없을 때) 또는 기간과 겹치는 것(기간 있을 때) 삭제.
+      · batches: period_start/period_end가 [요청기간]과 겹치면 삭제.
+      · files: batch_id로 연결된 batch가 삭제 대상이면 삭제. 연결 안 된(batch_id NULL) 파일은
+        기간 지정 시 created_at으로 보수적 판단(날짜 메타가 없어 created_at 범위로 근사),
+        기간 미지정 시 채널 전체 삭제.
+    - 삭제 후 남은 데이터로 daily_aggregate 재계산.
+    """
+    ch = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not ch:
+        raise HTTPException(404, "channel not found")
+
+    scoped = period_start is not None and period_end is not None
+    if (period_start is None) != (period_end is None):
+        raise HTTPException(400, "period_start와 period_end는 둘 다 지정하거나 둘 다 비워야 합니다")
+    if scoped and period_start > period_end:
+        raise HTTPException(400, "period_start가 period_end보다 늦습니다")
+
+    # 1) raw_lines (sale_date 기준)
+    raw_q = db.query(ChannelSalesRawLine).filter(ChannelSalesRawLine.channel_id == channel_id)
+    if scoped:
+        raw_q = raw_q.filter(
+            ChannelSalesRawLine.sale_date >= period_start,
+            ChannelSalesRawLine.sale_date <= period_end,
+        )
+    raw_deleted = raw_q.delete(synchronize_session=False)
+
+    # 2) daily_product (sale_date 기준)
+    daily_q = db.query(ChannelSalesDailyProduct).filter(
+        ChannelSalesDailyProduct.channel_id == channel_id
+    )
+    if scoped:
+        daily_q = daily_q.filter(
+            ChannelSalesDailyProduct.sale_date >= period_start,
+            ChannelSalesDailyProduct.sale_date <= period_end,
+        )
+    daily_deleted = daily_q.delete(synchronize_session=False)
+
+    # 3) 삭제 대상 batch id 수집 (files를 batch_id로 함께 지우기 위해 먼저 id를 모은다)
+    batch_q = db.query(ChannelSalesUploadBatch).filter(
+        ChannelSalesUploadBatch.channel_id == channel_id
+    )
+    if scoped:
+        # 기간이 겹치는 batch (period_start/period_end가 NULL인 batch는 보수적으로 포함)
+        batch_q = batch_q.filter(
+            or_(
+                ChannelSalesUploadBatch.period_start.is_(None),
+                ChannelSalesUploadBatch.period_end.is_(None),
+                and_(
+                    ChannelSalesUploadBatch.period_start <= period_end,
+                    ChannelSalesUploadBatch.period_end >= period_start,
+                ),
+            )
+        )
+    target_batch_ids = [b.id for b in batch_q.all()]
+
+    # 4) upload_files 삭제
+    #    - batch_id가 삭제 대상 batch면 삭제
+    #    - batch_id가 NULL인 보관 파일: 기간 미지정 시 채널 전체, 기간 지정 시 created_at 범위로 근사
+    files_deleted = 0
+    if target_batch_ids:
+        files_deleted += db.query(CsaUploadFile).filter(
+            CsaUploadFile.batch_id.in_(target_batch_ids)
+        ).delete(synchronize_session=False)
+    orphan_files_q = db.query(CsaUploadFile).filter(
+        CsaUploadFile.channel_id == channel_id,
+        CsaUploadFile.batch_id.is_(None),
+    )
+    if scoped:
+        # batch_id 미연결 파일은 sale_date 메타가 없으므로 업로드 시각(created_at)으로 근사 판단.
+        from datetime import datetime as _dt, time as _time_cls
+        orphan_files_q = orphan_files_q.filter(
+            CsaUploadFile.created_at >= _dt.combine(period_start, _time_cls.min),
+            CsaUploadFile.created_at <= _dt.combine(period_end, _time_cls.max),
+        )
+    files_deleted += orphan_files_q.delete(synchronize_session=False)
+
+    # 5) batch row 삭제
+    batches_deleted = 0
+    if target_batch_ids:
+        batches_deleted = db.query(ChannelSalesUploadBatch).filter(
+            ChannelSalesUploadBatch.id.in_(target_batch_ids)
+        ).delete(synchronize_session=False)
+
+    # 6) 채널 전체 삭제 시 미매핑 큐도 정리 (잔여 깨진 값 방지)
+    unmatched_deleted = 0
+    if not scoped:
+        unmatched_deleted = db.query(ChannelUnmatchedProduct).filter(
+            ChannelUnmatchedProduct.channel_id == channel_id
+        ).delete(synchronize_session=False)
+
+    db.commit()
+
+    # 7) 남은 데이터로 daily_aggregate 정합화 (채널 스코프)
+    rebuild_daily_aggregate(db, channel_id=channel_id)
+    _bust_all_caches()
+
+    return {
+        "channel_id": channel_id,
+        "channel_name": ch.name,
+        "scoped": scoped,
+        "period_start": period_start.isoformat() if period_start else None,
+        "period_end": period_end.isoformat() if period_end else None,
+        "raw_lines_deleted": raw_deleted,
+        "daily_rows_deleted": daily_deleted,
+        "batches_deleted": batches_deleted,
+        "files_deleted": files_deleted,
+        "unmatched_queue_deleted": unmatched_deleted,
+    }
 
 
 # ──────────────────────────────────────────────────────────────
