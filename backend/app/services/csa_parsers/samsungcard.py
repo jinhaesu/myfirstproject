@@ -32,12 +32,13 @@ def parse(path: str) -> Iterable[ParsedLine]:
         supply_price = to_float(row.get("공급가"))
         gross = qty * supply_price if supply_price else to_float(row.get("판매가") or row.get("결제금액"))
 
-        # line_no에 정기배송 회차를 포함 — 같은 주문·상품이라도 회차가 다르면
-        # 별개 건이므로 중복(dedup)으로 합쳐지지 않게 함.
-        line_no = to_str(row.get("상품코드"))
+        # line_no에 단품명(옵션)·회차를 포함 — 같은 상품코드라도 단품(맛/옵션)이
+        # 다르면 별개 건이므로 중복(dedup)으로 합쳐지지 않게 함.
+        # (예: 같은 상품코드의 '에브리띵' vs '올리브'는 서로 다른 판매)
+        opt = to_str(row.get("단품명"))
         round_no = to_str(row.get("진행회차") or row.get("신청회차"))
-        if round_no:
-            line_no = f"{line_no or ''}-{round_no}"
+        _parts = [x for x in (to_str(row.get("상품코드")), opt, round_no) if x]
+        line_no = "|".join(_parts) if _parts else to_str(row.get("상품코드"))
 
         yield ParsedLine(
             sale_date=sale_d,
