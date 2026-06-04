@@ -38,9 +38,10 @@ def _parse_order_list(df: pd.DataFrame) -> Iterable[ParsedLine]:
         status = to_str(row.get("주문상태") or "") or ""
         is_cancel = ("취소" in status) or ("반품" in status) or ("환불" in status)
         qty = to_float(row.get("수량") or 1)
-        # 매출 = 결제액(실결제). gross는 판매가(정가) 있으면 사용.
+        # 매출 = 결제액(L) 그대로. 결제액=0(쿠폰 전액결제)도 0으로 둠
+        # → gross도 결제액으로 둬서 ingest의 (net or gross) 폴백이 판매가를 끌어오지 않게 함.
         net = to_float(row.get("결제액"))
-        gross = to_float(row.get("판매가")) or net
+        gross = net
         yield ParsedLine(
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,
