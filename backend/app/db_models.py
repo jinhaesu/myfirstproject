@@ -785,6 +785,7 @@ class ChannelSalesUploadBatch(Base):
     row_duplicate = Column(Integer, default=0)
     row_unmatched = Column(Integer, default=0)
     row_excluded = Column(Integer, default=0)
+    row_cancelled = Column(Integer, default=0)  # 취소/환불 확정 건수
     error_message = Column(Text, nullable=True)
 
     uploaded_by = Column(String(100), nullable=True)

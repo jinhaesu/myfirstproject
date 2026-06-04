@@ -191,6 +191,7 @@ def bootstrap(force: bool = False, db: Session = Depends(get_db)):
          "period_end": b.period_end.isoformat() if b.period_end else None,
          "row_total": b.row_total, "row_inserted": b.row_inserted,
          "row_duplicate": b.row_duplicate, "row_unmatched": b.row_unmatched,
+         "row_excluded": b.row_excluded, "row_cancelled": b.row_cancelled,
          "created_at": b.created_at.isoformat() if b.created_at else None}
         for b in db.query(ChannelSalesUploadBatch).order_by(ChannelSalesUploadBatch.created_at.desc()).limit(50).all()
     ]
@@ -591,6 +592,8 @@ async def upload_channel_file(
             "row_inserted": dup_batch.row_inserted,
             "row_duplicate": dup_batch.row_duplicate,
             "row_unmatched": dup_batch.row_unmatched,
+            "row_excluded": dup_batch.row_excluded,
+            "row_cancelled": dup_batch.row_cancelled,
             "status": dup_batch.status,
             "message": "이미 업로드된 파일입니다. 새로 적재하지 않았습니다.",
         }
@@ -641,6 +644,8 @@ def list_batches(
             "row_inserted": b.row_inserted,
             "row_duplicate": b.row_duplicate,
             "row_unmatched": b.row_unmatched,
+            "row_excluded": b.row_excluded,
+            "row_cancelled": b.row_cancelled,
             "error_message": b.error_message,
             "created_at": b.created_at.isoformat() if b.created_at else None,
         }

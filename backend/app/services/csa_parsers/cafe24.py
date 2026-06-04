@@ -30,12 +30,13 @@ def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
 
     for _, row in df.iterrows():
-        # 취소/환불 행 제외 (결제구분 'F')
+        # 결제구분 'F' = 취소/환불 확정 행. 제외하지 않고 is_cancelled로 표시
+        # (대시보드·업로드 결과에서 취소/환불 건수·금액으로 노출).
         pay_type = to_str(row.get("결제구분"))
-        if pay_type and pay_type.upper() == "F":
-            continue
+        is_cancel = bool(pay_type and pay_type.upper() == "F")
 
-        # 결제일시(입금확인일) 우선, 없으면 주문일시 fallback
+        # 날짜: 결제일시(입금확인일) 우선, 없으면 주문일시 fallback.
+        # (취소 행은 결제일시가 NaT인 경우가 많아 주문일시로 잡힘)
         # NaT(pd.NaT)는 bool 평가 불가 → pd.isna 체크
         dt_val = row.get("결제일시(입금확인일)")
         if dt_val is None or (hasattr(dt_val, '__class__') and pd.isna(dt_val)):
@@ -51,17 +52,14 @@ def parse(path: str) -> Iterable[ParsedLine]:
 
         qty = to_float(row.get("수량") or 1)
 
-        # gross: 상품구매금액(KRW) (정상가, 쿠폰 전 금액)
+        # gross: 판매가 (정가, 할인 전)
         gross = to_float(
-            row.get("상품구매금액(KRW)")
-            or row.get("판매가")
+            row.get("판매가")
+            or row.get("상품구매금액(KRW)")
         )
-        # net: 실 결제금액 (품목별 결제금액이 있으면 사용, 전부 NaN이면 gross 사용)
-        net_raw = row.get("품목별 결제금액")
-        if net_raw is not None and not (isinstance(net_raw, float) and pd.isna(net_raw)):
-            net = to_float(net_raw)
-        else:
-            net = gross
+        # 매출(a) = 판매가 − 상품별 추가할인금액  (둘 다 품목별 라인 값)
+        extra_discount = to_float(row.get("상품별 추가할인금액") or 0)
+        net = gross - extra_discount
 
         # line_no: 상품품목코드(SKU) > 상품코드 > 상품번호
         line_no = (
@@ -70,14 +68,30 @@ def parse(path: str) -> Iterable[ParsedLine]:
             or to_str(row.get("상품번호"))
         )
 
-        yield ParsedLine(
-            sale_date=sale_dt.date(),
-            sale_datetime=sale_dt,
-            order_no=to_str(row.get("주문번호")),
-            line_no=line_no,
-            raw_product_name=prod_name,
-            raw_option_name=to_str(row.get("상품옵션")),
-            raw_qty=qty,
-            gross_amount=gross,
-            net_amount=net,
-        )
+        if is_cancel:
+            # 취소/환불 확정: 매출엔 0으로 잡고 refund_amount에 취소금액 기록
+            yield ParsedLine(
+                sale_date=sale_dt.date(),
+                sale_datetime=sale_dt,
+                order_no=to_str(row.get("주문번호")),
+                line_no=line_no,
+                raw_product_name=prod_name,
+                raw_option_name=to_str(row.get("상품옵션")),
+                raw_qty=qty,
+                gross_amount=0,
+                net_amount=0,
+                refund_amount=net,
+                is_cancelled=True,
+            )
+        else:
+            yield ParsedLine(
+                sale_date=sale_dt.date(),
+                sale_datetime=sale_dt,
+                order_no=to_str(row.get("주문번호")),
+                line_no=line_no,
+                raw_product_name=prod_name,
+                raw_option_name=to_str(row.get("상품옵션")),
+                raw_qty=qty,
+                gross_amount=gross,
+                net_amount=net,
+            )

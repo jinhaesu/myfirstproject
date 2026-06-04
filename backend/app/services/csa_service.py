@@ -400,6 +400,7 @@ class ParsedLine:
     commission: float = 0
     shipping_fee: float = 0
     refund_amount: float = 0
+    is_cancelled: bool = False  # 취소/환불 확정 행 — 매출엔 미반영, 건수·금액만 표시
     raw_row: Optional[dict] = None
 
 
@@ -436,7 +437,7 @@ def ingest_lines(
     # ChannelProductMapping 전체를 한 번에 메모리에 캐시.
     # Supabase pooler 환경에서 라인마다 DB query하면 95k 라인 적재가 수 시간.
     mappings_cache = _build_mapping_cache(db, channel_id)
-    inserted = duplicate = unmatched = excluded = total = 0
+    inserted = duplicate = unmatched = excluded = cancelled = total = 0
     min_date = max_date = None
 
     # 1) DB의 기존 dedup_hash 미리 캐싱 (채널 단위; 부분 적재된 잔존 라인까지 포함)
@@ -460,12 +461,38 @@ def ingest_lines(
 
         dedup = compute_dedup_hash(
             channel_id, ln.order_no, ln.line_no, ln.sale_date,
-            ln.raw_product_name, ln.raw_qty, ln.gross_amount,
+            ln.raw_product_name, ln.raw_qty,
+            ln.refund_amount if ln.is_cancelled else ln.gross_amount,
         )
         if dedup in existing_hashes or dedup in seen_in_batch:
             duplicate += 1
             continue
         seen_in_batch.add(dedup)
+
+        # 취소/환불 확정 행: 매출 집계에서 제외(mapping_status='cancelled'), 건수·금액만 보존
+        if ln.is_cancelled:
+            cancelled += 1
+            db.add(ChannelSalesRawLine(
+                batch_id=batch_id,
+                channel_id=channel_id,
+                channel_name=channel_name,
+                order_no=ln.order_no,
+                line_no=ln.line_no,
+                dedup_hash=dedup,
+                sale_date=ln.sale_date,
+                sale_datetime=ln.sale_datetime,
+                raw_product_name=ln.raw_product_name,
+                raw_option_name=ln.raw_option_name,
+                raw_qty=ln.raw_qty,
+                gross_amount=0,
+                net_amount=0,
+                refund_amount=ln.refund_amount,
+                product_id=None,
+                pcs_qty=0,
+                mapping_status="cancelled",
+                raw_row=ln.raw_row,
+            ))
+            continue
 
         mapping = resolve_product(
             db, channel_id, ln.raw_product_name or "", ln.raw_option_name,
@@ -554,6 +581,7 @@ def ingest_lines(
     batch.row_duplicate = duplicate
     batch.row_unmatched = unmatched
     batch.row_excluded = excluded
+    batch.row_cancelled = cancelled
     batch.period_start = min_date
     batch.period_end = max_date
     batch.status = "done"

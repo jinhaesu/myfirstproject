@@ -78,6 +78,8 @@ interface Batch {
   row_inserted: number;
   row_duplicate: number;
   row_unmatched: number;
+  row_excluded?: number;
+  row_cancelled?: number;
   error_message?: string | null;
   created_at: string | null;
 }
@@ -1171,11 +1173,12 @@ function UploadTab({
                 ) : (
                   <div className="text-[#27A644] mb-1">✓ 업로드 성공</div>
                 )}
-                <div className="grid grid-cols-4 gap-2 text-[#D0D6E0] font-mono">
+                <div className="grid grid-cols-5 gap-2 text-[#D0D6E0] font-mono">
                   <div><span className="text-[#62666D]">총행: </span>{result.row_total ?? '–'}</div>
                   <div><span className="text-[#62666D]">신규: </span>{result.row_inserted ?? '–'}</div>
                   <div><span className="text-[#62666D]">중복: </span>{result.row_duplicate ?? '–'}</div>
                   <div><span className="text-[#62666D]">미매핑: </span>{result.row_unmatched ?? '–'}</div>
+                  <div><span className="text-[#62666D]">취소/환불: </span><span className={result.row_cancelled ? 'text-[#EB9F57]' : ''}>{result.row_cancelled ?? 0}</span></div>
                 </div>
                 {result.period_start && (
                   <div className="text-[10px] text-[#62666D] mt-1.5 font-mono">기간: {result.period_start} ~ {result.period_end}</div>
@@ -1203,7 +1206,7 @@ function UploadTab({
                 <div className="min-w-0 flex-1">
                   <div className="text-[#F7F8F8] truncate">{b.channel_name} · <span className="text-[#8A8F98]">{b.file_name}</span></div>
                   <div className="text-[10px] text-[#62666D] font-mono mt-0.5">
-                    {b.period_start ? `${b.period_start} ~ ${b.period_end} · ` : ''}신규 {b.row_inserted} · 중복 {b.row_duplicate} · 미매핑 {b.row_unmatched}
+                    {b.period_start ? `${b.period_start} ~ ${b.period_end} · ` : ''}신규 {b.row_inserted} · 중복 {b.row_duplicate} · 미매핑 {b.row_unmatched}{b.row_cancelled ? ` · 취소/환불 ${b.row_cancelled}` : ''}
                   </div>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
