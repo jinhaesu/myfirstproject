@@ -24,17 +24,30 @@ def parse(path: str) -> Iterable[ParsedLine]:
             continue
         qty = to_float(row.get("수량") or row.get("주문수량") or 1)
 
-        # 집계 기준: 수량 × 공급가
+        # 주문상태(H)에 '취소' 포함 시 취소건으로 표시
+        status = to_str(row.get("주문상태") or "") or ""
+        is_cancel = "취소" in status
+
+        # 집계 기준: 수량(P) × 공급가(Q)
         supply_price = to_float(row.get("공급가"))
         gross = qty * supply_price if supply_price else to_float(row.get("판매가") or row.get("결제금액"))
+
+        # line_no에 정기배송 회차를 포함 — 같은 주문·상품이라도 회차가 다르면
+        # 별개 건이므로 중복(dedup)으로 합쳐지지 않게 함.
+        line_no = to_str(row.get("상품코드"))
+        round_no = to_str(row.get("진행회차") or row.get("신청회차"))
+        if round_no:
+            line_no = f"{line_no or ''}-{round_no}"
 
         yield ParsedLine(
             sale_date=sale_d,
             order_no=to_str(row.get("주문번호")),
-            line_no=to_str(row.get("상품코드")),
+            line_no=line_no,
             raw_product_name=prod,
             raw_option_name=to_str(row.get("단품명")),
             raw_qty=qty,
-            gross_amount=gross,
-            net_amount=gross,
+            gross_amount=0 if is_cancel else gross,
+            net_amount=0 if is_cancel else gross,
+            refund_amount=gross if is_cancel else 0,
+            is_cancelled=is_cancel,
         )
