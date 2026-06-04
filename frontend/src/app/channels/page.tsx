@@ -461,7 +461,8 @@ function Header({
 const COST_LABELS: Record<string, string> = {
   cogs: '원가', labor: '노무비', overhead: '제조간접비',
   logistics_work: '물류작업비', logistics_oh: '물류간접비',
-  advertising: '광고비', commission_rate: '수수료(정률)', commission_fixed: '수수료(정액)',
+  advertising: '광고비', platform_fee: '수수료(월정액)',
+  commission_rate: '수수료(정률)', commission_fixed: '수수료(정액)',
   shipping: '운반비', packaging: '포장비',
 };
 
@@ -1012,6 +1013,49 @@ function UploadTab({
   const [liveBatches, setLiveBatches] = useState<Batch[]>(batches);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // 원본 양식 다운로드 (채널 + 기간)
+  const [dlChannelId, setDlChannelId] = useState<string>('');
+  const [dlStart, setDlStart] = useState<string>('');
+  const [dlEnd, setDlEnd] = useState<string>('');
+  const [dlBusy, setDlBusy] = useState(false);
+  const [dlError, setDlError] = useState<string | null>(null);
+
+  const downloadExcel = async () => {
+    if (!dlChannelId || !dlStart || !dlEnd) {
+      setDlError('채널과 기간(시작·종료)을 모두 선택하세요.');
+      return;
+    }
+    setDlBusy(true); setDlError(null);
+    try {
+      const params = new URLSearchParams({
+        channel_id: dlChannelId,
+        period_start: dlStart,
+        period_end: dlEnd,
+      });
+      const r = await fetch(`${API_BASE}/api/csa/export-excel?${params}`, { headers: authHeaders() });
+      if (!r.ok) {
+        let msg = '다운로드 실패';
+        try { const d = await r.json(); msg = d.detail || msg; } catch {}
+        throw new Error(msg);
+      }
+      const blob = await r.blob();
+      const ch = channels.find(c => c.id === dlChannelId);
+      const fname = `${ch?.name || dlChannelId}_${dlStart}_${dlEnd}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setDlError(e.message || String(e));
+    } finally {
+      setDlBusy(false);
+    }
+  };
+
   // 캐시 안 타는 /batches 직접 조회 (업로드 직후 최신 상태 확인용)
   const refreshBatches = useCallback(async (): Promise<Batch[]> => {
     try {
@@ -1227,6 +1271,49 @@ function UploadTab({
                 }`}>{b.status === 'parsing' || b.status === 'queued' ? '처리중' : b.status}</span>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-[#23252A]">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#62666D] mb-1">원본 양식 다운로드</h3>
+          <div className="text-[11px] text-[#62666D] mb-3 leading-relaxed">
+            채널 + 기간을 지정하면 업로드했던 <span className="text-[#D0D6E0]">원본 엑셀 양식 그대로</span> 해당 기간 행만 모아 내려받습니다.
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+            <div className="sm:col-span-2">
+              <label className="block text-[10px] text-[#7A7F8A] mb-1">채널</label>
+              <select
+                value={dlChannelId}
+                onChange={(e) => setDlChannelId(e.target.value)}
+                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+              >
+                <option value="">채널 선택</option>
+                {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] text-[#7A7F8A] mb-1">시작일</label>
+              <input
+                type="date" value={dlStart}
+                onChange={(e) => setDlStart(e.target.value)}
+                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-[#7A7F8A] mb-1">종료일</label>
+              <input
+                type="date" value={dlEnd}
+                onChange={(e) => setDlEnd(e.target.value)}
+                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 mt-3">
+            <button
+              onClick={downloadExcel} disabled={dlBusy}
+              className="px-4 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium disabled:opacity-50"
+            >{dlBusy ? '준비 중…' : '다운로드'}</button>
+            {dlError && <span className="text-[11px] text-[#EB5757]">{dlError}</span>}
           </div>
         </div>
       </div>
@@ -1656,7 +1743,8 @@ function CostTab({
   const ITEM_COLOR: Record<string, string> = {
     cogs: '#EB5757', labor: '#FC7840', overhead: '#F0BF00',
     logistics_work: '#06B6D4', logistics_oh: '#00B8CC',
-    advertising: '#A855F7', commission_rate: '#828FFF', commission_fixed: '#7070FF',
+    advertising: '#A855F7', platform_fee: '#C084FC',
+    commission_rate: '#828FFF', commission_fixed: '#7070FF',
     shipping: '#27A644', packaging: '#68CC58',
   };
 
@@ -1665,7 +1753,7 @@ function CostTab({
       {/* 안내 */}
       <div className={`${PANEL} p-4`}>
         <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-sm font-semibold">변동비 8종 카테고리 — 공헌이익 계산 기준</h2>
+          <h2 className="text-sm font-semibold">비용 카테고리 — 공헌이익 계산 기준</h2>
           <span className="text-[10px] text-[#A3A9B3]">규칙 변경 시 즉시 daily 집계 재계산</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, JSON, Float, Boolean, Text, Date, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, JSON, Float, Boolean, Text, Date, ForeignKey, UniqueConstraint, LargeBinary
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -866,6 +866,7 @@ class ChannelSalesDailyProduct(Base):
     cost_logistics_work = Column(Float, default=0)    # 물류작업비
     cost_logistics_oh = Column(Float, default=0)      # 물류간접비
     cost_advertising = Column(Float, default=0)       # 광고비
+    cost_platform_fee = Column(Float, default=0)      # 판매수수료(월정액)
     cost_commission_rate = Column(Float, default=0)   # 정률 수수료
     cost_commission_fixed = Column(Float, default=0)  # 정액 수수료
     cost_shipping = Column(Float, default=0)          # 운반비
@@ -1265,3 +1266,16 @@ class CsaChannelMonthlyCost(Base):
     __table_args__ = (
         UniqueConstraint('year', 'month', 'channel_id', 'cost_item_id', name='uq_csa_ch_monthly_cost'),
     )
+
+
+class CsaUploadFile(Base):
+    """업로드된 원본 엑셀 파일 바이트 보관 (원본 양식 그대로 재다운로드용)."""
+    __tablename__ = "csa_upload_files"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    batch_id = Column(String(64), ForeignKey("csa_upload_batches.id"), nullable=True, index=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    file_name = Column(String(500), nullable=False)
+    file_hash = Column(String(64), nullable=True, index=True)
+    content = Column(LargeBinary, nullable=False)  # 원본 파일 바이트 (BYTEA)
+    created_at = Column(DateTime, default=func.now())

@@ -32,6 +32,7 @@ from app.db_models import (
     BusinessPlanCategoryQty,
     BusinessPlanGroupSummary,
     BusinessPlanUploadBatch,
+    CsaUploadFile,
 )
 from app.services.csa_service import (
     seed_product_master,
@@ -502,7 +503,7 @@ def _run_ingest_background(
             return
         try:
             lines = list(parser(tmp_path))
-            ingest_lines(
+            batch = ingest_lines(
                 db,
                 channel_id=channel_id,
                 channel_name=channel_name,
@@ -512,6 +513,17 @@ def _run_ingest_background(
                 parser_version="v1",
                 lines=lines,
             )
+            # 보관해 둔 원본 파일(batch_id NULL)에 batch_id 연결.
+            try:
+                if batch is not None:
+                    db.query(CsaUploadFile).filter(
+                        CsaUploadFile.channel_id == channel_id,
+                        CsaUploadFile.file_hash == fhash,
+                        CsaUploadFile.batch_id.is_(None),
+                    ).update({"batch_id": batch.id}, synchronize_session=False)
+                    db.commit()
+            except Exception:
+                db.rollback()
             # 새 매출 적재 완료 → 모든 응답 캐시 무효화 (대시보드/PNL/batches 즉시 반영)
             _bust_all_caches()
         except Exception as e:
@@ -605,6 +617,23 @@ async def upload_channel_file(
             "message": "이미 업로드된 파일입니다. 새로 적재하지 않았습니다.",
         }
 
+    # 원본 파일 바이트 보관 (원본 양식 그대로 재다운로드용).
+    # batch_id는 ingest_lines 내부에서 생성되므로 여기선 channel_id+file_hash로만 저장하고,
+    # ingest 완료 후 _run_ingest_background에서 batch_id를 연결한다.
+    try:
+        db.add(CsaUploadFile(
+            batch_id=None,
+            channel_id=channel_id,
+            file_name=file.filename or "upload",
+            file_hash=fhash,
+            content=content,
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+        log = logging.getLogger(__name__)
+        log.exception("원본 파일 보관 실패 (export용) — 업로드는 계속 진행")
+
     # BackgroundTask로 ingest 위임 — ingest_lines 내부에서 batch 생성/commit.
     # 대용량 엑셀(95k+ 라인)도 워커 timeout 없이 처리 가능.
     background_tasks.add_task(
@@ -658,6 +687,124 @@ def list_batches(
         }
         for b in rows
     ]
+
+
+# ──────────────────────────────────────────────────────────────
+# 원본 양식 엑셀 다운로드 (채널 + 기간)
+# ──────────────────────────────────────────────────────────────
+
+# 원본 엑셀에서 날짜 컬럼을 찾을 때 시도할 후보 토큰(부분 일치).
+# 채널마다 날짜 컬럼명이 제각각이라, 컬럼명에 아래 토큰이 포함되면 날짜 컬럼으로 간주.
+# 우선순위가 높은(정확한) 토큰을 앞에 배치.
+_EXPORT_DATE_COL_TOKENS = [
+    "주문일시", "결제일시", "주문일자", "주문일", "결제일",
+    "구매 날짜", "구매날짜", "공급일자", "수불일", "판매일",
+    "입고", "반출", "정산일", "발주일", "출고일",
+    "일자", "일시", "날짜", "date",
+]
+
+
+def _find_date_column(df) -> Optional[str]:
+    """DataFrame 컬럼 중 날짜 컬럼명을 후보 토큰 순서로 탐색."""
+    cols = [str(c) for c in df.columns]
+    for token in _EXPORT_DATE_COL_TOKENS:
+        for c in cols:
+            if token in c:
+                return c
+    return None
+
+
+@router.get("/export-excel")
+def export_excel(
+    channel_id: str = Query(...),
+    period_start: date = Query(...),
+    period_end: date = Query(...),
+    db: Session = Depends(get_db),
+):
+    """채널 + 기간 지정 → 업로드했던 원본 엑셀 양식 그대로 해당 기간 행만 모아 다운로드.
+
+    저장해 둔 원본 파일 바이트(csa_upload_files)를 각각 DataFrame으로 재읽기 후,
+    각 파일의 날짜 컬럼을 식별해 기간 범위 행만 남겨 concat → 단일 엑셀로 출력.
+    날짜 컬럼을 못 찾는 파일은 전체 행 포함(누락보다 과포함이 안전).
+    """
+    import io
+    import os as _os
+    import tempfile as _tempfile
+
+    import pandas as pd
+    from fastapi.responses import StreamingResponse
+
+    from app.services.csa_parsers._common import read_excel_safe
+
+    files = (
+        db.query(CsaUploadFile)
+        .filter(CsaUploadFile.channel_id == channel_id)
+        .order_by(CsaUploadFile.created_at.asc())
+        .all()
+    )
+    if not files:
+        raise HTTPException(status_code=404, detail="해당 채널의 보관된 원본 파일이 없습니다. (이 기능 적용 이후 업로드분만 다운로드 가능)")
+
+    ch = db.query(Channel).filter(Channel.id == channel_id).first()
+    channel_name = (ch.name if ch else None) or files[0].channel_id
+
+    ps = pd.Timestamp(period_start)
+    pe = pd.Timestamp(period_end)
+
+    frames: list = []
+    for f in files:
+        suffix = _os.path.splitext(f.file_name or "")[1] or ".xlsx"
+        tmp_path = None
+        try:
+            with _tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(f.content)
+                tmp_path = tmp.name
+            df = read_excel_safe(tmp_path)
+        except Exception:
+            log.exception("export: 파일 재읽기 실패 file_id=%s", f.id)
+            continue
+        finally:
+            if tmp_path:
+                try:
+                    _os.unlink(tmp_path)
+                except Exception:
+                    pass
+
+        if df is None or df.empty:
+            continue
+
+        date_col = _find_date_column(df)
+        if date_col is not None:
+            parsed = pd.to_datetime(df[date_col], errors="coerce")
+            # 기간 필터 (날짜만 비교). 파싱 실패(NaT) 행은 안전하게 포함.
+            mask = parsed.isna() | ((parsed.dt.normalize() >= ps) & (parsed.dt.normalize() <= pe))
+            df = df[mask]
+        # 날짜 컬럼 못 찾으면 전체 행 포함
+
+        if not df.empty:
+            frames.append(df)
+
+    if frames:
+        out_df = pd.concat(frames, ignore_index=True)
+    else:
+        # 빈 결과: 첫 파일의 컬럼 구조라도 유지
+        out_df = pd.DataFrame()
+
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        out_df.to_excel(writer, index=False)
+    buf.seek(0)
+
+    from urllib.parse import quote
+    fname = f"{channel_name}_{period_start.isoformat()}_{period_end.isoformat()}.xlsx"
+    headers = {
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}",
+    }
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers=headers,
+    )
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1082,6 +1229,7 @@ def dashboard(
         "logistics_work": sum(r.cost_logistics_work or 0 for r in rows),
         "logistics_oh": sum(r.cost_logistics_oh or 0 for r in rows),
         "advertising": sum(r.cost_advertising or 0 for r in rows),
+        "platform_fee": sum(r.cost_platform_fee or 0 for r in rows),
         "commission_rate": sum(r.cost_commission_rate or 0 for r in rows),
         "commission_fixed": sum(r.cost_commission_fixed or 0 for r in rows),
         "shipping": sum(r.cost_shipping or 0 for r in rows),

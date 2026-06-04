@@ -100,7 +100,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
         gross_incl = to_float(row.iloc[amt_col])
         if qty == 0 and gross_incl == 0:
             continue
-        gross = gross_incl / 1.1  # VAT 포함 매출액 → 공급가
+        # 납품금액은 이미 부가세별도(공급가) — 추가 VAT 차감 없이 그대로 사용.
+        gross = gross_incl
         sku = to_str(row.iloc[sku_col]) if sku_col is not None else ""
         store = to_str(row.iloc[store_col]) if store_col is not None else ""
         size = to_str(row.iloc[size_col]) if size_col is not None else None

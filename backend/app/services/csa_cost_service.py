@@ -47,6 +47,7 @@ DEFAULT_COST_ITEMS = [
     {"code": "commission_fixed",  "name": "판매수수료(정액)","category": "commission_fixed","basis": "order_fixed",          "sort_order": 8, "description": "주문건당 정액 수수료"},
     {"code": "shipping",          "name": "운반비",        "category": "shipping",          "basis": "order_fixed",         "sort_order": 9, "description": "주문(박스) 당 정액 또는 매출 정률"},
     {"code": "packaging",         "name": "포장비",        "category": "packaging",         "basis": "order_fixed",         "sort_order": 10, "description": "주문당 포장 부자재 (아이스팩·박스 등)"},
+    {"code": "platform_fee",      "name": "판매수수료(월정액)","category": "platform_fee",   "basis": "channel_monthly_fixed","sort_order": 11, "description": "채널 월 정액 판매수수료 (일별 매출 비례 분배)"},
 ]
 
 
@@ -165,9 +166,16 @@ def rebuild_daily_with_costs(
     rows = rq.all()
 
     # 2) 영향 받는 범위 삭제
+    #    ⚠️ 전체(unscoped) 재집계 시 raw_lines가 없는 채널의 daily까지 지우면
+    #    BQ복구 과거데이터(raw_lines엔 없고 daily에만 존재)가 통째로 날아간다.
+    #    → raw_lines가 실제로 있는 채널만 삭제·재구축하고, BQ-only 채널은 보존.
     del_q = db.query(ChannelSalesDailyProduct)
     if channel_id:
         del_q = del_q.filter(ChannelSalesDailyProduct.channel_id == channel_id)
+    else:
+        affected = list({r.channel_id for r in rows})
+        # raw가 하나도 없으면 아무것도 삭제하지 않음(전체 wipe 방지)
+        del_q = del_q.filter(ChannelSalesDailyProduct.channel_id.in_(affected or ["__no_channel__"]))
     if since:
         del_q = del_q.filter(ChannelSalesDailyProduct.sale_date >= since)
     if until:
@@ -234,18 +242,27 @@ def rebuild_daily_with_costs(
                 c_shipping = net * shipping_rule.rate
         c_packaging = orders * rule_order("packaging")
 
-        # 광고비: 그 채널의 (year, month) 월 광고비 × (행 매출 / 채널 월 매출)
-        adv_item = items.get("advertising")
-        c_adv = 0.0
-        if adv_item:
-            m_amount = monthly_fixed.get((ch, sd.year, sd.month, adv_item.id), 0)
-            ch_month_rev = monthly_revenue.get((ch, sd.year, sd.month), 0)
-            if m_amount and ch_month_rev:
-                c_adv = m_amount * (net / ch_month_rev) if ch_month_rev else 0
+        # 채널 월정액(channel_monthly_fixed) 항목: 월 금액 × (행 매출 / 채널 월 매출)로 비례 분배.
+        # 광고비/판매수수료(월정액)는 각각 별도 컬럼으로 유지.
+        ch_month_rev = monthly_revenue.get((ch, sd.year, sd.month), 0)
+
+        def monthly_fixed_share(code: str) -> float:
+            it = items.get(code)
+            if not it or not ch_month_rev:
+                return 0.0
+            m_amount = monthly_fixed.get((ch, sd.year, sd.month, it.id), 0)
+            if not m_amount:
+                return 0.0
+            return m_amount * (net / ch_month_rev)
+
+        # 광고비
+        c_adv = monthly_fixed_share("advertising")
+        # 판매수수료(월정액)
+        c_platform = monthly_fixed_share("platform_fee")
 
         total_cost = (
             c_cogs + c_labor + c_overhead + c_log_work + c_log_oh
-            + c_adv + c_comm_rate + c_comm_fixed + c_shipping + c_packaging
+            + c_adv + c_platform + c_comm_rate + c_comm_fixed + c_shipping + c_packaging
         )
         cm = net - total_cost
 
@@ -271,6 +288,7 @@ def rebuild_daily_with_costs(
             cost_logistics_work=c_log_work,
             cost_logistics_oh=c_log_oh,
             cost_advertising=c_adv,
+            cost_platform_fee=c_platform,
             cost_commission_rate=c_comm_rate,
             cost_commission_fixed=c_comm_fixed,
             cost_shipping=c_shipping,
