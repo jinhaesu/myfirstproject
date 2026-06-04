@@ -275,6 +275,11 @@ def _bust_all_caches():
 _CHPROD_CACHE: dict = {}
 _CHPROD_TTL_SEC = 300
 
+# 사업계획 응답 캐시 (plan/summary·plan/comparison·avg-price 공용).
+# NOTE: 과거 캐시 도입 시 정의가 누락돼 plan 엔드포인트가 NameError로 500나던 버그 수정.
+_PLAN_CACHE: dict = {}
+_PLAN_TTL_SEC = 300
+
 
 @router.get("/products", response_model=list[ProductMasterOut])
 def list_products(db: Session = Depends(get_db)):
