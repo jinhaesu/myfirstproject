@@ -4,7 +4,7 @@
 
 집계 기준: 최종 상품별 총 주문금액 (할인 후 실결제 총액).
 구매확정 파일 기준. 상품가격(정가)은 사용하지 않음.
-날짜 기준: 결제일 (구매확정 파일에는 결제일시 없으므로 결제일 사용).
+날짜 기준: 구매확정일 우선 (구매확정 파일이므로). 없으면 결제일/결제일시 fallback.
 """
 from __future__ import annotations
 
@@ -21,11 +21,12 @@ from app.services.csa_parsers._common import (
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
     for _, row in df.iterrows():
+        # 날짜 기준: 구매확정일 우선
         sale_dt = (
-            to_datetime(row.get("결제일"))
+            to_datetime(row.get("구매확정일"))
+            or to_datetime(row.get("결제일"))
             or to_datetime(row.get("결제일시"))
             or to_datetime(row.get("주문일시"))
-            or to_datetime(row.get("구매확정일"))
         )
         if not sale_dt:
             continue
