@@ -20,7 +20,40 @@ import pandas as pd
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
-from app.services.csa_parsers._common import read_excel_safe, to_float, to_str
+from app.services.csa_parsers._common import read_excel_safe, to_datetime, to_float, to_str
+
+
+def _parse_order_list(df: pd.DataFrame) -> Iterable[ParsedLine]:
+    """에이블리 '전체주문내역'(주문 단위) 양식.
+    컬럼: 결제일 / 상품주문번호 / 주문번호 / 상품명 / 판매가 / 수량 / 결제액 / 주문상태 ...
+    날짜=결제일, 매출(net)=결제액(실결제), 주문상태 '취소'는 is_cancelled.
+    """
+    for _, row in df.iterrows():
+        sale_dt = to_datetime(row.get("결제일") or row.get("주문일") or row.get("결제일시"))
+        if not sale_dt:
+            continue
+        prod = to_str(row.get("상품명"))
+        if not prod:
+            continue
+        status = to_str(row.get("주문상태") or "") or ""
+        is_cancel = ("취소" in status) or ("반품" in status) or ("환불" in status)
+        qty = to_float(row.get("수량") or 1)
+        # 매출 = 결제액(실결제). gross는 판매가(정가) 있으면 사용.
+        net = to_float(row.get("결제액"))
+        gross = to_float(row.get("판매가")) or net
+        yield ParsedLine(
+            sale_date=sale_dt.date(),
+            sale_datetime=sale_dt,
+            order_no=to_str(row.get("주문번호")),
+            line_no=to_str(row.get("상품주문번호")),
+            raw_product_name=prod,
+            raw_option_name=to_str(row.get("옵션 정보") or row.get("옵션명")),
+            raw_qty=qty,
+            gross_amount=0 if is_cancel else gross,
+            net_amount=0 if is_cancel else net,
+            refund_amount=net if is_cancel else 0,
+            is_cancelled=is_cancel,
+        )
 
 
 def _extract_date_from_filename(path: str) -> date:
@@ -51,6 +84,12 @@ def _read_ably(path: str) -> pd.DataFrame:
 def parse(path: str) -> Iterable[ParsedLine]:
     df = _read_ably(path)
     if df.empty:
+        return
+
+    # 양식 감지: '전체주문내역'(결제일+결제액 컬럼) vs '통계'(기간집계)
+    cols_set = {str(c).strip() for c in df.columns}
+    if "결제일" in cols_set and ("결제액" in cols_set or "판매가" in cols_set):
+        yield from _parse_order_list(df)
         return
 
     sale_d = _extract_date_from_filename(path)
