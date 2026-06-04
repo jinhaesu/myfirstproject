@@ -41,8 +41,8 @@ def _parse_channel(path: str, channel_filter: str) -> Iterable[ParsedLine]:
         if not prod:
             continue
 
-        # 상품금액은 수량이 이미 반영된 총액
-        gross = to_float(row.get("상품금액"))
+        # 매출 = 정산기준금액(있으면, 카카오선물하기 양식 O열) > 상품금액(통합 양식, 수량 반영 총액)
+        gross = to_float(row.get("정산기준금액")) or to_float(row.get("상품금액"))
         yield ParsedLine(
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,

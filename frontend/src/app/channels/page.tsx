@@ -1028,6 +1028,39 @@ function UploadTab({
   const [delError, setDelError] = useState<string | null>(null);
   const [delResult, setDelResult] = useState<any>(null);
 
+  // 최신 파서로 재처리 (재업로드 없이 보관 원본 재집계)
+  const [reproChannelId, setReproChannelId] = useState<string>('');
+  const [reproBusy, setReproBusy] = useState(false);
+  const [reproError, setReproError] = useState<string | null>(null);
+  const [reproResult, setReproResult] = useState<any>(null);
+
+  const reprocessChannel = async () => {
+    setReproError(null); setReproResult(null);
+    if (!reproChannelId) { setReproError('채널을 선택하세요.'); return; }
+    const ch = channels.find(c => c.id === reproChannelId);
+    if (!confirm(`보관된 원본을 최신 파서로 다시 집계합니다.\n\n채널: ${ch?.name || reproChannelId}\n\n기존 집계 데이터는 보관 원본으로 다시 만들어집니다.`)) return;
+    setReproBusy(true);
+    try {
+      const params = new URLSearchParams({ channel_id: reproChannelId });
+      const r = await fetch(`${API_BASE}/api/csa/reprocess?${params}`, {
+        method: 'POST', headers: authHeaders(),
+      });
+      const data = await r.json();
+      if (r.status === 404) {
+        setReproError('이 채널은 보관된 원본이 없어 한 번 재업로드가 필요합니다.');
+        return;
+      }
+      if (!r.ok) throw new Error(data.detail || '재처리 실패');
+      setReproResult(data);
+      refreshBatches();
+      onUploaded();  // 대시보드/마스터 캐시 리프레시
+    } catch (e: any) {
+      setReproError(e.message || String(e));
+    } finally {
+      setReproBusy(false);
+    }
+  };
+
   const deleteChannelData = async () => {
     setDelError(null); setDelResult(null);
     if (!delChannelId) { setDelError('채널을 선택하세요.'); return; }
@@ -1409,6 +1442,42 @@ function UploadTab({
                 <div><span className="text-[#62666D]">배치: </span>{delResult.batches_deleted}</div>
                 <div><span className="text-[#62666D]">원본파일: </span>{delResult.files_deleted}</div>
                 <div><span className="text-[#62666D]">미매핑큐: </span>{delResult.unmatched_queue_deleted}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-[#23252A]">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#828FFF] mb-1">최신 파서로 재처리</h3>
+          <div className="text-[11px] text-[#62666D] mb-3 leading-relaxed">
+            파서 로직이 바뀌었을 때, <span className="text-[#D0D6E0]">재업로드 없이</span> DB에 보관된 원본 엑셀을 최신 파서로 다시 파싱·집계합니다.
+            보관 원본은 그대로 유지되며, 집계 데이터만 새로 만들어집니다. (보관 원본이 없는 채널은 한 번 재업로드가 필요합니다.)
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+            <div className="sm:col-span-2">
+              <label className="block text-[10px] text-[#7A7F8A] mb-1">채널</label>
+              <select
+                value={reproChannelId}
+                onChange={(e) => setReproChannelId(e.target.value)}
+                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+              >
+                <option value="">채널 선택</option>
+                {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 mt-3">
+            <button
+              onClick={reprocessChannel} disabled={reproBusy}
+              className="px-4 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium disabled:opacity-50"
+            >{reproBusy ? '재처리 요청 중…' : '최신 파서로 재처리'}</button>
+            {reproError && <span className="text-[11px] text-[#EB5757]">{reproError}</span>}
+          </div>
+          {reproResult && (
+            <div className={`${SUBPANEL} p-3 mt-3 text-xs text-[#D0D6E0]`}>
+              <div className="text-[#27A644] mb-1.5">✓ 재처리를 큐에 넣었습니다 — {reproResult.channel_name}</div>
+              <div className="text-[11px] text-[#62666D]">
+                보관 원본 {reproResult.file_count}개를 최신 파서로 다시 집계합니다. 위 업로드 이력 목록에서 진행 상황을 확인하세요.
               </div>
             </div>
           )}

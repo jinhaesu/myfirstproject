@@ -815,6 +815,144 @@ def delete_channel_data(
 
 
 # ──────────────────────────────────────────────────────────────
+# 재처리 (재업로드 없이 보관 원본을 최신 파서로 다시 파싱·집계)
+# ──────────────────────────────────────────────────────────────
+
+def _run_reprocess_background(channel_id: str, channel_name: str):
+    """BackgroundTask로 실행되는 재처리 워커.
+
+    채널의 보관 원본(csa_upload_files)을 최신 파서로 다시 파싱·적재한다.
+    - 보관 원본(upload_files)은 절대 삭제하지 않는다(보관본 보존).
+    - 기존 raw_lines / daily_product / upload_batches는 삭제 후 새로 적재.
+    - upload_files.batch_id는 batch 삭제 전 NULL로 끊고, 재적재 후 새 batch_id로 재연결.
+    - 새 csa_upload_files insert는 하지 않는다(중복 보관 방지) — ingest_lines가 저장하지 않음.
+    """
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        files = (
+            db.query(CsaUploadFile)
+            .filter(CsaUploadFile.channel_id == channel_id)
+            .order_by(CsaUploadFile.created_at.asc())
+            .all()
+        )
+        if not files:
+            return
+
+        # 1) upload_files.batch_id를 먼저 NULL로 끊어 FK 위반 방지 (보관본은 보존)
+        db.query(CsaUploadFile).filter(
+            CsaUploadFile.channel_id == channel_id
+        ).update({"batch_id": None}, synchronize_session=False)
+
+        # 2) 기존 매출 데이터 삭제 (upload_files는 제외)
+        db.query(ChannelSalesRawLine).filter(
+            ChannelSalesRawLine.channel_id == channel_id
+        ).delete(synchronize_session=False)
+        db.query(ChannelSalesDailyProduct).filter(
+            ChannelSalesDailyProduct.channel_id == channel_id
+        ).delete(synchronize_session=False)
+        db.query(ChannelSalesUploadBatch).filter(
+            ChannelSalesUploadBatch.channel_id == channel_id
+        ).delete(synchronize_session=False)
+        db.commit()
+
+        parser = get_parser(channel_name)
+        if not parser:
+            log.warning("reprocess: 파서 없음 channel_name=%s", channel_name)
+            # 파서가 없으면 적재는 못하지만 삭제는 이미 반영됨 → 집계만 재계산
+            rebuild_daily_aggregate(db, channel_id=channel_id)
+            _bust_all_caches()
+            return
+
+        # 3) 각 보관 원본을 임시파일로 풀어 동일 적재 로직 실행
+        for f in files:
+            suffix = os.path.splitext(f.file_name or "")[1] or ".xlsx"
+            tmp_path = None
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    tmp.write(f.content or b"")
+                    tmp_path = tmp.name
+                lines = list(parser(tmp_path))
+                fsize = len(f.content or b"")
+                fhash = f.file_hash
+                batch = ingest_lines(
+                    db,
+                    channel_id=channel_id,
+                    channel_name=channel_name,
+                    file_name=f.file_name or "reprocess",
+                    file_hash=fhash,
+                    file_size=fsize,
+                    parser_version="v1",
+                    lines=lines,
+                )
+                # 이 보관 파일을 새 batch에 재연결
+                if batch is not None:
+                    f.batch_id = batch.id
+                    db.commit()
+            except Exception:
+                db.rollback()
+                log.exception("reprocess: 파일 재처리 실패 file_id=%s", f.id)
+            finally:
+                if tmp_path:
+                    try:
+                        os.unlink(tmp_path)
+                    except Exception:
+                        pass
+
+        # 4) 집계 재계산 + 캐시 무효화
+        rebuild_daily_aggregate(db, channel_id=channel_id)
+        _bust_all_caches()
+    except Exception:
+        db.rollback()
+        log.exception("reprocess background failed channel_id=%s", channel_id)
+    finally:
+        db.close()
+
+
+@router.post("/reprocess")
+def reprocess_channel(
+    background_tasks: BackgroundTasks,
+    channel_id: str = Query(..., description="재처리 대상 채널 id (필수)"),
+    db: Session = Depends(get_db),
+):
+    """재업로드 없이, DB에 보관된 원본 엑셀을 최신 파서로 다시 파싱·집계.
+
+    파서 로직이 바뀌었을 때 사용자가 파일을 다시 올리지 않아도 되게 한다.
+    보관 원본(csa_upload_files)은 보존하고, raw_lines/daily_product/upload_batches만
+    재생성한다. 대용량(8만행 등) 처리는 BackgroundTask로 큐잉하고 즉시 응답하며,
+    프론트는 batches 폴링으로 진행 상황을 확인한다.
+    """
+    ch = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not ch:
+        raise HTTPException(404, "channel not found")
+
+    file_count = db.query(CsaUploadFile).filter(
+        CsaUploadFile.channel_id == channel_id
+    ).count()
+    if file_count == 0:
+        raise HTTPException(
+            404,
+            "보관된 원본 파일이 없습니다. 한 번 재업로드하면 이후부터 재처리 가능합니다.",
+        )
+
+    parser = get_parser(ch.name)
+    if not parser:
+        raise HTTPException(
+            400, f"채널 '{ch.name}' 파서가 아직 구현되지 않았습니다",
+        )
+
+    background_tasks.add_task(_run_reprocess_background, channel_id, ch.name)
+
+    return {
+        "status": "queued",
+        "channel_id": channel_id,
+        "channel_name": ch.name,
+        "file_count": file_count,
+        "message": "재처리를 큐에 넣었습니다. 잠시 후 'batches' 목록에서 진행 상황을 확인하세요.",
+    }
+
+
+# ──────────────────────────────────────────────────────────────
 # 원본 양식 엑셀 다운로드 (채널 + 기간)
 # ──────────────────────────────────────────────────────────────
 
