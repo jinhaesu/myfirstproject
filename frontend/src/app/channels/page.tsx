@@ -103,6 +103,7 @@ interface DashboardData {
     revenue: number; pcs: number; orders: number;
     variable_cost: number; commission: number;
     contribution_margin: number; cm_rate: number;
+    cancelled_count?: number; cancelled_amount?: number;
   };
   series: Array<{
     period: string; revenue: number; pcs: number; orders: number;
@@ -619,7 +620,7 @@ function DashboardTab({
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <CompactKpi label="순매출"
           value={data ? `₩${fmtKR(data.summary.revenue)}` : '—'}
-          hint={data ? `${fmtNum(data.summary.orders)} 주문` : ''}
+          hint={data ? `${fmtNum(data.summary.orders)} 주문${data.summary.cancelled_count ? ` · 취소/환불 ${fmtNum(data.summary.cancelled_count)}건` : ''}` : ''}
           accent="#828FFF"
           spark={sparkKey('revenue')}
           compareValue={hasCompare ? compareData.summary.revenue : undefined}

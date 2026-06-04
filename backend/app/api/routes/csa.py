@@ -1053,6 +1053,20 @@ def dashboard(
     total_cm = sum(r.contribution_margin or 0 for r in rows)
     cm_rate = (total_cm / total_revenue * 100) if total_revenue else 0
 
+    # 취소/환불 확정 집계 — 매출엔 미반영(daily에서 제외됨), 별도 지표로 표시.
+    # raw_lines의 mapping_status='cancelled' 행을 기간/채널 필터로 직접 집계.
+    _cancel_q = db.query(
+        func.count(ChannelSalesRawLine.id),
+        func.coalesce(func.sum(ChannelSalesRawLine.refund_amount), 0),
+    ).filter(
+        ChannelSalesRawLine.mapping_status == "cancelled",
+        ChannelSalesRawLine.sale_date >= period_start,
+        ChannelSalesRawLine.sale_date <= period_end,
+    )
+    if selected_channels:
+        _cancel_q = _cancel_q.filter(ChannelSalesRawLine.channel_id.in_(list(selected_channels)))
+    _cancel_count, _cancel_amount = _cancel_q.one()
+
     # 변동비 카테고리별 분해
     cost_breakdown = {
         "cogs": sum(r.cost_cogs or 0 for r in rows),
@@ -1159,6 +1173,8 @@ def dashboard(
             "cm_rate": cm_rate,
             "avg_price_per_pcs": (total_revenue / total_pcs) if total_pcs else 0,
             "avg_price_per_order": (total_revenue / total_orders) if total_orders else 0,
+            "cancelled_count": int(_cancel_count or 0),
+            "cancelled_amount": float(_cancel_amount or 0),
         },
         "cost_breakdown": cost_breakdown,
         "series": series,
