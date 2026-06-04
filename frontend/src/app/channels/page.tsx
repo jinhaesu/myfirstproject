@@ -117,6 +117,11 @@ interface DashboardData {
     product_id: number; product_name: string;
     revenue: number; pcs: number; orders: number; contribution_margin: number; cm_rate: number;
   }>;
+  heatmap?: {
+    periods: string[];
+    employees: string[];
+    cells: Array<{ employee: string; period: string; revenue: number; pcs: number; contribution_margin: number }>;
+  };
   granularity: Granularity;
   period_start: string;
   period_end: string;
@@ -812,6 +817,16 @@ function DashboardTab({
             </LineChart>
           </ResponsiveContainer>
         ) : <Empty h={220} />}
+        {/* 담당자 × 날짜 매출 히트맵 */}
+        {data?.heatmap && data.heatmap.employees.length > 0 && (
+          <div className="mt-5 pt-4 border-t border-[#23252A]">
+            <div className="flex items-baseline justify-between mb-2">
+              <h3 className="text-sm font-semibold text-[#F7F8F8]">담당자별 매출 히트맵</h3>
+              <span className="text-[10px] text-[#7A7F8A]">셀 호버 시 매출·수량 표시 · 색이 진할수록 매출↑</span>
+            </div>
+            <SalesHeatmap hm={data.heatmap} granularity={granularity} />
+          </div>
+        )}
       </div>
 
       {/* Top10 채널 + Top12 품목 가로 막대 */}
@@ -821,38 +836,39 @@ function DashboardTab({
             <h3 className="text-sm font-semibold text-[#F7F8F8]">채널별 매출/공헌이익 Top 10</h3>
           </div>
           {data && data.channels.length ? (
-            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.channels.length, 10) * (hasCompare ? 38 : 26))}>
-              <BarChart data={channelsWithCmp.slice(0, 10)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={channelsWithCmp.slice(0, 10)} margin={{ left: 8, right: 12, top: 5, bottom: 78 }} barCategoryGap="22%">
                 <defs>
-                  <linearGradient id="gradTopRev" x1="0" y1="0" x2="1" y2="0">
+                  <linearGradient id="gradTopRev" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#5560C8" stopOpacity={0.8} />
                     <stop offset="100%" stopColor="#A8B3FF" stopOpacity={1} />
                   </linearGradient>
-                  <linearGradient id="gradTopRevCmp" x1="0" y1="0" x2="1" y2="0">
+                  <linearGradient id="gradTopRevCmp" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.5} />
                     <stop offset="100%" stopColor="#7A7F8A" stopOpacity={0.7} />
                   </linearGradient>
-                  <linearGradient id="gradTopCm" x1="0" y1="0" x2="1" y2="0">
+                  <linearGradient id="gradTopCm" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#1F7A38" stopOpacity={0.8} />
                     <stop offset="100%" stopColor="#3DD971" stopOpacity={1} />
                   </linearGradient>
-                  <linearGradient id="gradTopCmCmp" x1="0" y1="0" x2="1" y2="0">
+                  <linearGradient id="gradTopCmCmp" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#1A4023" stopOpacity={0.5} />
                     <stop offset="100%" stopColor="#3F6E4D" stopOpacity={0.6} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid {...CHART_GRID} />
-                <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
-                <YAxis type="category" dataKey="channel_name" tick={AXIS_TICK} stroke="#62666D" width={80} />
+                <XAxis type="category" dataKey="channel_name" tick={{ fill: '#8A8F98', fontSize: 10 }} stroke="#62666D"
+                  interval={0} angle={-40} textAnchor="end" height={78} />
+                <YAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} width={48} />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                   formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
                 />
                 <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev)" radius={[0, 6, 6, 0]} />
-                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRevCmp)" radius={[0, 6, 6, 0]} />}
-                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm)" radius={[0, 6, 6, 0]} />
-                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCmCmp)" radius={[0, 6, 6, 0]} />}
+                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev)" radius={[6, 6, 0, 0]} />
+                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRevCmp)" radius={[6, 6, 0, 0]} />}
+                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm)" radius={[6, 6, 0, 0]} />
+                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCmCmp)" radius={[6, 6, 0, 0]} />}
               </BarChart>
             </ResponsiveContainer>
           ) : <Empty h={220} />}
@@ -860,38 +876,39 @@ function DashboardTab({
         <div className={`${PANEL} p-4`}>
           <h3 className="text-sm font-semibold text-[#F7F8F8] mb-2">품목별 매출/공헌이익 Top 12</h3>
           {data && data.products.length ? (
-            <ResponsiveContainer width="100%" height={Math.max(220, Math.min(data.products.length, 12) * (hasCompare ? 38 : 26))}>
-              <BarChart data={productsWithCmp.slice(0, 12)} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={productsWithCmp.slice(0, 12)} margin={{ left: 8, right: 12, top: 5, bottom: 78 }} barCategoryGap="20%">
                 <defs>
-                  <linearGradient id="gradTopRev2" x1="0" y1="0" x2="1" y2="0">
+                  <linearGradient id="gradTopRev2" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#5560C8" stopOpacity={0.8} />
                     <stop offset="100%" stopColor="#A8B3FF" stopOpacity={1} />
                   </linearGradient>
-                  <linearGradient id="gradTopRev2Cmp" x1="0" y1="0" x2="1" y2="0">
+                  <linearGradient id="gradTopRev2Cmp" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.5} />
                     <stop offset="100%" stopColor="#7A7F8A" stopOpacity={0.7} />
                   </linearGradient>
-                  <linearGradient id="gradTopCm2" x1="0" y1="0" x2="1" y2="0">
+                  <linearGradient id="gradTopCm2" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#1F7A38" stopOpacity={0.8} />
                     <stop offset="100%" stopColor="#3DD971" stopOpacity={1} />
                   </linearGradient>
-                  <linearGradient id="gradTopCm2Cmp" x1="0" y1="0" x2="1" y2="0">
+                  <linearGradient id="gradTopCm2Cmp" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#1A4023" stopOpacity={0.5} />
                     <stop offset="100%" stopColor="#3F6E4D" stopOpacity={0.6} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid {...CHART_GRID} />
-                <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
-                <YAxis type="category" dataKey="product_name" tick={AXIS_TICK} stroke="#62666D" width={70} />
+                <XAxis type="category" dataKey="product_name" tick={{ fill: '#8A8F98', fontSize: 10 }} stroke="#62666D"
+                  interval={0} angle={-40} textAnchor="end" height={78} />
+                <YAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} width={48} />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                   formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
                 />
                 <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev2)" radius={[0, 6, 6, 0]} />
-                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRev2Cmp)" radius={[0, 6, 6, 0]} />}
-                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm2)" radius={[0, 6, 6, 0]} />
-                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCm2Cmp)" radius={[0, 6, 6, 0]} />}
+                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev2)" radius={[6, 6, 0, 0]} />
+                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRev2Cmp)" radius={[6, 6, 0, 0]} />}
+                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm2)" radius={[6, 6, 0, 0]} />
+                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCm2Cmp)" radius={[6, 6, 0, 0]} />}
               </BarChart>
             </ResponsiveContainer>
           ) : <Empty h={220} />}
@@ -4296,6 +4313,97 @@ function Empty({ h = 300 }: { h?: number }) {
   return (
     <div className="flex items-center justify-center text-sm text-[#A3A9B3]" style={{ height: h }}>
       데이터가 없습니다.
+    </div>
+  );
+}
+
+// 담당자(y) × 날짜/월(x) 매출 히트맵
+function SalesHeatmap({
+  hm, granularity,
+}: {
+  hm: NonNullable<DashboardData['heatmap']>;
+  granularity: Granularity;
+}) {
+  const [hover, setHover] = useState<
+    { x: number; y: number; emp: string; period: string; revenue: number; pcs: number; cm: number } | null
+  >(null);
+
+  const cellMap = useMemo(() => {
+    const m = new Map<string, { revenue: number; pcs: number; contribution_margin: number }>();
+    for (const c of hm.cells) m.set(`${c.employee}|||${c.period}`, c);
+    return m;
+  }, [hm]);
+  const maxRev = useMemo(() => hm.cells.reduce((mx, c) => Math.max(mx, c.revenue), 0) || 1, [hm]);
+
+  const fmtPeriod = (p: string) =>
+    granularity === 'day' ? p.slice(8) : granularity === 'month' ? `${Number(p.slice(5))}월` : p;
+
+  const cellColor = (v: number) => {
+    if (v <= 0) return 'rgba(35,37,42,0.45)';
+    const t = Math.pow(v / maxRev, 0.55); // 감마 보정: 작은 값도 눈에 띄게
+    return `rgba(130,143,255,${(0.12 + 0.85 * t).toFixed(3)})`;
+  };
+
+  const cellW = granularity === 'day' ? 30 : 52;
+
+  return (
+    <div className="relative overflow-x-auto pb-1">
+      <div className="inline-block min-w-full">
+        {/* 헤더(날짜) */}
+        <div className="flex sticky top-0">
+          <div className="shrink-0 w-[96px]" />
+          {hm.periods.map((p) => (
+            <div key={p} className="shrink-0 text-center text-[9px] text-[#7A7F8A] pb-1"
+              style={{ width: cellW }}>
+              {fmtPeriod(p)}
+            </div>
+          ))}
+        </div>
+        {/* 담당자별 행 */}
+        {hm.employees.map((emp) => (
+          <div key={emp} className="flex items-center">
+            <div className="shrink-0 w-[96px] pr-2 text-[11px] text-[#C7CCD4] truncate text-right">{emp}</div>
+            {hm.periods.map((p) => {
+              const c = cellMap.get(`${emp}|||${p}`);
+              const rev = c?.revenue || 0;
+              return (
+                <div
+                  key={p}
+                  className="shrink-0 m-[1px] rounded-[3px] cursor-default transition-transform hover:scale-110 hover:ring-1 hover:ring-[#A8B3FF]"
+                  style={{ width: cellW - 2, height: 22, background: cellColor(rev) }}
+                  onMouseEnter={(e) => setHover({
+                    x: e.clientX, y: e.clientY, emp, period: p,
+                    revenue: rev, pcs: c?.pcs || 0, cm: c?.contribution_margin || 0,
+                  })}
+                  onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
+                  onMouseLeave={() => setHover(null)}
+                />
+              );
+            })}
+          </div>
+        ))}
+        {/* 범례 */}
+        <div className="flex items-center gap-1.5 mt-2 pl-[96px]">
+          <span className="text-[9px] text-[#7A7F8A]">낮음</span>
+          {[0.12, 0.32, 0.52, 0.72, 0.97].map((a) => (
+            <div key={a} className="w-4 h-3 rounded-[2px]" style={{ background: `rgba(130,143,255,${a})` }} />
+          ))}
+          <span className="text-[9px] text-[#7A7F8A]">높음</span>
+        </div>
+      </div>
+
+      {hover && (
+        <div
+          className="fixed z-50 pointer-events-none rounded-lg border border-[#2C2F36] bg-[#15171A] px-3 py-2 shadow-xl"
+          style={{ left: Math.min(hover.x + 14, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 180), top: hover.y + 14 }}
+        >
+          <div className="text-[11px] font-semibold text-[#F7F8F8]">{hover.emp}</div>
+          <div className="text-[10px] text-[#A3A9B3] mb-1">{hover.period}</div>
+          <div className="text-[11px] text-[#A8B3FF]">매출 ₩{Math.round(hover.revenue).toLocaleString()}</div>
+          <div className="text-[10px] text-[#C7CCD4]">수량 {Math.round(hover.pcs).toLocaleString()}개</div>
+          <div className="text-[10px] text-[#3DD971]">공헌이익 ₩{Math.round(hover.cm).toLocaleString()}</div>
+        </div>
+      )}
     </div>
   );
 }

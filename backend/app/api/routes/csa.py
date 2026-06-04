@@ -1543,6 +1543,46 @@ def dashboard(
         slot["contribution_margin"] += r.contribution_margin or 0
     series = sorted(series_map.values(), key=lambda x: x["period"])
 
+    # 담당자 × 기간 히트맵 (매출/수량) — 채널→담당자 매핑으로 집계
+    def _pkey(r) -> str:
+        if granularity == "day":
+            return r.sale_date.isoformat()
+        if granularity == "month":
+            return f"{r.year}-{r.month:02d}"
+        if granularity == "quarter":
+            return f"{r.year}-Q{r.quarter}"
+        return f"{r.year}"
+
+    ch_to_emp: dict[str, str] = {}
+    _emp_rows = db.query(
+        EmployeeChannelAssignment.channel_id, Employee.name,
+    ).join(Employee, Employee.id == EmployeeChannelAssignment.employee_id).filter(
+        EmployeeChannelAssignment.is_active.is_(True)
+    ).all()
+    for cid, ename in _emp_rows:
+        ch_to_emp.setdefault(cid, ename)
+
+    heat_cells: dict[tuple, dict] = {}
+    heat_emp_total: dict[str, float] = {}
+    heat_periods: set[str] = set()
+    for r in rows:
+        ename = ch_to_emp.get(r.channel_id) or "미배정"
+        pk = _pkey(r)
+        heat_periods.add(pk)
+        slot = heat_cells.setdefault((ename, pk), {
+            "employee": ename, "period": pk,
+            "revenue": 0, "pcs": 0, "contribution_margin": 0,
+        })
+        slot["revenue"] += r.net_sales or 0
+        slot["pcs"] += r.pcs_qty or 0
+        slot["contribution_margin"] += r.contribution_margin or 0
+        heat_emp_total[ename] = heat_emp_total.get(ename, 0) + (r.net_sales or 0)
+    heatmap = {
+        "periods": sorted(heat_periods),
+        "employees": sorted(heat_emp_total.keys(), key=lambda e: -heat_emp_total[e]),
+        "cells": list(heat_cells.values()),
+    }
+
     # 채널별 합계
     by_channel: dict[str, dict] = {}
     for r in rows:
@@ -1596,6 +1636,7 @@ def dashboard(
         },
         "cost_breakdown": cost_breakdown,
         "series": series,
+        "heatmap": heatmap,
         "channels": channels_summary,
         "products": products_summary,
         "groups": groups_summary,
