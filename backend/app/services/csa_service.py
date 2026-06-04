@@ -27,6 +27,8 @@ from app.db_models import (
     ChannelUnmatchedProduct,
     Channel,
     CsaChannelProduct,
+    ChannelGroupMembership,
+    ChannelGroup,
 )
 
 log = logging.getLogger(__name__)
@@ -150,6 +152,17 @@ def is_vat_included(channel_name: Optional[str]) -> bool:
     if not channel_name:
         return False
     return channel_name.strip() in VAT_INCLUDED_CHANNELS
+
+
+def is_online_consign(db: Session, channel_id: str) -> bool:
+    """채널이 '온라인(위탁)' 그룹인지. 위탁 매출은 VAT 포함 그대로 집계(공급가 환산 X) — 사용자 정책."""
+    row = (
+        db.query(ChannelGroup.name)
+        .join(ChannelGroupMembership, ChannelGroupMembership.group_id == ChannelGroup.id)
+        .filter(ChannelGroupMembership.channel_id == channel_id)
+        .first()
+    )
+    return bool(row and "위탁" in (row[0] or ""))
 
 
 _VAT_EXCL_FACTOR = 1.0 / 1.1  # 부가세 10% 별도 환산
@@ -432,6 +445,9 @@ def ingest_lines(
     db.add(batch)
     db.commit()
 
+    # 온라인(위탁) 채널은 VAT 포함 금액 그대로 집계(공급가 ÷1.1 환산 안 함) — 사용자 정책.
+    keep_vat_included = is_online_consign(db, channel_id)
+
     masters_cache = _get_or_cache_master(db)
     product_by_id = {p.id: p for p in masters_cache}
     # ChannelProductMapping 전체를 한 번에 메모리에 캐시.
@@ -520,10 +536,11 @@ def ingest_lines(
 
         # B2C 채널은 raw 매출이 부가세 포함이므로 부가세 별도(공급가)로 환산해 적재.
         # 매출 인식 표준이 공급가 기준이고, B2B 채널과의 일관성 확보.
-        if is_vat_included(channel_name):
+        if is_vat_included(channel_name) and not keep_vat_included:
             adj_gross = ln.gross_amount * _VAT_EXCL_FACTOR
             adj_net = (ln.net_amount or ln.gross_amount) * _VAT_EXCL_FACTOR
         else:
+            # 온라인(위탁) 또는 VAT 별도 채널: 원본 금액 그대로
             adj_gross = ln.gross_amount
             adj_net = ln.net_amount or ln.gross_amount
 
