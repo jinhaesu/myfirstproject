@@ -102,10 +102,9 @@ def _parse_xlsx(path: str) -> Iterable[ParsedLine]:
         if not no or no.strip() in ("합계", "총합계"):
             continue
 
-        # 진행단계=주문취소 제외
+        # 진행단계=주문취소/반품 — 버리지 않고 is_cancelled로 표시
         status = (to_str(row.get("진행단계")) or "").strip()
-        if status in ("주문취소", "취소", "취소완료"):
-            continue
+        is_cancel = status in ("주문취소", "취소", "취소완료") or "취소" in status or "반품" in status
 
         prod = to_str(row.get("상품명"))
         if not prod:
@@ -120,7 +119,7 @@ def _parse_xlsx(path: str) -> Iterable[ParsedLine]:
 
         # 판매금액 = 주문금액 (보통 동일). 둘 중 사용 가능한 값.
         gross = to_float(row.get("판매금액") or row.get("주문금액"))
-        if qty == 0 and gross == 0:
+        if qty == 0 and gross == 0 and not is_cancel:
             continue
 
         # 일자: 원주문접수일 (예: "2026/05/12 22:42:11")
@@ -133,9 +132,11 @@ def _parse_xlsx(path: str) -> Iterable[ParsedLine]:
             raw_product_name=prod,
             raw_option_name=to_str(row.get("단품상세")),
             raw_qty=qty,
-            gross_amount=gross,
-            net_amount=gross,
-            settlement_amount=gross,
+            gross_amount=0 if is_cancel else gross,
+            net_amount=0 if is_cancel else gross,
+            settlement_amount=0 if is_cancel else gross,
+            refund_amount=gross if is_cancel else 0,
+            is_cancelled=is_cancel,
         )
 
 

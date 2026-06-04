@@ -90,10 +90,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
         if not prod:
             continue
 
-        # 주문취소 상태 제외
+        # 주문취소/반품 — 버리지 않고 is_cancelled로 표시
         status = (to_str(_pick(row, "상태", "주문상태")) or "").strip()
-        if status in ("주문취소", "취소", "취소완료", "반품완료"):
-            continue
+        is_cancel = status in ("주문취소", "취소", "취소완료", "반품완료") or "취소" in status or "반품" in status
 
         if is_direct:
             # 직송주문 포맷
@@ -118,7 +117,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
             order_no = None
             opt = to_str(_pick(row, "주문옵션"))
 
-        if qty == 0 and gross == 0:
+        if qty == 0 and gross == 0 and not is_cancel:
             continue
 
         yield ParsedLine(
@@ -128,6 +127,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_product_name=prod,
             raw_option_name=opt,
             raw_qty=qty,
-            gross_amount=gross,
-            net_amount=net,
+            gross_amount=0 if is_cancel else gross,
+            net_amount=0 if is_cancel else net,
+            refund_amount=net if is_cancel else 0,
+            is_cancelled=is_cancel,
         )

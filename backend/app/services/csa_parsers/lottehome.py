@@ -132,22 +132,27 @@ def parse(path: str) -> Iterable[ParsedLine]:
         if not prod:
             continue
 
-        qty = to_float(row.get("수량") or row.get("주문수량") or 1)
+        # 수량: 주문수량(W) 우선
+        qty = to_float(row.get("주문수량") or row.get("수량") or 1)
 
-        # gross: 총액 컬럼 우선 (단가 컬럼은 qty 곱셈 2배 위험 → 사용 금지)
-        gross = to_float(
-            row.get("결제금액")
-            or row.get("매출금액")
-            or row.get("주문금액")
-            or row.get("판매금액")
-            or 0
-        )
-        # 단가 컬럼만 있는 경우 최후 fallback (판매가 = 단가일 수 있음)
-        if gross == 0:
-            unit = to_float(row.get("판매가") or row.get("단가") or 0)
-            gross = unit * qty if unit > 0 else 0
+        # 매출 = 판매단가(V) × 주문수량(W). (총액 컬럼이 없는 양식이라 단가×수량으로 산출)
+        unit = to_float(row.get("판매단가") or row.get("판매가") or row.get("단가") or 0)
+        if unit > 0:
+            gross = unit * qty
+        else:
+            # 구버전 양식 fallback: 총액 컬럼
+            gross = to_float(
+                row.get("결제금액") or row.get("매출금액")
+                or row.get("주문금액") or row.get("판매금액") or 0
+            )
+        net = gross
 
-        net = to_float(row.get("정산금액") or row.get("결제금액") or gross)
+        # 취소/반품 행 — is_cancelled로 표시(매출 제외, 건수·금액 보존)
+        status = to_str(
+            row.get("주문상태") or row.get("진행상태") or row.get("주문상태명")
+            or row.get("상태") or row.get("클레임상태") or ""
+        ) or ""
+        is_cancel = any(k in status for k in ("취소", "반품"))
 
         yield ParsedLine(
             sale_date=sale_d,
@@ -157,6 +162,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_product_name=prod,
             raw_option_name=to_str(row.get("옵션") or row.get("단품명")),
             raw_qty=qty,
-            gross_amount=gross,
-            net_amount=net,
+            gross_amount=0 if is_cancel else gross,
+            net_amount=0 if is_cancel else net,
+            refund_amount=net if is_cancel else 0,
+            is_cancelled=is_cancel,
         )

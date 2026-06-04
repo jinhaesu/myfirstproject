@@ -30,10 +30,9 @@ def _parse_channel(path: str, channel_filter: str) -> Iterable[ParsedLine]:
         if ch_col is not None and ch_col != channel_filter:
             continue
 
-        # 취소 주문 제외
-        status = to_str(row.get("주문상태") or "")
-        if status and "취소" in status:
-            continue
+        # 취소 주문 — 버리지 않고 is_cancelled로 표시
+        status = to_str(row.get("주문상태") or "") or ""
+        is_cancel = "취소" in status
 
         sale_dt = to_datetime(row.get("주문일") or row.get("발송요청일") or row.get("결제일") or row.get("주문일시"))
         if not sale_dt:
@@ -52,8 +51,10 @@ def _parse_channel(path: str, channel_filter: str) -> Iterable[ParsedLine]:
             raw_product_name=prod,
             raw_option_name=to_str(row.get("옵션")),
             raw_qty=to_float(row.get("수량") or 1),
-            gross_amount=gross,
-            net_amount=gross,
+            gross_amount=0 if is_cancel else gross,
+            net_amount=0 if is_cancel else gross,
+            refund_amount=gross if is_cancel else 0,
+            is_cancelled=is_cancel,
         )
 
 
