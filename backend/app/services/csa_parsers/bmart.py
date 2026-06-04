@@ -14,7 +14,8 @@
 혼재되어 들어오므로, 양쪽 헤더를 모두 시도한다.
 """
 from __future__ import annotations
-from typing import Any, Iterable
+import re
+from typing import Any, Iterable, Optional
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
@@ -22,6 +23,22 @@ from app.services.csa_parsers._common import read_excel_safe, to_datetime, to_fl
 
 # 반품·환불로 간주할 발주유형 (양수→음수 보정 후보).
 _NEGATIVE_TYPES = {"반품", "구매발주 반품", "purchase_return", "return"}
+
+
+def _bmart_unit_per_set(name: Optional[str]) -> float:
+    """관리용 SKU명에서 입수(낱개 환산) 추출.
+      · 'N개입'/'N구'/'N봉'/'N개'/'N팩' 등 (가장 앞 표기) → N
+        (예: '8구 세트', '× 8개입', '(50g×9개)', '4봉')
+      · 표기 없으면 1 (단품 = 수량이 곧 낱개)
+    """
+    if not name:
+        return 1.0
+    m = re.search(r"(\d+)\s*(?:개입|구|봉|팩|입|개|매|쌈)", name)
+    if m:
+        v = int(m.group(1))
+        if 1 <= v <= 200:
+            return float(v)
+    return 1.0
 
 
 def _pick(row, *keys: str) -> Any:
@@ -78,4 +95,5 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_qty=qty,
             gross_amount=total,
             net_amount=total,
+            unit_per_set=_bmart_unit_per_set(prod),
         )
