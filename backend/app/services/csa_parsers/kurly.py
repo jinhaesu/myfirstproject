@@ -13,13 +13,13 @@ from app.services.csa_parsers._common import (
 
 def _kurly_unit_per_set(name: Optional[str]) -> Optional[float]:
     """컬리 낱개 입수 산출 — 상품명 기반.
-      · 상품명에 '(N개입)' 등 N개입 → N
+      · 'N개입' / 'N입' / 'N구' (예: (4개입), 6입, 8구 세트) → N (가장 앞 표기 사용)
       · 개입 정보 없고 '파운드' 포함 → 기본 3개입
       · 그 외 → None (매핑 기본값 사용)
     """
     if not name:
         return None
-    m = re.search(r"(\d+)\s*개입", name)
+    m = re.search(r"(\d+)\s*(?:개입|입|구)", name)
     if m:
         v = int(m.group(1))
         if 1 <= v <= 200:
