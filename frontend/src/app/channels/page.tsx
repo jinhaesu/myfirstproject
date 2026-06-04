@@ -561,7 +561,7 @@ function DashboardTab({
               .filter((e: Employee) => e.is_active)
               .map((e: Employee) => ({
                 v: String(e.id),
-                l: `${e.name} (${e.channels.length}채널)`,
+                l: `${e.name} (${(e.channels?.length ?? 0)}채널)`,
                 group: e.role === 'admin' ? '관리자' : e.role === 'manager' ? '매니저' : '담당자',
               }))
             }
@@ -1025,10 +1025,20 @@ function UploadTab({
     return [];
   }, [authHeaders]);
 
-  // 탭 진입 시 한 번 최신 이력 로드
-  useEffect(() => { refreshBatches(); }, [refreshBatches]);
-  // 부모(bootstrap)에서 batches가 갱신되면 반영
-  useEffect(() => { setLiveBatches(batches); }, [batches]);
+  // 탭 진입 시 1회 + 20초마다 폴링 — 다른 구성원이 올린 업로드도 자동 반영(전사 공유 이력).
+  useEffect(() => {
+    refreshBatches();
+    const t = setInterval(() => { refreshBatches(); }, 20000);
+    return () => clearInterval(t);
+  }, [refreshBatches]);
+  // 최초 1회만 bootstrap batches로 초기화 (이후엔 fresh /batches가 진실원 — stale 캐시 덮어쓰기 방지)
+  const _seededRef = useRef(false);
+  useEffect(() => {
+    if (!_seededRef.current && liveBatches.length === 0 && batches.length > 0) {
+      _seededRef.current = true;
+      setLiveBatches(batches);
+    }
+  }, [batches, liveBatches.length]);
 
   const upload = async (file: File) => {
     if (!selChannel) return;

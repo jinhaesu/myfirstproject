@@ -180,8 +180,15 @@ def bootstrap(force: bool = False, db: Session = Depends(get_db)):
          "notes": v.notes}
         for v in db.query(ProductVariableCost).all()
     ]
+    # 직원별 담당 채널 (프론트가 e.channels.length 접근 — 누락 시 클라이언트 크래시)
+    _emp_ch: dict[int, list[dict]] = {}
+    for a in db.query(EmployeeChannelAssignment).all():
+        _emp_ch.setdefault(a.employee_id, []).append(
+            {"channel_id": a.channel_id, "channel_name": a.channel_name, "is_active": a.is_active}
+        )
     employees = [
-        {"id": e.id, "name": e.name, "email": e.email, "role": e.role, "is_active": e.is_active}
+        {"id": e.id, "name": e.name, "email": e.email, "role": e.role,
+         "is_active": e.is_active, "channels": _emp_ch.get(e.id, [])}
         for e in db.query(Employee).order_by(Employee.name).all()
     ]
     batches = [
