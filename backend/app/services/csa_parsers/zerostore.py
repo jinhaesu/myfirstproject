@@ -87,5 +87,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
                         raw_qty=qty,
                         gross_amount=gross,
                         net_amount=gross,
+                        # 제로스토어 발주 수량 = 낱개(1:1). 매핑의 입수(쫀득쿠키 75·바게트 10 등)가
+                        # 곱해져 과대계상되던 문제 → 입수 1로 고정.
+                        unit_per_set=1,
                     )
                     line_idx += 1
