@@ -1609,14 +1609,15 @@ def dashboard(
         slot["contribution_margin"] += r.contribution_margin or 0
     channels_summary = sorted(by_channel.values(), key=lambda x: -x["revenue"])
 
-    # 품목별 합계
+    # 품목별 합계 — 미매핑(product_id=None)은 '(미매핑)' 단일 항목으로 묶어 포함.
+    # (제외하면 품목별 합계가 상단 KPI/채널별 합계와 어긋남.)
     by_product: dict[int, dict] = {}
     for r in rows:
-        if r.product_id is None:
-            continue
-        slot = by_product.setdefault(r.product_id, {
-            "product_id": r.product_id,
-            "product_name": r.product_name,
+        pid = r.product_id if r.product_id is not None else 0
+        pname = r.product_name if r.product_id is not None else "(미매핑)"
+        slot = by_product.setdefault(pid, {
+            "product_id": pid,
+            "product_name": pname,
             "revenue": 0, "pcs": 0, "orders": 0,
             "contribution_margin": 0,
         })
