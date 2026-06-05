@@ -32,13 +32,20 @@ def to_date(v: Any) -> Optional[date]:
     s = str(v).strip()
     if not s:
         return None
-    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
-                "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M",
-                "%Y.%m.%d %H:%M:%S", "%Y.%m.%d %H:%M",
-                "%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d",
-                "%Y%m%d", "%m/%d/%Y", "%d/%m/%Y"):
+    # 순수 8자리 YYYYMMDD (예: CU 입고일자 int 20251101, 엑셀 float '20251101.0') —
+    # pd.to_datetime의 잘못된 추론(2025-01-01 등) 전에 명시적으로 처리.
+    s_nofloat = s[:-2] if s.endswith(".0") else s
+    digits = re.sub(r"\D", "", s_nofloat)
+    if len(digits) == 8:
         try:
-            return datetime.strptime(s[:len(fmt)+0], fmt).date()
+            return datetime.strptime(digits, "%Y%m%d").date()
+        except Exception:
+            pass
+    # 시간 포함 문자열은 날짜 부분(공백 앞)만 사용
+    head = s.split()[0]
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%m/%d/%Y", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(head, fmt).date()
         except Exception:
             continue
     try:
@@ -127,11 +134,31 @@ def read_excel_safe(path: str, **kwargs) -> pd.DataFrame:
         return pd.read_excel(path, engine="xlrd", **kwargs)
     except Exception:
         pass
+    # HTML 위장 .xls — 인코딩 자동(euc-kr/cp949 우선) + 데이터 그리드 선택.
+    # read_html은 표를 여러 개로 쪼갤 수 있음(제목/메타 블록 + 실제 데이터 표).
+    # tables[0]을 무조건 쓰면 제목 블록만 잡혀 0행이 됨 → 셀 수 최대인 표를 데이터로 채택.
     try:
-        # HTML 위장 .xls
+        import io as _io
+        with open(path, "rb") as _fh:
+            _data = _fh.read()
+        _text = None
+        for enc in ("euc-kr", "cp949", "utf-8-sig", "utf-8"):
+            try:
+                _text = _data.decode(enc)
+                break
+            except Exception:
+                continue
+        if _text and ("<table" in _text.lower() or "<html" in _text.lower()):
+            tables = pd.read_html(_io.StringIO(_text))
+            if tables:
+                return max(tables, key=lambda t: t.shape[0] * t.shape[1])
+    except Exception:
+        pass
+    # 마지막 폴백: 경로 기반 read_html(utf-8) → read_excel
+    try:
         tables = pd.read_html(path, encoding="utf-8")
         if tables:
-            return tables[0]
+            return max(tables, key=lambda t: t.shape[0] * t.shape[1])
     except Exception:
         pass
     return pd.read_excel(path, **kwargs)
