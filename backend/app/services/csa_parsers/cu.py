@@ -25,14 +25,17 @@ def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
     cols = set(str(c) for c in df.columns)
     is_eng = "TotalSales" in cols or "ProductName" in cols or "Date" in cols
+    has_eng_amount = "TotalSales" in cols
+    has_kr_amount = "납품금액" in cols
 
     for idx, (_, row) in enumerate(df.iterrows()):
         if is_eng:
             sale_d = to_date(row.get("Date"))
             prod = to_str(row.get("ProductName"))
-            qty = to_float(row.get("TotalQuantity") or 1)
+            qty = to_float(row.get("TotalQuantity"))  # 결측=0 (납품 0건은 아래서 제외)
             amount = to_float(row.get("TotalSales"))
-            if amount == 0:
+            # 금액 컬럼이 '아예 없을' 때만 단가×수량 fallback. 값이 0인 건 실제 0(미납품).
+            if amount == 0 and not has_eng_amount:
                 unit_price = to_float(row.get("supplyPrice") or row.get("SeperatePrice"))
                 amount = unit_price * qty
             order_no = to_str(row.get("ProductCode"))
@@ -41,9 +44,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
         else:
             sale_d = to_date(row.get("입고일자") or row.get("납품예정일자"))
             prod = to_str(row.get("상품명"))
-            qty = to_float(row.get("납품수량") or 1)
+            qty = to_float(row.get("납품수량"))  # 결측=0
             amount = to_float(row.get("납품금액"))
-            if amount == 0:
+            if amount == 0 and not has_kr_amount:
                 unit_price = to_float(row.get("원가"))
                 amount = unit_price * qty
             order_no = to_str(row.get("전표번호"))
@@ -51,6 +54,10 @@ def parse(path: str) -> Iterable[ParsedLine]:
             opt = to_str(row.get("규격"))
 
         if not sale_d or not prod:
+            continue
+        # 발주만 있고 실제 납품이 0인 행(수량·금액 모두 0)은 매출 집계 제외 —
+        # 과거 'or 1' 로 수량 1·원가가 잘못 가산되던 버그(엑셀 대비 과대계상) 해결.
+        if qty == 0 and amount == 0:
             continue
 
         line_no = f"{base_line}#L{idx}"
