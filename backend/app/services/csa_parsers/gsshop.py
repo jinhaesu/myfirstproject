@@ -98,14 +98,20 @@ def parse(path: str) -> Iterable[ParsedLine]:
             # 직송주문 포맷
             qty = to_float(_pick(row, "수량") or 0)
             # gross: 판매가 (라인별 정가 총액)
-            gross = to_float(_pick(row, "판매가") or 0)
+            gross = to_float(_pick(row, "판매가격", "판매가") or 0)
             # 매출(net) = V열 협력사지급금액 (당사 수령액)  ← 사용자 지정(2026-06-05)
             net = to_float(
                 _pick(row, "협력사지급금액", "협력사 지급금액", "협력사지급액", "고객결제액") or gross
             )
             if not gross:
                 gross = net
-            sale_d = to_date(_pick(row, "주문일자", "출하지시일자")) or file_date or date.today()
+            # 일자: '주문매출실적_상세' 양식은 원주문일자/접수일자/출고완료일을 사용
+            # (주문일자/출하지시일자 컬럼 없음 → 과거엔 파일명/today로 잘못 잡혀 당월 미표시).
+            sale_d = (
+                to_date(_pick(row, "주문일자", "원주문일자", "접수일자",
+                              "출하지시일자", "출고완료일", "배송완료일", "매출완료일"))
+                or file_date or date.today()
+            )
             line_no = to_str(_pick(row, "상품상세코드", "협력사상품코드"))
             order_no = to_str(_pick(row, "주문번호"))
             opt = to_str(_pick(row, "주문옵션"))

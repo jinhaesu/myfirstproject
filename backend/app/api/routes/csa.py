@@ -868,10 +868,15 @@ def _run_reprocess_background(channel_id: str, channel_name: str):
         for f in files:
             suffix = os.path.splitext(f.file_name or "")[1] or ".xlsx"
             tmp_path = None
+            tmp_dir = None
             try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                # 원본 파일명 보존 — 파일명에서 날짜/정보를 추출하는 파서(ably·gsshop 등)가
+                # 재처리 시 임시 난수 파일명 때문에 오작동(당월 미표시)하지 않도록 한다.
+                tmp_dir = tempfile.mkdtemp()
+                safe_name = os.path.basename(f.file_name or f"reprocess{suffix}")
+                tmp_path = os.path.join(tmp_dir, safe_name)
+                with open(tmp_path, "wb") as tmp:
                     tmp.write(f.content or b"")
-                    tmp_path = tmp.name
                 lines = list(parser(tmp_path))
                 fsize = len(f.content or b"")
                 fhash = f.file_hash
@@ -896,6 +901,11 @@ def _run_reprocess_background(channel_id: str, channel_name: str):
                 if tmp_path:
                     try:
                         os.unlink(tmp_path)
+                    except Exception:
+                        pass
+                if tmp_dir:
+                    try:
+                        os.rmdir(tmp_dir)
                     except Exception:
                         pass
 
