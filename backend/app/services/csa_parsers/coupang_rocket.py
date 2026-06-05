@@ -37,6 +37,14 @@ def _coupang_unit_per_set(name: Optional[str]) -> Optional[float]:
     s = _RC_WEIGHT.sub(" ", name)  # 무게 토큰 제거
     counts = [int(m.group(1)) for m in _RC_COUNT.finditer(s)]
     if not counts:
+        # 입수 표기 없는 뚱카롱(개당 50g) 세트는 총중량/50g로 추정.
+        # 예: '조구만 크리스마스 사랑세트 400g+쇼핑백' → 400/50 = 8개입.
+        if "뚱카롱" in name or "마카롱" in name:
+            wm = re.search(r"(\d+)\s*g", name)
+            if wm:
+                g = int(wm.group(1))
+                if g >= 100 and g % 50 == 0:
+                    return float(g // 50)
         return None
     # 봉/세트 총량과 그 구성(2개입+2개입)이 함께 적혀도 최댓값이 곧 총 입수.
     return float(max(counts))
