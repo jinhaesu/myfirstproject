@@ -150,6 +150,15 @@ const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 const isoDate = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+// 기간 빠른 선택 프리셋 (클릭 시점의 오늘 기준으로 계산)
+const DATE_PRESETS: { label: string; range: () => { start: string; end: string } }[] = [
+  { label: '이번 달', range: () => { const n = new Date(); return { start: isoDate(new Date(n.getFullYear(), n.getMonth(), 1)), end: isoDate(n) }; } },
+  { label: '최근 한 달', range: () => { const n = new Date(); return { start: isoDate(new Date(n.getFullYear(), n.getMonth() - 1, n.getDate())), end: isoDate(n) }; } },
+  { label: '이번 분기', range: () => { const n = new Date(); const q = Math.floor(n.getMonth() / 3); return { start: isoDate(new Date(n.getFullYear(), q * 3, 1)), end: isoDate(n) }; } },
+  { label: '직전 분기', range: () => { const n = new Date(); const sm = Math.floor(n.getMonth() / 3) * 3 - 3; return { start: isoDate(new Date(n.getFullYear(), sm, 1)), end: isoDate(new Date(n.getFullYear(), sm + 3, 0)) }; } },
+  { label: '작년', range: () => { const y = new Date().getFullYear() - 1; return { start: isoDate(new Date(y, 0, 1)), end: isoDate(new Date(y, 11, 31)) }; } },
+];
+
 type Tab = 'dashboard' | 'pnl' | 'upload' | 'mapping' | 'cost' | 'plan' | 'products' | 'admin';
 
 export default function ChannelsPage() {
@@ -584,6 +593,26 @@ function DashboardTab({
               </button>
             )}
           </div>
+        </div>
+        {/* 기간 빠른 선택 */}
+        <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-[#1A1B1F]">
+          {DATE_PRESETS.map((p) => {
+            const r = p.range();
+            const active = periodStart === r.start && periodEnd === r.end;
+            return (
+              <button
+                key={p.label}
+                onClick={() => { setPeriodStart(r.start); setPeriodEnd(r.end); }}
+                className={`text-[11px] px-2.5 py-1 rounded border transition-colors ${
+                  active
+                    ? 'border-[#828FFF] text-[#A8B3FF] bg-[#1B1D2A]'
+                    : 'border-[#23252A] text-[#A3A9B3] hover:text-[#F7F8F8] hover:bg-[#1F2127]'
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
