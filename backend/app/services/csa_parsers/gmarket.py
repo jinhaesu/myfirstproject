@@ -26,11 +26,12 @@ from app.services.csa_parsers._common import (
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
     for _, row in df.iterrows():
-        # 구매결정일은 샘플 전체 NaN → 체결일 우선, 입금확인일 fallback
+        # 일자: 입금확인일 기준(파일이 '입금확인' 기준 추출 → 전 행 해당월).
+        # 구매결정일/체결일은 매출확정 시점이 익월로 넘어가 당월 조회에서 누락됨.
         sale_d = (
-            to_date(row.get("구매결정일"))
+            to_date(row.get("입금확인일"))
             or to_date(row.get("체결일"))
-            or to_date(row.get("입금확인일"))
+            or to_date(row.get("구매결정일"))
         )
         if not sale_d:
             continue
@@ -38,6 +39,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
         prod = to_str(row.get("상품명"))
         if not prod:
             continue
+
+        # 취소/환불: '환불일'이 있으면 환불 확정 건 → is_cancelled(매출 제외·건수 집계).
+        is_cancel = to_date(row.get("환불일")) is not None
 
         # 수량 컬럼: 실제 파일은 '주문수량', 과거 포맷 fallback '수량'
         qty = to_float(row.get("주문수량") or row.get("수량") or 1)
@@ -63,6 +67,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
         # line_no: 장바구니번호가 더 고유하나, 없으면 상품번호 사용
         line_no = to_str(row.get("장바구니번호") or row.get("상품번호"))
 
+        # 환불 건은 환불금액(원 판매가 기준)만 집계, 매출/순매출 0.
+        refund = abs(net or gross or to_float(row.get("판매가격"))) if is_cancel else 0
         yield ParsedLine(
             sale_date=sale_d,
             sale_datetime=to_datetime(row.get("체결일")),
@@ -70,7 +76,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
             line_no=line_no,
             raw_product_name=prod,
             raw_qty=qty,
-            gross_amount=gross,
-            net_amount=net or gross,
-            commission=commission,
+            gross_amount=0 if is_cancel else gross,
+            net_amount=0 if is_cancel else (net or gross),
+            commission=0 if is_cancel else commission,
+            refund_amount=refund,
+            is_cancelled=is_cancel,
         )
