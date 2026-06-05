@@ -78,6 +78,30 @@ def _extract_print_date(df: pd.DataFrame) -> Optional[date]:
     return None
 
 
+def _extract_snapshot_date(df: pd.DataFrame) -> Optional[date]:
+    """상단 메타(row 5 부근)의 출력기준 스냅샷 일자(예: '2026-05-30', '2026-06-05')를 추출.
+    주의: row 3 각주('…2014.10.01부터…')의 옛 날짜와 섞이지 않게 연도 2020+만 인정.
+    데이터 행(SKU 6자리 등)과 섞이지 않게 상단 8개 행만 스캔."""
+    for i in range(min(8, len(df))):
+        for j in range(df.shape[1]):
+            v = df.iat[i, j]
+            if pd.isna(v):
+                continue
+            # 셀이 datetime이면 바로 사용 (단, 합리적 연도만)
+            if isinstance(v, pd.Timestamp):
+                if v.year >= 2020:
+                    return v.date()
+                continue
+            # YYYY-MM-DD (연도 20xx, 2020 이상) — '2026-05-30 00:00:00' 등
+            m = re.search(r"(20[2-9]\d)[-./년\s]+(\d{1,2})[-./월\s]+(\d{1,2})", str(v))
+            if m:
+                try:
+                    return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                except Exception:
+                    continue
+    return None
+
+
 def _extract_month_end(df: pd.DataFrame) -> Optional[date]:
     """row 5 부근 셀에서 '조회년월 : 2026년 05월' 패턴 추출 (fallback)."""
     for i in range(min(10, len(df))):
@@ -138,8 +162,14 @@ def _looks_like_meta(s: Optional[str]) -> bool:
 @register("국군복지단")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=None)
-    # sale_date 우선순위: footer의 '출력일자' → 조회년월의 말일 → 오늘
-    sale_d = _extract_print_date(df) or _extract_month_end(df) or date.today()
+    # sale_date 우선순위: 상단 출력기준 스냅샷 일자 → footer '출력일자'
+    #                    → 조회년월 말일 → 오늘
+    sale_d = (
+        _extract_snapshot_date(df)
+        or _extract_print_date(df)
+        or _extract_month_end(df)
+        or date.today()
+    )
 
     # row 7은 총계, row 8부터 데이터. 2페이지 구조라 페이지 사이에
     # 메타/페이지헤더가 다시 등장하므로 명시적으로 skip.

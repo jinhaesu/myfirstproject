@@ -155,6 +155,18 @@ def is_vat_included(channel_name: Optional[str]) -> bool:
     return channel_name.strip() in VAT_INCLUDED_CHANNELS
 
 
+# '월 누적 스냅샷'으로 데이터를 주는 채널 — 한 달치를 조회시점까지 누적해 내려주므로,
+# 같은 월을 재업로드하면 과거 월 데이터를 '교체'(최신 스냅샷만 매출로 인정)해야 한다.
+# (그냥 적재하면 동일 월이 여러 번 누적돼 과대계상.)
+MONTHLY_SNAPSHOT_CHANNELS: set[str] = {
+    "PX", "국군복지단", "국군 복지단", "국군복지단(PX)", "국군 복지단(PX)",
+}
+
+
+def is_monthly_snapshot(channel_name: Optional[str]) -> bool:
+    return bool(channel_name) and channel_name.strip() in MONTHLY_SNAPSHOT_CHANNELS
+
+
 def is_online_consign(db: Session, channel_id: str) -> bool:
     """채널이 '온라인(위탁)' 그룹인지. 위탁 매출은 VAT 포함 그대로 집계(공급가 환산 X) — 사용자 정책."""
     row = (
@@ -454,6 +466,28 @@ def ingest_lines(
     mappings_cache = _build_mapping_cache(db, channel_id)
     inserted = duplicate = unmatched = excluded = cancelled = total = 0
     min_date = max_date = None
+
+    # 월 누적 스냅샷 채널(PX 등): 이번 파일에 포함된 '월'의 기존 데이터를 먼저 삭제해
+    # 최신 업로드(누적 스냅샷)로 통째 교체한다. lines를 한 번 소비하므로 리스트로 고정.
+    lines = list(lines)
+    if is_monthly_snapshot(channel_name):
+        from calendar import monthrange as _monthrange
+        months = {(l.sale_date.year, l.sale_date.month) for l in lines if l.sale_date}
+        for _yy, _mm in months:
+            _ms = date(_yy, _mm, 1)
+            _me = date(_yy, _mm, _monthrange(_yy, _mm)[1])
+            db.query(ChannelSalesRawLine).filter(
+                ChannelSalesRawLine.channel_id == channel_id,
+                ChannelSalesRawLine.sale_date >= _ms,
+                ChannelSalesRawLine.sale_date <= _me,
+            ).delete(synchronize_session=False)
+            db.query(ChannelSalesDailyProduct).filter(
+                ChannelSalesDailyProduct.channel_id == channel_id,
+                ChannelSalesDailyProduct.sale_date >= _ms,
+                ChannelSalesDailyProduct.sale_date <= _me,
+            ).delete(synchronize_session=False)
+        if months:
+            db.commit()
 
     # 1) DB의 기존 dedup_hash 미리 캐싱 (채널 단위; 부분 적재된 잔존 라인까지 포함)
     existing_hashes: set[str] = set(
