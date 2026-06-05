@@ -154,6 +154,7 @@ const isoDate = (d: Date): string =>
 const DATE_PRESETS: { label: string; range: () => { start: string; end: string } }[] = [
   { label: '이번 달', range: () => { const n = new Date(); return { start: isoDate(new Date(n.getFullYear(), n.getMonth(), 1)), end: isoDate(n) }; } },
   { label: '최근 한 달', range: () => { const n = new Date(); return { start: isoDate(new Date(n.getFullYear(), n.getMonth() - 1, n.getDate())), end: isoDate(n) }; } },
+  { label: '전달', range: () => { const n = new Date(); return { start: isoDate(new Date(n.getFullYear(), n.getMonth() - 1, 1)), end: isoDate(new Date(n.getFullYear(), n.getMonth(), 0)) }; } },
   { label: '이번 분기', range: () => { const n = new Date(); const q = Math.floor(n.getMonth() / 3); return { start: isoDate(new Date(n.getFullYear(), q * 3, 1)), end: isoDate(n) }; } },
   { label: '직전 분기', range: () => { const n = new Date(); const sm = Math.floor(n.getMonth() / 3) * 3 - 3; return { start: isoDate(new Date(n.getFullYear(), sm, 1)), end: isoDate(new Date(n.getFullYear(), sm + 3, 0)) }; } },
   { label: '작년', range: () => { const y = new Date().getFullYear() - 1; return { start: isoDate(new Date(y, 0, 1)), end: isoDate(new Date(y, 11, 31)) }; } },
