@@ -3,20 +3,45 @@
 추후 NS측 일자 컬럼이 있는 파일이 들어오면 우선 사용.
 """
 from __future__ import annotations
+import os
+import re
 from collections import defaultdict
 from datetime import date
-from typing import Iterable
+from typing import Iterable, Optional
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
 from app.services.csa_parsers._common import read_excel_safe, to_date, to_float, to_str
 
 
+def _date_from_filename(path: str) -> Optional[date]:
+    """파일명에서 기준일 추출. 일자 컬럼 없는 NS 집계 파일용.
+    예) 'ns260501_31.xlsx' → 2026-05-01 (YYMMDD), 'NS_20260501.xlsx' → 2026-05-01.
+    """
+    name = os.path.basename(path)
+    m = re.search(r"(20\d{2})[-_.]?(\d{2})[-_.]?(\d{2})", name)  # YYYYMMDD
+    if m:
+        try:
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except Exception:
+            pass
+    m = re.search(r"(\d{2})(\d{2})(\d{2})", name)  # YYMMDD
+    if m:
+        yy, mm, dd = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if 1 <= mm <= 12 and 1 <= dd <= 31:
+            try:
+                return date(2000 + yy, mm, dd)
+            except Exception:
+                pass
+    return None
+
+
 @register("NS MALL")
 @register("NS")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
-    today = date.today()
+    # 일자 컬럼이 없으면 파일명의 기준월(예: ns260501_31 → 2026-05-01)로, 그것도 없으면 today.
+    today = _date_from_filename(path) or date.today()
     # 일자 컬럼 없는 집계 파일: 같은 (상품코드·단품코드)가 여러 행에 반복 →
     # line_no를 상품코드만으로 잡으면 dedup_hash 충돌로 중복 제외됨.
     # 상품코드|단품코드|단품명 + 시퀀스로 물리행 고유화(같은 파일 재처리 시 안정).
