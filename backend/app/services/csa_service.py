@@ -447,9 +447,6 @@ def ingest_lines(
     db.add(batch)
     db.commit()
 
-    # 온라인(위탁) 채널은 VAT 포함 금액 그대로 집계(공급가 ÷1.1 환산 안 함) — 사용자 정책.
-    keep_vat_included = is_online_consign(db, channel_id)
-
     masters_cache = _get_or_cache_master(db)
     product_by_id = {p.id: p for p in masters_cache}
     # ChannelProductMapping 전체를 한 번에 메모리에 캐시.
@@ -549,13 +546,16 @@ def ingest_lines(
         elif status == "excluded":
             excluded += 1
 
-        # B2C 채널은 raw 매출이 부가세 포함이므로 부가세 별도(공급가)로 환산해 적재.
-        # 매출 인식 표준이 공급가 기준이고, B2B 채널과의 일관성 확보.
-        if is_vat_included(channel_name) and not keep_vat_included:
+        # 대시보드 매출 표준 = 부가세 별도(공급가).
+        # VAT 포함으로 들어오는 채널(VAT_INCLUDED_CHANNELS)은 위탁/사입 구분 없이
+        # 모두 공급가(÷1.1)로 환산해 적재한다 — 사용자 정책(2026-06-05).
+        # (이미 공급가로 들어오는 채널: 컬리 공급가액, GS25 납품금액, 에이블리 결제액 등은
+        #  애초에 VAT_INCLUDED_CHANNELS에서 제외돼 있어 환산하지 않음.)
+        if is_vat_included(channel_name):
             adj_gross = ln.gross_amount * _VAT_EXCL_FACTOR
             adj_net = (ln.net_amount or ln.gross_amount) * _VAT_EXCL_FACTOR
         else:
-            # 온라인(위탁) 또는 VAT 별도 채널: 원본 금액 그대로
+            # VAT 별도(공급가)로 들어오는 채널: 원본 금액 그대로
             adj_gross = ln.gross_amount
             adj_net = ln.net_amount or ln.gross_amount
 
