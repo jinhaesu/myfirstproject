@@ -15,6 +15,7 @@ def _kurly_unit_per_set(name: Optional[str]) -> Optional[float]:
     """컬리 낱개 입수 산출 — 상품명 기반.
       · 'N개입' / 'N입' / 'N구' (예: (4개입), 6입, 8구 세트) → N (가장 앞 표기 사용)
       · 개입 정보 없고 '파운드' 포함 → 기본 3개입
+      · [널담] 비건 브라우니 → 기본 3개입 (1건=3개 납품, 상품명에 수량 표기 없음)
       · 그 외 → None (매핑 기본값 사용)
     """
     if not name:
@@ -25,6 +26,9 @@ def _kurly_unit_per_set(name: Optional[str]) -> Optional[float]:
         if 1 <= v <= 200:
             return float(v)
     if "파운드" in name:
+        return 3.0
+    compact = name.replace(" ", "")
+    if "브라우니" in compact and ("비건" in compact or "널담" in compact):
         return 3.0
     return None
 

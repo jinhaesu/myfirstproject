@@ -99,8 +99,12 @@ def parse(path: str) -> Iterable[ParsedLine]:
             qty = to_float(_pick(row, "수량") or 0)
             # gross: 판매가 (라인별 정가 총액)
             gross = to_float(_pick(row, "판매가") or 0)
-            # net: 협력사지급금액 (당사 수령액)
-            net = to_float(_pick(row, "협력사지급금액", "고객결제액") or gross)
+            # 매출(net) = V열 협력사지급금액 (당사 수령액)  ← 사용자 지정(2026-06-05)
+            net = to_float(
+                _pick(row, "협력사지급금액", "협력사 지급금액", "협력사지급액", "고객결제액") or gross
+            )
+            if not gross:
+                gross = net
             sale_d = to_date(_pick(row, "주문일자", "출하지시일자")) or file_date or date.today()
             line_no = to_str(_pick(row, "상품상세코드", "협력사상품코드"))
             order_no = to_str(_pick(row, "주문번호"))

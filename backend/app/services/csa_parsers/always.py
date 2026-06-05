@@ -29,8 +29,14 @@ def parse(path: str) -> Iterable[ParsedLine]:
         prod = to_str(row.get("상품명"))
         if not prod:
             continue
+        # 매출 = 상품 구매금액(H) − 판매자 부담 쿠폰할인금(L)  ← 사용자 지정(2026-06-05)
         gross = to_float(row.get("상품 구매금액"))
-        net = to_float(row.get("정산 대상 금액(수수료 제)") or row.get("상품 구매금액"))
+        seller_coupon = to_float(
+            row.get("판매자 부담 쿠폰할인금")
+            or row.get("판매자 부담 쿠폰 할인금")
+            or row.get("판매자부담쿠폰할인금")
+        )
+        net = gross - seller_coupon
         yield ParsedLine(
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,
