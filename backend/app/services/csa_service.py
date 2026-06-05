@@ -477,6 +477,17 @@ def ingest_lines(
         if max_date is None or ln.sale_date > max_date:
             max_date = ln.sale_date
 
+        # DB varchar 한도 방어 — 초장문 상품명(예: 알리 합주문 '제품 정보')으로 인한
+        # StringDataRightTruncation(=배치 전체 적재 실패·stuck) 방지.
+        if ln.raw_product_name and len(ln.raw_product_name) > 500:
+            ln.raw_product_name = ln.raw_product_name[:500]
+        if ln.raw_option_name and len(ln.raw_option_name) > 500:
+            ln.raw_option_name = ln.raw_option_name[:500]
+        if ln.order_no and len(ln.order_no) > 200:
+            ln.order_no = ln.order_no[:200]
+        if ln.line_no and len(ln.line_no) > 100:
+            ln.line_no = ln.line_no[:100]
+
         dedup = compute_dedup_hash(
             channel_id, ln.order_no, ln.line_no, ln.sale_date,
             ln.raw_product_name, ln.raw_qty,

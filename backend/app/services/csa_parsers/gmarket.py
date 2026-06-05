@@ -49,10 +49,11 @@ def parse(path: str) -> Iterable[ParsedLine]:
             or row.get("고객결제금(구. 구매대금)")
             or row.get("결제금액")
         )
+        # 매출(net) = X열 고객결제금(구. 구매대금)  ← 사용자 지정(2026-06-05)
         net = to_float(
-            row.get("판매자 최종정산금")
-            or row.get("정산예정금액")
-            or row.get("판매자 정산요청가(구. 공급원가)")
+            row.get("고객결제금(구. 구매대금)")
+            or row.get("고객결제금")
+            or row.get("결제금액")
         )
         commission = to_float(
             row.get("서비스이용료")

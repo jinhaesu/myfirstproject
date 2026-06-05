@@ -29,7 +29,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_product_name=prod,
             raw_option_name=to_str(row.get("선택 사항") or row.get("옵션")),
             raw_qty=to_float(row.get("수량") or 1),
-            gross_amount=to_float(row.get("총 금액") or row.get("주문 금액") or row.get("공급 가격")),
-            net_amount=to_float(row.get("주문 금액") or row.get("총 금액")),
+            gross_amount=to_float(row.get("총 금액") or row.get("주문 금액") or row.get("주문금액") or row.get("공급 가격")),
+            # 매출(net) = M열 주문금액  ← 사용자 지정(2026-06-05)
+            net_amount=to_float(row.get("주문 금액") or row.get("주문금액") or row.get("총 금액")),
             shipping_fee=to_float(row.get("배송비")),
         )

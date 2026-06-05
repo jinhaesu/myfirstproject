@@ -29,6 +29,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_product_name=prod,
             raw_qty=to_float(row.get("수량") or 1),
             gross_amount=to_float(row.get("판매금액") or row.get("결제금액")),
-            net_amount=to_float(row.get("정산예정금액") or row.get("판매금액")),
+            # 매출(net) = W열 결제금액  ← 사용자 지정(2026-06-05)
+            net_amount=to_float(row.get("결제금액") or row.get("판매금액")),
             commission=to_float(row.get("판매수수료")),
         )
