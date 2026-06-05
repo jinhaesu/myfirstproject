@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date, datetime
 from typing import Iterable, Optional
 
@@ -89,6 +90,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
         return
 
     SKIP_TOKENS = ("합계", "소계")
+    # 같은 날짜·품목·수량이라도 '다른 센터(점포)' 납품은 별개 행.
+    # dedup_hash(order_no=TPNB, line_no)에 점포코드+시퀀스를 넣어 센터별로 고유화한다.
+    _seq: dict = defaultdict(int)
     for _, row in df.iloc[header_idx + 1:].iterrows():
         if len(row) <= max(prod_col, qty_col, amt_col):
             continue
@@ -108,17 +112,25 @@ def parse(path: str) -> Iterable[ParsedLine]:
         gross = to_float(row.iloc[amt_col])
         if qty == 0 and gross == 0:
             continue
-        store = (to_str(row.iloc[store_col]) if store_col is not None else None) \
-            or (to_str(row.iloc[storecode_col]) if storecode_col is not None else None)
+        storecode = to_str(row.iloc[storecode_col]) if storecode_col is not None else None
+        storename = to_str(row.iloc[store_col]) if store_col is not None else None
+        store = storename or storecode
         size = to_str(row.iloc[size_col]) if size_col is not None else None
         opt = store
         if size and size not in ("FREE", "nan"):
             opt = f"{store} / {size}" if store else size
         tpnb = to_str(row.iloc[tpnb_col]) if tpnb_col is not None else None
         order_no = tpnb or prod_code_raw
+        # 점포(센터)별 고유 line_no — 같은 (날짜·상품·수량)이 여러 센터에 납품돼도
+        # 중복 제외되지 않게 점포코드 + 점포 내 시퀀스로 구분.
+        store_key = storecode or storename or ""
+        sk = (sale_d.isoformat(), prod_code_raw, store_key)
+        _seq[sk] += 1
+        line_no = f"{store_key}#{_seq[sk]}"
         yield ParsedLine(
             sale_date=sale_d,
             order_no=order_no,
+            line_no=line_no,
             raw_product_name=prod_name,
             raw_option_name=opt,
             raw_qty=qty,
