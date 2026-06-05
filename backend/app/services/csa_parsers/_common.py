@@ -105,6 +105,21 @@ def to_str(v: Any) -> Optional[str]:
     return s or None
 
 
+def ea_per_box(text: Any) -> Optional[float]:
+    """규격 텍스트에서 박스당 낱개(EA) 입수 추출.
+      'BOX(140g*10ea)' → 10, '(50G*15EA)/BOX' → 15, '750G(50G*15EA)/BOX' → 15.
+      매칭 없으면 None.
+    """
+    if text is None:
+        return None
+    m = re.search(r"[*xX]\s*(\d+)\s*ea", str(text), re.I)
+    if m:
+        v = int(m.group(1))
+        if 1 <= v <= 2000:
+            return float(v)
+    return None
+
+
 def read_excel_safe(path: str, **kwargs) -> pd.DataFrame:
     """xls/xlsx/csv 안전하게 읽기. 일부 .xls는 사실 HTML."""
     import warnings

@@ -18,6 +18,17 @@ from app.services.csa_parsers._common import to_float, to_str
 _DELIVERY_RE = re.compile(r"Date of Delivery\s*:?\s*(\d{4})[\.\-/](\d{1,2})[\.\-/](\d{1,2})")
 _ORDER_RE = re.compile(r"Order Date\s*:?\s*(\d{4})[\.\-/](\d{1,2})[\.\-/](\d{1,2})")
 _SKU_PROD_RE = re.compile(r"^\s*(\d{4,8})\s+(.+)$", re.MULTILINE)
+# Article 규격 '20g*60*4팩/박스' → 박스당 낱개 = 60 × 4 = 240
+_PACK_RE = re.compile(r"(\d+)\s*\*\s*(\d+)\s*팩")
+
+
+def _parnas_unit(name: Optional[str]) -> Optional[float]:
+    if not name:
+        return None
+    m = _PACK_RE.search(name)
+    if m:
+        return float(int(m.group(1)) * int(m.group(2)))
+    return None
 
 
 def _extract_date_from_pdf(path: str) -> Optional[date]:
@@ -102,5 +113,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
                         raw_qty=qty,
                         gross_amount=amount,
                         net_amount=amount,
+                        # 낱개 = 박스수 × 박스입수(Article '60*4팩' → 240)
+                        unit_per_set=_parnas_unit(prod),
                     )
                     line_idx += 1

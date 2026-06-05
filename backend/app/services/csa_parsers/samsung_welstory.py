@@ -17,7 +17,7 @@ from typing import Iterable
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
 from app.services.csa_parsers._common import (
-    read_excel_safe, to_date, to_float, to_str,
+    read_excel_safe, to_date, to_float, to_str, ea_per_box,
 )
 
 
@@ -38,7 +38,16 @@ def parse(path: str) -> Iterable[ParsedLine]:
             qty = -abs(qty)
         unit = to_str(row.get("단위"))
         gross = to_float(row.get("납품금액"))
-        # 옵션명 자리에 '단위'를 넣어두면 unit_per_set 룰 매핑 시 참고됨
+        # 낱개 입수: 단위=EA면 낱개 판매(1), 단위=BOX면 품목명의 '(WG*NEA)/BOX'에서 추출.
+        #   예) 뚱카롱 750G(50G*15EA)/BOX·BOX → 15, 배꼽베이글 130G/EA·EA → 1,
+        #       에너지드링크 355ML/EA(24EA/BOX)·EA → 1, 번들(355ML*24EA)/BOX·BOX → 24.
+        unit_col = (unit or "").strip().upper()
+        if unit_col == "EA":
+            ups = 1.0
+        elif unit_col == "BOX":
+            ups = ea_per_box(prod)
+        else:
+            ups = ea_per_box(prod)
         order_no = to_str(row.get("송장번호")) or to_str(row.get("발주번호")) or to_str(row.get("입고문서번호"))
         line_no = to_str(row.get("입고문서 Item")) or to_str(row.get("발주항번"))
         yield ParsedLine(
@@ -51,4 +60,5 @@ def parse(path: str) -> Iterable[ParsedLine]:
             gross_amount=gross,
             net_amount=gross,
             settlement_amount=gross,
+            unit_per_set=ups,
         )

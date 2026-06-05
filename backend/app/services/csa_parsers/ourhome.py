@@ -15,7 +15,7 @@ from typing import Iterable
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
 from app.services.csa_parsers._common import (
-    read_excel_safe, to_date, to_float, to_str,
+    read_excel_safe, to_date, to_float, to_str, ea_per_box,
 )
 
 
@@ -37,6 +37,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
         unit_spec = to_str(row.get("단위 및 규격"))
         order_no = to_str(row.get("발주번호"))
         line_no = to_str(row.get("발주항번"))
+        # 낱개 = 발주수량 × 박스 입수. '단위 및 규격'(BOX(140g*10ea) 등)에서 EA 추출.
+        unit = ea_per_box(unit_spec)
         yield ParsedLine(
             sale_date=sale_d,
             order_no=order_no,
@@ -47,4 +49,5 @@ def parse(path: str) -> Iterable[ParsedLine]:
             gross_amount=gross,
             net_amount=gross,
             settlement_amount=gross,
+            unit_per_set=unit,
         )
