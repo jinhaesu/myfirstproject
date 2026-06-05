@@ -654,7 +654,7 @@ function DashboardTab({
 
       {/* KPI 6개 (스파크라인 + 비교 델타) */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <CompactKpi label="순매출"
+        <CompactKpi label="매출(VAT-)"
           value={data ? `₩${fmtKR(data.summary.revenue)}` : '—'}
           hint={data ? `${fmtNum(data.summary.orders)} 주문${data.summary.cancelled_count ? ` · 취소/환불 ${fmtNum(data.summary.cancelled_count)}건` : ''}` : ''}
           accent="#828FFF"
@@ -764,7 +764,7 @@ function DashboardTab({
                 {hasCompare && (
                   <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradRevenueCmp)" radius={[6, 6, 0, 0]} />
                 )}
-                <Bar dataKey="revenue" name="순매출" fill="url(#gradRevenue)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="revenue" name="매출(VAT-)" fill="url(#gradRevenue)" radius={[6, 6, 0, 0]} />
                 {hasCompare && (
                   <Line type="monotone" dataKey="compare_cm" name="비교 공헌이익" stroke="#A3A9B3" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
                 )}
@@ -957,7 +957,7 @@ function DashboardTab({
                 <th className="text-left py-2.5 px-2">품목</th>
                 <th className="text-right py-2.5 px-2">낱개수량</th>
                 <th className="text-right py-2.5 px-2">주문건수</th>
-                <th className="text-right py-2.5 px-2">순매출</th>
+                <th className="text-right py-2.5 px-2">매출(VAT-)</th>
                 <th className="text-right py-2.5 px-2">객단가</th>
                 <th className="text-right py-2.5 px-2">공헌이익</th>
                 <th className="text-right py-2.5 px-2">공헌이익률</th>
@@ -1028,7 +1028,7 @@ function DashboardTab({
                 <th className="text-left py-2.5 px-2">카테고리</th>
                 <th className="text-right py-2.5 px-2">낱개수량</th>
                 <th className="text-right py-2.5 px-2">주문건수</th>
-                <th className="text-right py-2.5 px-2">순매출</th>
+                <th className="text-right py-2.5 px-2">매출(VAT-)</th>
                 <th className="text-right py-2.5 px-2">객단가</th>
                 <th className="text-right py-2.5 px-2">공헌이익</th>
                 <th className="text-right py-2.5 px-2">공헌이익률</th>
@@ -2067,7 +2067,7 @@ function CostTab({
         <div className={`${PANEL} p-4 text-xs text-[#A3A9B3] leading-relaxed`}>
           <div className="font-semibold text-[#F7F8F8] mb-2">공헌이익 계산식</div>
           <div className="font-mono text-[11px] bg-[#08090A] border border-[#23252A] rounded p-2.5 text-[#D0D6E0]">
-            공헌이익 = 순매출
+            공헌이익 = 매출(VAT-)
             <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-[#EB5757]">원가</span>)
             <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-[#FC7840]">노무비</span>)
             <br />&nbsp;&nbsp;− (매출 × <span className="text-[#F0BF00]">제조간접비율</span>)
@@ -2742,7 +2742,7 @@ function PlanTab({
               <thead>
                 <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
                   <th className="text-left py-2 px-2">채널 × 품목</th>
-                  <th className="text-right py-2 px-2">순매출</th>
+                  <th className="text-right py-2 px-2">매출(VAT-)</th>
                   <th className="text-right py-2 px-2">낱개수량</th>
                   <th className="text-right py-2 px-2">주문건수</th>
                   <th className="text-right py-2 px-2">낱개당 객단가</th>
