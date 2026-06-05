@@ -42,7 +42,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
         #   예) 뚱카롱 750G(50G*15EA)/BOX·BOX → 15, 배꼽베이글 130G/EA·EA → 1,
         #       에너지드링크 355ML/EA(24EA/BOX)·EA → 1, 번들(355ML*24EA)/BOX·BOX → 24.
         unit_col = (unit or "").strip().upper()
-        if unit_col == "EA":
+        if "베이글" in prod:
+            ups = 15.0  # 배꼽베이글은 박스(15개입) 공급 — 단위 'EA' 표기여도 15 적용(사용자 지정)
+        elif unit_col == "EA":
             ups = 1.0
         elif unit_col == "BOX":
             ups = ea_per_box(prod)
