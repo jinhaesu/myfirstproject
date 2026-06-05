@@ -43,6 +43,27 @@ def _to_date_yyyymmdd(v) -> Optional[date]:
     return None
 
 
+import re as _re
+_HP_PACK_RE = _re.compile(r"[gG]\s*\*\s*(\d+)")
+
+
+def _homeplus_unit(name: Optional[str]) -> Optional[float]:
+    """홈플러스 상품명에서 1팩당 낱개(구수) 산출. 낱개 = 수량 × 입수.
+      · 'WG*N'(예: 뚱카롱_50G*6 → 6, 배꼽베이글_140G*4 → 4)
+      · 네모바게트는 450G(90g*5) 5구 — 이름에 수가 없어 별도 지정.
+    """
+    if not name:
+        return None
+    m = _HP_PACK_RE.search(name)
+    if m:
+        v = int(m.group(1))
+        if 1 <= v <= 200:
+            return float(v)
+    if "네모바게트" in name:
+        return 5.0
+    return None
+
+
 def _find_col(header_cells: list[str], keywords: list[str]) -> Optional[int]:
     for j, h in enumerate(header_cells):
         for kw in keywords:
@@ -137,4 +158,5 @@ def parse(path: str) -> Iterable[ParsedLine]:
             gross_amount=gross,
             net_amount=gross,
             settlement_amount=gross,
+            unit_per_set=_homeplus_unit(prod_name),
         )
