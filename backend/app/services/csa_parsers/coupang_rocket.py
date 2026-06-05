@@ -28,8 +28,8 @@ def _coupang_unit_per_set(name: Optional[str]) -> Optional[float]:
     """쿠팡 로켓 SKU명에서 1세트당 낱개 수 산출.
 
       · 'N개입'/'N봉'/'N개'/'N구'/'N종' → N (예: 8개입 → 8, 90g×4봉 → 4)
-      · 한 칸에 '+'로 여러 구성이 적히면 합산 (예: 4봉 + 2개입 + 2개입 → 8) ← 사용자 지정
-      · 괄호 등으로 같은 수가 반복 표기되면(8개입(50g*8)) 합산이 아닌 대표값(최댓값) 사용
+      · 같은 세트를 여러 표기로 적어도(8개입(50g*8), 또는 '4봉 = 오레오 2개입 + 다크 2개입')
+        총 입수는 '대표값(최댓값)' 1개다. (합산하면 초코홀릭처럼 4봉=2+2를 8로 과대계상)
       · 표기 없으면 None → 매핑 기본 입수 사용
     """
     if not name:
@@ -38,9 +38,7 @@ def _coupang_unit_per_set(name: Optional[str]) -> Optional[float]:
     counts = [int(m.group(1)) for m in _RC_COUNT.finditer(s)]
     if not counts:
         return None
-    # '+'로 이어진 복수 구성 → 합산(가산). 그 외엔 반복 표기로 보고 대표값.
-    if "+" in name and len(counts) >= 2:
-        return float(sum(counts))
+    # 봉/세트 총량과 그 구성(2개입+2개입)이 함께 적혀도 최댓값이 곧 총 입수.
     return float(max(counts))
 
 
