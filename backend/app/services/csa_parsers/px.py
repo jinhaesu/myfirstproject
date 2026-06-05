@@ -44,6 +44,24 @@ PX_PRICES_VAT_INCL: dict[str, float] = {
 }
 
 
+_PX_UNIT_RE = re.compile(r"(\d+)\s*(?:구|개입|개)")
+
+
+def _px_unit_per_set(name: Optional[str]) -> Optional[float]:
+    """PX 납품 1건당 낱개 입수. 상품명의 'N구/N개입'(예: '뚱카롱 6구' → 6).
+    표기 없어도 마카롱/뚱카롱은 6개입 공급(사용자 정책 2026-06-05)."""
+    if not name:
+        return None
+    m = _PX_UNIT_RE.search(name)
+    if m:
+        v = int(m.group(1))
+        if 1 <= v <= 200:
+            return float(v)
+    if "마카롱" in name or "뚱카롱" in name:
+        return 6.0
+    return None
+
+
 def _gross_for(sku: Optional[str], qty: float) -> float:
     """SKU의 부가세 포함 단가를 부가세 별도(공급가)로 환산해 매출 계산."""
     if not sku:
@@ -221,4 +239,6 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_qty=qty,
             gross_amount=gross,
             net_amount=gross,
+            # 낱개 = 수량 × 입수(마카롱 6개입). 매출은 수량 기준이라 영향 없음.
+            unit_per_set=_px_unit_per_set(cur_prod),
         )
