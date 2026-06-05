@@ -928,6 +928,7 @@ function DashboardTab({
                 <th className="text-right py-2.5 px-2">낱개수량</th>
                 <th className="text-right py-2.5 px-2">주문건수</th>
                 <th className="text-right py-2.5 px-2">순매출</th>
+                <th className="text-right py-2.5 px-2">객단가</th>
                 <th className="text-right py-2.5 px-2">공헌이익</th>
                 <th className="text-right py-2.5 px-2">공헌이익률</th>
               </tr>
@@ -946,6 +947,9 @@ function DashboardTab({
                         ₩{fmtKR(p.revenue)}
                         {revDelta && <DeltaBadge delta={revDelta} />}
                       </td>
+                      <td className="py-2 px-2 text-right font-mono text-[#A3A9B3]">
+                        {p.pcs ? `₩${fmtNum(Math.round(p.revenue / p.pcs))}` : '-'}
+                      </td>
                       <td className="py-2 px-2 text-right font-mono text-[#27A644]">
                         ₩{fmtKR(p.contribution_margin)}
                         {cmDelta && <DeltaBadge delta={cmDelta} />}
@@ -955,9 +959,28 @@ function DashboardTab({
                   );
                 })
               ) : (
-                <tr><td colSpan={6} className="py-8 text-center text-[#62666D]">데이터가 없습니다. 엑셀을 업로드해보세요.</td></tr>
+                <tr><td colSpan={7} className="py-8 text-center text-[#62666D]">데이터가 없습니다. 엑셀을 업로드해보세요.</td></tr>
               )}
             </tbody>
+            {data && data.products.length ? (() => {
+              const t = productsWithCmp.reduce((a: any, p: any) => ({
+                pcs: a.pcs + (p.pcs || 0), orders: a.orders + (p.orders || 0),
+                revenue: a.revenue + (p.revenue || 0), cm: a.cm + (p.contribution_margin || 0),
+              }), { pcs: 0, orders: 0, revenue: 0, cm: 0 });
+              return (
+                <tfoot>
+                  <tr className="border-t-2 border-[#2C2F36] font-semibold bg-[#15171A]">
+                    <td className="py-2.5 px-2 text-[#F7F8F8]">합계</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">{fmtNum(Math.round(t.pcs))}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">{fmtNum(t.orders)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(t.revenue)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#A3A9B3]">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#27A644]">₩{fmtKR(t.cm)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#828FFF]">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
+                  </tr>
+                </tfoot>
+              );
+            })() : null}
           </table>
         </div>
       </div>
@@ -976,6 +999,7 @@ function DashboardTab({
                 <th className="text-right py-2.5 px-2">낱개수량</th>
                 <th className="text-right py-2.5 px-2">주문건수</th>
                 <th className="text-right py-2.5 px-2">순매출</th>
+                <th className="text-right py-2.5 px-2">객단가</th>
                 <th className="text-right py-2.5 px-2">공헌이익</th>
                 <th className="text-right py-2.5 px-2">공헌이익률</th>
               </tr>
@@ -995,6 +1019,9 @@ function DashboardTab({
                         ₩{fmtKR(c.revenue)}
                         {revDelta && <DeltaBadge delta={revDelta} />}
                       </td>
+                      <td className="py-2 px-2 text-right font-mono text-[#A3A9B3]">
+                        {c.pcs ? `₩${fmtNum(Math.round(c.revenue / c.pcs))}` : '-'}
+                      </td>
                       <td className="py-2 px-2 text-right font-mono text-[#27A644]">
                         ₩{fmtKR(c.contribution_margin)}
                         {cmDelta && <DeltaBadge delta={cmDelta} />}
@@ -1004,9 +1031,29 @@ function DashboardTab({
                   );
                 })
               ) : (
-                <tr><td colSpan={7} className="py-8 text-center text-[#62666D]">데이터가 없습니다.</td></tr>
+                <tr><td colSpan={8} className="py-8 text-center text-[#62666D]">데이터가 없습니다.</td></tr>
               )}
             </tbody>
+            {data && data.channels.length ? (() => {
+              const t = channelsWithCmp.reduce((a: any, c: any) => ({
+                pcs: a.pcs + (c.pcs || 0), orders: a.orders + (c.orders || 0),
+                revenue: a.revenue + (c.revenue || 0), cm: a.cm + (c.contribution_margin || 0),
+              }), { pcs: 0, orders: 0, revenue: 0, cm: 0 });
+              return (
+                <tfoot>
+                  <tr className="border-t-2 border-[#2C2F36] font-semibold bg-[#15171A]">
+                    <td className="py-2.5 px-2 text-[#F7F8F8]">합계</td>
+                    <td className="py-2.5 px-2 text-[#8A8F98]">-</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">{fmtNum(Math.round(t.pcs))}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">{fmtNum(t.orders)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(t.revenue)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#A3A9B3]">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#27A644]">₩{fmtKR(t.cm)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-[#828FFF]">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
+                  </tr>
+                </tfoot>
+              );
+            })() : null}
           </table>
         </div>
       </div>
