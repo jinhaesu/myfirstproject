@@ -1818,6 +1818,24 @@ function MappingTab({
               selected={selected.has(it.id)}
               onToggle={() => toggleOne(it.id)}
               onResolve={resolve}
+              onMultiResolve={async (item, components) => {
+                const r = await fetch(`${API_BASE}/api/csa/mapping/multi`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                  body: JSON.stringify({
+                    channel_id: item.channel_id,
+                    channel_name: item.channel_name,
+                    raw_product_name: item.raw_product_name,
+                    raw_option_name: item.raw_option_name,
+                    components,
+                  }),
+                });
+                if (!r.ok) {
+                  const data = await r.json().catch(() => ({}));
+                  throw new Error((data as { detail?: string }).detail || r.statusText);
+                }
+                onResolved();
+              }}
             />
           ))}
         </div>
@@ -1859,66 +1877,198 @@ function MappingTab({
   );
 }
 
+interface MultiComponent {
+  product_id: number | '';
+  unit_per_set: number;
+}
+
 function UnmatchedRow({
-  item, products, busy, selected, onToggle, onResolve,
+  item, products, busy, selected, onToggle, onResolve, onMultiResolve,
 }: {
   item: UnmatchedItem; products: Product[]; busy: boolean;
   selected: boolean; onToggle: () => void;
   onResolve: (it: UnmatchedItem, productId: number | null, unitPerSet: number, isExcluded: boolean) => void;
+  onMultiResolve: (item: UnmatchedItem, components: { product_id: number; unit_per_set: number }[]) => Promise<void>;
 }) {
   const [productId, setProductId] = useState<number | ''>(item.llm_suggested_product_id || '');
   const [unitPerSet, setUnitPerSet] = useState<number>(item.llm_suggested_unit_per_set || 1);
   const [excluded, setExcluded] = useState(false);
 
+  // 다중 매핑 패널 state
+  const [multiOpen, setMultiOpen] = useState(false);
+  const [multiComponents, setMultiComponents] = useState<MultiComponent[]>([
+    { product_id: '', unit_per_set: 1 },
+    { product_id: '', unit_per_set: 1 },
+  ]);
+  const [multiBusy, setMultiBusy] = useState(false);
+
+  const addComponent = () => {
+    setMultiComponents(prev => [...prev, { product_id: '', unit_per_set: 1 }]);
+  };
+
+  const removeComponent = (idx: number) => {
+    setMultiComponents(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateComponent = (idx: number, field: keyof MultiComponent, value: number | '') => {
+    setMultiComponents(prev => prev.map((c, i) => i === idx ? { ...c, [field]: value } : c));
+  };
+
+  const canSaveMulti = multiComponents.length >= 1 && multiComponents.every(c => c.product_id !== '');
+
+  const handleMultiSave = async () => {
+    if (!canSaveMulti) {
+      alert('모든 컴포넌트에 표준 품목을 선택해주세요.');
+      return;
+    }
+    setMultiBusy(true);
+    try {
+      await onMultiResolve(
+        item,
+        multiComponents.map(c => ({ product_id: c.product_id as number, unit_per_set: c.unit_per_set })),
+      );
+      setMultiOpen(false);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert(`다중 매핑 저장 실패: ${msg}`);
+    } finally {
+      setMultiBusy(false);
+    }
+  };
+
   return (
-    <div className={`flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-[#1A1C22] ${selected ? 'bg-[#828FFF]/5' : ''}`}>
-      <input
-        type="checkbox"
-        checked={selected}
-        onChange={onToggle}
-        className="accent-[#828FFF] flex-shrink-0"
-      />
-      <span className="w-20 text-[10px] text-[#62666D] truncate" title={item.channel_name}>{item.channel_name}</span>
-      <div className="flex-1 min-w-0">
-        <div className="text-[#F7F8F8] truncate" title={item.raw_product_name}>{item.raw_product_name}</div>
-        {item.raw_option_name && (
-          <div className="text-[#7A7F8A] text-[10px] truncate" title={item.raw_option_name}>{item.raw_option_name}</div>
-        )}
-      </div>
-      <div className="w-20 text-right text-[10px] text-[#7A7F8A] font-mono whitespace-nowrap">
-        {item.occurrence_count}회<br/>{fmtNum(Math.round(item.total_qty))}
-      </div>
-      <select
-        value={productId}
-        onChange={(e) => setProductId(e.target.value ? parseInt(e.target.value) : '')}
-        disabled={excluded}
-        className="w-40 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[11px] text-[#F7F8F8] disabled:opacity-40"
-      >
-        <option value="">—</option>
-        {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select>
-      <input
-        type="number" min={1} value={unitPerSet}
-        onChange={(e) => setUnitPerSet(parseInt(e.target.value) || 1)}
-        disabled={excluded}
-        className="w-12 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[#F7F8F8] disabled:opacity-40 font-mono text-right text-[11px]"
-      />
-      <label className="w-10 flex items-center justify-center cursor-pointer">
+    <>
+      <div className={`flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-[#1A1C22] ${selected ? 'bg-[#828FFF]/5' : ''}`}>
         <input
           type="checkbox"
-          checked={excluded}
-          onChange={(e) => setExcluded(e.target.checked)}
-          className="accent-[#EB5757]"
+          checked={selected}
+          onChange={onToggle}
+          className="accent-[#828FFF] flex-shrink-0"
         />
-      </label>
-      <button
-        onClick={() => onResolve(item, excluded ? null : (productId || null) as any, unitPerSet, excluded)}
-        disabled={busy || (!excluded && !productId)}
-        className="w-14 px-2 py-1 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-[11px] font-medium"
-      >
-        {busy ? '…' : '저장'}
-      </button>
-    </div>
+        <span className="w-20 text-[10px] text-[#62666D] truncate" title={item.channel_name}>{item.channel_name}</span>
+        <div className="flex-1 min-w-0">
+          <div className="text-[#F7F8F8] truncate" title={item.raw_product_name}>{item.raw_product_name}</div>
+          {item.raw_option_name && (
+            <div className="text-[#7A7F8A] text-[10px] truncate" title={item.raw_option_name}>{item.raw_option_name}</div>
+          )}
+        </div>
+        <div className="w-20 text-right text-[10px] text-[#7A7F8A] font-mono whitespace-nowrap">
+          {item.occurrence_count}회<br/>{fmtNum(Math.round(item.total_qty))}
+        </div>
+        <select
+          value={productId}
+          onChange={(e) => setProductId(e.target.value ? parseInt(e.target.value) : '')}
+          disabled={excluded || multiOpen}
+          className="w-40 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[11px] text-[#F7F8F8] disabled:opacity-40"
+        >
+          <option value="">—</option>
+          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <input
+          type="number" min={1} value={unitPerSet}
+          onChange={(e) => setUnitPerSet(parseInt(e.target.value) || 1)}
+          disabled={excluded || multiOpen}
+          className="w-12 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[#F7F8F8] disabled:opacity-40 font-mono text-right text-[11px]"
+        />
+        <label className="w-10 flex items-center justify-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={excluded}
+            onChange={(e) => setExcluded(e.target.checked)}
+            disabled={multiOpen}
+            className="accent-[#EB5757] disabled:opacity-40"
+          />
+        </label>
+        <div className="w-14 flex items-center gap-1">
+          <button
+            onClick={() => onResolve(item, excluded ? null : (productId || null) as number | null, unitPerSet, excluded)}
+            disabled={busy || multiBusy || multiOpen || (!excluded && !productId)}
+            className="flex-1 px-1.5 py-1 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-[11px] font-medium"
+          >
+            {busy ? '…' : '저장'}
+          </button>
+          <button
+            onClick={() => setMultiOpen(v => !v)}
+            disabled={busy || multiBusy}
+            title="다중 품목 매핑"
+            className={`px-1.5 py-1 border rounded text-[10px] font-medium transition-colors disabled:opacity-40 ${
+              multiOpen
+                ? 'bg-[#828FFF]/20 border-[#828FFF] text-[#828FFF]'
+                : 'bg-[#0F1011] border-[#23252A] text-[#7A7F8A] hover:border-[#828FFF] hover:text-[#828FFF]'
+            }`}
+          >
+            다중
+          </button>
+        </div>
+      </div>
+
+      {/* 다중 매핑 인라인 패널 */}
+      {multiOpen && (
+        <div className={`${SUBPANEL} mx-2 mb-1 p-3`}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-medium text-[#A3A9B3]">다중 품목 매핑</span>
+            <span className="text-[10px] text-[#62666D]">옵션 매출은 각 품목의 낱개수량(입수) 비율로 자동 안분됩니다.</span>
+          </div>
+
+          {/* 컴포넌트 행 목록 */}
+          <div className="flex flex-col gap-1.5 mb-2">
+            {multiComponents.map((comp, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="text-[10px] text-[#62666D] w-4 text-right">{idx + 1}</span>
+                <select
+                  value={comp.product_id}
+                  onChange={(e) => updateComponent(idx, 'product_id', e.target.value ? parseInt(e.target.value) : '')}
+                  className="flex-1 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[11px] text-[#F7F8F8]"
+                >
+                  <option value="">품목 선택…</option>
+                  {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <input
+                  type="number" min={1} value={comp.unit_per_set}
+                  onChange={(e) => updateComponent(idx, 'unit_per_set', parseInt(e.target.value) || 1)}
+                  title="1세트당 낱개 수(입수)"
+                  className="w-14 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[#F7F8F8] font-mono text-right text-[11px]"
+                />
+                <span className="text-[10px] text-[#62666D]">개</span>
+                <button
+                  onClick={() => removeComponent(idx)}
+                  disabled={multiComponents.length <= 1}
+                  className="w-5 h-5 flex items-center justify-center text-[#62666D] hover:text-[#EB5757] disabled:opacity-30 text-xs rounded border border-[#23252A] bg-[#0F1011]"
+                  title="삭제"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* 하단 액션 */}
+          <div className="flex items-center gap-2 pt-1.5 border-t border-[#23252A]">
+            <button
+              onClick={addComponent}
+              className="px-2.5 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[11px] text-[#A3A9B3] hover:border-[#828FFF] hover:text-[#828FFF]"
+            >
+              + 품목 추가
+            </button>
+            <div className="flex-1" />
+            <button
+              onClick={() => setMultiOpen(false)}
+              disabled={multiBusy}
+              className="px-2.5 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[11px] text-[#7A7F8A] hover:text-[#A3A9B3]"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleMultiSave}
+              disabled={multiBusy || !canSaveMulti}
+              className="px-3 py-1 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-[11px] font-medium"
+            >
+              {multiBusy ? '저장 중…' : '다중 매핑 저장'}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
