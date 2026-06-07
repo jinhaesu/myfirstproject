@@ -17,6 +17,7 @@ from app.db_models import (
     Channel,
     ProductMaster,
     ChannelProductMapping,
+    ChannelProductMappingComponent,
     ChannelSalesUploadBatch,
     ChannelSalesRawLine,
     ChannelSalesDailyProduct,
@@ -42,6 +43,8 @@ from app.services.csa_service import (
     rebuild_daily_aggregate,
     resolve_product,
     normalize_channel_name,
+    split_by_units,
+    compute_dedup_hash,
 )
 from app.services.csa_plan_service import (
     seed_channel_groups,
@@ -1176,6 +1179,188 @@ def upsert_mapping(payload: MappingIn, db: Session = Depends(get_db)):
         _bust_all_caches()
 
     return {"mapping_id": mapping_id, "raw_lines_updated": updated}
+
+
+# ──────────────────────────────────────────────────────────────
+# 다중 매핑 (옵션 1건 → 복수 표준 품목, 낱개수량 비율로 매출 안분)
+# ──────────────────────────────────────────────────────────────
+
+class MultiMappingComponentIn(BaseModel):
+    product_id: int
+    unit_per_set: int = 1
+
+
+class MultiMappingIn(BaseModel):
+    channel_id: str
+    channel_name: Optional[str] = None
+    raw_product_name: str
+    raw_option_name: Optional[str] = None
+    components: List[MultiMappingComponentIn]
+
+
+@router.get("/mapping/multi")
+def list_multi_mappings(
+    channel_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """다중 매핑 목록 — (채널·원본명·옵션) 키별로 컴포넌트 묶음 반환."""
+    q = db.query(ChannelProductMappingComponent)
+    if channel_id:
+        q = q.filter(ChannelProductMappingComponent.channel_id == channel_id)
+    rows = q.order_by(
+        ChannelProductMappingComponent.channel_id,
+        ChannelProductMappingComponent.raw_product_name,
+        ChannelProductMappingComponent.sort_order,
+        ChannelProductMappingComponent.id,
+    ).all()
+    grouped: dict = {}
+    for r in rows:
+        key = (r.channel_id, r.raw_product_name, r.raw_option_name or "")
+        g = grouped.setdefault(key, {
+            "channel_id": r.channel_id,
+            "channel_name": r.channel_name,
+            "raw_product_name": r.raw_product_name,
+            "raw_option_name": r.raw_option_name,
+            "components": [],
+        })
+        g["components"].append({
+            "id": r.id,
+            "product_id": r.product_id,
+            "unit_per_set": r.unit_per_set,
+        })
+    return list(grouped.values())
+
+
+@router.post("/mapping/multi")
+def upsert_multi_mapping(payload: MultiMappingIn, db: Session = Depends(get_db)):
+    """옵션 1건을 복수 표준 품목으로 매핑(다중 매핑) 저장.
+
+    저장 즉시, 보관된 동일 옵션의 기존 raw_line(분할 전 원본 1행)을 컴포넌트별로
+    낱개수량 비율 안분해 분할 적재한다. 이미 분할된(line_no '#m') 행은 건드리지 않으며,
+    매핑 정의를 수정한 경우엔 채널 재처리(/reprocess)로 재구성하는 것을 권장.
+    """
+    rp = payload.raw_product_name.strip()
+    ro = (payload.raw_option_name or "").strip() or None
+    if not payload.components:
+        raise HTTPException(400, "components가 비어있습니다 (최소 1개 품목 필요)")
+
+    # 1) 기존 컴포넌트 교체
+    db.query(ChannelProductMappingComponent).filter(
+        ChannelProductMappingComponent.channel_id == payload.channel_id,
+        ChannelProductMappingComponent.raw_product_name == rp,
+        ChannelProductMappingComponent.raw_option_name == ro,
+    ).delete(synchronize_session=False)
+
+    ch = db.query(Channel).filter(Channel.id == payload.channel_id).first()
+    ch_name = payload.channel_name or (ch.name if ch else None)
+    for i, c in enumerate(payload.components):
+        db.add(ChannelProductMappingComponent(
+            channel_id=payload.channel_id,
+            channel_name=ch_name,
+            raw_product_name=rp,
+            raw_option_name=ro,
+            product_id=c.product_id,
+            unit_per_set=c.unit_per_set or 1,
+            sort_order=i,
+        ))
+    db.commit()
+
+    # 2) unmatched 큐 해결 처리
+    pend_q = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.channel_id == payload.channel_id,
+        ChannelUnmatchedProduct.raw_product_name == rp,
+        ChannelUnmatchedProduct.status == "pending",
+    )
+    if ro:
+        pend_q = pend_q.filter(ChannelUnmatchedProduct.raw_option_name == ro)
+    for p in pend_q.all():
+        p.status = "resolved"
+        p.resolved_at = datetime.utcnow()
+
+    # 3) 기존 원본 raw_line(분할 전, '#m' 미포함) 즉시 분할
+    comps = [
+        type("C", (), {"product_id": c.product_id, "unit_per_set": c.unit_per_set or 1})()
+        for c in payload.components
+    ]
+    line_q = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == payload.channel_id,
+        ChannelSalesRawLine.raw_product_name == rp,
+        ChannelSalesRawLine.mapping_status != "cancelled",
+        ~ChannelSalesRawLine.line_no.like("%#m%"),
+    )
+    if ro:
+        line_q = line_q.filter(ChannelSalesRawLine.raw_option_name == ro)
+
+    split_count = 0
+    min_d = max_d = None
+    for ln in line_q.all():
+        # 보관 금액은 이미 VAT 환산 완료 → 그대로 안분(÷1.1 재적용 금지)
+        for pid, pcs, g_i, n_i, _ups in split_by_units(
+            ln.gross_amount or 0, ln.net_amount or ln.gross_amount or 0, ln.raw_qty or 0, comps
+        ):
+            ln_no_i = f"{ln.line_no or ''}#m{pid}"[:100]
+            dedup_i = compute_dedup_hash(
+                payload.channel_id, ln.order_no, ln_no_i, ln.sale_date,
+                ln.raw_product_name, ln.raw_qty, g_i,
+            )
+            db.add(ChannelSalesRawLine(
+                batch_id=ln.batch_id,
+                channel_id=payload.channel_id,
+                channel_name=ln.channel_name,
+                order_no=ln.order_no,
+                line_no=ln_no_i,
+                dedup_hash=dedup_i,
+                sale_date=ln.sale_date,
+                sale_datetime=ln.sale_datetime,
+                raw_product_name=ln.raw_product_name,
+                raw_option_name=ln.raw_option_name,
+                raw_qty=ln.raw_qty,
+                gross_amount=g_i,
+                net_amount=n_i,
+                refund_amount=ln.refund_amount,
+                product_id=pid,
+                pcs_qty=pcs,
+                mapping_status="matched",
+                raw_row=ln.raw_row,
+            ))
+        if min_d is None or ln.sale_date < min_d:
+            min_d = ln.sale_date
+        if max_d is None or ln.sale_date > max_d:
+            max_d = ln.sale_date
+        db.delete(ln)
+        split_count += 1
+    db.commit()
+
+    if split_count:
+        rebuild_daily_aggregate(db, channel_id=payload.channel_id, since=min_d, until=max_d)
+    _bust_all_caches()
+
+    return {
+        "channel_id": payload.channel_id,
+        "raw_product_name": rp,
+        "raw_option_name": ro,
+        "component_count": len(payload.components),
+        "raw_lines_split": split_count,
+    }
+
+
+@router.delete("/mapping/multi")
+def delete_multi_mapping(
+    channel_id: str = Query(...),
+    raw_product_name: str = Query(...),
+    raw_option_name: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """다중 매핑 삭제. (이미 분할된 raw_line은 채널 재처리로 원복 필요)"""
+    ro = (raw_option_name or "").strip() or None
+    n = db.query(ChannelProductMappingComponent).filter(
+        ChannelProductMappingComponent.channel_id == channel_id,
+        ChannelProductMappingComponent.raw_product_name == raw_product_name.strip(),
+        ChannelProductMappingComponent.raw_option_name == ro,
+    ).delete(synchronize_session=False)
+    db.commit()
+    _bust_all_caches()
+    return {"deleted": n}
 
 
 # ──────────────────────────────────────────────────────────────

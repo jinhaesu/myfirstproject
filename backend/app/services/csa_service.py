@@ -20,6 +20,7 @@ from app.database import SessionLocal
 from app.db_models import (
     ProductMaster,
     ChannelProductMapping,
+    ChannelProductMappingComponent,
     ChannelSalesUploadBatch,
     ChannelSalesRawLine,
     ChannelSalesDailyProduct,
@@ -278,6 +279,52 @@ def _build_mapping_cache(
     return cache
 
 
+def _build_multi_mapping_cache(
+    db: Session, channel_id: str
+) -> dict[tuple[str, Optional[str]], list[ChannelProductMappingComponent]]:
+    """채널의 다중 매핑 컴포넌트를 (raw_product_name, raw_option_name) 키로 캐싱."""
+    cache: dict[tuple[str, Optional[str]], list[ChannelProductMappingComponent]] = {}
+    rows = (
+        db.query(ChannelProductMappingComponent)
+        .filter(ChannelProductMappingComponent.channel_id == channel_id)
+        .order_by(ChannelProductMappingComponent.sort_order, ChannelProductMappingComponent.id)
+        .all()
+    )
+    for r in rows:
+        cache.setdefault((r.raw_product_name, r.raw_option_name), []).append(r)
+    return cache
+
+
+def split_by_units(
+    base_gross: float,
+    base_net: float,
+    raw_qty: float,
+    comps: list,
+) -> list[tuple]:
+    """옵션 매출을 컴포넌트별 '낱개수량(unit_per_set)' 비율로 안분.
+
+    반환: [(product_id, pcs_qty, gross, net, unit_per_set), ...].
+    부동소수 합계 보존을 위해 잔여(rounding remainder)는 마지막 컴포넌트에 몰아준다.
+    """
+    total_ups = sum(max(int(getattr(c, "unit_per_set", 1) or 1), 1) for c in comps) or len(comps)
+    out: list[tuple] = []
+    g_acc = n_acc = 0.0
+    nlen = len(comps)
+    for ci, c in enumerate(comps):
+        ups_i = max(int(getattr(c, "unit_per_set", 1) or 1), 1)
+        if ci < nlen - 1:
+            w = ups_i / total_ups
+            g_i = base_gross * w
+            n_i = base_net * w
+            g_acc += g_i
+            n_acc += n_i
+        else:
+            g_i = base_gross - g_acc  # 잔여 → 합계 보존
+            n_i = base_net - n_acc
+        out.append((c.product_id, (raw_qty or 0) * ups_i, g_i, n_i, ups_i))
+    return out
+
+
 def resolve_product(
     db: Session,
     channel_id: str,
@@ -464,6 +511,7 @@ def ingest_lines(
     # ChannelProductMapping 전체를 한 번에 메모리에 캐시.
     # Supabase pooler 환경에서 라인마다 DB query하면 95k 라인 적재가 수 시간.
     mappings_cache = _build_mapping_cache(db, channel_id)
+    multi_cache = _build_multi_mapping_cache(db, channel_id)
     inserted = duplicate = unmatched = excluded = cancelled = total = 0
     min_date = max_date = None
 
@@ -552,6 +600,57 @@ def ingest_lines(
                 mapping_status="cancelled",
                 raw_row=ln.raw_row,
             ))
+            continue
+
+        # 다중 매핑(옵션 1건 → 복수 표준 품목): 낱개수량 비율로 매출 안분 + 컴포넌트별 분할.
+        comps = None
+        if multi_cache:
+            _rn = (ln.raw_product_name or "").strip()
+            _ro = (ln.raw_option_name or "").strip() if ln.raw_option_name else None
+            comps = multi_cache.get((_rn, _ro)) or multi_cache.get((_rn, None))
+        if comps:
+            if is_vat_included(channel_name):
+                base_gross = ln.gross_amount * _VAT_EXCL_FACTOR
+                base_net = (ln.net_amount or ln.gross_amount) * _VAT_EXCL_FACTOR
+            else:
+                base_gross = ln.gross_amount
+                base_net = ln.net_amount or ln.gross_amount
+            for comp_pid, comp_pcs, comp_g, comp_n, comp_ups in split_by_units(
+                base_gross, base_net, ln.raw_qty, comps
+            ):
+                ln_no_i = f"{ln.line_no or ''}#m{comp_pid}"
+                if len(ln_no_i) > 100:
+                    ln_no_i = ln_no_i[:100]
+                dedup_i = compute_dedup_hash(
+                    channel_id, ln.order_no, ln_no_i, ln.sale_date,
+                    ln.raw_product_name, ln.raw_qty, comp_g,
+                )
+                if dedup_i in existing_hashes or dedup_i in seen_in_batch:
+                    duplicate += 1
+                    continue
+                seen_in_batch.add(dedup_i)
+                db.add(ChannelSalesRawLine(
+                    batch_id=batch_id,
+                    channel_id=channel_id,
+                    channel_name=channel_name,
+                    order_no=ln.order_no,
+                    line_no=ln_no_i,
+                    dedup_hash=dedup_i,
+                    sale_date=ln.sale_date,
+                    sale_datetime=ln.sale_datetime,
+                    raw_product_name=ln.raw_product_name,
+                    raw_option_name=ln.raw_option_name,
+                    raw_qty=ln.raw_qty,
+                    gross_amount=comp_g,
+                    net_amount=comp_n,
+                    settlement_amount=ln.settlement_amount,
+                    refund_amount=ln.refund_amount,
+                    product_id=comp_pid,
+                    pcs_qty=comp_pcs,
+                    mapping_status="matched",
+                    raw_row=ln.raw_row,
+                ))
+                inserted += 1
             continue
 
         mapping = resolve_product(

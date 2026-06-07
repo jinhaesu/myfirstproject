@@ -764,6 +764,29 @@ class ChannelProductMapping(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
+class ChannelProductMappingComponent(Base):
+    """다중 매핑 — 위탁 옵션 1건이 복수 표준 품목으로 구성될 때.
+
+    예) 옵션 '마카롱 1세트 + 뚱낭시에 1세트' → [마카롱(6입), 뚱낭시에(15입)].
+    같은 (channel_id, raw_product_name, raw_option_name) 키에 행이 2개 이상이면
+    다중 매핑으로 간주한다. ingest 시 옵션 매출을 각 컴포넌트의 낱개수량(unit_per_set)
+    비율로 안분하고, raw_line을 컴포넌트별로 분할 저장한다(line_no에 '#m{id}' 접미).
+    """
+    __tablename__ = "csa_channel_mapping_component"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    channel_id = Column(String(100), nullable=False, index=True)
+    channel_name = Column(String(200), nullable=True)
+    raw_product_name = Column(String(500), nullable=False, index=True)
+    raw_option_name = Column(String(500), nullable=True)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=False, index=True)
+    unit_per_set = Column(Integer, default=1)  # 이 컴포넌트 1세트당 낱개 수
+    sort_order = Column(Integer, default=0)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
 class ChannelSalesUploadBatch(Base):
     """채널 엑셀 업로드 배치 (각 업로드 1건)"""
     __tablename__ = "csa_upload_batches"
