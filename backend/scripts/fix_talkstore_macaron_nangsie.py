@@ -127,50 +127,48 @@ def main():
         print("\n[DRY-RUN] --apply 를 붙이면 매핑 행을 삽입합니다 (이후 재처리 필요).")
         return
 
-    from app.db_models import ChannelProductMapping, ChannelProductMappingComponent
-    from app.database import SessionLocal
-    db = SessionLocal()
-    try:
-        ins_single = ins_multi = 0
-        for rp, ro, pid, ups in single_rows:
-            ex = db.query(ChannelProductMapping).filter_by(
-                channel_id=CID, raw_product_name=rp, raw_option_name=ro).first()
+    CH = "카카오톡스토어"
+    ins_single = ins_multi = ins_excl = 0
+    with eng.begin() as c:
+        def upsert_single(rp, ro, pid, ups, excl=False, note=""):
+            ex = c.execute(text("""SELECT id FROM csa_channel_product_mapping
+                WHERE channel_id=:cid AND raw_product_name=:rp AND raw_option_name=:ro"""),
+                {"cid": CID, "rp": rp, "ro": ro}).fetchone()
             if ex:
-                ex.product_id, ex.unit_per_set, ex.confidence = pid, ups, "manual"
+                c.execute(text("""UPDATE csa_channel_product_mapping
+                    SET product_id=:pid, unit_per_set=:ups, is_excluded=:ex,
+                        confidence='manual', notes=:note, updated_at=now()
+                    WHERE id=:id"""),
+                    {"pid": pid, "ups": ups, "ex": excl, "note": note, "id": ex[0]})
             else:
-                db.add(ChannelProductMapping(
-                    channel_id=CID, channel_name="카카오톡스토어",
-                    raw_product_name=rp, raw_option_name=ro,
-                    product_id=pid, unit_per_set=ups, confidence="manual",
-                    notes="마카롱/뚱낭시에 정정(2026-06-07)"))
+                c.execute(text("""INSERT INTO csa_channel_product_mapping
+                    (channel_id, channel_name, raw_product_name, raw_option_name,
+                     product_id, unit_per_set, is_excluded, confidence, notes, created_at, updated_at)
+                    VALUES (:cid,:ch,:rp,:ro,:pid,:ups,:ex,'manual',:note,now(),now())"""),
+                    {"cid": CID, "ch": CH, "rp": rp, "ro": ro, "pid": pid,
+                     "ups": ups, "ex": excl, "note": note})
+
+        for rp, ro, pid, ups in single_rows:
+            upsert_single(rp, ro, pid, ups, note="마카롱/뚱낭시에 정정(2026-06-07)")
             ins_single += 1
-        # 제외 처리
         for (rp, ro), corr in CORRECTIONS.items():
             if corr != EXCLUDE:
                 continue
-            ex = db.query(ChannelProductMapping).filter_by(
-                channel_id=CID, raw_product_name=rp, raw_option_name=ro).first()
-            if ex:
-                ex.is_excluded, ex.product_id = True, None
-            else:
-                db.add(ChannelProductMapping(
-                    channel_id=CID, channel_name="카카오톡스토어",
-                    raw_product_name=rp, raw_option_name=ro,
-                    is_excluded=True, confidence="manual", notes="쇼핑백 제외(2026-06-07)"))
+            upsert_single(rp, ro, None, 1, excl=True, note="쇼핑백 제외(2026-06-07)")
+            ins_excl += 1
         for rp, ro, corr in multi_rows:
-            db.query(ChannelProductMappingComponent).filter_by(
-                channel_id=CID, raw_product_name=rp, raw_option_name=ro).delete()
+            c.execute(text("""DELETE FROM csa_channel_mapping_component
+                WHERE channel_id=:cid AND raw_product_name=:rp AND raw_option_name=:ro"""),
+                {"cid": CID, "rp": rp, "ro": ro})
             for i, (pid, ups) in enumerate(corr):
-                db.add(ChannelProductMappingComponent(
-                    channel_id=CID, channel_name="카카오톡스토어",
-                    raw_product_name=rp, raw_option_name=ro,
-                    product_id=pid, unit_per_set=ups, sort_order=i))
+                c.execute(text("""INSERT INTO csa_channel_mapping_component
+                    (channel_id, channel_name, raw_product_name, raw_option_name,
+                     product_id, unit_per_set, sort_order, created_at, updated_at)
+                    VALUES (:cid,:ch,:rp,:ro,:pid,:ups,:so,now(),now())"""),
+                    {"cid": CID, "ch": CH, "rp": rp, "ro": ro, "pid": pid, "ups": ups, "so": i})
             ins_multi += 1
-        db.commit()
-        print(f"\n[APPLIED] 단일/제외 매핑 {ins_single+3}건, 다중 매핑 {ins_multi}건 삽입.")
-        print("다음: /reprocess?channel_id=" + CID + " 로 재처리하세요.")
-    finally:
-        db.close()
+    print(f"\n[APPLIED] 단일 {ins_single}건 + 제외 {ins_excl}건 + 다중 {ins_multi}건 삽입.")
+    print("다음: /reprocess?channel_id=" + CID + " 로 재처리하세요.")
 
 
 if __name__ == "__main__":
