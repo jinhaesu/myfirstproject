@@ -39,6 +39,12 @@ def _extract_date_from_pdf(path: str) -> Optional[date]:
 
 @register("제로스토어")
 def parse(path: str) -> Iterable[ParsedLine]:
+    # xlsx/거래명세서 양식이면 공용 거래명세서 파서로 위임 (PDF 발주서만 아래 로직)
+    if not path.lower().endswith(".pdf"):
+        from app.services.csa_parsers.trade_statement import parse_trade_statement
+        yield from parse_trade_statement(path)
+        return
+
     import pdfplumber
 
     sale_d = _extract_date_from_pdf(path) or date.today()

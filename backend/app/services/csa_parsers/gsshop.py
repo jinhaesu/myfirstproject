@@ -127,7 +127,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
             order_no = None
             opt = to_str(_pick(row, "주문옵션"))
 
-        if qty == 0 and gross == 0 and not is_cancel:
+        # 고객결제액·판매가가 0이라도 협력사지급금액(net)이 있으면 인식(영업주문 등 누락 방지)
+        if qty == 0 and gross == 0 and net == 0 and not is_cancel:
             continue
 
         yield ParsedLine(
