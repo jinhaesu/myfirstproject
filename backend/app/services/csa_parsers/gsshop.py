@@ -85,7 +85,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
 
     file_date = _extract_date_from_filename(path)
 
-    for _, row in df.iterrows():
+    for _idx, (_, row) in enumerate(df.iterrows()):
         prod = to_str(_pick(row, "상품명(송장)", "상품명(인터넷)", "협력사상품명", "상품명"))
         if not prod:
             continue
@@ -112,7 +112,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
                               "출하지시일자", "출고완료일", "배송완료일", "매출완료일"))
                 or file_date or date.today()
             )
-            line_no = to_str(_pick(row, "상품상세코드", "협력사상품코드"))
+            # 같은 주문에 동일 상품코드·금액 행이 여러 개면 dedup 해시가 충돌해
+            # 행이 탈락(수량 과소) → 행 시퀀스를 붙여 라인 고유성 보장.
+            line_no = f"{to_str(_pick(row, '상품상세코드', '협력사상품코드')) or ''}-{_idx}"
             order_no = to_str(_pick(row, "주문번호"))
             opt = to_str(_pick(row, "주문옵션"))
         else:
@@ -123,7 +125,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
             )
             net = to_float(_pick(row, "협력사지급액") or gross)
             sale_d = file_date or date.today()
-            line_no = to_str(_pick(row, "상품코드", "상품상세코드"))
+            line_no = f"{to_str(_pick(row, '상품코드', '상품상세코드')) or ''}-{_idx}"
             order_no = None
             opt = to_str(_pick(row, "주문옵션"))
 
