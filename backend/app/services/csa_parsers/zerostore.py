@@ -54,27 +54,27 @@ def parse(path: str) -> Iterable[ParsedLine]:
         for page in pdf.pages:
             tables = page.extract_tables()
             for table in tables:
-                # 헤더 row 찾기 (품 목/수 량/단가 포함)
+                # 헤더 row 찾기 — 병합 셀에 페이지 전체 텍스트가 뭉친 row가
+                # 오탐되지 않도록, 품목/수량/단가가 '각각 별도 셀'로 식별되는
+                # 첫 row를 헤더로 채택.
                 header_idx = None
+                col_map: dict = {}
                 for i, row in enumerate(table):
-                    flat = " ".join(str(c or "") for c in row)
-                    if "품" in flat and "수" in flat and "단가" in flat:
+                    cand: dict = {}
+                    for j, cell in enumerate(row):
+                        s = re.sub(r"\s", "", str(cell or ""))
+                        if s.startswith("품목"):
+                            cand["prod"] = j
+                        elif s == "수량":
+                            cand["qty"] = j
+                        elif s.startswith("단가"):
+                            cand["price"] = j
+                    if {"prod", "qty", "price"} <= cand.keys():
                         header_idx = i
+                        col_map = cand
                         break
                 if header_idx is None:
                     continue
-
-                header = table[header_idx]
-                # 컬럼 위치 매핑
-                col_map = {}
-                for j, cell in enumerate(header):
-                    s = str(cell or "")
-                    if "품" in s:
-                        col_map["prod"] = j
-                    elif "수 량" in s or s.strip() == "수량":
-                        col_map["qty"] = j
-                    elif "단가" in s:
-                        col_map["price"] = j
 
                 # 데이터 row 처리
                 for row in table[header_idx + 1 :]:
