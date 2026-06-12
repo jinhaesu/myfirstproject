@@ -117,7 +117,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
     if df.empty:
         return
 
-    for _, row in df.iterrows():
+    for _idx, (_, row) in enumerate(df.iterrows()):
         # 날짜
         sale_dt = to_datetime(row.get("주문일시") or row.get("결제일시"))
         sale_d = sale_dt.date() if sale_dt else (
@@ -163,7 +163,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
             sale_date=sale_d,
             sale_datetime=sale_dt,
             order_no=to_str(row.get("주문번호")),
-            line_no=to_str(row.get("상품코드")),
+            # 같은 주문에 동일 상품·금액 행 중복 시 dedup 탈락 방지 — 행 시퀀스 부여
+            line_no=f"{to_str(row.get('상품코드')) or ''}-{_idx}",
             raw_product_name=prod,
             raw_option_name=to_str(row.get("옵션") or row.get("단품명")),
             raw_qty=qty,

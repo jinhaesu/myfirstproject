@@ -14,7 +14,7 @@ from app.services.csa_parsers._common import read_excel_safe, to_date, to_dateti
 @register("이지웰")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
-    for _, row in df.iterrows():
+    for _idx, (_, row) in enumerate(df.iterrows()):
         # 주문일시가 숫자형 YYYYMMDDHHMMSS(예: 20260517230737)로 오는 양식 지원
         dt_raw = row.get("주문일자")
         if dt_raw is None or (isinstance(dt_raw, float) and dt_raw != dt_raw):
@@ -46,7 +46,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,
             order_no=to_str(row.get("주문번호")),
-            line_no=to_str(row.get("상품코드")),
+            # 같은 주문에 동일 상품 복수 행 dedup 탈락(266→260행) 방지 — 행 시퀀스 부여
+            line_no=f"{to_str(row.get('상품코드')) or ''}-{_idx}",
             raw_product_name=prod,
             raw_option_name=to_str(row.get("옵션")),
             raw_qty=qty,

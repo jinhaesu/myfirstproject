@@ -2,6 +2,8 @@
 from __future__ import annotations
 from typing import Iterable
 
+import pandas as pd
+
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
 from app.services.csa_parsers._common import read_excel_safe, to_date, to_float, to_str
@@ -13,10 +15,10 @@ def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
     for _idx, (_, row) in enumerate(df.iterrows()):
         sale_d = to_date(row.get("주문일자") or row.get("결제완료일시"))
-        if not sale_d:
+        if sale_d is None or pd.isna(sale_d):
             continue
         prod = to_str(row.get("상품명"))
-        if not prod:
+        if not prod or prod == "NaT":
             continue
         raw_q = to_float(row.get("수량") or row.get("주문수량") or 1)
         qty = raw_q - to_float(row.get("취소수량") or 0)

@@ -15,7 +15,7 @@ from app.services.csa_parsers._common import read_excel_safe, to_date, to_float,
 @register("삼성카드")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
-    for _, row in df.iterrows():
+    for _idx, (_, row) in enumerate(df.iterrows()):
         sale_d = to_date(row.get("주문일자"))
         if not sale_d:
             continue
@@ -38,7 +38,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
         opt = to_str(row.get("단품명"))
         round_no = to_str(row.get("진행회차") or row.get("신청회차"))
         _parts = [x for x in (to_str(row.get("상품코드")), opt, round_no) if x]
-        line_no = "|".join(_parts) if _parts else to_str(row.get("상품코드"))
+        # 같은 주문·단품·금액 행 중복 시 dedup 탈락(76→74행) 방지 — 행 시퀀스 부여
+        line_no = ("|".join(_parts) if _parts else to_str(row.get("상품코드")) or "") + f"-{_idx}"
 
         yield ParsedLine(
             sale_date=sale_d,
