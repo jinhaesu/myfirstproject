@@ -15,7 +15,13 @@ from app.services.csa_parsers._common import read_excel_safe, to_date, to_dateti
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
     for _, row in df.iterrows():
-        sale_dt = to_datetime(row.get("주문일자") or row.get("주문일시"))
+        # 주문일시가 숫자형 YYYYMMDDHHMMSS(예: 20260517230737)로 오는 양식 지원
+        dt_raw = row.get("주문일자")
+        if dt_raw is None or (isinstance(dt_raw, float) and dt_raw != dt_raw):
+            dt_raw = row.get("주문일시")
+        if isinstance(dt_raw, (int, float)) and dt_raw == dt_raw and dt_raw > 10**13:
+            dt_raw = str(int(dt_raw))
+        sale_dt = to_datetime(dt_raw)
         if not sale_dt:
             continue
         prod = to_str(row.get("상품명"))
@@ -31,6 +37,11 @@ def parse(path: str) -> Iterable[ParsedLine]:
         buy_price = to_float(row.get("매입가"))
         gross = buy_price if buy_price else to_float(row.get("판매가"))
 
+        # 낱개 입수: I열(옵션 옆 무명 컬럼)에 옵션의 입수(8구→8, 16개입→16)가
+        # 들어 있음 → 낱개 = 주문수량 × 입수 (검수 반영 2026-06-12)
+        ups_raw = to_float(row.get("Unnamed: 8") or 0)
+        unit_per_set = int(ups_raw) if ups_raw >= 1 else None
+
         yield ParsedLine(
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,
@@ -42,5 +53,6 @@ def parse(path: str) -> Iterable[ParsedLine]:
             gross_amount=0 if is_cancel else gross,
             net_amount=0 if is_cancel else gross,
             refund_amount=gross if is_cancel else 0,
+            unit_per_set=unit_per_set,
             is_cancelled=is_cancel,
         )

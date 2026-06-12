@@ -64,7 +64,7 @@ def _read_benepia(path: str) -> pd.DataFrame:
 @register("Benepia")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = _read_benepia(path)
-    for _, row in df.iterrows():
+    for _idx, (_, row) in enumerate(df.iterrows()):
         sale_dt = (
             to_datetime(row.get("주문일"))
             or to_datetime(row.get("주문일자"))
@@ -79,9 +79,11 @@ def parse(path: str) -> Iterable[ParsedLine]:
         cancel_qty = to_float(row.get("취교반수량") or 0)
         net_qty = qty - cancel_qty
 
-        # 주문/배송상태에 '취소'/'반품' 포함 시 취소건으로 표시
+        # 취소 판별 (검수 반영 2026-06-12): U열 [취소/반품 상태]에 내역이 있으면
+        # 취소건 (주문/배송상태가 '배송완료'여도 취소완료일 수 있음)
+        claim = to_str(row.get("취소/반품 상태") or row.get("취소/반품") or "") or ""
         status = to_str(row.get("주문/배송상태") or row.get("주문상태") or "") or ""
-        is_cancel = ("취소" in status) or ("반품" in status) or (net_qty <= 0)
+        is_cancel = bool(claim.strip()) or ("취소" in status) or ("반품" in status) or (net_qty <= 0)
 
         gross = to_float(row.get("주문금액") or row.get("결제금액") or row.get("공급가"))
         net = to_float(row.get("공급가") or row.get("매입액") or row.get("결제금액"))
@@ -89,7 +91,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,
             order_no=to_str(row.get("주문번호")),
-            line_no=to_str(row.get("주문순번") or row.get("상품코드")),
+            # 다품목 주문이 같은 (주문번호, 주문순번)으로 dedup 탈락(45→41행)하지
+            # 않게 행 시퀀스 부여 (검수 반영 2026-06-12)
+            line_no=f"{to_str(row.get('주문순번') or row.get('상품코드')) or ''}-{_idx}",
             raw_product_name=prod,
             raw_option_name=to_str(row.get("옵션명")),
             raw_qty=net_qty if net_qty > 0 else qty,

@@ -30,10 +30,16 @@ def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
 
     for _, row in df.iterrows():
-        # 결제구분 'F' = 취소/환불 확정 행. 제외하지 않고 is_cancelled로 표시
-        # (대시보드·업로드 결과에서 취소/환불 건수·금액으로 노출).
+        # 취소 판별 (검수 반영 2026-06-12):
+        #   신양식 — AN열 [취소구분] == '취소' 행만 취소 처리 (행별 상태 기준,
+        #            부분취소 반영: '취소안함' 행은 같은 주문번호라도 정상 합산)
+        #   구양식 — 결제구분 'F' = 취소/환불 확정 행
+        cancel_flag = to_str(row.get("취소구분"))
         pay_type = to_str(row.get("결제구분"))
-        is_cancel = bool(pay_type and pay_type.upper() == "F")
+        if cancel_flag is not None and cancel_flag != "":
+            is_cancel = "취소" in cancel_flag and cancel_flag != "취소안함"
+        else:
+            is_cancel = bool(pay_type and pay_type.upper() == "F")
 
         # 날짜: 결제일시(입금확인일) 우선, 없으면 주문일시 fallback.
         # (취소 행은 결제일시가 NaT인 경우가 많아 주문일시로 잡힘)

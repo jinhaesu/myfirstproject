@@ -17,12 +17,22 @@ def parse(path: str) -> Iterable[ParsedLine]:
         prod = to_str(row.get("전시상품명") or row.get("판매자상품명") or row.get("상품명"))
         if not prod:
             continue
-        # 정산금액(판매자 입금 기준) 우선, 없으면 결제금액(소비자 총 결제) fallback
-        # 결제금액은 배송비·쿠폰 포함이라 정산금액과 차이가 상당히 발생
-        gross = to_float(
-            row.get("판매자정산금액") or row.get("정산금액") or row.get("공급금액")
-            or row.get("결제금액") or row.get("판매가")
-        )
+        qty = to_float(row.get("수량") or 1)
+
+        # 취소 판별: U열 [진행단계]가 '취소'면 취소건 (검수 반영 2026-06-12)
+        stage = to_str(row.get("진행단계") or row.get("진행상태 (약식)") or "") or ""
+        is_cancel = "취소" in stage
+
+        # 매출 = 행별 [AV 결제금액] × [AX 수량]  ← 검수 반영(2026-06-12)
+        unit_pay = to_float(row.get("결제금액"))
+        if unit_pay:
+            gross = unit_pay * qty
+        else:
+            # 구양식 fallback: 정산금액(총액) 등
+            gross = to_float(
+                row.get("판매자정산금액") or row.get("정산금액") or row.get("공급금액")
+                or row.get("판매가")
+            )
         yield ParsedLine(
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,
@@ -30,8 +40,10 @@ def parse(path: str) -> Iterable[ParsedLine]:
             line_no=to_str(row.get("상품주문번호") or row.get("판매자상품번호")),
             raw_product_name=prod,
             raw_option_name=to_str(row.get("전시단품명") or row.get("판매자단품명") or row.get("추가옵션")),
-            raw_qty=to_float(row.get("수량") or 1),
-            gross_amount=gross,
-            net_amount=gross,
+            raw_qty=qty,
+            gross_amount=0 if is_cancel else gross,
+            net_amount=0 if is_cancel else gross,
+            refund_amount=gross if is_cancel else 0,
             shipping_fee=to_float(row.get("배송비")),
+            is_cancelled=is_cancel,
         )

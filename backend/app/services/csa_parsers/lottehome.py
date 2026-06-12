@@ -148,11 +148,16 @@ def parse(path: str) -> Iterable[ParsedLine]:
         net = gross
 
         # 취소/반품 행 — is_cancelled로 표시(매출 제외, 건수·금액 보존)
+        # E열 [주문진행상태]가 표준 양식 (검수 반영 2026-06-12)
         status = to_str(
-            row.get("주문상태") or row.get("진행상태") or row.get("주문상태명")
-            or row.get("상태") or row.get("클레임상태") or ""
+            row.get("주문진행상태") or row.get("주문상태") or row.get("진행상태")
+            or row.get("주문상태명") or row.get("상태") or row.get("클레임상태") or ""
         ) or ""
         is_cancel = any(k in status for k in ("취소", "반품"))
+        # 취소수량(X)·반품수량(Y)이 전량이면 취소건으로 간주
+        c_qty = to_float(row.get("취소수량") or 0) + to_float(row.get("반품수량") or 0)
+        if c_qty and qty and c_qty >= qty:
+            is_cancel = True
 
         yield ParsedLine(
             sale_date=sale_d,
