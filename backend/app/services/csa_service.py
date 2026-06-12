@@ -275,7 +275,11 @@ def _build_mapping_cache(
     for m in db.query(ChannelProductMapping).filter(
         ChannelProductMapping.channel_id == channel_id
     ).all():
-        cache[(m.raw_product_name, m.raw_option_name)] = m
+        # 조회 키(resolve_product)는 strip된 값 — 엑셀 상품명 앞뒤 공백으로
+        # 매핑이 미적용되지 않도록 캐시 키도 strip해서 정규화.
+        _k_rn = (m.raw_product_name or "").strip()
+        _k_ro = (m.raw_option_name or "").strip() or None
+        cache[(_k_rn, _k_ro)] = m
     return cache
 
 
@@ -291,7 +295,9 @@ def _build_multi_mapping_cache(
         .all()
     )
     for r in rows:
-        cache.setdefault((r.raw_product_name, r.raw_option_name), []).append(r)
+        _k_rn = (r.raw_product_name or "").strip()
+        _k_ro = (r.raw_option_name or "").strip() or None
+        cache.setdefault((_k_rn, _k_ro), []).append(r)
     return cache
 
 
