@@ -29,7 +29,7 @@ from app.services.csa_parsers._common import (
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
 
-    for _, row in df.iterrows():
+    for _idx, (_, row) in enumerate(df.iterrows()):
         # 취소 판별 (검수 반영 2026-06-12):
         #   신양식 — AN열 [취소구분] == '취소' 행만 취소 처리 (행별 상태 기준,
         #            부분취소 반영: '취소안함' 행은 같은 주문번호라도 정상 합산)
@@ -63,16 +63,20 @@ def parse(path: str) -> Iterable[ParsedLine]:
             row.get("판매가")
             or row.get("상품구매금액(KRW)")
         )
-        # 매출(a) = 판매가 − 상품별 추가할인금액  (둘 다 품목별 라인 값)
+        # 매출 = 판매가 − 상품별 추가할인금액 − 총 실제 환불금액
+        #   (부분환불 반영. 취소안함 행이라도 부분환불분은 매출에서 차감 — 검수 2026-06-12)
         extra_discount = to_float(row.get("상품별 추가할인금액") or 0)
-        net = gross - extra_discount
+        refund_amt = to_float(row.get("총 실제 환불금액") or 0)
+        net = gross - extra_discount - refund_amt
 
-        # line_no: 상품품목코드(SKU) > 상품코드 > 상품번호
+        # line_no: 상품품목코드(SKU) > 상품코드 > 상품번호 + 행 시퀀스
+        #   (같은 주문에 동일 SKU·금액 행 중복 시 dedup 탈락 방지)
         line_no = (
             to_str(row.get("상품품목코드"))
             or to_str(row.get("상품코드"))
             or to_str(row.get("상품번호"))
-        )
+            or ""
+        ) + f"-{_idx}"
 
         if is_cancel:
             # 취소/환불 확정: 매출엔 0으로 잡고 refund_amount에 취소금액 기록

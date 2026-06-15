@@ -119,7 +119,8 @@ def normalize_channel_name(raw: Optional[str]) -> Optional[str]:
 # B2B/정산형(CU/GS25/비마트/쿠팡로켓/B2B급식/PX 등)은 이미 공급가라 변환 X.
 VAT_INCLUDED_CHANNELS: set[str] = {
     # 오픈마켓
-    "카페24", "자사몰",
+    # ※ 카페24/자사몰 제외(2026-06-12 검수): 판매가(T)가 이미 공급가(부가세 별도)라
+    #    ÷1.1 이중 적용 금지. 매출=판매가−추가할인−환불 그대로 적재.
     "스마트스토어",
     "쿠팡 WING",
     "11번가",
