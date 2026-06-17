@@ -782,6 +782,9 @@ class ChannelProductMappingComponent(Base):
     product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=False, index=True)
     unit_per_set = Column(Integer, default=1)  # 이 컴포넌트 1세트당 낱개 수
     sort_order = Column(Integer, default=0)
+    # 증정품(예: 1+1 콜라보 콩단백 너겟·후무스): 낱개수량은 세되 매출은 0으로 적재.
+    # 매출은 유료(is_free=False) 컴포넌트들끼리만 입수 비율로 안분 → 결제 매출 보존.
+    is_free = Column(Boolean, default=False, nullable=False)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

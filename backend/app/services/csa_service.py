@@ -66,6 +66,9 @@ DEFAULT_PRODUCTS: list[dict[str, Any]] = [
     {"code": "MADE", "name": "마들렌", "category": "디저트", "default_unit_size": 1, "sort_order": 24},
     {"code": "VGCK", "name": "비건 케이크", "category": "디저트", "default_unit_size": 1, "sort_order": 25},
     {"code": "STOL", "name": "슈톨렌", "category": "디저트", "default_unit_size": 1, "sort_order": 26},
+    # 삼양 펄스랩 콜라보 증정품(1+1) — 낱개수량만 집계, 매출 0(is_free 컴포넌트)
+    {"code": "KONG", "name": "콩단백 너겟", "aliases": ["콩단백너겟", "콩단백 너겟 1봉"], "category": "콜라보", "default_unit_size": 1, "sort_order": 27},
+    {"code": "HUMS", "name": "후무스", "aliases": ["후무스 1봉"], "category": "콜라보", "default_unit_size": 1, "sort_order": 28},
 ]
 
 
@@ -312,24 +315,44 @@ def split_by_units(
     """옵션 매출을 컴포넌트별 '낱개수량(unit_per_set)' 비율로 안분.
 
     반환: [(product_id, pcs_qty, gross, net, unit_per_set), ...].
-    부동소수 합계 보존을 위해 잔여(rounding remainder)는 마지막 컴포넌트에 몰아준다.
+    - 낱개수량(pcs)은 모든 컴포넌트가 raw_qty×입수로 집계(증정품 포함).
+    - 매출(gross/net)은 **유료 컴포넌트(is_free=False)끼리만** 입수 비율로 안분.
+      증정품(is_free=True, 예: 1+1 콜라보 콩단백 너겟)은 매출 0 → 결제 매출 보존.
+    - 부동소수 합계 보존을 위해 잔여는 마지막 '유료' 컴포넌트에 몰아준다.
     """
-    total_ups = sum(max(int(getattr(c, "unit_per_set", 1) or 1), 1) for c in comps) or len(comps)
+    def _is_free(c) -> bool:
+        return bool(getattr(c, "is_free", False))
+
+    paid_idx = [i for i, c in enumerate(comps) if not _is_free(c)]
+    # 전부 증정품(유료 0)인 비정상 케이스 → 매출 유실 방지 위해 전체를 유료 취급
+    if not paid_idx:
+        paid_idx = list(range(len(comps)))
+
+        def _is_free(c):  # noqa: F811 — 로컬 폴백
+            return False
+
+    total_ups_paid = sum(
+        max(int(getattr(comps[i], "unit_per_set", 1) or 1), 1) for i in paid_idx
+    ) or len(paid_idx)
+    last_paid = paid_idx[-1]
+
     out: list[tuple] = []
     g_acc = n_acc = 0.0
-    nlen = len(comps)
     for ci, c in enumerate(comps):
         ups_i = max(int(getattr(c, "unit_per_set", 1) or 1), 1)
-        if ci < nlen - 1:
-            w = ups_i / total_ups
+        pcs_i = (raw_qty or 0) * ups_i
+        if _is_free(c):
+            g_i = n_i = 0.0
+        elif ci == last_paid:
+            g_i = base_gross - g_acc  # 잔여 → 합계 보존
+            n_i = base_net - n_acc
+        else:
+            w = ups_i / total_ups_paid
             g_i = base_gross * w
             n_i = base_net * w
             g_acc += g_i
             n_acc += n_i
-        else:
-            g_i = base_gross - g_acc  # 잔여 → 합계 보존
-            n_i = base_net - n_acc
-        out.append((c.product_id, (raw_qty or 0) * ups_i, g_i, n_i, ups_i))
+        out.append((c.product_id, pcs_i, g_i, n_i, ups_i))
     return out
 
 
