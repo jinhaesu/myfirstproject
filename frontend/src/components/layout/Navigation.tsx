@@ -38,6 +38,7 @@ const navGroups: NavGroup[] = [
     pathPrefix: ['/scm'],
     items: [
       { href: '/scm/products', label: '품목 관리', icon: 'products' },
+      { href: '/scm/bom', label: 'BOM·원부재료', icon: 'products' },
       { href: '/scm/orders', label: '주문 계획', icon: 'orders' },
       { href: '/scm/production', label: '생산 계획', icon: 'production' },
       { href: '/scm/production-results', label: '생산 결과', icon: 'results' },
