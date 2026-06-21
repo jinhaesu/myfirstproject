@@ -458,6 +458,98 @@ class ScmProduct(Base):
     safety_stock = Column(Float, default=0)  # 안전재고
     is_active = Column(Boolean, default=True)  # 활성 여부
     notes = Column(Text, nullable=True)
+    # ── BOM 계층 확장 (2026-06-21) ──
+    # item_type: 원재료 / 부자재 / 반제품 / 완제품 / 세트 / 혼합세트
+    item_type = Column(String(30), nullable=True, index=True)
+    flavor = Column(String(100), nullable=True)  # 맛 (딸기요거트, 황치즈 등); 반제품·완제품용
+    flavor_group = Column(String(50), nullable=True)  # 사랑 / 감동 등 맛 그룹
+    unit_weight_g = Column(Float, default=0)  # 개당 중량(g) — 꼬끄 20g, 크림 35g 등
+    erp_code = Column(String(100), nullable=True, index=True)  # ERP 품목코드(자재)
+    # CSA 표준품목 연결 (세트 품목 → 사랑세트/감동세트 ProductMaster)
+    csa_product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True, index=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ScmRawMaterial(Base):
+    """원재료 마스터 (BOM 원재료DB)"""
+    __tablename__ = "scm_raw_materials"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    erp_code = Column(String(100), nullable=True, index=True)  # 품목코드
+    name = Column(String(300), nullable=False, index=True)  # 품목명 [규격]
+    supplier = Column(String(200), nullable=True)  # 거래처명
+    material_class = Column(String(50), default="원재료")  # 구분
+    spec = Column(String(100), nullable=True)  # 규격
+    spec_unit = Column(String(50), nullable=True)  # 규격단위
+    unit = Column(String(50), nullable=True)  # 단위 (kg 등)
+    kg_price = Column(Float, default=0)  # kg당 단가 (원, 부가세 별도)
+    spec_price = Column(Float, default=0)  # 규격당 단가
+    is_active = Column(Boolean, default=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ScmSubMaterial(Base):
+    """부자재 마스터 (BOM 부자재DB) — 롤지·용기·슬리브·흡습제 등"""
+    __tablename__ = "scm_sub_materials"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    erp_code = Column(String(100), nullable=True, index=True)
+    name = Column(String(300), nullable=False, index=True)
+    supplier = Column(String(200), nullable=True)
+    material_class = Column(String(50), default="부자재")
+    unit = Column(String(50), nullable=True)  # ea / RL 등
+    roll_price = Column(Float, default=0)  # 롤당 단가
+    producible_qty = Column(Float, default=0)  # 생산가능수량 (롤당 생산 개수)
+    unit_price = Column(Float, default=0)  # 개당 단가 (롤지=cm/m당)
+    is_active = Column(Boolean, default=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ScmBomLine(Base):
+    """BOM 라인 (배합비) — 품목(반제품/완제품) 1개당 소요 자재.
+
+    item_id 품목 1개(EA) 생산에 필요한 원재료/부자재 투입량.
+    qty_per_unit = 개당 투입량 (원재료=kg, 부자재=ea/단위).
+    """
+    __tablename__ = "scm_bom_lines"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    item_id = Column(Integer, ForeignKey("scm_products.id"), nullable=False, index=True)  # 모(母)품목
+    material_type = Column(String(20), nullable=False)  # raw / sub
+    raw_material_id = Column(Integer, ForeignKey("scm_raw_materials.id"), nullable=True)
+    sub_material_id = Column(Integer, ForeignKey("scm_sub_materials.id"), nullable=True)
+    material_erp_code = Column(String(100), nullable=True, index=True)
+    material_name = Column(String(300), nullable=True)
+    qty_per_unit = Column(Float, default=0)  # 개당 투입량 (원재료 kg / 부자재 ea)
+    qty_unit = Column(String(30), nullable=True)  # kg / ea
+    loss_rate = Column(Float, default=0)  # 로스율(%) — 추후 사용
+    source_sheet = Column(String(100), nullable=True)  # 출처 시트
+    sort_order = Column(Integer, default=0)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class ScmItemComponent(Base):
+    """품목 구성 (세트/혼합/완제품 → 하위 품목).
+
+    예) 완제품 '마카롱 딸기요거트' → [꼬끄 딸기요거트 1, 크림 딸기요거트 1]
+        세트 '마카롱 사랑세트' → [마카롱 딸기요거트 1, ... 8맛]
+        혼합세트 '뚱카롱+뚱낭시에' → [마카롱 8, 뚱낭시에 8]
+    """
+    __tablename__ = "scm_item_components"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    parent_item_id = Column(Integer, ForeignKey("scm_products.id"), nullable=False, index=True)
+    child_item_id = Column(Integer, ForeignKey("scm_products.id"), nullable=False, index=True)
+    qty = Column(Float, default=1)  # 모품목 1개당 하위품목 수량
+    sort_order = Column(Integer, default=0)
+    notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

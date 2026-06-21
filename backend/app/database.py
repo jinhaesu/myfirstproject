@@ -67,6 +67,7 @@ def init_db():
             TargetReportSchedule,
             ScmOrderPlan, ScmProductionResult, ScmProductionPlanV2,
             ScmProduct,
+            ScmRawMaterial, ScmSubMaterial, ScmBomLine, ScmItemComponent,
             CsInquiry, CsReferenceData, CsConfig,
             DeliveryTracking, CsFollowUpAction,
             ProductMaster, ChannelProductMapping, ChannelProductMappingComponent,
@@ -137,6 +138,24 @@ def init_db():
                 conn.execute(text(
                     "ALTER TABLE csa_plan_group_summary ADD COLUMN IF NOT EXISTS cm_share DOUBLE PRECISION"
                 ))
+                conn.commit()
+        except Exception:
+            pass
+
+        # SCM 품목 BOM 계층 확장 컬럼 (2026-06-21)
+        try:
+            from sqlalchemy import text
+            scm_product_alters = [
+                "ADD COLUMN IF NOT EXISTS item_type VARCHAR(30)",
+                "ADD COLUMN IF NOT EXISTS flavor VARCHAR(100)",
+                "ADD COLUMN IF NOT EXISTS flavor_group VARCHAR(50)",
+                "ADD COLUMN IF NOT EXISTS unit_weight_g DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS erp_code VARCHAR(100)",
+                "ADD COLUMN IF NOT EXISTS csa_product_id INTEGER",
+            ]
+            with engine.connect() as conn:
+                for col_sql in scm_product_alters:
+                    conn.execute(text(f"ALTER TABLE scm_products {col_sql}"))
                 conn.commit()
         except Exception:
             pass
