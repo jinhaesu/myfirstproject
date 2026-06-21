@@ -8,7 +8,7 @@
        기 정산액, 기 정산 수수료, 수수료율 %, 수수료, 특별 수수료, 정산금액
      - 행수(주문건수) = G열 [합배송 ID] 고유값  ← 사용자 지정(2026-06-12)
      - 낱개수량 = J열 [수량](주문수량) × 매핑 입수
-     - 순매출 = M열 [상품 구매액] − P열 [판매자 부담 쿠폰]
+     - 순매출 = M열 [상품 구매액] + N열 [배송비]  ← 사용자 갱신(2026-06-21, 정산탭 리뉴얼)
   B) 정산 예정 매출 내역 (구양식) — 합배송 아이디 / 상품 구매금액 /
        판매자 부담 쿠폰할인금 / 주문 성사 시점 기반.
 """
@@ -47,9 +47,10 @@ def parse(path: str) -> Iterable[ParsedLine]:
             prod = to_str(row.get("상품명"))
             if not prod:
                 continue
+            # 순매출 = 상품 구매액 + 배송비 (2026-06-21 갱신, 정산탭 리뉴얼로 주문서 양식 변동)
             gross = to_float(row.get("상품 구매액"))
-            seller_coupon = to_float(row.get("판매자 부담 쿠폰"))
-            net = gross - seller_coupon
+            shipping = to_float(row.get("배송비"))
+            net = gross + shipping
             refund = to_float(row.get("취소 금액"))
             order_no = to_str(row.get("합배송 ID") or row.get("주문번호"))
             opt = to_str(row.get("옵션"))

@@ -65,28 +65,46 @@ def _parse_xml(path: str) -> Iterable[ParsedLine]:
             return None
         return cells[i]
 
+    def cell_by_pos(cells, pos):
+        return cells[pos] if pos < len(cells) else None
+
+    def col(cells, names, pos):
+        """헤더명 후보 우선, 없으면 컬럼 위치(0-index)로 폴백."""
+        for n in names:
+            if n in col_idx:
+                return cell(cells, n)
+        return cell_by_pos(cells, pos)
+
+    # 사용자 지정(2026-06-21): 순매출 = F열[주문금액] − H열[취소금액],
+    #                          낱개수량 = E열[주문수량] − G열[취소수량].
+    # (담당자 명칭은 주문출고/반품회수로 칭하나, 본 양식 헤더는 주문/취소 — 컬럼 위치 E/F/G/H 기준)
     for r in rows[3:]:
         cells = _DATA_RE.findall(r)
         if not cells:
             continue
-        no = (cell(cells, "No") or "").strip()
+        no = (col(cells, ["No"], 0) or "").strip()
         if no in ("합계", "총합계", ""):
             continue
-        prod = to_str(cell(cells, "상품명"))
+        prod = to_str(col(cells, ["상품명"], 2))
         if not prod:
             continue
-        qty = to_float(cell(cells, "합계수량") or cell(cells, "주문수량"))
-        gross = to_float(cell(cells, "합계금액") or cell(cells, "주문금액"))
+        order_qty = to_float(col(cells, ["주문수량", "주문출고수량"], 4))   # E
+        cancel_qty = to_float(col(cells, ["취소수량", "반품회수수량"], 6))   # G
+        order_amt = to_float(col(cells, ["주문금액", "주문출고금액"], 5))   # F
+        cancel_amt = to_float(col(cells, ["취소금액", "반품회수금액"], 7))   # H
+        qty = order_qty - cancel_qty
+        gross = order_amt - cancel_amt
         if qty == 0 and gross == 0:
             continue
         yield ParsedLine(
             sale_date=sale_d,
-            line_no=to_str(cell(cells, "상품코드")),
+            line_no=to_str(col(cells, ["상품코드"], 1)),
             raw_product_name=prod,
             raw_qty=qty,
             gross_amount=gross,
             net_amount=gross,
             settlement_amount=gross,
+            refund_amount=cancel_amt,
         )
 
 
