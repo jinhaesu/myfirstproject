@@ -66,6 +66,8 @@ interface Product {
   product_name: string;
   product_code: string;
   product_category: string;
+  item_type?: string;
+  flavor_group?: string;
   default_location: string;
   default_unit_price: number;
   default_cost: number;
@@ -95,6 +97,15 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
 };
 
 const DEFAULT_CATEGORY_COLOR = { bg: 'bg-[#08090A]', text: 'text-[#D0D6E0]', border: 'border-[#23252A]' };
+
+const ITEM_TYPE_BADGE: Record<string, string> = {
+  '세트': 'bg-[#5E6AD2]/15 text-[#828FFF] border-[#5E6AD2]/30',
+  '혼합세트': 'bg-[#5E6AD2]/15 text-[#828FFF] border-[#5E6AD2]/30',
+  '완제품': 'bg-[#27A644]/10 text-[#27A644] border-[#27A644]/25',
+  '반제품': 'bg-[#F0BF00]/10 text-[#F0BF00] border-[#F0BF00]/30',
+  '원재료': 'bg-[#4DA3FF]/10 text-[#4DA3FF] border-[#4DA3FF]/25',
+  '부자재': 'bg-[#08090A] text-[#8A8F98] border-[#23252A]',
+};
 
 // ─────────────────────────────────────────────
 // Sample data
@@ -177,6 +188,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>(sampleProducts);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('전체');
+  const [typeFilter, setTypeFilter] = useState<string>('전체');
   const [activeOnlyFilter, setActiveOnlyFilter] = useState(false);
   const [sortField, setSortField] = useState<SortField>('product_category');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
@@ -229,6 +241,10 @@ export default function ProductsPage() {
       result = result.filter(p => p.product_category === categoryFilter);
     }
 
+    if (typeFilter !== '전체') {
+      result = result.filter(p => (p.item_type || '미분류') === typeFilter);
+    }
+
     if (activeOnlyFilter) {
       result = result.filter(p => p.is_active);
     }
@@ -249,7 +265,21 @@ export default function ProductsPage() {
     });
 
     return result;
-  }, [products, searchTerm, categoryFilter, activeOnlyFilter, sortField, sortDir]);
+  }, [products, searchTerm, categoryFilter, typeFilter, activeOnlyFilter, sortField, sortDir]);
+
+  // ── 동적 카테고리 / 품목유형 (BOM 적재로 늘어난 분류 자동 반영) ──
+  const dynamicCategories = useMemo(() => {
+    const set = new Set<string>(CATEGORIES);
+    products.forEach(p => { if (p.product_category) set.add(p.product_category); });
+    return Array.from(set);
+  }, [products]);
+
+  const itemTypes = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach(p => { if (p.item_type) set.add(p.item_type); });
+    const order = ['세트', '혼합세트', '완제품', '반제품', '원재료', '부자재'];
+    return Array.from(set).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  }, [products]);
 
   // ── Summary stats ──
   const stats = useMemo(() => {
@@ -470,7 +500,7 @@ export default function ProductsPage() {
 
           {/* Category filter */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            {['전체', ...CATEGORIES].map(cat => {
+            {['전체', ...dynamicCategories].map(cat => {
               const isActive = categoryFilter === cat;
               const color = cat !== '전체' ? getCategoryColor(cat) : null;
               return (
@@ -490,6 +520,25 @@ export default function ProductsPage() {
               );
             })}
           </div>
+
+          {/* Item type filter (BOM 적재 시 표시) */}
+          {itemTypes.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap sm:border-l sm:border-[#23252A] sm:pl-3">
+              {['전체', ...itemTypes].map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTypeFilter(t)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition ${
+                    typeFilter === t
+                      ? 'bg-[#5E6AD2] text-white border-[#5E6AD2]'
+                      : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-white/5'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Active only toggle */}
           <label className="flex items-center gap-2 text-sm text-[#8A8F98] cursor-pointer select-none whitespace-nowrap">
@@ -569,12 +618,22 @@ export default function ProductsPage() {
                         </td>
                         {/* Name */}
                         <td className="px-3 py-3 text-left">
-                          <button
-                            onClick={() => openEditModal(product)}
-                            className="text-left text-[#F7F8F8] font-medium hover:text-[#7070FF] hover:underline transition"
-                          >
-                            {product.product_name}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => openEditModal(product)}
+                              className="text-left text-[#F7F8F8] font-medium hover:text-[#7070FF] hover:underline transition"
+                            >
+                              {product.product_name}
+                            </button>
+                            {product.item_type && (
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${ITEM_TYPE_BADGE[product.item_type] || 'bg-[#08090A] text-[#8A8F98] border-[#23252A]'}`}>
+                                {product.item_type}
+                              </span>
+                            )}
+                            {product.flavor_group && (
+                              <span className="text-[10px] text-[#62666D]">{product.flavor_group}</span>
+                            )}
+                          </div>
                           {product.notes && (
                             <p className="text-xs text-[#62666D] mt-0.5">{product.notes}</p>
                           )}
