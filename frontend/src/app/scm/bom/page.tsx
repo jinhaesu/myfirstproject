@@ -484,6 +484,44 @@ export default function BomPage() {
             )}
           </div>
         </div>
+
+        {/* ── 사용 가이드 ── */}
+        <details className="mt-6 bg-[#0F1011] rounded-xl border border-[#23252A] group" open>
+          <summary className="flex items-center justify-between px-5 py-4 cursor-pointer select-none list-none">
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-[#828FFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <h3 className="font-bold text-[#F7F8F8] text-sm">사용 가이드 — 품목·BOM·세트 관리</h3>
+            </div>
+            <svg className="h-4 w-4 text-[#62666D] transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </summary>
+          <div className="px-5 pb-5 pt-1 border-t border-[#23252A] grid md:grid-cols-2 gap-x-8 gap-y-5 text-sm text-[#D0D6E0]">
+            <GuideBlock n="1" title="계층 구조" color="#828FFF">
+              원재료 · 부자재 → <b className="text-[#F0BF00]">반제품</b>(꼬끄·크림 등) → <b className="text-[#27A644]">완제품</b>(맛별) → <b className="text-[#828FFF]">세트/혼합세트</b> 순으로 묶입니다.
+              판매량을 넣으면 세트→완제품→반제품→원부재료까지 거꾸로 전개돼 소요량·원가가 계산됩니다.
+            </GuideBlock>
+            <GuideBlock n="2" title="원재료·부자재 등록" color="#4DA3FF">
+              우측 상단 <Btn>+ 원재료</Btn> <Btn>+ 부자재</Btn> 로 직접 등록합니다. 좌측 목록에서 <b>원재료/부자재 탭</b>의 항목을 클릭하면 단가·거래처 등을 수정할 수 있어요. ERP 코드(RM·SM)는 자동 부여됩니다.
+            </GuideBlock>
+            <GuideBlock n="3" title="완제품을 묶어 세트 만들기" color="#27A644">
+              좌측 <b className="text-[#27A644]">완제품</b> 탭 → 넣을 완제품들의 <b>체크박스</b> 선택 → 목록 위 보라색 바의 <Btn>세트로 묶기</Btn> → 창에서 <b>품목명·유형(세트/혼합세트)·맛그룹·구성수량</b> 입력 후 <b>생성</b>. 코드는 ST/MX 자동.
+            </GuideBlock>
+            <GuideBlock n="4" title="반제품·원부재료로 완제품 만들기" color="#F0BF00">
+              <b className="text-[#F0BF00]">반제품</b> 탭에서 꼬끄·크림을 체크 → <Btn>완제품으로 묶기</Btn> → 생성. 이후 상세에서 <Btn>+ 자재 추가</Btn>로 포장재 등 원부재료를, <Btn>+ 구성 추가</Btn>로 하위 품목을 더 붙입니다.
+            </GuideBlock>
+            <GuideBlock n="5" title="BOM 상세 · kg/g · 금액" color="#828FFF">
+              좌측 품목 클릭 → 우측에 <b>구성 품목 + 자재 라인</b> 표시. 우상단 <Btn>kg/g</Btn> 토글로 투입량·단가 단위를 바꾸고, 각 라인의 <b>투입량 × 단가 = 금액</b>과 맨 아래 <b>개당 재료원가 합계</b>를 확인합니다.
+            </GuideBlock>
+            <GuideBlock n="6" title="생산소요 계산" color="#5E6AD2">
+              품목 행의 <Btn>담기</Btn> → 상단 <Btn>생산소요 계산</Btn> 패널에서 수량 입력 → <b>소요량 계산</b>. "이 세트 100개 = 원재료 N종·부자재 M종·재료원가 얼마"까지 자동 전개됩니다.
+            </GuideBlock>
+            <GuideBlock n="7" title="엑셀 일괄 적재 · 코드체계" color="#8A8F98">
+              <Btn>BOM 엑셀</Btn>로 〈조인앤조인 제품별 BOM〉 양식을 통째로 재적재할 수 있습니다(기존 BOM 교체). 모든 품목·자재는 유형별 코드를 갖습니다 — <b>원재료 RM · 부자재 SM · 반제품 SF · 완제품 FG · 세트 ST · 혼합세트 MX</b>.
+            </GuideBlock>
+            <GuideBlock n="8" title="품목관리와의 연결" color="#62666D">
+              <b>품목 관리</b> 메뉴의 ‘품목 추가’에서 <b>BOM 리스트에서 불러오기</b>로 여기 등록된 완제품·반제품·세트·원부재료를 골라 바로 마스터에 올릴 수 있습니다.
+            </GuideBlock>
+          </div>
+        </details>
       </main>
 
       {/* ── 자재 등록/수정 모달 ── */}
@@ -732,4 +770,21 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   );
+}
+
+// 가이드용 헬퍼
+function GuideBlock({ n, title, color, children }: { n: string; title: string; color: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-3">
+      <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: `${color}22`, color }}>{n}</span>
+      <div>
+        <p className="font-semibold text-[#F7F8F8] mb-1">{title}</p>
+        <p className="text-[13px] leading-relaxed text-[#8A8F98]">{children}</p>
+      </div>
+    </div>
+  );
+}
+
+function Btn({ children }: { children: React.ReactNode }) {
+  return <span className="inline-block mx-0.5 px-1.5 py-0.5 rounded bg-[#08090A] border border-[#23252A] text-[#D0D6E0] text-[11px] font-medium align-middle">{children}</span>;
 }
