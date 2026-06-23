@@ -1,0 +1,21 @@
+# Fly.io 배포 설정 — 백엔드를 도쿄(nrt)에 배치해 Supabase(서울)와 근접 (RTT ~35ms).
+# Railway egress가 캘리포니아라 309ms 나오던 문제 해결용 이전.
+app = "joinandjoin-csa-api"
+primary_region = "nrt"  # Tokyo
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"     # 항상 켜둠 — cold start 방지 (DB 연결 풀 유지)
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

@@ -279,6 +279,11 @@ class ProductCreate(BaseModel):
     product_name: str
     product_code: Optional[str] = None
     product_category: Optional[str] = None
+    item_type: Optional[str] = None  # 원재료/부자재/반제품/완제품/세트/혼합세트
+    flavor: Optional[str] = None
+    flavor_group: Optional[str] = None
+    unit_weight_g: Optional[float] = 0
+    erp_code: Optional[str] = None
     default_location: Optional[str] = None
     default_unit_price: float = 0
     default_cost: float = 0
@@ -289,6 +294,11 @@ class ProductUpdate(BaseModel):
     product_name: Optional[str] = None
     product_code: Optional[str] = None
     product_category: Optional[str] = None
+    item_type: Optional[str] = None
+    flavor: Optional[str] = None
+    flavor_group: Optional[str] = None
+    unit_weight_g: Optional[float] = None
+    erp_code: Optional[str] = None
     default_location: Optional[str] = None
     default_unit_price: Optional[float] = None
     default_cost: Optional[float] = None
@@ -2488,30 +2498,18 @@ def create_product(
     try:
         from app.db_models import ScmProduct
 
-        # Auto-generate product_code if not provided
-        product_code = body.product_code
-        if not product_code:
-            prefix = (body.product_category or "ETC")[:2].upper()
-            # Find the max existing code with this prefix
-            last = (
-                db.query(ScmProduct)
-                .filter(ScmProduct.product_code.ilike(f"{prefix}%"))
-                .order_by(ScmProduct.id.desc())
-                .first()
-            )
-            if last and last.product_code:
-                try:
-                    num = int(last.product_code[len(prefix):]) + 1
-                except (ValueError, IndexError):
-                    num = 1
-            else:
-                num = 1
-            product_code = f"{prefix}{num:04d}"
+        # 품목코드 자동생성 (item_type 기반 ERP 코드체계)
+        product_code = body.product_code or _gen_item_code(db, body.item_type, body.product_category)
 
         product = ScmProduct(
             product_name=body.product_name,
             product_code=product_code,
             product_category=body.product_category,
+            item_type=body.item_type,
+            flavor=body.flavor,
+            flavor_group=body.flavor_group,
+            unit_weight_g=body.unit_weight_g or 0,
+            erp_code=body.erp_code or product_code,
             default_location=body.default_location,
             default_unit_price=body.default_unit_price,
             default_cost=body.default_cost,
@@ -2888,6 +2886,100 @@ class LinkCsaRequest(BaseModel):
     csa_product_id: Optional[int] = None
 
 
+class RawMaterialBody(BaseModel):
+    erp_code: Optional[str] = None
+    name: str
+    supplier: Optional[str] = None
+    material_class: Optional[str] = "원재료"
+    spec: Optional[str] = None
+    spec_unit: Optional[str] = None
+    unit: Optional[str] = "kg"
+    kg_price: float = 0
+    spec_price: float = 0
+    notes: Optional[str] = None
+
+
+class SubMaterialBody(BaseModel):
+    erp_code: Optional[str] = None
+    name: str
+    supplier: Optional[str] = None
+    material_class: Optional[str] = "부자재"
+    unit: Optional[str] = "ea"
+    roll_price: float = 0
+    producible_qty: float = 0
+    unit_price: float = 0
+    notes: Optional[str] = None
+
+
+class ComposeComponent(BaseModel):
+    child_item_id: int
+    qty: float = 1
+
+
+class ComposeBomLine(BaseModel):
+    material_type: str  # raw / sub
+    raw_material_id: Optional[int] = None
+    sub_material_id: Optional[int] = None
+    material_name: Optional[str] = None
+    material_erp_code: Optional[str] = None
+    qty_per_unit: float = 0
+    qty_unit: Optional[str] = None
+
+
+class ComposeRequest(BaseModel):
+    """여러 하위품목/자재를 묶어 상위품목(세트/완제품)을 생성."""
+    product_name: str
+    item_type: str  # 세트 / 혼합세트 / 완제품 / 반제품
+    product_category: Optional[str] = None
+    flavor_group: Optional[str] = None
+    unit_weight_g: Optional[float] = 0
+    components: List[ComposeComponent] = []
+    bom_lines: List[ComposeBomLine] = []
+
+
+# ── ERP 코드체계 (item_type → prefix) ──
+_TYPE_CODE_PREFIX = {
+    "원재료": "RM", "부자재": "SM", "반제품": "SF",
+    "완제품": "FG", "세트": "ST", "혼합세트": "MX",
+}
+
+
+def _next_seq(db, model, field, prefix):
+    """prefix로 시작하는 코드 중 최대 일련번호 + 1."""
+    from sqlalchemy import cast, Integer as SAInt
+    rows = db.query(getattr(model, field)).filter(getattr(model, field).ilike(f"{prefix}%")).all()
+    mx = 0
+    for (code,) in rows:
+        if not code:
+            continue
+        try:
+            n = int(str(code)[len(prefix):])
+            mx = max(mx, n)
+        except (ValueError, TypeError):
+            continue
+    return mx + 1
+
+
+def _gen_item_code(db, item_type, category):
+    """품목 ERP 코드 자동생성: item_type 우선, 없으면 카테고리 약어."""
+    from app.db_models import ScmProduct
+    prefix = _TYPE_CODE_PREFIX.get(item_type or "") or (category or "ETC")[:2].upper()
+    return f"{prefix}{_next_seq(db, ScmProduct, 'product_code', prefix):04d}"
+
+
+@router.get("/next-code")
+def next_code(item_type: Optional[str] = None, category: Optional[str] = None, kind: str = "product", db: Session = Depends(get_db)):
+    """다음 ERP 코드 미리보기 (모달 표시용). kind=product/raw/sub."""
+    from app.db_models import ScmProduct, ScmRawMaterial, ScmSubMaterial
+    if kind == "raw":
+        code = f"RM{_next_seq(db, ScmRawMaterial, 'erp_code', 'RM'):04d}"
+    elif kind == "sub":
+        code = f"SM{_next_seq(db, ScmSubMaterial, 'erp_code', 'SM'):04d}"
+    else:
+        code = _gen_item_code(db, item_type, category)
+    return {"success": True, "data": {"code": code}}
+
+
 @router.get("/materials/raw")
 def list_raw_materials(search: Optional[str] = None, db: Session = Depends(get_db)):
     """원재료 마스터 목록"""
@@ -2898,8 +2990,45 @@ def list_raw_materials(search: Optional[str] = None, db: Session = Depends(get_d
     rows = q.order_by(ScmRawMaterial.name).all()
     return {"success": True, "data": [
         {"id": r.id, "erp_code": r.erp_code, "name": r.name, "supplier": r.supplier,
-         "material_class": r.material_class, "spec": r.spec, "unit": r.unit,
-         "kg_price": r.kg_price, "spec_price": r.spec_price} for r in rows], "total": q.count()}
+         "material_class": r.material_class, "spec": r.spec, "spec_unit": r.spec_unit, "unit": r.unit,
+         "kg_price": r.kg_price, "spec_price": r.spec_price, "notes": r.notes} for r in rows], "total": len(rows)}
+
+
+@router.post("/materials/raw")
+def create_raw_material(body: RawMaterialBody, db: Session = Depends(get_db)):
+    """원재료 직접 등록"""
+    from app.db_models import ScmRawMaterial
+    code = body.erp_code or f"RM{_next_seq(db, ScmRawMaterial, 'erp_code', 'RM'):04d}"
+    r = ScmRawMaterial(erp_code=code, name=body.name, supplier=body.supplier,
+                       material_class=body.material_class or "원재료", spec=body.spec,
+                       spec_unit=body.spec_unit, unit=body.unit or "kg",
+                       kg_price=body.kg_price, spec_price=body.spec_price, notes=body.notes)
+    db.add(r); db.commit(); db.refresh(r)
+    return {"success": True, "data": {"id": r.id, "erp_code": r.erp_code, "name": r.name}}
+
+
+@router.put("/materials/raw/{rid}")
+def update_raw_material(rid: int, body: RawMaterialBody, db: Session = Depends(get_db)):
+    """원재료 수정"""
+    from app.db_models import ScmRawMaterial
+    r = db.query(ScmRawMaterial).filter(ScmRawMaterial.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="원재료를 찾을 수 없습니다")
+    for k, v in body.model_dump(exclude_unset=True).items():
+        setattr(r, k, v)
+    db.commit()
+    return {"success": True}
+
+
+@router.delete("/materials/raw/{rid}")
+def delete_raw_material(rid: int, db: Session = Depends(get_db)):
+    from app.db_models import ScmRawMaterial
+    r = db.query(ScmRawMaterial).filter(ScmRawMaterial.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="원재료를 찾을 수 없습니다")
+    r.is_active = False  # soft delete (BOM 라인 보호)
+    db.commit()
+    return {"success": True}
 
 
 @router.get("/materials/sub")
@@ -2913,7 +3042,44 @@ def list_sub_materials(search: Optional[str] = None, db: Session = Depends(get_d
     return {"success": True, "data": [
         {"id": r.id, "erp_code": r.erp_code, "name": r.name, "supplier": r.supplier,
          "unit": r.unit, "roll_price": r.roll_price, "producible_qty": r.producible_qty,
-         "unit_price": r.unit_price} for r in rows], "total": len(rows)}
+         "unit_price": r.unit_price, "notes": r.notes} for r in rows], "total": len(rows)}
+
+
+@router.post("/materials/sub")
+def create_sub_material(body: SubMaterialBody, db: Session = Depends(get_db)):
+    """부자재 직접 등록"""
+    from app.db_models import ScmSubMaterial
+    code = body.erp_code or f"SM{_next_seq(db, ScmSubMaterial, 'erp_code', 'SM'):04d}"
+    r = ScmSubMaterial(erp_code=code, name=body.name, supplier=body.supplier,
+                       material_class=body.material_class or "부자재", unit=body.unit or "ea",
+                       roll_price=body.roll_price, producible_qty=body.producible_qty,
+                       unit_price=body.unit_price, notes=body.notes)
+    db.add(r); db.commit(); db.refresh(r)
+    return {"success": True, "data": {"id": r.id, "erp_code": r.erp_code, "name": r.name}}
+
+
+@router.put("/materials/sub/{sid}")
+def update_sub_material(sid: int, body: SubMaterialBody, db: Session = Depends(get_db)):
+    """부자재 수정"""
+    from app.db_models import ScmSubMaterial
+    r = db.query(ScmSubMaterial).filter(ScmSubMaterial.id == sid).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="부자재를 찾을 수 없습니다")
+    for k, v in body.model_dump(exclude_unset=True).items():
+        setattr(r, k, v)
+    db.commit()
+    return {"success": True}
+
+
+@router.delete("/materials/sub/{sid}")
+def delete_sub_material(sid: int, db: Session = Depends(get_db)):
+    from app.db_models import ScmSubMaterial
+    r = db.query(ScmSubMaterial).filter(ScmSubMaterial.id == sid).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="부자재를 찾을 수 없습니다")
+    r.is_active = False
+    db.commit()
+    return {"success": True}
 
 
 @router.get("/bom/summary")
@@ -2937,22 +3103,45 @@ def get_item_bom(item_id: int, db: Session = Depends(get_db)):
     item = db.query(ScmProduct).filter(ScmProduct.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="품목을 찾을 수 없습니다")
+    from app.db_models import ScmRawMaterial, ScmSubMaterial
     lines = db.query(ScmBomLine).filter(ScmBomLine.item_id == item_id).order_by(ScmBomLine.sort_order, ScmBomLine.id).all()
     comps = db.query(ScmItemComponent).filter(ScmItemComponent.parent_item_id == item_id).all()
     child_ids = [c.child_item_id for c in comps]
     child_map = {p.id: p for p in db.query(ScmProduct).filter(ScmProduct.id.in_(child_ids)).all()} if child_ids else {}
+
+    # 단가 일괄 로드 (라인별 금액 계산용)
+    raw_ids = [b.raw_material_id for b in lines if b.raw_material_id]
+    sub_ids = [b.sub_material_id for b in lines if b.sub_material_id]
+    raw_price = {r.id: (r.kg_price or 0) for r in db.query(ScmRawMaterial).filter(ScmRawMaterial.id.in_(raw_ids)).all()} if raw_ids else {}
+    sub_price = {s.id: (s.unit_price or 0) for s in db.query(ScmSubMaterial).filter(ScmSubMaterial.id.in_(sub_ids)).all()} if sub_ids else {}
+
+    bom_out, bom_cost = [], 0.0
+    for b in lines:
+        if b.material_type == "raw":
+            unit_price = raw_price.get(b.raw_material_id, 0)
+        elif b.material_type == "sub":
+            unit_price = sub_price.get(b.sub_material_id, 0)
+        else:
+            unit_price = 0  # semi: 하위 전개로 계산
+        line_cost = (b.qty_per_unit or 0) * unit_price
+        bom_cost += line_cost
+        bom_out.append({
+            "id": b.id, "material_type": b.material_type, "material_name": b.material_name,
+            "material_erp_code": b.material_erp_code, "qty_per_unit": b.qty_per_unit,
+            "qty_unit": b.qty_unit, "raw_material_id": b.raw_material_id, "sub_material_id": b.sub_material_id,
+            "unit_price": unit_price, "line_cost": round(line_cost, 2),
+        })
     return {"success": True, "data": {
         "item": {"id": item.id, "product_name": item.product_name, "item_type": item.item_type,
+                 "product_code": item.product_code, "erp_code": item.erp_code, "unit_weight_g": item.unit_weight_g,
                  "flavor": item.flavor, "flavor_group": item.flavor_group, "category": item.product_category},
-        "bom_lines": [
-            {"id": b.id, "material_type": b.material_type, "material_name": b.material_name,
-             "material_erp_code": b.material_erp_code, "qty_per_unit": b.qty_per_unit,
-             "qty_unit": b.qty_unit, "raw_material_id": b.raw_material_id, "sub_material_id": b.sub_material_id}
-            for b in lines],
+        "bom_lines": bom_out,
+        "bom_cost": round(bom_cost),
         "components": [
             {"id": c.id, "child_item_id": c.child_item_id, "qty": c.qty,
              "child_name": child_map[c.child_item_id].product_name if c.child_item_id in child_map else None,
-             "child_type": child_map[c.child_item_id].item_type if c.child_item_id in child_map else None}
+             "child_type": child_map[c.child_item_id].item_type if c.child_item_id in child_map else None,
+             "child_code": child_map[c.child_item_id].product_code if c.child_item_id in child_map else None}
             for c in comps],
     }}
 
@@ -3035,6 +3224,44 @@ def production_requirement(body: ProductionRequirementRequest, db: Session = Dep
     }}
 
 
+@router.post("/items/compose")
+def compose_item(body: ComposeRequest, db: Session = Depends(get_db)):
+    """여러 하위품목/자재를 묶어 상위품목 생성.
+    - 완제품 N개 묶기 → 세트/혼합세트
+    - 반제품 + 원부재료 묶기 → 완제품
+    """
+    from app.db_models import ScmProduct, ScmItemComponent, ScmBomLine
+    existing = db.query(ScmProduct).filter(ScmProduct.product_name == body.product_name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="같은 이름의 품목이 이미 있습니다")
+
+    # 카테고리 미지정 시 첫 구성품의 카테고리 승계
+    category = body.product_category
+    if not category and body.components:
+        first = db.query(ScmProduct).filter(ScmProduct.id == body.components[0].child_item_id).first()
+        category = first.product_category if first else None
+
+    code = _gen_item_code(db, body.item_type, category)
+    parent = ScmProduct(
+        product_name=body.product_name, product_code=code, erp_code=code,
+        product_category=category, item_type=body.item_type,
+        flavor_group=body.flavor_group, unit_weight_g=body.unit_weight_g or 0,
+    )
+    db.add(parent); db.flush()
+
+    for i, comp in enumerate(body.components):
+        db.add(ScmItemComponent(parent_item_id=parent.id, child_item_id=comp.child_item_id,
+                                qty=comp.qty or 1, sort_order=i))
+    for i, ln in enumerate(body.bom_lines):
+        db.add(ScmBomLine(item_id=parent.id, material_type=ln.material_type,
+                          raw_material_id=ln.raw_material_id, sub_material_id=ln.sub_material_id,
+                          material_name=ln.material_name, material_erp_code=ln.material_erp_code,
+                          qty_per_unit=ln.qty_per_unit, qty_unit=ln.qty_unit, sort_order=i))
+    db.commit(); db.refresh(parent)
+    return {"success": True, "data": {"id": parent.id, "product_code": parent.product_code,
+                                      "product_name": parent.product_name, "item_type": parent.item_type}}
+
+
 @router.post("/items/{item_id}/components")
 def add_component(item_id: int, body: ComponentCreate, db: Session = Depends(get_db)):
     """세트/완제품에 하위 품목 추가"""
@@ -3086,6 +3313,50 @@ def link_item_to_csa(item_id: int, body: LinkCsaRequest, db: Session = Depends(g
     p.csa_product_id = body.csa_product_id
     db.commit()
     return {"success": True}
+
+
+@router.post("/bom/backfill-codes")
+def backfill_codes(db: Session = Depends(get_db)):
+    """코드 없는 품목·자재에 ERP 코드체계(RM/SM/SF/FG/ST/MX) 일괄 부여."""
+    from app.db_models import ScmProduct, ScmRawMaterial, ScmSubMaterial
+    report = {"products": 0, "raw": 0, "sub": 0}
+
+    # 품목: item_type별 순번
+    seq: dict = {}
+    prods = db.query(ScmProduct).order_by(ScmProduct.item_type, ScmProduct.id).all()
+    # 기존 코드의 최대 순번으로 시드
+    for p in prods:
+        prefix = _TYPE_CODE_PREFIX.get(p.item_type or "") or (p.product_category or "ETC")[:2].upper()
+        if p.product_code:
+            try:
+                seq[prefix] = max(seq.get(prefix, 0), int(str(p.product_code)[len(prefix):]))
+            except (ValueError, TypeError):
+                pass
+    for p in prods:
+        if p.product_code:
+            if not p.erp_code:
+                p.erp_code = p.product_code
+            continue
+        prefix = _TYPE_CODE_PREFIX.get(p.item_type or "") or (p.product_category or "ETC")[:2].upper()
+        seq[prefix] = seq.get(prefix, 0) + 1
+        p.product_code = f"{prefix}{seq[prefix]:04d}"
+        p.erp_code = p.erp_code or p.product_code
+        report["products"] += 1
+
+    # 자재
+    rseq = _next_seq(db, ScmRawMaterial, "erp_code", "RM") - 1
+    for r in db.query(ScmRawMaterial).filter((ScmRawMaterial.erp_code == None) | (ScmRawMaterial.erp_code == "")).order_by(ScmRawMaterial.id).all():
+        rseq += 1
+        r.erp_code = f"RM{rseq:04d}"
+        report["raw"] += 1
+    sseq = _next_seq(db, ScmSubMaterial, "erp_code", "SM") - 1
+    for s in db.query(ScmSubMaterial).filter((ScmSubMaterial.erp_code == None) | (ScmSubMaterial.erp_code == "")).order_by(ScmSubMaterial.id).all():
+        sseq += 1
+        s.erp_code = f"SM{sseq:04d}"
+        report["sub"] += 1
+
+    db.commit()
+    return {"success": True, "report": report}
 
 
 @router.post("/bom/import")

@@ -68,6 +68,7 @@ interface Product {
   product_category: string;
   item_type?: string;
   flavor_group?: string;
+  erp_code?: string;
   default_location: string;
   default_unit_price: number;
   default_cost: number;
@@ -87,6 +88,7 @@ type SortDirection = 'asc' | 'desc';
 // ─────────────────────────────────────────────
 const CATEGORIES = ['마카롱', '케이크', '쿠키', '비누', '캔들'];
 const LOCATIONS = ['1층', '2층', '3층'];
+const ITEM_TYPES = ['완제품', '반제품', '세트', '혼합세트', '원재료', '부자재'];
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   '마카롱': { bg: 'bg-[#EB5757]/10', text: 'text-[#D04040]', border: 'border-[#EB5757]/25' },
@@ -166,6 +168,8 @@ const createEmptyProduct = (): Product => ({
   product_name: '',
   product_code: '',
   product_category: '마카롱',
+  item_type: '완제품',
+  erp_code: '',
   default_location: '2층',
   default_unit_price: 0,
   default_cost: 0,
@@ -202,6 +206,61 @@ export default function ProductsPage() {
 
   // Delete confirmation
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
+  // BOM 불러오기 picker
+  const [showBomPicker, setShowBomPicker] = useState(false);
+  const [pickerTab, setPickerTab] = useState<'완제품' | '반제품' | '세트' | '원재료' | '부자재'>('완제품');
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [pickerList, setPickerList] = useState<any[]>([]);
+
+  // picker 목록 로드
+  useEffect(() => {
+    if (!showBomPicker) return;
+    (async () => {
+      if (pickerTab === '원재료' || pickerTab === '부자재') {
+        const kind = pickerTab === '원재료' ? 'raw' : 'sub';
+        const r = await fetchSafe<any>(`/api/scm/materials/${kind}?search=${encodeURIComponent(pickerSearch)}`, { data: [] });
+        setPickerList(r.data || []);
+      } else {
+        const r = await fetchSafe<any>(`/api/scm/products?item_type=${encodeURIComponent(pickerTab)}&search=${encodeURIComponent(pickerSearch)}&active_only=true`, { data: [] });
+        setPickerList(r.data || []);
+      }
+    })();
+  }, [showBomPicker, pickerTab, pickerSearch]);
+
+  // picker → 폼 prefill
+  const pickFromBom = useCallback((row: any) => {
+    if (pickerTab === '원재료' || pickerTab === '부자재') {
+      setFormData(prev => ({
+        ...prev,
+        product_name: row.name,
+        product_code: row.erp_code || prev.product_code,
+        erp_code: row.erp_code || '',
+        item_type: pickerTab,
+        product_category: pickerTab,
+        default_cost: pickerTab === '원재료' ? (row.kg_price || 0) : (row.unit_price || 0),
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        product_name: row.product_name,
+        product_code: row.product_code || prev.product_code,
+        erp_code: row.erp_code || '',
+        item_type: row.item_type || pickerTab,
+        product_category: row.product_category || prev.product_category,
+        flavor_group: row.flavor_group || '',
+        default_unit_price: row.default_unit_price || 0,
+        default_cost: row.default_cost || 0,
+      }));
+    }
+    setShowBomPicker(false);
+  }, [pickerTab]);
+
+  // item_type 변경 시 코드 미리보기 (신규만)
+  const loadNextCode = useCallback(async (itemType: string, category: string) => {
+    const r = await fetchSafe<any>(`/api/scm/next-code?item_type=${encodeURIComponent(itemType)}&category=${encodeURIComponent(category)}`, null);
+    if (r?.data?.code) setFormData(prev => ({ ...prev, product_code: r.data.code, erp_code: r.data.code }));
+  }, []);
 
   // ── Auth guard ──
   useEffect(() => {
@@ -752,6 +811,46 @@ export default function ProductsPage() {
 
               {/* Form */}
               <div className="px-6 py-5 space-y-4">
+                {/* BOM 불러오기 (신규 등록 시) */}
+                {!editingProduct && (
+                  <button
+                    onClick={() => { setShowBomPicker(true); setPickerTab('완제품'); setPickerSearch(''); }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-dashed border-[#5E6AD2]/40 bg-[#5E6AD2]/5 text-[#828FFF] hover:bg-[#5E6AD2]/10 transition"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>
+                    BOM 리스트에서 불러오기 (완제품·반제품·세트·원부재료)
+                  </button>
+                )}
+
+                {/* Row 0: 품목유형 + ERP 코드 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#8A8F98] mb-1.5">품목 유형</label>
+                    <select
+                      value={formData.item_type || ''}
+                      onChange={e => {
+                        const v = e.target.value;
+                        handleFormChange('item_type', v);
+                        if (!editingProduct && v) loadNextCode(v, formData.product_category);
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 bg-[#0F1011]"
+                    >
+                      <option value="">미분류</option>
+                      {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#8A8F98] mb-1.5">ERP 코드</label>
+                    <input
+                      type="text"
+                      value={formData.erp_code || ''}
+                      onChange={e => handleFormChange('erp_code', e.target.value)}
+                      placeholder="품목유형 선택 시 자동"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 font-mono"
+                    />
+                  </div>
+                </div>
+
                 {/* Row 1: Name + Code */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -902,6 +1001,49 @@ export default function ProductsPage() {
                 >
                   {editingProduct ? '수정' : '추가'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── BOM 불러오기 Picker ── */}
+        {showBomPicker && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowBomPicker(false)} />
+            <div className="relative bg-[#0F1011] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] overflow-hidden border border-[#23252A] flex flex-col">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#23252A]">
+                <h2 className="text-base font-bold text-[#F7F8F8]">BOM 리스트에서 불러오기</h2>
+                <button onClick={() => setShowBomPicker(false)} className="p-1 rounded-lg hover:bg-white/5 text-[#62666D]">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="px-5 py-3 border-b border-[#23252A] space-y-2.5">
+                <div className="flex gap-1.5 flex-wrap">
+                  {(['완제품', '반제품', '세트', '원재료', '부자재'] as const).map(t => (
+                    <button key={t} onClick={() => setPickerTab(t)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${pickerTab === t ? 'bg-[#5E6AD2] text-white border-[#5E6AD2]' : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-white/5'}`}>{t}</button>
+                  ))}
+                </div>
+                <input value={pickerSearch} onChange={e => setPickerSearch(e.target.value)} placeholder="이름·코드 검색..."
+                  className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 bg-[#08090A]" />
+              </div>
+              <div className="overflow-auto divide-y divide-[#1A1B1E] px-2 py-1">
+                {pickerList.map((row: any) => {
+                  const isMat = pickerTab === '원재료' || pickerTab === '부자재';
+                  const name = isMat ? row.name : row.product_name;
+                  const code = isMat ? row.erp_code : row.product_code;
+                  const price = isMat ? (pickerTab === '원재료' ? `${fmt(row.kg_price || 0)}/kg` : `${fmt(row.unit_price || 0)}/${row.unit || 'ea'}`) : '';
+                  return (
+                    <button key={row.id} onClick={() => pickFromBom(row)} className="w-full text-left px-3 py-2.5 hover:bg-white/5 rounded-lg flex items-center justify-between">
+                      <div className="min-w-0">
+                        <div className="text-sm text-[#D0D6E0] truncate">{name}</div>
+                        <div className="text-xs text-[#62666D] truncate">{code ? `${code} · ` : ''}{isMat ? (row.supplier || '') : (row.product_category || '')}{row.flavor_group ? ` · ${row.flavor_group}` : ''}</div>
+                      </div>
+                      {price && <span className="text-xs text-[#4DA3FF] shrink-0 ml-2">{price}</span>}
+                    </button>
+                  );
+                })}
+                {pickerList.length === 0 && <div className="px-3 py-10 text-center text-sm text-[#62666D]">결과가 없습니다.</div>}
               </div>
             </div>
           </div>

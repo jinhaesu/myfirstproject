@@ -51,3 +51,4 @@ htmlcov/
 !vercel.json
 service-account*.json
 credentials*.json
+.vercel
