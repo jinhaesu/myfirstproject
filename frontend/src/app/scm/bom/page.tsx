@@ -89,10 +89,18 @@ interface Component {
   child_type?: string;
   child_code?: string;
 }
+interface WeightInfo {
+  direct_input_g: number;
+  exploded_input_g: number;
+  standard_g: number | null;
+  loss_rate: number | null;
+  has_components: boolean;
+}
 interface BomDetail {
   item: any;
   bom_lines: BomLine[];
   bom_cost: number;
+  weight?: WeightInfo;
   components: Component[];
 }
 interface ReqRaw { name: string; qty_kg: number; kg_price: number; cost: number; }
@@ -234,6 +242,11 @@ export default function BomPage() {
     }
     return `${b.qty_per_unit.toLocaleString('ko-KR', { maximumFractionDigits: 2 })} ${b.qty_unit || 'ea'}`;
   };
+  // 중량(g) → 현재 단위 표시
+  const fmtW = (g: number) => weightUnit === 'g'
+    ? `${g.toLocaleString('ko-KR', { maximumFractionDigits: 1 })} g`
+    : `${(g / 1000).toLocaleString('ko-KR', { maximumFractionDigits: 4 })} kg`;
+  const lossColor = (r: number | null) => r == null ? '' : Math.abs(r) >= 20 ? 'text-[#EB5757]' : Math.abs(r) >= 10 ? 'text-[#F0BF00]' : 'text-[#27A644]';
 
   // ── 라인 인라인 수정 ──
   const startEdit = (b: BomLine) => {
@@ -624,8 +637,41 @@ export default function BomPage() {
                       </table>
                     </div>
                   ) : <div className="text-xs text-[#62666D] py-2">등록된 자재 라인 없음 — “+ 자재 추가”로 등록하세요.</div>}
+
+                  {/* 중량 · 공정 유실율 */}
+                  {bom.weight && ((bom.weight.exploded_input_g || bom.weight.direct_input_g) > 0 || bom.weight.standard_g) && (
+                    <div className="mt-3 rounded-lg border border-[#23252A] bg-[#08090A] p-3">
+                      <div className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider mb-2.5">중량 · 공정 유실율</div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs text-[#62666D]">총 투입 중량{bom.weight.has_components ? ' (전개)' : ''}</p>
+                          <p className="font-semibold text-[#F7F8F8] mt-0.5 tabular-nums">{fmtW(bom.weight.exploded_input_g || bom.weight.direct_input_g)}</p>
+                        </div>
+                        {bom.weight.has_components && bom.weight.direct_input_g > 0 && (
+                          <div>
+                            <p className="text-xs text-[#62666D]">직접 자재</p>
+                            <p className="font-semibold text-[#D0D6E0] mt-0.5 tabular-nums">{fmtW(bom.weight.direct_input_g)}</p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-xs text-[#62666D]">기준 제품 중량</p>
+                          <p className="font-semibold text-[#D0D6E0] mt-0.5 tabular-nums">{bom.weight.standard_g ? fmtW(bom.weight.standard_g) : '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-[#62666D]">공정 유실율</p>
+                          <p className={`font-bold mt-0.5 tabular-nums ${lossColor(bom.weight.loss_rate)}`}>{bom.weight.loss_rate != null ? `${bom.weight.loss_rate}%` : '—'}</p>
+                        </div>
+                      </div>
+                      {bom.weight.standard_g == null ? (
+                        <p className="text-xs text-[#F0BF00]/80 mt-2.5">※ 기준 제품 중량(개당 g)이 없어 유실율을 계산할 수 없습니다 — 품목 관리에서 ‘개당 중량’을 입력하면 자동 산출됩니다.</p>
+                      ) : (
+                        <p className="text-xs text-[#62666D] mt-2.5">유실율 = (총 투입 중량 − 기준 제품 중량) ÷ 총 투입 중량. 굽기·건조 등 공정 손실 비율입니다.</p>
+                      )}
+                    </div>
+                  )}
+
                   {bom.components.length > 0 && (
-                    <p className="text-xs text-[#62666D] mt-2">※ 합계는 직접 자재만 반영합니다. 구성 품목(반제품·완제품)의 원가는 “생산소요 계산”에서 전개됩니다.</p>
+                    <p className="text-xs text-[#62666D] mt-2">※ 원가 합계는 직접 자재만 반영합니다. 구성 품목(반제품·완제품)의 원가·중량은 전개 기준으로 계산됩니다.</p>
                   )}
                 </div>
               </>

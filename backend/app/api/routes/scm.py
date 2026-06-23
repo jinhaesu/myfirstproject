@@ -3201,12 +3201,33 @@ def get_item_bom(item_id: int, db: Session = Depends(get_db)):
             "qty_unit": b.qty_unit, "raw_material_id": b.raw_material_id, "sub_material_id": b.sub_material_id,
             "unit_price": unit_price, "line_cost": round(line_cost, 2),
         })
+    # ── 중량 집계 (총 투입 중량 vs 기준 제품 중량 → 공정 유실율) ──
+    direct_input_kg = sum((b.qty_per_unit or 0) for b in lines if b.material_type == "raw")
+    # 완전전개 원재료 중량(반제품 구성 포함)
+    wacc: dict = {}
+    _explode_item(item_id, 1, db, wacc, {item_id})
+    exploded_input_kg = sum(e["qty"] for e in wacc.values() if e["type"] == "raw")
+    # 기준 제품 중량: 자체 unit_weight_g 우선, 없으면 구성품 중량 합
+    standard_g = (item.unit_weight_g or 0)
+    if not standard_g and comps:
+        standard_g = sum((child_map[c.child_item_id].unit_weight_g or 0) * (c.qty or 1)
+                         for c in comps if c.child_item_id in child_map)
+    basis_kg = exploded_input_kg or direct_input_kg
+    loss_rate = round((basis_kg * 1000 - standard_g) / (basis_kg * 1000) * 100, 1) if (basis_kg > 0 and standard_g) else None
+
     return {"success": True, "data": {
         "item": {"id": item.id, "product_name": item.product_name, "item_type": item.item_type,
                  "product_code": item.product_code, "erp_code": item.erp_code, "unit_weight_g": item.unit_weight_g,
                  "flavor": item.flavor, "flavor_group": item.flavor_group, "category": item.product_category},
         "bom_lines": bom_out,
         "bom_cost": round(bom_cost),
+        "weight": {
+            "direct_input_g": round(direct_input_kg * 1000, 2),
+            "exploded_input_g": round(exploded_input_kg * 1000, 2),
+            "standard_g": round(standard_g, 2) if standard_g else None,
+            "loss_rate": loss_rate,
+            "has_components": len(comps) > 0,
+        },
         "components": [
             {"id": c.id, "child_item_id": c.child_item_id, "qty": c.qty,
              "child_name": child_map[c.child_item_id].product_name if c.child_item_id in child_map else None,
