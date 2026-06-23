@@ -3242,10 +3242,12 @@ def _explode_item(item_id, qty, db, acc, visited, depth=0):
     from app.db_models import ScmProduct, ScmBomLine, ScmItemComponent
     if depth > 8 or qty <= 0:
         return
-    # 1) 구성(하위 품목) 전개
+    # 1) 구성(하위 품목) 전개 — 경로기반 순환방지(자기참조/사이클 차단)
     comps = db.query(ScmItemComponent).filter(ScmItemComponent.parent_item_id == item_id).all()
     for c in comps:
-        _explode_item(c.child_item_id, qty * (c.qty or 1), db, acc, visited, depth + 1)
+        if not c.child_item_id or c.child_item_id in visited:
+            continue
+        _explode_item(c.child_item_id, qty * (c.qty or 1), db, acc, visited | {c.child_item_id}, depth + 1)
     # 2) 직접 BOM 라인
     lines = db.query(ScmBomLine).filter(ScmBomLine.item_id == item_id).all()
     for b in lines:
@@ -3488,6 +3490,18 @@ def backfill_codes(db: Session = Depends(get_db)):
 
     db.commit()
     return {"success": True, "report": report}
+
+
+@router.post("/bom/fix-self-components")
+def fix_self_components(db: Session = Depends(get_db)):
+    """자기참조 구성(parent==child) 제거 — 전개 순환 유발 데이터 정리."""
+    from app.db_models import ScmItemComponent
+    bad = db.query(ScmItemComponent).filter(ScmItemComponent.parent_item_id == ScmItemComponent.child_item_id).all()
+    n = len(bad)
+    for c in bad:
+        db.delete(c)
+    db.commit()
+    return {"success": True, "removed": n}
 
 
 @router.post("/bom/import")
