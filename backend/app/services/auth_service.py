@@ -44,19 +44,40 @@ class AuthService:
             bcrypt.gensalt()
         ).decode('utf-8')
 
+    def _is_allowed_domain(self, email: str) -> bool:
+        """이메일 도메인이 자동 허용 목록에 있는지"""
+        if not email or "@" not in email:
+            return False
+        domain = email.rsplit("@", 1)[1].lower()
+        return domain in self.settings.allowed_email_domains_list
+
     def get_user_by_email(self, email: str) -> Optional[dict]:
-        """이메일로 사용자 조회"""
+        """이메일로 사용자 조회.
+
+        USERS_JSON에 명시 등록된 사용자를 우선 반환하고,
+        없으면 ALLOWED_EMAIL_DOMAINS 도메인 사용자는 즉석(synthetic) 사용자로 허용.
+        (비밀번호 없음 → OTP 로그인 전용)
+        """
         for user in self.users:
             if user.get("email") == email:
                 return user
+        if self._is_allowed_domain(email):
+            local = email.rsplit("@", 1)[0]
+            return {"email": email, "name": local, "password": ""}
         return None
 
     def authenticate_user(self, email: str, password: str) -> Optional[dict]:
-        """사용자 인증"""
+        """사용자 인증 (비밀번호 로그인).
+
+        비밀번호가 설정되지 않은 도메인 자동허용 사용자는 비번 로그인 불가 → OTP 사용.
+        """
         user = self.get_user_by_email(email)
         if not user:
             return None
-        if not self.verify_password(password, user.get("password", "")):
+        stored = user.get("password", "")
+        if not stored:
+            return None
+        if not self.verify_password(password, stored):
             return None
         return user
 

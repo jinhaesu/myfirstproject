@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # 사용자 설정 (JSON 형식: [{"email":"admin@example.com","password":"hashed","name":"Admin"}])
     USERS_JSON: str = "[]"
 
+    # 도메인 자동 허용 — 이 도메인의 이메일은 사전 등록 없이 OTP 로그인 허용 (쉼표 구분)
+    ALLOWED_EMAIL_DOMAINS: str = "joinandjoin.com"
+
     # 카페24
     CAFE24_CLIENT_ID: str = ""
     CAFE24_CLIENT_SECRET: str = ""
@@ -71,6 +74,10 @@ class Settings(BaseSettings):
     @property
     def allowed_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
+
+    @property
+    def allowed_email_domains_list(self) -> list[str]:
+        return [d.strip().lower() for d in self.ALLOWED_EMAIL_DOMAINS.split(",") if d.strip()]
 
     class Config:
         env_file = ".env"
