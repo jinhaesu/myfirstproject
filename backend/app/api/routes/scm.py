@@ -3096,6 +3096,76 @@ def bom_summary(db: Session = Depends(get_db)):
     }}
 
 
+@router.get("/bom/analytics")
+def bom_analytics(item_type: Optional[str] = None, db: Session = Depends(get_db)):
+    """카테고리·유형별 개당 재료원가(완전전개) 평균·합계·최소·최대 분석."""
+    from collections import defaultdict
+    from app.db_models import ScmProduct, ScmRawMaterial, ScmSubMaterial
+    raw_price = {r.id: (r.kg_price or 0) for r in db.query(ScmRawMaterial.id, ScmRawMaterial.kg_price).all()}
+    sub_price = {s.id: (s.unit_price or 0) for s in db.query(ScmSubMaterial.id, ScmSubMaterial.unit_price).all()}
+
+    q = db.query(ScmProduct).filter(
+        ScmProduct.is_active == True,
+        ScmProduct.item_type.in_(["완제품", "반제품", "세트", "혼합세트"]),
+    )
+    if item_type:
+        q = q.filter(ScmProduct.item_type == item_type)
+    items = q.all()
+
+    def unit_cost(it):
+        acc: dict = {}
+        _explode_item(it.id, 1, db, acc, {it.id})
+        c = 0.0
+        for e in acc.values():
+            if e["type"] == "raw":
+                c += e["qty"] * raw_price.get(e.get("ref_id"), 0)
+            elif e["type"] == "sub":
+                c += e["qty"] * sub_price.get(e.get("ref_id"), 0)
+        return c
+
+    rows = [{"id": it.id, "name": it.product_name, "category": it.product_category or "미분류",
+             "item_type": it.item_type, "cost": unit_cost(it)} for it in items]
+
+    def aggregate(key):
+        g = defaultdict(list)
+        for r in rows:
+            g[r[key]].append(r["cost"])
+        out = [{key: k, "count": len(v), "avg_cost": round(sum(v) / len(v)),
+                "total_cost": round(sum(v)), "min_cost": round(min(v)), "max_cost": round(max(v))}
+               for k, v in g.items()]
+        out.sort(key=lambda x: -x["total_cost"])
+        return out
+
+    # 카테고리 × 유형 매트릭스
+    mat = defaultdict(lambda: defaultdict(list))
+    for r in rows:
+        mat[r["category"]][r["item_type"]].append(r["cost"])
+    matrix = []
+    for cat, types in mat.items():
+        allc = []
+        tlist = []
+        for t, v in types.items():
+            tlist.append({"item_type": t, "count": len(v), "avg_cost": round(sum(v) / len(v)), "total_cost": round(sum(v))})
+            allc += v
+        tlist.sort(key=lambda x: -x["total_cost"])
+        matrix.append({"category": cat, "count": len(allc),
+                       "avg_cost": round(sum(allc) / len(allc)) if allc else 0,
+                       "total_cost": round(sum(allc)), "types": tlist})
+    matrix.sort(key=lambda x: -x["total_cost"])
+
+    # 상·하위 품목 (가장 비싼/싼 개당원가)
+    rows_sorted = sorted(rows, key=lambda r: -r["cost"])
+    top = [{"name": r["name"], "category": r["category"], "item_type": r["item_type"], "cost": round(r["cost"])} for r in rows_sorted[:5]]
+
+    return {"success": True, "data": {
+        "item_count": len(rows),
+        "by_category": aggregate("category"),
+        "by_type": aggregate("item_type"),
+        "matrix": matrix,
+        "top_cost": top,
+    }}
+
+
 @router.get("/items/{item_id}/bom")
 def get_item_bom(item_id: int, db: Session = Depends(get_db)):
     """품목의 직접 BOM(자재 라인) + 구성(하위 품목) 조회"""
@@ -3291,6 +3361,46 @@ def add_bom_line(item_id: int, body: BomLineCreate, db: Session = Depends(get_db
                    qty_per_unit=body.qty_per_unit, qty_unit=body.qty_unit)
     db.add(b); db.commit(); db.refresh(b)
     return {"success": True, "data": {"id": b.id}}
+
+
+class BomLineUpdate(BaseModel):
+    qty_per_unit: Optional[float] = None
+    qty_unit: Optional[str] = None
+    unit_price: Optional[float] = None  # 지정 시 연결 자재 마스터 단가까지 갱신(전체 BOM 반영)
+
+
+@router.put("/bom-lines/{line_id}")
+def update_bom_line(line_id: int, body: BomLineUpdate, db: Session = Depends(get_db)):
+    """BOM 라인 투입량 수정 + (선택) 자재 마스터 단가 갱신.
+    단가를 보내면 해당 원/부자재 자체의 단가가 바뀌어 모든 BOM·생산소요에 반영됩니다.
+    """
+    from app.db_models import ScmBomLine, ScmRawMaterial, ScmSubMaterial
+    b = db.query(ScmBomLine).filter(ScmBomLine.id == line_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="BOM 라인을 찾을 수 없습니다")
+    if body.qty_per_unit is not None:
+        b.qty_per_unit = body.qty_per_unit
+    if body.qty_unit is not None:
+        b.qty_unit = body.qty_unit
+    material_updated = None
+    if body.unit_price is not None:
+        if b.material_type == "raw" and b.raw_material_id:
+            rm = db.query(ScmRawMaterial).filter(ScmRawMaterial.id == b.raw_material_id).first()
+            if rm:
+                rm.kg_price = body.unit_price
+                material_updated = {"kind": "raw", "id": rm.id, "name": rm.name, "kg_price": rm.kg_price}
+        elif b.material_type == "sub" and b.sub_material_id:
+            sm = db.query(ScmSubMaterial).filter(ScmSubMaterial.id == b.sub_material_id).first()
+            if sm:
+                sm.unit_price = body.unit_price
+                material_updated = {"kind": "sub", "id": sm.id, "name": sm.name, "unit_price": sm.unit_price}
+    db.commit()
+    new_price = body.unit_price if body.unit_price is not None else 0
+    return {"success": True, "data": {
+        "id": b.id, "qty_per_unit": b.qty_per_unit, "qty_unit": b.qty_unit,
+        "material_updated": material_updated,
+        "line_cost": round((b.qty_per_unit or 0) * new_price, 2) if body.unit_price is not None else None,
+    }}
 
 
 @router.delete("/bom-lines/{line_id}")

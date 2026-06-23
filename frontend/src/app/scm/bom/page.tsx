@@ -135,6 +135,14 @@ export default function BomPage() {
   const [req, setReq] = useState<{ raw_materials: ReqRaw[]; sub_materials: ReqSub[]; total_material_cost: number; unresolved_semi: any[] } | null>(null);
   const [showCalc, setShowCalc] = useState(false);
 
+  // 자재 라인 인라인 수정
+  const [editLine, setEditLine] = useState<{ id: number; qty: string; price: string } | null>(null);
+
+  // 카테고리 분석
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+
   // Modals
   const [matModal, setMatModal] = useState<{ kind: 'raw' | 'sub'; data: Material | null } | null>(null);
   const [composeModal, setComposeModal] = useState<{ targetType: string; children: Item[] } | null>(null);
@@ -227,6 +235,35 @@ export default function BomPage() {
     return `${b.qty_per_unit.toLocaleString('ko-KR', { maximumFractionDigits: 2 })} ${b.qty_unit || 'ea'}`;
   };
 
+  // ── 라인 인라인 수정 ──
+  const startEdit = (b: BomLine) => {
+    const qtyVal = b.material_type === 'raw' && weightUnit === 'g' ? b.qty_per_unit * 1000 : b.qty_per_unit;
+    setEditLine({ id: b.id, qty: String(qtyVal), price: String(b.unit_price || 0) });
+  };
+  const saveLine = async (b: BomLine) => {
+    if (!editLine) return;
+    let qpu = Number(editLine.qty) || 0;
+    if (b.material_type === 'raw' && weightUnit === 'g') qpu = qpu / 1000;
+    const price = Number(editLine.price) || 0;
+    await mutate(`/api/scm/bom-lines/${b.id}`, 'PUT', { qty_per_unit: qpu, unit_price: price });
+    setEditLine(null);
+    flash('수정 완료 — 단가는 자재 마스터(모든 BOM)에 반영됩니다');
+    refreshDetail();
+  };
+
+  // ── 카테고리 분석 ──
+  const loadAnalytics = useCallback(async () => {
+    setLoadingAnalytics(true);
+    const r = await fetchSafe<any>('/api/scm/bom/analytics', null);
+    setAnalytics(r?.data || null);
+    setLoadingAnalytics(false);
+  }, []);
+  const toggleAnalytics = () => {
+    const next = !showAnalytics;
+    setShowAnalytics(next);
+    if (next && !analytics) loadAnalytics();
+  };
+
   if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-[#08090A]"><div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#5E6AD2]" /></div>;
   if (!user) return null;
 
@@ -243,6 +280,7 @@ export default function BomPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => setMatModal({ kind: 'raw', data: null })} className="px-3 py-2 text-sm font-medium rounded-lg border border-[#4DA3FF]/30 bg-[#4DA3FF]/10 text-[#4DA3FF] hover:bg-[#4DA3FF]/15 transition">+ 원재료</button>
             <button onClick={() => setMatModal({ kind: 'sub', data: null })} className="px-3 py-2 text-sm font-medium rounded-lg border border-[#23252A] bg-[#0F1011] text-[#D0D6E0] hover:bg-white/5 transition">+ 부자재</button>
+            <button onClick={toggleAnalytics} className={`px-3 py-2 text-sm font-medium rounded-lg border transition ${showAnalytics ? 'border-[#5E6AD2]/50 bg-[#5E6AD2]/10 text-[#828FFF]' : 'border-[#23252A] bg-[#0F1011] text-[#D0D6E0] hover:bg-white/5'}`}>카테고리 분석</button>
             <button onClick={() => setShowCalc((v) => !v)} className="px-3 py-2 text-sm font-medium rounded-lg border border-[#23252A] bg-[#0F1011] text-[#D0D6E0] hover:bg-white/5 transition">생산소요 계산{cart.length > 0 ? ` (${cart.length})` : ''}</button>
             <label className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition ${importing ? 'bg-[#0F1011] text-[#62666D] border border-[#23252A]' : 'bg-[#5E6AD2] text-white hover:bg-[#828FFF]'}`}>
               {importing ? '적재 중…' : 'BOM 엑셀'}
@@ -281,6 +319,74 @@ export default function BomPage() {
         )}
 
         {toast && <div className="mb-4 px-4 py-2.5 rounded-lg bg-[#27A644]/10 text-[#27A644] text-sm border border-[#27A644]/25">{toast}</div>}
+
+        {/* 카테고리 분석 (collapsible) */}
+        {showAnalytics && (
+          <div className="bg-[#0F1011] rounded-xl border border-[#5E6AD2]/30 p-4 mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-[#F7F8F8]">카테고리·유형별 BOM 원가 분석 <span className="text-xs font-normal text-[#62666D] ml-1">개당 재료원가(완전전개) 기준 · {analytics?.item_count ?? 0}개 품목</span></h3>
+              <div className="flex items-center gap-2">
+                <button onClick={loadAnalytics} className="text-xs px-2 py-1 rounded border border-[#23252A] text-[#8A8F98] hover:bg-white/5">새로고침</button>
+                <button onClick={() => setShowAnalytics(false)} className="text-[#62666D] hover:text-[#D0D6E0]">✕</button>
+              </div>
+            </div>
+            {loadingAnalytics && <div className="py-8 text-center text-sm text-[#62666D]">분석 중… (BOM 전개 계산)</div>}
+            {!loadingAnalytics && analytics && (
+              <>
+                {/* 카테고리 카드 */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+                  {analytics.by_category.map((c: any) => (
+                    <div key={c.category} className="bg-[#08090A] rounded-lg border border-[#23252A] p-3">
+                      <p className="text-xs font-medium text-[#8A8F98] truncate">{c.category} <span className="text-[#62666D]">· {c.count}종</span></p>
+                      <p className="text-xl font-bold text-[#F7F8F8] mt-1">{won(c.avg_cost)}<span className="text-xs font-normal text-[#62666D] ml-1">평균/개</span></p>
+                      <p className="text-xs text-[#62666D] mt-0.5">합 {won(c.total_cost)} · {won(c.min_cost)}~{won(c.max_cost)}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid lg:grid-cols-2 gap-4">
+                  {/* 매트릭스 */}
+                  <div>
+                    <div className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider mb-2">카테고리 × 유형 (평균 개당원가)</div>
+                    <div className="overflow-hidden rounded-lg border border-[#23252A]">
+                      <table className="w-full text-sm">
+                        <thead><tr className="bg-[#08090A] text-[#62666D] text-xs">
+                          <th className="text-left font-medium px-3 py-2">카테고리</th>
+                          <th className="text-left font-medium px-3 py-2">유형</th>
+                          <th className="text-right font-medium px-3 py-2">종수</th>
+                          <th className="text-right font-medium px-3 py-2">평균</th>
+                          <th className="text-right font-medium px-3 py-2">합계</th>
+                        </tr></thead>
+                        <tbody>
+                          {analytics.matrix.flatMap((m: any) => m.types.map((t: any, i: number) => (
+                            <tr key={`${m.category}-${t.item_type}`} className="border-t border-[#1A1B1E]">
+                              <td className="px-3 py-2 text-[#D0D6E0]">{i === 0 ? m.category : ''}</td>
+                              <td className="px-3 py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded border ${TYPE_BADGE[t.item_type] || 'text-[#62666D] border-[#23252A]'}`}>{t.item_type}</span></td>
+                              <td className="px-3 py-2 text-right text-[#8A8F98] tabular-nums">{t.count}</td>
+                              <td className="px-3 py-2 text-right text-[#D0D6E0] tabular-nums">{won(t.avg_cost)}</td>
+                              <td className="px-3 py-2 text-right text-[#62666D] tabular-nums">{won(t.total_cost)}</td>
+                            </tr>
+                          )))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  {/* 최고원가 TOP */}
+                  <div>
+                    <div className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider mb-2">개당 재료원가 상위 5</div>
+                    <div className="space-y-1">
+                      {analytics.top_cost.map((t: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#08090A] border border-[#1A1B1E]">
+                          <span className="text-sm text-[#D0D6E0] truncate"><span className="text-[#62666D] mr-1.5">{i + 1}</span>{t.name}</span>
+                          <span className="text-sm text-[#F7F8F8] font-medium shrink-0 ml-2 tabular-nums">{won(t.cost)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* 생산소요 계산 (collapsible) */}
         {showCalc && (
@@ -453,18 +559,60 @@ export default function BomPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {bom.bom_lines.map((b) => (
-                            <tr key={b.id} className="border-t border-[#1A1B1E]">
-                              <td className="px-3 py-2 text-[#D0D6E0]">
-                                {b.material_name}
-                                <span className={`ml-1.5 text-[10px] px-1 py-0.5 rounded border ${b.material_type === 'raw' ? 'text-[#4DA3FF] border-[#4DA3FF]/25' : b.material_type === 'sub' ? 'text-[#8A8F98] border-[#23252A]' : 'text-[#F0BF00] border-[#F0BF00]/25'}`}>{b.material_type === 'raw' ? '원' : b.material_type === 'sub' ? '부' : '반'}</span>
-                              </td>
-                              <td className="px-3 py-2 text-right text-[#8A8F98] whitespace-nowrap tabular-nums">{lineQtyDisplay(b)}</td>
-                              <td className="px-3 py-2 text-right text-[#62666D] whitespace-nowrap tabular-nums">{b.material_type === 'raw' ? (weightUnit === 'g' ? won(b.unit_price / 1000) + '/g' : won(b.unit_price) + '/kg') : won(b.unit_price) + '/' + (b.qty_unit || 'ea')}</td>
-                              <td className="px-3 py-2 text-right text-[#D0D6E0] font-medium whitespace-nowrap tabular-nums">{won(b.line_cost)}</td>
-                              <td className="px-2 py-2 text-center"><button onClick={async () => { await mutate(`/api/scm/bom-lines/${b.id}`, 'DELETE'); refreshDetail(); }} className="text-[#62666D] hover:text-[#EB5757] text-xs">✕</button></td>
-                            </tr>
-                          ))}
+                          {bom.bom_lines.map((b) => {
+                            const editing = editLine?.id === b.id;
+                            const editable = b.material_type === 'raw' || b.material_type === 'sub';
+                            const priceSuffix = b.material_type === 'raw' ? `원/${weightUnit}` : `원/${b.qty_unit || 'ea'}`;
+                            // 편집 중 금액 미리보기
+                            let previewCost = b.line_cost;
+                            if (editing) {
+                              let qk = Number(editLine!.qty) || 0;
+                              if (b.material_type === 'raw' && weightUnit === 'g') qk = qk / 1000;
+                              let pr = Number(editLine!.price) || 0;
+                              if (b.material_type === 'raw' && weightUnit === 'g') pr = pr * 1000; // 입력값 /g → /kg 환산하여 합산
+                              previewCost = qk * pr;
+                            }
+                            return (
+                              <tr key={b.id} className={`border-t border-[#1A1B1E] ${editing ? 'bg-[#5E6AD2]/5' : ''}`}>
+                                <td className="px-3 py-2 text-[#D0D6E0]">
+                                  {b.material_name}
+                                  <span className={`ml-1.5 text-[10px] px-1 py-0.5 rounded border ${b.material_type === 'raw' ? 'text-[#4DA3FF] border-[#4DA3FF]/25' : b.material_type === 'sub' ? 'text-[#8A8F98] border-[#23252A]' : 'text-[#F0BF00] border-[#F0BF00]/25'}`}>{b.material_type === 'raw' ? '원' : b.material_type === 'sub' ? '부' : '반'}</span>
+                                </td>
+                                <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
+                                  {editing ? (
+                                    <span className="inline-flex items-center gap-1 justify-end">
+                                      <input value={editLine!.qty} onChange={(e) => setEditLine({ ...editLine!, qty: e.target.value })} className={`w-24 px-2 py-1 text-sm text-right ${inputCls}`} />
+                                      <span className="text-[10px] text-[#62666D]">{b.material_type === 'raw' ? weightUnit : (b.qty_unit || 'ea')}</span>
+                                    </span>
+                                  ) : <span className="text-[#8A8F98]">{lineQtyDisplay(b)}</span>}
+                                </td>
+                                <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
+                                  {editing && editable ? (
+                                    <span className="inline-flex items-center gap-1 justify-end">
+                                      <input value={editLine!.price} onChange={(e) => setEditLine({ ...editLine!, price: e.target.value })} className={`w-24 px-2 py-1 text-sm text-right ${inputCls}`} />
+                                      <span className="text-[10px] text-[#62666D]">{priceSuffix}</span>
+                                    </span>
+                                  ) : <span className="text-[#62666D]">{b.material_type === 'raw' ? (weightUnit === 'g' ? won(b.unit_price / 1000) + '/g' : won(b.unit_price) + '/kg') : (editable ? won(b.unit_price) + '/' + (b.qty_unit || 'ea') : '—')}</span>}
+                                </td>
+                                <td className="px-3 py-2 text-right text-[#D0D6E0] font-medium whitespace-nowrap tabular-nums">{won(previewCost)}</td>
+                                <td className="px-2 py-2">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    {editing ? (
+                                      <>
+                                        <button onClick={() => saveLine(b)} className="text-[#27A644] hover:text-[#3AD668] text-sm" title="저장">✓</button>
+                                        <button onClick={() => setEditLine(null)} className="text-[#62666D] hover:text-[#D0D6E0] text-xs" title="취소">✕</button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        {editable && <button onClick={() => startEdit(b)} className="text-[#62666D] hover:text-[#828FFF] text-xs" title="투입량·단가 수정">✎</button>}
+                                        <button onClick={async () => { await mutate(`/api/scm/bom-lines/${b.id}`, 'DELETE'); refreshDetail(); }} className="text-[#62666D] hover:text-[#EB5757] text-xs" title="삭제">🗑</button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                         <tfoot>
                           <tr className="border-t border-[#23252A] bg-[#08090A]">
