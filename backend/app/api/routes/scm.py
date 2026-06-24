@@ -3197,7 +3197,7 @@ def bom_cost_detail(category: Optional[str] = None, item_type: str = "완제품"
         out.append({
             "id": it.id, "name": it.product_name, "category": it.product_category,
             "cost": round(cost), "unit_weight_g": it.unit_weight_g,
-            "components": [{"child_id": c.child_item_id, "child": name_by_id.get(c.child_item_id), "qty": c.qty} for c in comps],
+            "components": [{"cid": c.id, "child_id": c.child_item_id, "child": name_by_id.get(c.child_item_id), "qty": c.qty} for c in comps],
             "direct_lines": [{"type": b.material_type, "name": b.material_name, "qty": b.qty_per_unit, "unit": b.qty_unit} for b in lines],
         })
     out.sort(key=lambda x: -x["cost"])
