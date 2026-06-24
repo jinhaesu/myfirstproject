@@ -3259,8 +3259,11 @@ def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Sessio
             if len(k) >= 2:
                 name_keys.append((k, p))
 
-    def resolve_pm(name: str):
+    def resolve_pm(name: str, category: str = ""):
         cands = [(k, p) for (k, p) in name_keys if k and k in name]
+        # 비건 라인(예: '비건 마카롱')은 동일 비건 표준품목이 없으면 일반 표준품목(마카롱)에 섞지 않음.
+        if "비건" in (category or "") or name.strip().startswith("비건"):
+            cands = [(k, p) for (k, p) in cands if "비건" in (p.name or "")]
         if not cands:
             return None
         cands.sort(key=lambda x: -len(x[0]))
@@ -3278,7 +3281,7 @@ def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Sessio
         if it.csa_product_id and it.csa_product_id in pm_by_id:
             pm = pm_by_id[it.csa_product_id]
         elif it.item_type == "완제품":
-            pm = resolve_pm(it.product_name or "")
+            pm = resolve_pm(it.product_name or "", it.product_category or "")
         if not pm:
             unmatched.append({"id": it.id, "name": it.product_name, "item_type": it.item_type})
             continue
