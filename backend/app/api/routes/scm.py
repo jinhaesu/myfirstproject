@@ -283,6 +283,7 @@ class ProductCreate(BaseModel):
     flavor: Optional[str] = None
     flavor_group: Optional[str] = None
     unit_weight_g: Optional[float] = 0
+    labor_cost_per_unit: Optional[float] = 0
     erp_code: Optional[str] = None
     default_location: Optional[str] = None
     default_unit_price: float = 0
@@ -298,6 +299,7 @@ class ProductUpdate(BaseModel):
     flavor: Optional[str] = None
     flavor_group: Optional[str] = None
     unit_weight_g: Optional[float] = None
+    labor_cost_per_unit: Optional[float] = None
     erp_code: Optional[str] = None
     default_location: Optional[str] = None
     default_unit_price: Optional[float] = None
@@ -2466,6 +2468,7 @@ def list_products(
                     "flavor": p.flavor,
                     "flavor_group": p.flavor_group,
                     "unit_weight_g": p.unit_weight_g,
+                    "labor_cost_per_unit": p.labor_cost_per_unit,
                     "erp_code": p.erp_code,
                     "csa_product_id": p.csa_product_id,
                     "default_location": p.default_location,
@@ -2509,6 +2512,7 @@ def create_product(
             flavor=body.flavor,
             flavor_group=body.flavor_group,
             unit_weight_g=body.unit_weight_g or 0,
+            labor_cost_per_unit=body.labor_cost_per_unit or 0,
             erp_code=body.erp_code or product_code,
             default_location=body.default_location,
             default_unit_price=body.default_unit_price,
@@ -3166,6 +3170,123 @@ def bom_analytics(item_type: Optional[str] = None, db: Session = Depends(get_db)
     }}
 
 
+class SyncCsaCostsRequest(BaseModel):
+    include_labor: bool = True
+    rebuild: bool = True
+
+
+@router.post("/sync-csa-costs")
+def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Session = Depends(get_db)):
+    """SCM BOM에서 산출한 **개당 재료원가(+개당 노무비)**를 CSA 변동비 규칙(cogs/labor)으로 동기화.
+
+    - 완제품: CSA 표준품목(ProductMaster)에 csa_product_id로 연결됐거나 이름이 정확히 일치하면 매칭.
+      같은 표준품목에 여러 맛(완제품)이 매핑되면 **평균** 개당 원가/노무비를 사용.
+    - 세트/혼합세트: csa_product_id가 명시된 경우에만 동기화(세트 1개 단가 = 풀 BOM 원가).
+    - 규칙은 전 채널 공통(channel_id=NULL)·기간 무제한으로 upsert → 채널별 daily 재계산 반영.
+    """
+    from collections import defaultdict
+    from app.db_models import (
+        ScmProduct, ScmRawMaterial, ScmSubMaterial,
+        ProductMaster, CsaCostItem, CsaCostRule,
+    )
+    from app.services.csa_cost_service import seed_cost_items, rebuild_daily_with_costs
+
+    body = body or SyncCsaCostsRequest()
+    seed_cost_items(db)  # cogs/labor 등 기본 변동비 항목 보장(idempotent)
+
+    raw_price = {r.id: (r.kg_price or 0) for r in db.query(ScmRawMaterial.id, ScmRawMaterial.kg_price).all()}
+    sub_price = {s.id: (s.unit_price or 0) for s in db.query(ScmSubMaterial.id, ScmSubMaterial.unit_price).all()}
+
+    def unit_material_cost(item_id):
+        acc: dict = {}
+        _explode_item(item_id, 1, db, acc, {item_id})
+        c = 0.0
+        for e in acc.values():
+            if e["type"] == "raw":
+                c += e["qty"] * raw_price.get(e.get("ref_id"), 0)
+            elif e["type"] == "sub":
+                c += e["qty"] * sub_price.get(e.get("ref_id"), 0)
+        return c
+
+    pms = db.query(ProductMaster).filter(ProductMaster.is_active == True).all()
+    pm_by_id = {p.id: p for p in pms}
+    pm_by_name = {(p.name or "").strip(): p for p in pms}
+
+    items = db.query(ScmProduct).filter(
+        ScmProduct.is_active == True,
+        ScmProduct.item_type.in_(["완제품", "세트", "혼합세트"]),
+    ).all()
+
+    agg: dict = defaultdict(lambda: {"costs": [], "labors": [], "names": []})
+    unmatched = []
+    for it in items:
+        pm = None
+        if it.csa_product_id and it.csa_product_id in pm_by_id:
+            pm = pm_by_id[it.csa_product_id]
+        elif it.item_type == "완제품":
+            pm = pm_by_name.get((it.product_name or "").strip())
+        if not pm:
+            unmatched.append({"id": it.id, "name": it.product_name, "item_type": it.item_type})
+            continue
+        agg[pm.id]["costs"].append(round(unit_material_cost(it.id)))
+        agg[pm.id]["labors"].append(round(it.labor_cost_per_unit or 0))
+        agg[pm.id]["names"].append(it.product_name)
+
+    cogs_item = db.query(CsaCostItem).filter(CsaCostItem.code == "cogs").first()
+    labor_item = db.query(CsaCostItem).filter(CsaCostItem.code == "labor").first()
+
+    def upsert_rule(cost_item_id, product_id, amount):
+        rule = db.query(CsaCostRule).filter(
+            CsaCostRule.cost_item_id == cost_item_id,
+            CsaCostRule.channel_id.is_(None),
+            CsaCostRule.product_id == product_id,
+            CsaCostRule.valid_from.is_(None),
+            CsaCostRule.valid_to.is_(None),
+        ).first()
+        if rule:
+            rule.amount_per_pcs = amount
+            rule.is_active = True
+            rule.notes = "SCM BOM 동기화"
+        else:
+            db.add(CsaCostRule(
+                cost_item_id=cost_item_id, channel_id=None, product_id=product_id,
+                amount_per_pcs=amount, is_active=True, notes="SCM BOM 동기화",
+            ))
+
+    report = []
+    for pid, d in agg.items():
+        avg_cost = round(sum(d["costs"]) / len(d["costs"])) if d["costs"] else 0
+        avg_labor = round(sum(d["labors"]) / len(d["labors"])) if d["labors"] else 0
+        if cogs_item:
+            upsert_rule(cogs_item.id, pid, avg_cost)
+        if body.include_labor and labor_item:
+            upsert_rule(labor_item.id, pid, avg_labor)
+        report.append({
+            "product_id": pid, "product_name": pm_by_id[pid].name,
+            "matched_items": len(d["costs"]), "avg_cogs": avg_cost, "avg_labor": avg_labor,
+            "source_names": d["names"],
+        })
+    db.commit()
+
+    if body.rebuild:
+        rebuild_daily_with_costs(db)
+        try:
+            from app.api.routes.csa import _bust_all_caches
+            _bust_all_caches()
+        except Exception:
+            pass
+
+    report.sort(key=lambda x: -x["avg_cogs"])
+    return {
+        "success": True,
+        "synced": len(report),
+        "unmatched_count": len(unmatched),
+        "include_labor": body.include_labor,
+        "report": report,
+        "unmatched": unmatched,
+    }
+
+
 @router.get("/items/{item_id}/bom")
 def get_item_bom(item_id: int, db: Session = Depends(get_db)):
     """품목의 직접 BOM(자재 라인) + 구성(하위 품목) 조회"""
@@ -3218,6 +3339,7 @@ def get_item_bom(item_id: int, db: Session = Depends(get_db)):
     return {"success": True, "data": {
         "item": {"id": item.id, "product_name": item.product_name, "item_type": item.item_type,
                  "product_code": item.product_code, "erp_code": item.erp_code, "unit_weight_g": item.unit_weight_g,
+                 "labor_cost_per_unit": item.labor_cost_per_unit, "csa_product_id": item.csa_product_id,
                  "flavor": item.flavor, "flavor_group": item.flavor_group, "category": item.product_category},
         "bom_lines": bom_out,
         "bom_cost": round(bom_cost),

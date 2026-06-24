@@ -2132,6 +2132,31 @@ function CostTab({
   const [monthly, setMonthly] = useState<ChannelMonthlyCost[]>([]);
   const [selectedItem, setSelectedItem] = useState<CostItem | null>(null);
   const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ synced: number; unmatched_count: number; report: { product_name: string; matched_items: number; avg_cogs: number; avg_labor: number }[]; unmatched: { name: string; item_type: string }[] } | null>(null);
+  const fetchAllRef = useRef<(() => Promise<void>) | null>(null);
+
+  const runSync = useCallback(async (includeLabor: boolean) => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const r = await fetch(`${API_BASE}/api/scm/sync-csa-costs`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ include_labor: includeLabor, rebuild: true }),
+      });
+      if (r.ok) {
+        setSyncResult(await r.json());
+        await fetchAllRef.current?.();
+        onUpdated();
+      } else {
+        setSyncResult({ synced: 0, unmatched_count: 0, report: [], unmatched: [] });
+      }
+    } finally {
+      setSyncing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authHeaders, onUpdated]);
 
   const fetchAll = useCallback(async () => {
     const [iRes, rRes, mRes] = await Promise.all([
@@ -2144,7 +2169,7 @@ function CostTab({
     if (mRes.ok) setMonthly(await mRes.json());
   }, [authHeaders]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { fetchAllRef.current = fetchAll; fetchAll(); }, [fetchAll]);
 
   const rulesForItem = (itemId: number) => rules.filter(r => r.cost_item_id === itemId);
   const monthlyForItem = (itemId: number) => monthly.filter(m => m.cost_item_id === itemId);
@@ -2162,10 +2187,62 @@ function CostTab({
     <div className="space-y-4">
       {/* 안내 */}
       <div className={`${PANEL} p-4`}>
-        <div className="flex items-baseline justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <h2 className="text-sm font-semibold">비용 카테고리 — 공헌이익 계산 기준</h2>
-          <span className="text-[10px] text-[#A3A9B3]">규칙 변경 시 즉시 daily 집계 재계산</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-[#A3A9B3]">규칙 변경 시 즉시 daily 집계 재계산</span>
+            <button
+              onClick={() => runSync(true)}
+              disabled={syncing}
+              title="SCM BOM에서 산출된 제품별 개당 재료원가와 개당 노무비를 원가·노무비 변동비 규칙으로 자동 반영합니다."
+              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#5E6AD2] text-white hover:bg-[#4F5ABF] disabled:opacity-50 transition-colors"
+            >
+              {syncing ? '동기화 중…' : 'SCM BOM 원가·노무비 동기화'}
+            </button>
+          </div>
         </div>
+
+        {/* 동기화 결과 */}
+        {syncResult && (
+          <div className="mb-3 rounded-lg border border-[#23252A] bg-[#08090A] p-3 text-[11px]">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-[#27A644] font-semibold">동기화 완료 — {syncResult.synced}개 표준품목 반영</span>
+              {syncResult.unmatched_count > 0 && (
+                <span className="text-[#F0BF00]">미매칭 {syncResult.unmatched_count}건 (CSA 표준품목 연결 필요)</span>
+              )}
+            </div>
+            {syncResult.report.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[10px]">
+                  <thead className="text-[#7A7F8A]">
+                    <tr className="text-left">
+                      <th className="py-1 pr-3 font-medium">표준품목</th>
+                      <th className="py-1 pr-3 font-medium text-right">맛수</th>
+                      <th className="py-1 pr-3 font-medium text-right">개당 원가</th>
+                      <th className="py-1 pr-3 font-medium text-right">개당 노무비</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-[#D0D6E0] tabular-nums">
+                    {syncResult.report.slice(0, 30).map((r, i) => (
+                      <tr key={i} className="border-t border-[#1A1C22]">
+                        <td className="py-1 pr-3">{r.product_name}</td>
+                        <td className="py-1 pr-3 text-right text-[#7A7F8A]">{r.matched_items}</td>
+                        <td className="py-1 pr-3 text-right text-[#EB5757]">₩{r.avg_cogs.toLocaleString()}</td>
+                        <td className="py-1 pr-3 text-right text-[#FC7840]">₩{r.avg_labor.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {syncResult.unmatched.length > 0 && (
+              <div className="mt-2 text-[10px] text-[#7A7F8A]">
+                미매칭: {syncResult.unmatched.slice(0, 20).map(u => u.name).join(', ')}
+                {syncResult.unmatched.length > 20 ? ` 외 ${syncResult.unmatched.length - 20}건` : ''}
+              </div>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
           {items.map(it => {
             const r = rulesForItem(it.id);

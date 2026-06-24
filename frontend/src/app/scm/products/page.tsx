@@ -70,6 +70,7 @@ interface Product {
   flavor_group?: string;
   erp_code?: string;
   unit_weight_g?: number;
+  labor_cost_per_unit?: number;
   default_location: string;
   default_unit_price: number;
   default_cost: number;
@@ -172,6 +173,7 @@ const createEmptyProduct = (): Product => ({
   item_type: '완제품',
   erp_code: '',
   unit_weight_g: 0,
+  labor_cost_per_unit: 0,
   default_location: '2층',
   default_unit_price: 0,
   default_cost: 0,
@@ -948,6 +950,16 @@ export default function ProductsPage() {
                       value={formData.unit_weight_g || ''}
                       onChange={e => handleFormChange('unit_weight_g', Number(e.target.value))}
                       placeholder="예: 50"
+                      className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 tabular-nums"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#8A8F98] mb-1.5">개당 노무비 (원) <span className="text-[#62666D] font-normal">· 변동비 동기화</span></label>
+                    <input
+                      type="number"
+                      value={formData.labor_cost_per_unit || ''}
+                      onChange={e => handleFormChange('labor_cost_per_unit', Number(e.target.value))}
+                      placeholder="예: 120"
                       className="w-full px-3 py-2 text-sm border border-[#23252A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50 tabular-nums"
                     />
                   </div>

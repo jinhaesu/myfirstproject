@@ -150,6 +150,7 @@ def init_db():
                 "ADD COLUMN IF NOT EXISTS flavor VARCHAR(100)",
                 "ADD COLUMN IF NOT EXISTS flavor_group VARCHAR(50)",
                 "ADD COLUMN IF NOT EXISTS unit_weight_g DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS labor_cost_per_unit DOUBLE PRECISION DEFAULT 0",
                 "ADD COLUMN IF NOT EXISTS erp_code VARCHAR(100)",
                 "ADD COLUMN IF NOT EXISTS csa_product_id INTEGER",
             ]

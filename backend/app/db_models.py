@@ -464,6 +464,7 @@ class ScmProduct(Base):
     flavor = Column(String(100), nullable=True)  # 맛 (딸기요거트, 황치즈 등); 반제품·완제품용
     flavor_group = Column(String(50), nullable=True)  # 사랑 / 감동 등 맛 그룹
     unit_weight_g = Column(Float, default=0)  # 개당 중량(g) — 꼬끄 20g, 크림 35g 등
+    labor_cost_per_unit = Column(Float, default=0)  # 개당 노무비(원) — CSA 변동비 labor 동기화 소스
     erp_code = Column(String(100), nullable=True, index=True)  # ERP 품목코드(자재)
     # CSA 표준품목 연결 (세트 품목 → 사랑세트/감동세트 ProductMaster)
     csa_product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True, index=True)
