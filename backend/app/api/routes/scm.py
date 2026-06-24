@@ -3170,6 +3170,40 @@ def bom_analytics(item_type: Optional[str] = None, db: Session = Depends(get_db)
     }}
 
 
+@router.get("/bom/cost-detail")
+def bom_cost_detail(category: Optional[str] = None, item_type: str = "완제품", db: Session = Depends(get_db)):
+    """진단용 — 카테고리 내 품목별 개당원가 + 구성(하위품목)·직접라인 분해."""
+    from app.db_models import ScmProduct, ScmBomLine, ScmItemComponent, ScmRawMaterial, ScmSubMaterial
+    raw_price = {r.id: (r.kg_price or 0) for r in db.query(ScmRawMaterial.id, ScmRawMaterial.kg_price).all()}
+    sub_price = {s.id: (s.unit_price or 0) for s in db.query(ScmSubMaterial.id, ScmSubMaterial.unit_price).all()}
+    name_by_id = {p.id: p.product_name for p in db.query(ScmProduct.id, ScmProduct.product_name).all()}
+
+    q = db.query(ScmProduct).filter(ScmProduct.is_active == True, ScmProduct.item_type == item_type)
+    if category:
+        q = q.filter(ScmProduct.product_category == category)
+    items = q.all()
+    out = []
+    for it in items:
+        acc: dict = {}
+        _explode_item(it.id, 1, db, acc, {it.id})
+        cost = 0.0
+        for e in acc.values():
+            if e["type"] == "raw":
+                cost += e["qty"] * raw_price.get(e.get("ref_id"), 0)
+            elif e["type"] == "sub":
+                cost += e["qty"] * sub_price.get(e.get("ref_id"), 0)
+        comps = db.query(ScmItemComponent).filter(ScmItemComponent.parent_item_id == it.id).all()
+        lines = db.query(ScmBomLine).filter(ScmBomLine.item_id == it.id).all()
+        out.append({
+            "id": it.id, "name": it.product_name, "category": it.product_category,
+            "cost": round(cost), "unit_weight_g": it.unit_weight_g,
+            "components": [{"child_id": c.child_item_id, "child": name_by_id.get(c.child_item_id), "qty": c.qty} for c in comps],
+            "direct_lines": [{"type": b.material_type, "name": b.material_name, "qty": b.qty_per_unit, "unit": b.qty_unit} for b in lines],
+        })
+    out.sort(key=lambda x: -x["cost"])
+    return {"success": True, "count": len(out), "items": out}
+
+
 class SyncCsaCostsRequest(BaseModel):
     include_labor: bool = True
     rebuild: bool = True

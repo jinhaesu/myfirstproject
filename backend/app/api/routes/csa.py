@@ -311,6 +311,7 @@ class ProductMasterIn(BaseModel):
     is_active: bool = True
     sort_order: int = 100
     notes: Optional[str] = None
+    aliases: Optional[list] = None  # 별칭(SCM 완제품명 매칭/채널 매핑용)
 
 
 @router.post("/products")
