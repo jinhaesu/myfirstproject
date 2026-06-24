@@ -3210,7 +3210,27 @@ def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Sessio
 
     pms = db.query(ProductMaster).filter(ProductMaster.is_active == True).all()
     pm_by_id = {p.id: p for p in pms}
-    pm_by_name = {(p.name or "").strip(): p for p in pms}
+
+    # 이름/별칭 → PM 후보. SCM 완제품명("마카롱 딸기요거트 완제품")에 표준품목명("마카롱")이
+    # 부분문자열로 포함되면 매칭하고, 여러 개면 가장 긴(=가장 구체적) 표준명을 채택.
+    #  - 부자재/샘플 등 비식품 표준품목은 제외(식품 완제품명에 섞일 일 없지만 안전망).
+    name_keys: list[tuple[str, ProductMaster]] = []
+    for p in pms:
+        if (p.category or "") in ("부자재", "샘플"):
+            continue
+        keys = [(p.name or "").strip()]
+        if isinstance(p.aliases, list):
+            keys += [str(a).strip() for a in p.aliases if a]
+        for k in keys:
+            if len(k) >= 2:
+                name_keys.append((k, p))
+
+    def resolve_pm(name: str):
+        cands = [(k, p) for (k, p) in name_keys if k and k in name]
+        if not cands:
+            return None
+        cands.sort(key=lambda x: -len(x[0]))
+        return cands[0][1]
 
     items = db.query(ScmProduct).filter(
         ScmProduct.is_active == True,
@@ -3224,7 +3244,7 @@ def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Sessio
         if it.csa_product_id and it.csa_product_id in pm_by_id:
             pm = pm_by_id[it.csa_product_id]
         elif it.item_type == "완제품":
-            pm = pm_by_name.get((it.product_name or "").strip())
+            pm = resolve_pm(it.product_name or "")
         if not pm:
             unmatched.append({"id": it.id, "name": it.product_name, "item_type": it.item_type})
             continue
