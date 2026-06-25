@@ -573,6 +573,80 @@ def _cleanup_stale_parsing_batches(db: Session, channel_id: str, ttl_minutes: in
         db.commit()
 
 
+@router.get("/debug/parse-dump")
+def debug_parse_dump(
+    channel_id: str = Query(...),
+    name_contains: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """[진단용] 보관된 원본 파일 1건을 파서로 다시 돌려 결과를 반환.
+    PDF면 pdfplumber 표/텍스트도 덤프해 컬럼 인식/금액 추출 문제를 진단."""
+    import os as _os, tempfile as _tempfile
+    ch = db.query(Channel).filter(Channel.id == channel_id).first()
+    channel_name = ch.name if ch else None
+    q = db.query(CsaUploadFile).filter(CsaUploadFile.channel_id == channel_id)
+    if name_contains:
+        q = q.filter(CsaUploadFile.file_name.ilike(f"%{name_contains}%"))
+    f = q.order_by(CsaUploadFile.created_at.desc()).first()
+    if not f:
+        return {"error": "보관된 파일 없음", "channel_name": channel_name}
+
+    suffix = _os.path.splitext(f.file_name or "")[1] or ".bin"
+    tmp_path = None
+    out: dict = {"channel_name": channel_name, "file_name": f.file_name, "suffix": suffix}
+    try:
+        with _tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(f.content or b"")
+            tmp_path = tmp.name
+
+        if suffix.lower() == ".pdf":
+            try:
+                import pdfplumber
+                pdump = []
+                with pdfplumber.open(tmp_path) as pdf:
+                    for pi, page in enumerate(pdf.pages[:2]):
+                        tables = page.extract_tables() or []
+                        pdump.append({
+                            "page": pi,
+                            "text_head": (page.extract_text() or "")[:600],
+                            "tables": [[[ (c or "")[:30] if isinstance(c, str) else c for c in row] for row in t[:12]] for t in tables[:3]],
+                        })
+                out["pdf"] = pdump
+            except Exception as e:
+                out["pdf_error"] = f"{type(e).__name__}: {e}"
+        else:
+            try:
+                from app.services.csa_parsers._common import read_excel_safe
+                df = read_excel_safe(tmp_path, sheet_name=0, header=None)
+                out["excel_head"] = [[ (str(c)[:25]) for c in df.iloc[i].tolist()] for i in range(min(20, len(df)))]
+            except Exception as e:
+                out["excel_error"] = f"{type(e).__name__}: {e}"
+
+        parser = get_parser(channel_name)
+        if not parser:
+            out["parser"] = None
+            out["parser_note"] = f"채널 '{channel_name}' 파서 미등록"
+        else:
+            try:
+                lines = list(parser(tmp_path))
+                out["parsed_count"] = len(lines)
+                out["parsed_gross_sum"] = round(sum(getattr(l, "gross_amount", 0) or 0 for l in lines), 1)
+                out["parsed_sample"] = [
+                    {"prod": getattr(l, "raw_product_name", None), "qty": getattr(l, "raw_qty", None),
+                     "gross": getattr(l, "gross_amount", None), "net": getattr(l, "net_amount", None)}
+                    for l in lines[:12]
+                ]
+            except Exception as e:
+                out["parse_error"] = f"{type(e).__name__}: {e}"
+    finally:
+        if tmp_path:
+            try:
+                _os.unlink(tmp_path)
+            except Exception:
+                pass
+    return out
+
+
 @router.post("/upload")
 async def upload_channel_file(
     background_tasks: BackgroundTasks,

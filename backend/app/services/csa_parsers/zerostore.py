@@ -38,6 +38,7 @@ def _extract_date_from_pdf(path: str) -> Optional[date]:
 
 
 @register("제로스토어")
+@register("제로플러스")
 def parse(path: str) -> Iterable[ParsedLine]:
     # xlsx/거래명세서 양식이면 공용 거래명세서 파서로 위임 (PDF 발주서만 아래 로직)
     if not path.lower().endswith(".pdf"):
@@ -79,7 +80,12 @@ def parse(path: str) -> Iterable[ParsedLine]:
                 # 데이터 row 처리
                 for row in table[header_idx + 1 :]:
                     prod = to_str(row[col_map.get("prod", 0)]) if "prod" in col_map else None
-                    if not prod or "널담" not in prod:
+                    if not prod:
+                        continue
+                    # 집계/꼬리 행('계','합계','소계' 등)만 제외 — 품명에 '널담'이
+                    # 없는 거래처(제로플러스 등)도 누락 없이 적재되도록 일반화.
+                    _s = re.sub(r"\s", "", prod)
+                    if _s in ("계", "합계", "소계", "총계", "합 계") or _s.startswith("합계"):
                         continue
                     qty = to_float(row[col_map["qty"]]) if "qty" in col_map else 0
                     unit_price = to_float(row[col_map["price"]]) if "price" in col_map else 0
