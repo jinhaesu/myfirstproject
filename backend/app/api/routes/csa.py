@@ -465,6 +465,24 @@ def bulk_set_channel_products(
     return {"channel_id": channel_id, "active_count": len(pid_set), "changed": changed}
 
 
+class ChannelActiveIn(BaseModel):
+    channel_id: str
+    is_active: bool
+
+
+@router.post("/channels/set-active")
+def set_channel_active(payload: ChannelActiveIn, db: Session = Depends(get_db)):
+    """채널 활성/비활성 토글 — 중복 채널 정리용(비활성 채널은 업로드 목록에서 숨겨짐).
+    데이터/매핑은 보존(soft)."""
+    ch = db.query(Channel).filter(Channel.id == payload.channel_id).first()
+    if not ch:
+        raise HTTPException(404, "channel not found")
+    ch.is_active = payload.is_active
+    db.commit()
+    _bust_all_caches()
+    return {"channel_id": ch.id, "name": ch.name, "is_active": ch.is_active}
+
+
 @router.get("/channels")
 def list_channels(db: Session = Depends(get_db)):
     rows = db.query(Channel).order_by(Channel.category, Channel.name).all()

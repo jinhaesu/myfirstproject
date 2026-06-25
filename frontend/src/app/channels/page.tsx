@@ -1310,6 +1310,7 @@ function UploadTab({
   const categories = useMemo(() => {
     const map: Record<string, Channel[]> = {};
     channels.forEach(c => {
+      if (c.is_active === false) return;  // 비활성 채널(중복 정리분 등)은 업로드 목록에서 숨김
       if (!map[c.category]) map[c.category] = [];
       map[c.category].push(c);
     });

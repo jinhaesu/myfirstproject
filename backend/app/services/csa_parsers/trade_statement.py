@@ -157,6 +157,5 @@ def parse_trade_statement(path: str) -> Iterable[ParsedLine]:
 
 @register("서북")
 @register("에스아이케이")
-@register("SIK")
 def parse(path: str) -> Iterable[ParsedLine]:
     yield from parse_trade_statement(path)
