@@ -483,6 +483,30 @@ def set_channel_active(payload: ChannelActiveIn, db: Session = Depends(get_db)):
     return {"channel_id": ch.id, "name": ch.name, "is_active": ch.is_active}
 
 
+class ChannelRenameIn(BaseModel):
+    channel_id: str
+    name: str
+
+
+@router.post("/channels/rename")
+def rename_channel(payload: ChannelRenameIn, db: Session = Depends(get_db)):
+    """채널 표시명 변경. channel_id 기준이라 누적 매출/매핑(channel_id FK)은 그대로 유지.
+    주의: 파서는 채널명으로 조회되므로 새 이름도 파서 레지스트리에 alias 등록돼 있어야 함."""
+    ch = db.query(Channel).filter(Channel.id == payload.channel_id).first()
+    if not ch:
+        raise HTTPException(404, "channel not found")
+    old = ch.name
+    ch.name = payload.name.strip()
+    # 구분 그룹 멤버십에 저장된 표시명도 동기화
+    db.query(ChannelGroupMembership).filter(
+        ChannelGroupMembership.channel_id == payload.channel_id
+    ).update({"channel_name": ch.name}, synchronize_session=False)
+    db.commit()
+    _bust_all_caches()
+    return {"channel_id": ch.id, "old_name": old, "name": ch.name,
+            "has_parser": ch.name in set(registered_channels())}
+
+
 @router.get("/channels")
 def list_channels(db: Session = Depends(get_db)):
     rows = db.query(Channel).order_by(Channel.category, Channel.name).all()
@@ -589,6 +613,39 @@ def _cleanup_stale_parsing_batches(db: Session, channel_id: str, ttl_minutes: in
         b.error_message = (b.error_message or "") + f" | auto: stale parsing >{ttl_minutes}min"
     if stale:
         db.commit()
+
+
+@router.get("/debug/daily-count")
+def debug_daily_count(
+    channel_id: Optional[str] = Query(None),
+    name_like: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """[진단] daily/raw/batch 계층별 행수·매출합을 channel_id 또는 channel_name like로 집계."""
+    out: dict = {}
+    def _agg(model, has_net):
+        q = db.query(model)
+        if channel_id:
+            q = q.filter(model.channel_id == channel_id)
+        if name_like:
+            q = q.filter(model.channel_name.ilike(f"%{name_like}%"))
+        rows = q.all()
+        d = {"count": len(rows),
+             "distinct_channel_ids": sorted({r.channel_id for r in rows})[:10]}
+        if has_net:
+            d["net_sales_sum"] = round(sum(getattr(r, "net_sales", 0) or 0 for r in rows), 1)
+        return d
+    out["daily"] = _agg(ChannelSalesDailyProduct, True)
+    out["raw"] = _agg(ChannelSalesRawLine, False)
+    out["batch"] = _agg(ChannelSalesUploadBatch, False)
+    # name_like로 daily의 channel_name 분포도 확인
+    if name_like:
+        nm = db.query(ChannelSalesDailyProduct.channel_name, ChannelSalesDailyProduct.channel_id,
+                      func.count(ChannelSalesDailyProduct.id)).filter(
+            ChannelSalesDailyProduct.channel_name.ilike(f"%{name_like}%")
+        ).group_by(ChannelSalesDailyProduct.channel_name, ChannelSalesDailyProduct.channel_id).all()
+        out["daily_name_groups"] = [{"name": n, "cid": c, "rows": cnt} for n, c, cnt in nm]
+    return out
 
 
 @router.get("/debug/parse-dump")
