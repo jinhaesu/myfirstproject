@@ -156,6 +156,7 @@ def parse_trade_statement(path: str) -> Iterable[ParsedLine]:
 
 
 @register("서북")
+@register("제로플러스")  # 제로플러스 = 서북(동일 거래처), 거래명세서 양식
 @register("에스아이케이")
 def parse(path: str) -> Iterable[ParsedLine]:
     yield from parse_trade_statement(path)
