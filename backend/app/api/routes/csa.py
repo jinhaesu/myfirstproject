@@ -910,7 +910,27 @@ def delete_channel_data(
                 ),
             )
         )
-    target_batch_ids = [b.id for b in batch_q.all()]
+    candidate_batch_ids = [b.id for b in batch_q.all()]
+
+    # 3b) 기간 삭제 후에도 raw_lines가 남아 참조 중인 batch는 삭제 금지(FK 위반 방지).
+    #     기간이 batch 전체를 덮지 않는 경우(예: 6월만 삭제하는데 batch는 5~7월),
+    #     남은 raw_lines가 batch를 여전히 참조 → csa_sales_raw_lines_batch_id_fkey 위반으로
+    #     500(브라우저에는 "Failed to fetch")이 나던 문제. 남은 참조가 없는 batch만 삭제한다.
+    if scoped and candidate_batch_ids:
+        surviving_batch_ids = {
+            row[0]
+            for row in db.query(ChannelSalesRawLine.batch_id)
+            .filter(
+                ChannelSalesRawLine.channel_id == channel_id,
+                ChannelSalesRawLine.batch_id.in_(candidate_batch_ids),
+            )
+            .distinct()
+            .all()
+            if row[0] is not None
+        }
+        target_batch_ids = [b for b in candidate_batch_ids if b not in surviving_batch_ids]
+    else:
+        target_batch_ids = candidate_batch_ids
 
     # 4) upload_files 삭제
     #    - batch_id가 삭제 대상 batch면 삭제
