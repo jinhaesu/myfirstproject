@@ -133,12 +133,18 @@ def read_excel_safe(path: str, **kwargs) -> pd.DataFrame:
                 continue
         return pd.read_csv(path, encoding="utf-8", errors="ignore", **kwargs)
 
-    # xlsx
+    # xlsx — openpyxl이 일부 변형 xlsx(styles.xml 비표준)에서
+    # "CellStyle.__init__() got an unexpected keyword argument 'count'" TypeError를
+    # 내므로(CJ온스타일 배송통합조회 등) calamine 엔진으로 폴백.
     if path.lower().endswith(".xlsx"):
         try:
             return pd.read_excel(path, engine="openpyxl", **kwargs)
         except Exception as e:
             log.warning("openpyxl failed for %s: %s", path, e)
+            try:
+                return pd.read_excel(path, engine="calamine", **kwargs)
+            except Exception as e2:
+                log.warning("calamine failed for %s: %s", path, e2)
             try:
                 return pd.read_excel(path, **kwargs)
             except Exception:

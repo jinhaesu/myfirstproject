@@ -1,12 +1,20 @@
-"""CJ 온스타일 파서. '인기상품분석현황' 집계 포맷.
+"""CJ 온스타일 파서. 세 가지 포맷 지원.
 
-데이터 구조:
+1) '인기상품분석현황' 집계 포맷:
   row0: 메타 ("인기상품분석현황")
   row1: 헤더 (순위, 상품코드, 상품명, 총주문수량, 총주문금액)
-  row2+: 데이터
+  row2+: 데이터. 일자 컬럼 없음 → 업로드 일자로 임시 적재.
+
+2) B2B 납품형: 상품명 + 납품예정 금액/납품금액.
+
+3) '배송통합조회' 배송 단위 포맷 (74컬럼):
+  No·배송상태·배송지시일·주문번호·상품명·옵션명·수량·결제일·
+  공급가(협력사 공급가, VAT별도)·판매가(소비자 정가)·결제가(실결제)·취소예정 …
+  → 매출(net) = 공급가 (GS샵의 협력사지급금액과 동일한 '당사 수령액' 기준).
+    CJ온스타일은 VAT_INCLUDED_CHANNELS라 ingest에서 ÷1.1 하므로,
+    공급가(이미 VAT별도)는 ×1.1로 내보내 최종 적재값이 정확히 공급가가 되게 한다.
 
 openpyxl CellStyle 버그 우회 → python-calamine 사용.
-일자 컬럼 없는 집계 → 업로드 일자로 임시 적재.
 """
 from __future__ import annotations
 from datetime import date
@@ -16,7 +24,7 @@ import pandas as pd
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
-from app.services.csa_parsers._common import to_float, to_str
+from app.services.csa_parsers._common import to_date, to_float, to_str
 
 
 def _read(path: str) -> pd.DataFrame:
@@ -34,6 +42,51 @@ def _read(path: str) -> pd.DataFrame:
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
 
+_VAT = 1.1  # ingest의 ÷1.1과 상쇄용 (공급가는 이미 VAT별도)
+_CANCEL_TOKENS = ("취소", "반품", "환불")
+
+
+def _parse_delivery_report(df: pd.DataFrame, header_row: int) -> Iterable[ParsedLine]:
+    """'배송통합조회' 배송 단위 포맷."""
+    header = [str(x or "").strip() for x in df.iloc[header_row].tolist()]
+    for idx in range(header_row + 1, len(df)):
+        d = {h: v for h, v in zip(header, df.iloc[idx].tolist())}
+        prod = to_str(d.get("상품명"))
+        if not prod or prod == "상품명":
+            continue
+        # 취소/반품 행 제외 — 취소예정 플래그·상태 텍스트·배송취소일 모두 확인
+        state = (to_str(d.get("배송상태")) or "") + (to_str(d.get("주문상태")) or "")
+        if (
+            (to_str(d.get("취소예정")) or "").upper() == "Y"
+            or any(t in state for t in _CANCEL_TOKENS)
+            or to_date(d.get("배송취소일"))
+        ):
+            continue
+        qty = to_float(d.get("수량") or 0)
+        supply = to_float(d.get("공급가") or 0)   # 협력사 공급가 (VAT별도, 당사 매출)
+        price = to_float(d.get("판매가") or 0)    # 소비자 정가 (VAT포함)
+        paid = to_float(d.get("결제가") or 0)     # 실결제액 (VAT포함)
+        if qty == 0 and supply == 0 and price == 0:
+            continue
+        # ingest ÷1.1 상쇄: 공급가×1.1로 내보내면 적재 매출 = 공급가(정확).
+        net = supply * _VAT if supply else (paid or price)
+        gross = price or net
+        sale_d = (
+            to_date(d.get("결제일")) or to_date(d.get("배송지시일"))
+            or to_date(d.get("출고일")) or date.today()
+        )
+        yield ParsedLine(
+            sale_date=sale_d,
+            order_no=to_str(d.get("주문번호")),
+            line_no=f"{to_str(d.get('상품코드')) or ''}-{idx}",
+            raw_product_name=prod,
+            raw_option_name=to_str(d.get("옵션명")),
+            raw_qty=qty,
+            gross_amount=gross,
+            net_amount=net,
+        )
+
+
 @register("CJ온스타일")
 @register("CJ 온스타일")
 @register("CJ ON STYLE")
@@ -42,11 +95,17 @@ def parse(path: str) -> Iterable[ParsedLine]:
     if df.empty:
         return
 
-    # 헤더 행 찾기 — 집계형(총주문금액) + B2B 납품형(납품예정 금액) 모두 대응
+    # 헤더 행 찾기 — 집계형(총주문금액) / B2B 납품형(납품예정 금액) /
+    # 배송통합조회형(공급가·배송상태) 모두 대응
     header_row = None
+    is_delivery = False
     for i in range(min(8, len(df))):
         vals = [str(x or "").strip() for x in df.iloc[i].tolist()]
         has_prod = "상품명" in vals
+        if has_prod and "공급가" in vals and "배송상태" in vals:
+            header_row = i
+            is_delivery = True
+            break
         has_amount = any(
             kw in v
             for v in vals
@@ -56,6 +115,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
             header_row = i
             break
     if header_row is None:
+        return
+    if is_delivery:
+        yield from _parse_delivery_report(df, header_row)
         return
 
     header = [str(x or "").strip() for x in df.iloc[header_row].tolist()]

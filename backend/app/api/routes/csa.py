@@ -570,6 +570,18 @@ def _run_ingest_background(
                     db.commit()
             except Exception:
                 db.rollback()
+            # 파서가 0행을 산출하면 '조용한 매출 누락'(done인데 데이터 없음)이 되므로
+            # failed로 마킹해 사용자에게 형식 불일치를 드러낸다 (CJ온스타일/SSG 사례).
+            if not lines and batch is not None:
+                try:
+                    batch.status = "failed"
+                    batch.error_message = (
+                        "파싱 결과 0행 — 파일 형식이 채널 파서와 맞지 않습니다. "
+                        "파일이 해당 채널 리포트가 맞는지 확인해 주세요."
+                    )
+                    db.commit()
+                except Exception:
+                    db.rollback()
             # 새 매출 적재 완료 → 모든 응답 캐시 무효화 (대시보드/PNL/batches 즉시 반영)
             _bust_all_caches()
         except Exception as e:
@@ -1788,6 +1800,15 @@ def dashboard(
     import time as _time
     def _dlap(label):
         pass
+    # 날짜 입력 중 키 입력마다 fetch가 나가면 '0002-07-01' 같은 연도가 들어와
+    # 2000년치 범위를 만들다 인스턴스가 죽는(OOM→503) 사고 방지 (2026-07-01 실사고).
+    # 데이터는 2024년 이후뿐이므로 그 이전/비정상 연도는 클램프.
+    if period_start.year < 2020:
+        period_start = date(2020, 1, 1)
+    if period_end.year > 2100:
+        period_end = date(2100, 12, 31)
+    if period_end < period_start:
+        raise HTTPException(400, "period_end가 period_start보다 빠릅니다")
     cache_key = (str(period_start), str(period_end), granularity,
                  channel_ids or "", product_ids or "", employee_ids or "")
     now = _time.time()

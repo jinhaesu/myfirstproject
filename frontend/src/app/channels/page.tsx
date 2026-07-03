@@ -271,6 +271,10 @@ function Content() {
   }, [authHeaders, fetchAllIndividual]);
 
   const fetchDashboard = useCallback(async () => {
+    // 날짜 입력 타이핑 중(연도 '0002' 등 미완성 값)에는 fetch 보류 —
+    // 비정상 초장기 범위 요청으로 서버가 죽던 사고 방지 (2026-07-01).
+    const validDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && parseInt(s.slice(0, 4), 10) >= 2020;
+    if (!validDate(periodStart) || !validDate(periodEnd)) return;
     setLoading(true);
     try {
       const buildQs = (ps: string, pe: string) => {
