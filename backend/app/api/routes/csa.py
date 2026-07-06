@@ -1770,6 +1770,45 @@ def delete_channel_monthly_cost(cost_id: int, db: Session = Depends(get_db)):
     return {"deleted": cost_id}
 
 
+@router.post("/admin/resolve-stale-unmatched")
+def admin_resolve_stale_unmatched(
+    channel_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """매핑이 이미 생겼는데 pending으로 남은 미매칭 큐 항목을 resolved 처리.
+
+    auto-map은 raw_lines/매핑만 갱신하고 검토 큐는 안 건드려 스테일이 남는다.
+    """
+    q = db.query(ChannelUnmatchedProduct).filter(
+        ChannelUnmatchedProduct.status == "pending"
+    )
+    if channel_id:
+        q = q.filter(ChannelUnmatchedProduct.channel_id == channel_id)
+    resolved = 0
+    for u in q.all():
+        mq = db.query(ChannelProductMapping).filter(
+            ChannelProductMapping.channel_id == u.channel_id,
+            ChannelProductMapping.raw_product_name == u.raw_product_name,
+            ChannelProductMapping.product_id.isnot(None),
+        )
+        if u.raw_option_name:
+            m = (
+                mq.filter(ChannelProductMapping.raw_option_name == u.raw_option_name).first()
+                or mq.filter(ChannelProductMapping.raw_option_name.is_(None)).first()
+            )
+        else:
+            m = mq.filter(ChannelProductMapping.raw_option_name.is_(None)).first() or mq.first()
+        if m is None:
+            continue
+        u.status = "resolved"
+        u.resolved_product_id = m.product_id
+        u.resolved_unit_per_set = m.unit_per_set
+        u.resolved_at = datetime.utcnow()
+        resolved += 1
+    db.commit()
+    return {"resolved": resolved}
+
+
 @router.post("/admin/set-monthly-cost-deduct")
 def set_monthly_cost_deduct(
     channel_id: str,
