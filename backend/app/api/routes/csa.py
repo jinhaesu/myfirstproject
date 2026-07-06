@@ -1837,6 +1837,66 @@ def admin_dump_raw_lines(
     ]
 
 
+@router.post("/admin/dedup-cross-batch")
+def admin_dedup_cross_batch(
+    channel_id: str,
+    dry_run: bool = True,
+    db: Session = Depends(get_db),
+):
+    """월별 파일 경계 겹침으로 생긴 배치 간 중복 raw_lines 제거.
+
+    같은 (sale_date, order_no, 상품명, 옵션, qty, gross) 키가 서로 다른 배치에
+    존재하면, 행의 월과 배치의 주력 월이 일치하는 쪽을 남기고 나머지 삭제.
+    (예: 농협몰 25.10.xls에 섞인 9월말 주문 = 25.09.xls와 이중 적재 — line_no의
+    행 시퀀스 때문에 dedup_hash가 달라져 업로드 시점 dedup이 못 걸렀음.)
+    같은 배치 내 동일 키 복수 행은 정상 라인으로 보고 건드리지 않는다.
+    """
+    from collections import Counter as _Counter, defaultdict as _dd
+    rows = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == channel_id
+    ).all()
+    bm: dict = _dd(_Counter)
+    for r in rows:
+        bm[r.batch_id][(r.sale_date.year, r.sale_date.month)] += 1
+    dominant = {b: c.most_common(1)[0][0] for b, c in bm.items()}
+    groups: dict = _dd(list)
+    for r in rows:
+        key = (
+            r.sale_date, (r.order_no or "").strip(),
+            (r.raw_product_name or "").strip(), (r.raw_option_name or "").strip(),
+            float(r.raw_qty or 0), round(float(r.gross_amount or 0), 2),
+        )
+        groups[key].append(r)
+    to_delete = []
+    samples = []
+    for key, rs in groups.items():
+        if len({r.batch_id for r in rs}) < 2:
+            continue
+        month = (key[0].year, key[0].month)
+        keep = [r for r in rs if dominant.get(r.batch_id) == month]
+        if not keep:
+            keep = [rs[0]]
+        keep_ids = {r.id for r in keep}
+        drop = [r for r in rs if r.id not in keep_ids]
+        to_delete.extend(drop)
+        if drop and len(samples) < 20:
+            samples.append({
+                "date": key[0].isoformat(), "order": key[1],
+                "amt": key[5], "drop_n": len(drop),
+            })
+    total = sum(float(r.net_amount or 0) for r in to_delete)
+    if not dry_run and to_delete:
+        for r in to_delete:
+            db.delete(r)
+        db.commit()
+        rebuild_daily_aggregate(db, channel_id=channel_id)
+        _bust_all_caches()
+    return {
+        "candidates": len(to_delete), "net_sum": total,
+        "dry_run": dry_run, "samples": samples,
+    }
+
+
 @router.post("/admin/apply-vat-division")
 def admin_apply_vat_division(
     channel_id: str,
