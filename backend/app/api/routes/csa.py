@@ -1859,10 +1859,18 @@ def admin_dedup_cross_batch(
     for r in rows:
         bm[r.batch_id][(r.sale_date.year, r.sale_date.month)] += 1
     dominant = {b: c.most_common(1)[0][0] for b, c in bm.items()}
+    def _norm_order(v) -> str:
+        """주문번호 정규화 — 배치마다 '000875'(텍스트) vs '875.0'(숫자 변환)로
+        저장 형식이 갈려 중복 키가 어긋나는 문제 해소."""
+        s = str(v or "").strip()
+        if s.endswith(".0"):
+            s = s[:-2]
+        return s.lstrip("0") or s
+
     groups: dict = _dd(list)
     for r in rows:
         key = (
-            r.sale_date, (r.order_no or "").strip(),
+            r.sale_date, _norm_order(r.order_no),
             (r.raw_product_name or "").strip(), (r.raw_option_name or "").strip(),
             float(r.raw_qty or 0), round(float(r.gross_amount or 0), 2),
         )
