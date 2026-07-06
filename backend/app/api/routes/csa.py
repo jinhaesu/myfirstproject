@@ -88,6 +88,7 @@ class ProductMasterOut(BaseModel):
     default_unit_size: int = 1
     is_active: bool = True
     sort_order: int = 0
+    aliases: Optional[list] = None  # 별칭 (영문 채널 매칭 포함)
 
     model_config = {"from_attributes": True}
 

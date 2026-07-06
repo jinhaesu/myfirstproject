@@ -409,12 +409,13 @@ def resolve_product(
 
     # 2) 룰베이스 — 가장 긴 표준명이 raw에 포함되는지 (aliases 포함)
     masters = masters_cache or _get_or_cache_master(db)
-    haystack = f"{raw_name} {raw_opt or ''}"
+    # 대소문자 무시 — 영문 채널(알리익스프레스 등)의 영문 별칭 매칭용. 한글은 영향 없음.
+    haystack = f"{raw_name} {raw_opt or ''}".lower()
     # 공백 제거 버전도 함께
     haystack_compact = haystack.replace(" ", "")
     best: Optional[ProductMaster] = None
     for prod in sorted(masters, key=lambda x: -len(x.name)):
-        name = prod.name
+        name = prod.name.lower()
         name_compact = name.replace(" ", "")
         if name in haystack or name_compact in haystack_compact:
             best = prod
@@ -422,13 +423,14 @@ def resolve_product(
         # aliases 체크 (DB aliases 컬럼 + 하드코딩 별칭)
         aliases: list[str] = list(prod.aliases or [])
         # 하드코딩 보완 별칭 (마카롱↔뚱카롱 등 기존 로직 유지)
-        if name == "마카롱":
+        if prod.name == "마카롱":
             aliases += ["뚱카롱"]
-        if name == "베이글":
+        if prod.name == "베이글":
             aliases += ["베이글"]
         for alias in aliases:
-            alias_compact = alias.replace(" ", "")
-            if alias in haystack or alias_compact in haystack_compact:
+            alias_l = str(alias).lower()
+            alias_compact = alias_l.replace(" ", "")
+            if alias_l in haystack or alias_compact in haystack_compact:
                 best = prod
                 break
         if best is not None:
