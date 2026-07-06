@@ -1770,6 +1770,99 @@ def delete_channel_monthly_cost(cost_id: int, db: Session = Depends(get_db)):
     return {"deleted": cost_id}
 
 
+@router.post("/admin/create-channel")
+def admin_create_channel(
+    name: str,
+    category: str = "온라인",
+    group_name: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """채널 신규 생성 (+선택적으로 그룹 배정). 이미 있으면 그대로 반환."""
+    import uuid as _uuid
+    ch = db.query(Channel).filter(Channel.name == name).first()
+    created = False
+    if ch is None:
+        ch = Channel(
+            id=str(_uuid.uuid4()), name=name, category=category,
+            integration_type="manual", is_active=True,
+        )
+        db.add(ch)
+        db.commit()
+        created = True
+    group_id = None
+    if group_name:
+        grp = db.query(ChannelGroup).filter(ChannelGroup.name == group_name).first()
+        if grp:
+            existing = db.query(ChannelGroupMembership).filter(
+                ChannelGroupMembership.channel_id == ch.id
+            ).first()
+            if existing:
+                existing.group_id = grp.id
+            else:
+                db.add(ChannelGroupMembership(
+                    channel_id=ch.id, channel_name=ch.name, group_id=grp.id,
+                ))
+            db.commit()
+            group_id = grp.id
+    _bust_all_caches()
+    return {"channel_id": ch.id, "name": ch.name, "created": created, "group_id": group_id}
+
+
+@router.get("/admin/dump-raw-lines")
+def admin_dump_raw_lines(
+    channel_id: str,
+    period_start: date,
+    period_end: date,
+    limit: int = 2000,
+    db: Session = Depends(get_db),
+):
+    """채널×기간 raw_lines 원자료 덤프 (담당자 시트와 건별 대조용)."""
+    rows = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == channel_id,
+        ChannelSalesRawLine.sale_date >= period_start,
+        ChannelSalesRawLine.sale_date <= period_end,
+    ).order_by(ChannelSalesRawLine.sale_date, ChannelSalesRawLine.order_no).limit(limit).all()
+    return [
+        {
+            "sale_date": r.sale_date.isoformat(),
+            "order_no": r.order_no,
+            "line_no": r.line_no,
+            "product": r.raw_product_name,
+            "qty": r.raw_qty,
+            "gross": r.gross_amount,
+            "net": r.net_amount,
+            "status": r.mapping_status,
+            "batch_id": r.batch_id,
+        } for r in rows
+    ]
+
+
+@router.post("/admin/apply-vat-division")
+def admin_apply_vat_division(
+    channel_id: str,
+    db: Session = Depends(get_db),
+):
+    """VAT_INCLUDED 누락 채널의 기존 raw_lines에 ÷1.1 일괄 소급 적용 (1회성).
+
+    ingest 시점에 환산하는 구조라 세트에 뒤늦게 추가된 채널의 과거 데이터는
+    소비자가 그대로 저장돼 있음 → gross/net/refund/settlement ÷1.1 후 daily 재계산.
+    ⚠️ 두 번 호출하면 이중 환산되므로 주의.
+    """
+    factor = 1 / 1.1
+    n = db.query(ChannelSalesRawLine).filter(
+        ChannelSalesRawLine.channel_id == channel_id,
+    ).update({
+        "gross_amount": ChannelSalesRawLine.gross_amount * factor,
+        "net_amount": ChannelSalesRawLine.net_amount * factor,
+        "refund_amount": ChannelSalesRawLine.refund_amount * factor,
+        "settlement_amount": ChannelSalesRawLine.settlement_amount * factor,
+    }, synchronize_session=False)
+    db.commit()
+    rebuilt = rebuild_daily_aggregate(db, channel_id=channel_id)
+    _bust_all_caches()
+    return {"raw_lines_updated": n, "daily_rebuilt": rebuilt}
+
+
 @router.post("/admin/resolve-stale-unmatched")
 def admin_resolve_stale_unmatched(
     channel_id: Optional[str] = None,

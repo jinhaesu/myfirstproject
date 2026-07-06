@@ -110,11 +110,53 @@ def _read(path: str) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def _parse_integrated_admin(df: pd.DataFrame) -> Iterable[ParsedLine]:
+    """인터넷-TV 통합 어드민 신양식 (2026-07 기준변경요청서, 김재경).
+
+    컬럼: 순번/주문번호/상품코드/단품/상품명/단품상세/과세/수량/판매금액/매입금액/매입수수료
+    - 행마다 과세='합계'인 소계 행이 끼어 있음 → 제외 (포함 시 매출 정확히 2배)
+    - 날짜 컬럼 없음 → 주문번호 앞 8자리(YYYYMMDD)가 주문일
+    - 순매출 = 판매금액(i열) 합계
+    """
+    for _idx, (_, row) in enumerate(df.iterrows()):
+        tax = to_str(row.get("과세")) or ""
+        if "합계" in tax:
+            continue
+        order_no = to_str(row.get("주문번호")) or ""
+        digits = order_no[:8]
+        sale_d = to_date(digits) if len(digits) == 8 and digits.isdigit() else None
+        if not sale_d:
+            continue
+        prod = to_str(row.get("상품명"))
+        if not prod:
+            continue
+        qty = to_float(row.get("수량") or 1)
+        gross = to_float(row.get("판매금액") or 0)
+        yield ParsedLine(
+            sale_date=sale_d,
+            order_no=order_no,
+            line_no=f"{to_str(row.get('상품코드')) or ''}|{to_str(row.get('단품')) or ''}-{_idx}",
+            raw_product_name=prod,
+            raw_option_name=to_str(row.get("단품상세")),
+            raw_qty=qty,
+            gross_amount=gross,
+            net_amount=gross,
+        )
+
+
 @register("롯데홈쇼핑")
 @register("롯데 홈쇼핑")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = _read(path)  # 암호화 파일이면 ValueError 발생 → 상위 레이어가 처리
     if df.empty:
+        return
+
+    # 통합 어드민 신양식 감지: 판매금액+과세+주문번호 있고 날짜 컬럼 없음
+    cols = {str(c).strip() for c in df.columns}
+    if {"판매금액", "과세", "주문번호"} <= cols and not (
+        {"주문일시", "결제일시", "주문일자", "매출일자"} & cols
+    ):
+        yield from _parse_integrated_admin(df)
         return
 
     for _idx, (_, row) in enumerate(df.iterrows()):
