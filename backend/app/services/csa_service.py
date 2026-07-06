@@ -407,34 +407,34 @@ def resolve_product(
             return MappingResult(None, None, m.unit_per_set or 1, "unmatched")
         return MappingResult(prod.id, prod.name, m.unit_per_set or 1, "matched")
 
-    # 2) 룰베이스 — 가장 긴 표준명이 raw에 포함되는지 (aliases 포함)
+    # 2) 룰베이스 — 표준명/별칭이 raw에 포함되는지. **가장 긴 일치 용어가 이김**
+    #    (포괄 별칭 'cookie'가 'le-bing cookies'의 'le-bing'을 가로채지 않도록,
+    #     제품 순회 순서가 아니라 일치한 용어 길이로 결정 — DB 반환 순서 비결정성 제거)
     masters = masters_cache or _get_or_cache_master(db)
     # 대소문자 무시 — 영문 채널(알리익스프레스 등)의 영문 별칭 매칭용. 한글은 영향 없음.
     haystack = f"{raw_name} {raw_opt or ''}".lower()
     # 공백 제거 버전도 함께
     haystack_compact = haystack.replace(" ", "")
     best: Optional[ProductMaster] = None
-    for prod in sorted(masters, key=lambda x: -len(x.name)):
-        name = prod.name.lower()
-        name_compact = name.replace(" ", "")
-        if name in haystack or name_compact in haystack_compact:
-            best = prod
-            break
+    best_term_len = 0
+    for prod in sorted(masters, key=lambda x: (-len(x.name), x.id)):
+        terms: list[str] = [prod.name]
         # aliases 체크 (DB aliases 컬럼 + 하드코딩 별칭)
-        aliases: list[str] = list(prod.aliases or [])
+        terms += [str(a) for a in (prod.aliases or [])]
         # 하드코딩 보완 별칭 (마카롱↔뚱카롱 등 기존 로직 유지)
         if prod.name == "마카롱":
-            aliases += ["뚱카롱"]
+            terms.append("뚱카롱")
         if prod.name == "베이글":
-            aliases += ["베이글"]
-        for alias in aliases:
-            alias_l = str(alias).lower()
-            alias_compact = alias_l.replace(" ", "")
-            if alias_l in haystack or alias_compact in haystack_compact:
-                best = prod
-                break
-        if best is not None:
-            break
+            terms.append("베이글")
+        for term in terms:
+            t = term.lower().strip()
+            if not t:
+                continue
+            t_compact = t.replace(" ", "")
+            if t in haystack or t_compact in haystack_compact:
+                if len(t) > best_term_len:
+                    best = prod
+                    best_term_len = len(t)
 
     if best is None:
         return MappingResult(None, None, 1, "unmatched")
