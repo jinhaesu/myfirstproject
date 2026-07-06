@@ -23,12 +23,18 @@ def file_sha256(path: str) -> str:
 def to_date(v: Any) -> Optional[date]:
     if v is None:
         return None
+    # ⚠️ pd.NaT는 datetime의 인스턴스 — isinstance 분기보다 먼저 걸러야 함.
+    # (datetime64 컬럼에 값이 1개라도 있으면 빈 셀이 NaT로 와서, 환불일 등이
+    #  전 행 '날짜 있음'으로 오판 → 지마켓 전 행 취소 처리되던 버그)
+    try:
+        if pd.isna(v):
+            return None
+    except (TypeError, ValueError):
+        pass
     if isinstance(v, date) and not isinstance(v, datetime):
         return v
     if isinstance(v, datetime):
         return v.date()
-    if pd.isna(v):
-        return None
     s = str(v).strip()
     if not s:
         return None
@@ -57,12 +63,16 @@ def to_date(v: Any) -> Optional[date]:
 def to_datetime(v: Any) -> Optional[datetime]:
     if v is None:
         return None
+    # pd.NaT는 datetime의 인스턴스 — isinstance 분기보다 먼저 걸러야 함 (to_date 참조)
+    try:
+        if pd.isna(v):
+            return None
+    except (TypeError, ValueError):
+        pass
     if isinstance(v, datetime):
         return v
     if isinstance(v, date):
         return datetime.combine(v, datetime.min.time())
-    if pd.isna(v):
-        return None
     s = str(v).strip()
     if not s:
         return None
@@ -103,6 +113,37 @@ def to_str(v: Any) -> Optional[str]:
         return None
     s = str(v).strip()
     return s or None
+
+
+_ESM_UNIT_RE = re.compile(r"(\d+)\s*(?:개입|구|봉|병|개|입|매|장)")
+
+
+def parse_esm_option_detail(text: Any) -> tuple[Optional[str], Optional[float]]:
+    """옥션/지마켓 '세부옵션데이터'(AZ열, 과거 양식) 파싱 → (옵션설명, 낱개입수).
+
+    형식: '발송일:NN. <설명>/<추가금>원/<구매수량>개'
+      예) '발송일:03-7. 베이글 4개(올리브)/0원/1개'   → ('베이글 4개(올리브)', 4)
+          '발송일:01-1. 마카롱 8구 1박스(사랑)/0원/5개' → ('마카롱 8구 1박스(사랑)', 8)
+          '티스파클링12병(캐모마일피치 6+블랙티레몬 6)' → 12 (괄호 안 맛 구성 숫자 무시)
+    입수 = 괄호 제거 후 첫 'N개/구/봉/병/개입' 토큰. 못 찾으면 None(매핑 입수 사용).
+    """
+    if text is None:
+        return None, None
+    t = str(text).strip()
+    if not t:
+        return None, None
+    t = re.sub(r"^발송일\s*:\s*[0-9\-]+\.\s*", "", t)
+    desc = t.split("/")[0].strip()
+    if not desc:
+        return None, None
+    no_paren = re.sub(r"\([^)]*\)", "", desc)
+    ups: Optional[float] = None
+    m = _ESM_UNIT_RE.search(no_paren)
+    if m:
+        v = int(m.group(1))
+        if 1 <= v <= 200:
+            ups = float(v)
+    return desc, ups
 
 
 def ea_per_box(text: Any) -> Optional[float]:
