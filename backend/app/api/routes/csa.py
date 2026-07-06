@@ -1769,6 +1769,29 @@ def delete_channel_monthly_cost(cost_id: int, db: Session = Depends(get_db)):
     return {"deleted": cost_id}
 
 
+@router.post("/admin/set-monthly-cost-deduct")
+def set_monthly_cost_deduct(
+    channel_id: str,
+    cost_item_id: int,
+    deduct: bool = True,
+    db: Session = Depends(get_db),
+):
+    """채널×비용항목의 모든 월정액 입력에 매출차감 플래그 일괄 설정.
+
+    건별 upsert는 매 건 전체 rebuild가 돌아 무거우므로, 일괄 UPDATE 후
+    해당 채널만 스코프 재계산. (스코프 rebuild는 raw가 daily를 전부 커버하는
+    채널에만 안전 — BQ-only daily가 있는 채널이면 손실 위험.)
+    """
+    n = db.query(CsaChannelMonthlyCost).filter(
+        CsaChannelMonthlyCost.channel_id == channel_id,
+        CsaChannelMonthlyCost.cost_item_id == cost_item_id,
+    ).update({"deduct_from_revenue": deduct}, synchronize_session=False)
+    db.commit()
+    rebuilt = rebuild_daily_with_costs(db, channel_id=channel_id)
+    _bust_all_caches()
+    return {"updated": n, "rebuilt_rows": rebuilt, "deduct": deduct}
+
+
 # ──────────────────────────────────────────────────────────────
 # Dashboard query
 # ──────────────────────────────────────────────────────────────
