@@ -47,7 +47,7 @@ DEFAULT_COST_ITEMS = [
     {"code": "commission_fixed",  "name": "판매수수료(정액)","category": "commission_fixed","basis": "order_fixed",          "sort_order": 8, "description": "주문건당 정액 수수료"},
     {"code": "shipping",          "name": "운반비",        "category": "shipping",          "basis": "order_fixed",         "sort_order": 9, "description": "주문(박스) 당 정액 또는 매출 정률"},
     {"code": "packaging",         "name": "포장비",        "category": "packaging",         "basis": "order_fixed",         "sort_order": 10, "description": "주문당 포장 부자재 (아이스팩·박스 등)"},
-    {"code": "platform_fee",      "name": "판매수수료(월정액)","category": "platform_fee",   "basis": "channel_monthly_fixed","sort_order": 11, "description": "채널 월 정액 판매수수료 (일별 매출 비례 분배)"},
+    {"code": "platform_fee",      "name": "판매수수료(월정액)","category": "platform_fee",   "basis": "channel_monthly_fixed","sort_order": 11, "description": "채널 월 정액 판매수수료 (일별 매출 비례 분배). '매출차감' 체크 시 변동비가 아니라 매출에서 차감 — 정산금에서 공제되는 유형(예: 쿠팡 로켓프레시)에 사용."},
 ]
 
 
@@ -193,9 +193,13 @@ def rebuild_daily_with_costs(
     for r in rows:
         monthly_revenue[(r.channel_id, r.sale_date.year, r.sale_date.month)] += r.net or 0
 
-    monthly_fixed: dict[tuple[str, int, int, int], float] = {}  # (channel_id, year, month, item_id) -> amount
+    # (channel_id, year, month, item_id) -> (amount, deduct_from_revenue)
+    monthly_fixed: dict[tuple[str, int, int, int], tuple[float, bool]] = {}
     for m in db.query(CsaChannelMonthlyCost).all():
-        monthly_fixed[(m.channel_id, m.year, m.month, m.cost_item_id)] = m.amount or 0
+        monthly_fixed[(m.channel_id, m.year, m.month, m.cost_item_id)] = (
+            m.amount or 0,
+            bool(getattr(m, "deduct_from_revenue", False)),
+        )
 
     def get_rule(code: str, ch_id: str, prod_id: Optional[int], sale_date: Optional[date] = None) -> Optional[CsaCostRule]:
         it = items.get(code)
@@ -246,25 +250,36 @@ def rebuild_daily_with_costs(
         # 광고비/판매수수료(월정액)는 각각 별도 컬럼으로 유지.
         ch_month_rev = monthly_revenue.get((ch, sd.year, sd.month), 0)
 
-        def monthly_fixed_share(code: str) -> float:
+        def monthly_fixed_share(code: str) -> tuple[float, bool]:
             it = items.get(code)
             if not it or not ch_month_rev:
-                return 0.0
-            m_amount = monthly_fixed.get((ch, sd.year, sd.month, it.id), 0)
+                return 0.0, False
+            m_amount, deduct = monthly_fixed.get((ch, sd.year, sd.month, it.id), (0, False))
             if not m_amount:
-                return 0.0
-            return m_amount * (net / ch_month_rev)
+                return 0.0, False
+            return m_amount * (net / ch_month_rev), deduct
 
         # 광고비
-        c_adv = monthly_fixed_share("advertising")
+        c_adv, adv_deduct = monthly_fixed_share("advertising")
         # 판매수수료(월정액)
-        c_platform = monthly_fixed_share("platform_fee")
+        c_platform, pf_deduct = monthly_fixed_share("platform_fee")
+
+        # 매출차감형(정산차감) 월정액: 변동비가 아니라 매출에서 차감.
+        # 예: 쿠팡 로켓프레시 월정액 수수료 — 정산금에서 공제되므로 실수령 매출 기준으로 표시.
+        # 공헌이익 = (매출 − 차감액) − 변동비 → 비용으로 넣던 때와 금액은 동일, 분류만 이동.
+        rev_deduction = 0.0
+        if adv_deduct:
+            rev_deduction += c_adv
+            c_adv = 0.0
+        if pf_deduct:
+            rev_deduction += c_platform
+            c_platform = 0.0
 
         total_cost = (
             c_cogs + c_labor + c_overhead + c_log_work + c_log_oh
             + c_adv + c_platform + c_comm_rate + c_comm_fixed + c_shipping + c_packaging
         )
-        cm = net - total_cost
+        cm = net - rev_deduction - total_cost
 
         db.add(ChannelSalesDailyProduct(
             sale_date=sd,
@@ -293,6 +308,7 @@ def rebuild_daily_with_costs(
             cost_commission_fixed=c_comm_fixed,
             cost_shipping=c_shipping,
             cost_packaging=c_packaging,
+            revenue_deduction=rev_deduction,
         ))
         count += 1
     db.commit()

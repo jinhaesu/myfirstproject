@@ -991,6 +991,10 @@ class ChannelSalesDailyProduct(Base):
     cost_shipping = Column(Float, default=0)          # 운반비
     cost_packaging = Column(Float, default=0)         # 포장비
 
+    # 매출차감형 월정액 배분액 (예: 쿠팡 로켓프레시 월정액 수수료 — 정산에서 차감되므로
+    # 변동비가 아니라 매출 차감으로 취급. 표시매출 = net_sales - revenue_deduction)
+    revenue_deduction = Column(Float, default=0)
+
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     __table_args__ = (
@@ -1378,6 +1382,8 @@ class CsaChannelMonthlyCost(Base):
     channel_name = Column(String(200), nullable=False)
     cost_item_id = Column(Integer, ForeignKey("csa_cost_item.id"), nullable=False, index=True)
     amount = Column(Float, default=0)
+    # True면 변동비가 아니라 매출에서 차감 (정산차감형 — 예: 쿠팡 로켓프레시 월정액 수수료)
+    deduct_from_revenue = Column(Boolean, default=False)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

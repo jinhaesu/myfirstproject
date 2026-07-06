@@ -175,10 +175,22 @@ def init_db():
                 "ADD COLUMN IF NOT EXISTS cost_commission_fixed DOUBLE PRECISION DEFAULT 0",
                 "ADD COLUMN IF NOT EXISTS cost_shipping DOUBLE PRECISION DEFAULT 0",
                 "ADD COLUMN IF NOT EXISTS cost_packaging DOUBLE PRECISION DEFAULT 0",
+                "ADD COLUMN IF NOT EXISTS revenue_deduction DOUBLE PRECISION DEFAULT 0",
             ]
             with engine.connect() as conn:
                 for col_sql in csa_daily_alters:
                     conn.execute(text(f"ALTER TABLE csa_sales_daily_product {col_sql}"))
+                conn.commit()
+        except Exception:
+            pass
+
+        # 매출차감형 월정액 플래그 (쿠팡 로켓프레시 등 정산차감형)
+        try:
+            from sqlalchemy import text
+            with engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE csa_channel_monthly_cost ADD COLUMN IF NOT EXISTS deduct_from_revenue BOOLEAN DEFAULT FALSE"
+                ))
                 conn.commit()
         except Exception:
             pass

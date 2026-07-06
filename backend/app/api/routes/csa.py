@@ -1620,6 +1620,8 @@ class ChannelMonthlyCostIn(BaseModel):
     channel_name: str
     cost_item_id: int
     amount: float
+    # True = 정산차감형: 변동비가 아니라 매출에서 차감 (예: 쿠팡 로켓프레시 월정액)
+    deduct_from_revenue: bool = False
     notes: Optional[str] = None
 
 
@@ -1728,6 +1730,7 @@ def list_channel_monthly_costs(
             "id": r.id, "year": r.year, "month": r.month,
             "channel_id": r.channel_id, "channel_name": r.channel_name,
             "cost_item_id": r.cost_item_id, "amount": r.amount,
+            "deduct_from_revenue": bool(r.deduct_from_revenue),
             "notes": r.notes,
         } for r in rows
     ]
@@ -1744,6 +1747,7 @@ def upsert_channel_monthly_cost(payload: ChannelMonthlyCostIn, db: Session = Dep
     if existing:
         existing.amount = payload.amount
         existing.channel_name = payload.channel_name
+        existing.deduct_from_revenue = payload.deduct_from_revenue
         existing.notes = payload.notes
         db.commit()
         eid = existing.id
@@ -1847,8 +1851,12 @@ def dashboard(
     rows = q.all()
     _dlap(f"main_query({len(rows)} rows)")
 
-    # 집계
-    total_revenue = sum(r.net_sales or 0 for r in rows)
+    # 집계 — 매출은 매출차감형 월정액(revenue_deduction, 예: 쿠팡 로켓프레시)을 뺀 실수령 기준
+    def _rev(r) -> float:
+        return (r.net_sales or 0) - (r.revenue_deduction or 0)
+
+    total_deduction = sum(r.revenue_deduction or 0 for r in rows)
+    total_revenue = sum(_rev(r) for r in rows)
     total_pcs = sum(r.pcs_qty or 0 for r in rows)
     total_orders = sum(r.order_count or 0 for r in rows)
     total_cost = sum(r.variable_cost or 0 for r in rows)
@@ -1898,7 +1906,7 @@ def dashboard(
             "group": gname, "revenue": 0, "pcs": 0,
             "contribution_margin": 0, "orders": 0,
         })
-        slot["revenue"] += r.net_sales or 0
+        slot["revenue"] += _rev(r)
         slot["pcs"] += r.pcs_qty or 0
         slot["orders"] += r.order_count or 0
         slot["contribution_margin"] += r.contribution_margin or 0
@@ -1921,7 +1929,7 @@ def dashboard(
             "period": key, "revenue": 0, "pcs": 0, "orders": 0,
             "cost": 0, "commission": 0, "contribution_margin": 0,
         })
-        slot["revenue"] += r.net_sales or 0
+        slot["revenue"] += _rev(r)
         slot["pcs"] += r.pcs_qty or 0
         slot["orders"] += r.order_count or 0
         slot["cost"] += r.variable_cost or 0
@@ -1959,10 +1967,10 @@ def dashboard(
             "employee": ename, "period": pk,
             "revenue": 0, "pcs": 0, "contribution_margin": 0,
         })
-        slot["revenue"] += r.net_sales or 0
+        slot["revenue"] += _rev(r)
         slot["pcs"] += r.pcs_qty or 0
         slot["contribution_margin"] += r.contribution_margin or 0
-        heat_emp_total[ename] = heat_emp_total.get(ename, 0) + (r.net_sales or 0)
+        heat_emp_total[ename] = heat_emp_total.get(ename, 0) + _rev(r)
     heatmap = {
         "periods": sorted(heat_periods),
         "employees": sorted(heat_emp_total.keys(), key=lambda e: -heat_emp_total[e]),
@@ -1977,9 +1985,10 @@ def dashboard(
             "channel_name": r.channel_name,
             "channel_category": r.channel_category,
             "revenue": 0, "pcs": 0, "orders": 0,
-            "contribution_margin": 0,
+            "contribution_margin": 0, "revenue_deduction": 0,
         })
-        slot["revenue"] += r.net_sales or 0
+        slot["revenue"] += _rev(r)
+        slot["revenue_deduction"] += r.revenue_deduction or 0
         slot["pcs"] += r.pcs_qty or 0
         slot["orders"] += r.order_count or 0
         slot["contribution_margin"] += r.contribution_margin or 0
@@ -1997,7 +2006,7 @@ def dashboard(
             "revenue": 0, "pcs": 0, "orders": 0,
             "contribution_margin": 0,
         })
-        slot["revenue"] += r.net_sales or 0
+        slot["revenue"] += _rev(r)
         slot["pcs"] += r.pcs_qty or 0
         slot["orders"] += r.order_count or 0
         slot["contribution_margin"] += r.contribution_margin or 0
@@ -2020,6 +2029,8 @@ def dashboard(
             "avg_price_per_order": (total_revenue / total_orders) if total_orders else 0,
             "cancelled_count": int(_cancel_count or 0),
             "cancelled_amount": float(_cancel_amount or 0),
+            # 매출차감형 월정액 합계 (예: 쿠팡 로켓프레시) — 위 revenue는 이미 차감 후 금액
+            "revenue_deduction": total_deduction,
         },
         "cost_breakdown": cost_breakdown,
         "series": series,
@@ -2341,7 +2352,7 @@ def plan_comparison(
             "actual_revenue": 0, "actual_pcs": 0,
             "target_revenue": 0, "target_pcs": 0,
         })
-        slot["actual_revenue"] += r.net_sales or 0
+        slot["actual_revenue"] += (r.net_sales or 0) - (r.revenue_deduction or 0)
         slot["actual_pcs"] += r.pcs_qty or 0
 
     def plan_factor(m: int) -> Optional[float]:
@@ -3685,7 +3696,7 @@ def avg_price_analysis(
             "key": k[0], "label": k[1],
             "revenue": 0, "pcs": 0, "orders": 0,
         })
-        slot["revenue"] += r.net_sales or 0
+        slot["revenue"] += (r.net_sales or 0) - (r.revenue_deduction or 0)
         slot["pcs"] += r.pcs_qty or 0
         slot["orders"] += r.order_count or 0
 

@@ -104,6 +104,7 @@ interface DashboardData {
     variable_cost: number; commission: number;
     contribution_margin: number; cm_rate: number;
     cancelled_count?: number; cancelled_amount?: number;
+    revenue_deduction?: number; // 매출차감형 월정액 합계 (revenue는 이미 차감 후)
   };
   series: Array<{
     period: string; revenue: number; pcs: number; orders: number;
@@ -112,6 +113,7 @@ interface DashboardData {
   channels: Array<{
     channel_id: string; channel_name: string; channel_category: string | null;
     revenue: number; pcs: number; orders: number; contribution_margin: number; cm_rate: number;
+    revenue_deduction?: number;
   }>;
   products: Array<{
     product_id: number; product_name: string;
@@ -660,7 +662,7 @@ function DashboardTab({
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <CompactKpi label="매출(VAT-)"
           value={data ? `₩${fmtKR(data.summary.revenue)}` : '—'}
-          hint={data ? `${fmtNum(data.summary.orders)} 주문${data.summary.cancelled_count ? ` · 취소/환불 ${fmtNum(data.summary.cancelled_count)}건` : ''}` : ''}
+          hint={data ? `${fmtNum(data.summary.orders)} 주문${data.summary.cancelled_count ? ` · 취소/환불 ${fmtNum(data.summary.cancelled_count)}건` : ''}${data.summary.revenue_deduction ? ` · 월정액수수료 ₩${fmtKR(data.summary.revenue_deduction)} 차감 후` : ''}` : ''}
           accent="#828FFF"
           spark={sparkKey('revenue')}
           compareValue={hasCompare ? compareData.summary.revenue : undefined}
@@ -1049,8 +1051,12 @@ function DashboardTab({
                       <td className="py-2 px-2 text-[#8A8F98]">{c.channel_category || '-'}</td>
                       <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(c.pcs))}</td>
                       <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(c.orders)}</td>
-                      <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">
+                      <td
+                        className="py-2 px-2 text-right font-mono text-[#F7F8F8]"
+                        title={c.revenue_deduction ? `총매출 ₩${fmtNum(Math.round(c.revenue + c.revenue_deduction))} − 월정액수수료 ₩${fmtNum(Math.round(c.revenue_deduction))} = 순매출 ₩${fmtNum(Math.round(c.revenue))}` : undefined}
+                      >
                         ₩{fmtKR(c.revenue)}
+                        {c.revenue_deduction ? <span className="ml-1 text-[9px] text-[#C084FC]" title="월정액수수료 매출차감 적용 채널">차감후</span> : null}
                         {revDelta && <DeltaBadge delta={revDelta} />}
                       </td>
                       <td className="py-2 px-2 text-right font-mono text-[#A3A9B3]">
@@ -2114,6 +2120,7 @@ interface ChannelMonthlyCost {
   channel_name: string;
   cost_item_id: number;
   amount: number;
+  deduct_from_revenue?: boolean; // true = 변동비가 아니라 매출에서 차감 (정산차감형)
   notes: string | null;
 }
 
@@ -2307,6 +2314,10 @@ function CostTab({
             <br />&nbsp;&nbsp;− <span className="text-[#A855F7]">광고비</span> (채널 월정액 → 일별 매출 비례 분배)
             <br />&nbsp;&nbsp;− (매출 × <span className="text-[#828FFF]">정률 수수료</span> + 주문건수 × <span className="text-[#7070FF]">정액 수수료</span>)
             <br />&nbsp;&nbsp;− (주문건수 × <span className="text-[#27A644]">운반비</span> + 주문건수 × <span className="text-[#68CC58]">포장비</span>)
+          </div>
+          <div className="mt-2 text-[11px] text-[#C084FC]">
+            ⓘ 월정액 항목에 <span className="font-semibold">매출차감</span>을 체크하면 (예: 쿠팡 로켓프레시 월정액 수수료)
+            해당 금액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다 — 대시보드 매출은 차감 후 실수령 기준으로 표시되고, 공헌이익 금액은 동일합니다.
           </div>
           <div className="mt-3 text-[11px]">
             우선순위: <span className="font-mono text-[#828FFF]">채널×품목 → 채널 → 품목 → 전역</span> (구체적인 규칙이 우선)
@@ -2572,22 +2583,31 @@ function MonthlyCostEditor({
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState(currentMonth);
   const [draft, setDraft] = useState<Record<string, number>>({});
+  const [deductDraft, setDeductDraft] = useState<Record<string, boolean>>({});
   const [savingChannel, setSavingChannel] = useState<string | null>(null);
 
+  const existingFor = (channelId: string) =>
+    existing.find(e => e.channel_id === channelId && e.year === year && e.month === month);
+
   const valueFor = (channelId: string) => {
-    const v = existing.find(e => e.channel_id === channelId && e.year === year && e.month === month);
+    const v = existingFor(channelId);
     return draft[channelId] !== undefined ? draft[channelId] : (v?.amount ?? 0);
   };
 
+  const deductFor = (channelId: string) => {
+    if (deductDraft[channelId] !== undefined) return deductDraft[channelId];
+    return existingFor(channelId)?.deduct_from_revenue ?? false;
+  };
+
   const isDirty = (channelId: string) => {
-    if (draft[channelId] === undefined) return false;
-    const v = existing.find(e => e.channel_id === channelId && e.year === year && e.month === month);
-    return draft[channelId] !== (v?.amount ?? 0);
+    const v = existingFor(channelId);
+    const amountDirty = draft[channelId] !== undefined && draft[channelId] !== (v?.amount ?? 0);
+    const deductDirty = deductDraft[channelId] !== undefined && deductDraft[channelId] !== (v?.deduct_from_revenue ?? false);
+    return amountDirty || deductDirty;
   };
 
   const save = async (channel: Channel) => {
-    const amount = draft[channel.id];
-    if (amount === undefined) return;
+    const amount = draft[channel.id] !== undefined ? draft[channel.id] : (existingFor(channel.id)?.amount ?? 0);
     setSavingChannel(channel.id);
     try {
       await fetch(`${API_BASE}/api/csa/channel-monthly-costs`, {
@@ -2597,15 +2617,21 @@ function MonthlyCostEditor({
           year, month,
           channel_id: channel.id, channel_name: channel.name,
           cost_item_id: itemId, amount,
+          deduct_from_revenue: deductFor(channel.id),
         }),
       });
       setDraft(d => { const nd = { ...d }; delete nd[channel.id]; return nd; });
+      setDeductDraft(d => { const nd = { ...d }; delete nd[channel.id]; return nd; });
       onSaved();
     } finally { setSavingChannel(null); }
   };
 
   return (
     <div className={`${SUBPANEL} p-3 mb-3`}>
+      <div className="mb-2 text-[10px] text-[#C084FC] leading-relaxed">
+        ⓘ <span className="font-semibold">매출차감</span> 체크 시 이 월정액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다
+        (정산금에서 공제되는 유형 — 예: 쿠팡 로켓프레시 월정액 수수료). 대시보드 매출은 차감 후 실수령 기준으로 표시되며 공헌이익 금액은 동일합니다.
+      </div>
       <div className="flex items-center gap-2 mb-3">
         <span className="text-[10px] uppercase tracking-wider text-[#A3A9B3]">기간:</span>
         <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
@@ -2621,9 +2647,22 @@ function MonthlyCostEditor({
         {channels.map(c => {
           const v = valueFor(c.id);
           const dirty = isDirty(c.id);
+          const deduct = deductFor(c.id);
           return (
             <div key={c.id} className="flex items-center gap-2 bg-[#0F1011] border border-[#23252A] rounded p-2 text-xs">
               <div className="flex-1 min-w-0 truncate text-[#F7F8F8]">{c.name}</div>
+              <label
+                className={`flex items-center gap-1 text-[9px] cursor-pointer select-none ${deduct ? 'text-[#C084FC]' : 'text-[#7A7F8A]'}`}
+                title="체크 시 변동비가 아니라 매출에서 차감 (정산차감형 — 예: 쿠팡 로켓프레시)"
+              >
+                <input
+                  type="checkbox"
+                  checked={deduct}
+                  onChange={(e) => setDeductDraft(d => ({ ...d, [c.id]: e.target.checked }))}
+                  className="accent-[#C084FC] w-3 h-3"
+                />
+                매출차감
+              </label>
               <span className="text-[10px] text-[#7A7F8A]">₩</span>
               <input
                 type="number"

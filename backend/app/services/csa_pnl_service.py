@@ -197,7 +197,11 @@ def compute_actual(db: Session, year: int) -> dict[tuple[str, int], float]:
     """
     rows = db.query(
         ChannelSalesDailyProduct.month,
-        func.coalesce(func.sum(ChannelSalesDailyProduct.net_sales), 0),
+        # 매출 = net_sales − 매출차감형 월정액(revenue_deduction, 예: 쿠팡 로켓프레시)
+        func.coalesce(func.sum(
+            ChannelSalesDailyProduct.net_sales
+            - func.coalesce(ChannelSalesDailyProduct.revenue_deduction, 0.0)
+        ), 0),
         func.coalesce(func.sum(ChannelSalesDailyProduct.cost_labor), 0),
         func.coalesce(func.sum(ChannelSalesDailyProduct.cost_overhead), 0),
         func.coalesce(func.sum(ChannelSalesDailyProduct.cost_cogs), 0),
