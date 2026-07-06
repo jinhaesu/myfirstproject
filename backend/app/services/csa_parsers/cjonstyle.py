@@ -9,10 +9,10 @@
 
 3) '배송통합조회' 배송 단위 포맷 (74컬럼):
   No·배송상태·배송지시일·주문번호·상품명·옵션명·수량·결제일·
-  공급가(협력사 공급가, VAT별도)·판매가(소비자 정가)·결제가(실결제)·취소예정 …
-  → 매출(net) = 공급가 (GS샵의 협력사지급금액과 동일한 '당사 수령액' 기준).
-    CJ온스타일은 VAT_INCLUDED_CHANNELS라 ingest에서 ÷1.1 하므로,
-    공급가(이미 VAT별도)는 ×1.1로 내보내 최종 적재값이 정확히 공급가가 되게 한다.
+  공급가(협력사 공급가, VAT별도)·판매가(소비자 단가)·결제가(실결제)·취소예정 …
+  → 매출(net) = 수량 × 판매가 (VAT포함 → ingest ÷1.1).
+    기준변경요청서(임현정 MD, 대표 승인 2026-07-06). 검증: 26년 5월
+    2,090,200원(VAT포함)/107행/수량141. 과거 공급가 기준(GS샵 convention)은 폐기.
 
 openpyxl CellStyle 버그 우회 → python-calamine 사용.
 """
@@ -63,14 +63,16 @@ def _parse_delivery_report(df: pd.DataFrame, header_row: int) -> Iterable[Parsed
         ):
             continue
         qty = to_float(d.get("수량") or 0)
-        supply = to_float(d.get("공급가") or 0)   # 협력사 공급가 (VAT별도, 당사 매출)
-        price = to_float(d.get("판매가") or 0)    # 소비자 정가 (VAT포함)
+        supply = to_float(d.get("공급가") or 0)   # 협력사 공급가 (VAT별도)
+        price = to_float(d.get("판매가") or 0)    # 소비자 판매 단가 (VAT포함)
         paid = to_float(d.get("결제가") or 0)     # 실결제액 (VAT포함)
         if qty == 0 and supply == 0 and price == 0:
             continue
-        # ingest ÷1.1 상쇄: 공급가×1.1로 내보내면 적재 매출 = 공급가(정확).
-        net = supply * _VAT if supply else (paid or price)
-        gross = price or net
+        # 순매출 = 수량 × 판매가 (VAT포함 → ingest ÷1.1).
+        # 기준변경요청서(임현정 MD) 대표 승인 2026-07-06 — 기존 공급가 기준에서 전환.
+        # 판매가 없으면 결제가, 그것도 없으면 공급가×1.1(상쇄용) 폴백.
+        net = (price * qty) if price and qty else (paid or supply * _VAT)
+        gross = net
         sale_d = (
             to_date(d.get("결제일")) or to_date(d.get("배송지시일"))
             or to_date(d.get("출고일")) or date.today()
