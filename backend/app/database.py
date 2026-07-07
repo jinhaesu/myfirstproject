@@ -194,3 +194,16 @@ def init_db():
                 conn.commit()
         except Exception:
             pass
+
+        # 대시보드 취소 집계용 복합 인덱스 (mapping_status, sale_date) — 풀스캔 방지
+        try:
+            from sqlalchemy import text
+            with engine.connect() as conn:
+                conn.execute(text("SET statement_timeout = 0"))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_csa_raw_status_date "
+                    "ON csa_sales_raw_lines (mapping_status, sale_date)"
+                ))
+                conn.commit()
+        except Exception:
+            pass

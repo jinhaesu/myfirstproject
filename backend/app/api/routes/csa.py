@@ -1811,6 +1811,25 @@ def delete_channel_monthly_cost(cost_id: int, db: Session = Depends(get_db)):
     return {"deleted": cost_id}
 
 
+@router.post("/admin/create-raw-status-index")
+def admin_create_raw_status_index(db: Session = Depends(get_db)):
+    """raw_lines (mapping_status, sale_date) 복합 인덱스 생성.
+
+    대시보드 취소/환불 집계 쿼리가 ~160만행 풀스캔으로 40초+ 걸려
+    statement timeout(30s) 500을 유발 (2026-07-07 실사고). 인덱스 생성은
+    30초를 넘길 수 있어 세션 한정으로 timeout 해제 후 실행.
+    """
+    from sqlalchemy import text as _text
+    db.execute(_text("SET statement_timeout = 0"))
+    db.execute(_text(
+        "CREATE INDEX IF NOT EXISTS ix_csa_raw_status_date "
+        "ON csa_sales_raw_lines (mapping_status, sale_date)"
+    ))
+    db.execute(_text("ANALYZE csa_sales_raw_lines"))
+    db.commit()
+    return {"created": "ix_csa_raw_status_date"}
+
+
 @router.get("/admin/db-stats")
 def admin_db_stats(db: Session = Depends(get_db)):
     """pg_stat_activity 요약 — 연결 포화/장기 쿼리/락 대기 진단."""
