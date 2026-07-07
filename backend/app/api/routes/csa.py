@@ -1698,17 +1698,44 @@ def upsert_cost_rule(payload: CostRuleIn, db: Session = Depends(get_db)):
         db.add(rule)
         db.commit()
         rule_id = rule.id
-    rebuild_daily_with_costs(db)
-    _bust_all_caches()
-    return {"id": rule_id}
+    # 채널 한정 규칙이면 그 채널만 동기 재계산, 전역 규칙이면 백그라운드로
+    # 전체 재계산 (동기 전체 rebuild는 요청 타임아웃 유발. 2026-07-07 수정)
+    if payload.channel_id:
+        rebuild_daily_with_costs(db, channel_id=payload.channel_id)
+        _bust_all_caches()
+        return {"id": rule_id, "rebuild": "done"}
+    import threading
+    threading.Thread(target=_rebuild_all_costs_background, daemon=True).start()
+    return {"id": rule_id, "rebuild": "background"}
+
+
+def _rebuild_all_costs_background():
+    from app.database import SessionLocal
+    _db = SessionLocal()
+    try:
+        rebuild_daily_with_costs(_db)
+        _bust_all_caches()
+    except Exception:
+        log.exception("전역 변동비 재계산 실패")
+    finally:
+        _db.close()
 
 
 @router.delete("/cost-rules/{rule_id}")
 def delete_cost_rule(rule_id: int, db: Session = Depends(get_db)):
-    db.query(CsaCostRule).filter(CsaCostRule.id == rule_id).delete()
+    rule = db.query(CsaCostRule).filter(CsaCostRule.id == rule_id).first()
+    if not rule:
+        return {"deleted": 0}
+    _ch = rule.channel_id
+    db.delete(rule)
     db.commit()
-    rebuild_daily_with_costs(db)
-    return {"deleted": rule_id}
+    if _ch:
+        rebuild_daily_with_costs(db, channel_id=_ch)
+        _bust_all_caches()
+        return {"deleted": rule_id, "rebuild": "done"}
+    import threading
+    threading.Thread(target=_rebuild_all_costs_background, daemon=True).start()
+    return {"deleted": rule_id, "rebuild": "background"}
 
 
 @router.get("/channel-monthly-costs")
@@ -1737,6 +1764,11 @@ def list_channel_monthly_costs(
     ]
 
 
+def _month_range(year: int, month: int) -> tuple[date, date]:
+    from calendar import monthrange as _mr
+    return date(year, month, 1), date(year, month, _mr(year, month)[1])
+
+
 @router.post("/channel-monthly-costs")
 def upsert_channel_monthly_cost(payload: ChannelMonthlyCostIn, db: Session = Depends(get_db)):
     existing = db.query(CsaChannelMonthlyCost).filter(
@@ -1757,16 +1789,25 @@ def upsert_channel_monthly_cost(payload: ChannelMonthlyCostIn, db: Session = Dep
         db.add(m)
         db.commit()
         eid = m.id
-    rebuild_daily_with_costs(db)
+    # 해당 채널×월만 재계산. (과거엔 전 채널·전 기간 rebuild가 동기로 돌아
+    # 수분 소요 → 요청 타임아웃으로 '저장 안 됨' 오류. 2026-07-07 수정)
+    _s, _e = _month_range(payload.year, payload.month)
+    rebuilt = rebuild_daily_with_costs(db, channel_id=payload.channel_id, since=_s, until=_e)
     _bust_all_caches()
-    return {"id": eid}
+    return {"id": eid, "rebuilt_rows": rebuilt}
 
 
 @router.delete("/channel-monthly-costs/{cost_id}")
 def delete_channel_monthly_cost(cost_id: int, db: Session = Depends(get_db)):
-    db.query(CsaChannelMonthlyCost).filter(CsaChannelMonthlyCost.id == cost_id).delete()
+    m = db.query(CsaChannelMonthlyCost).filter(CsaChannelMonthlyCost.id == cost_id).first()
+    if not m:
+        return {"deleted": 0}
+    _ch, _y, _mo = m.channel_id, m.year, m.month
+    db.delete(m)
     db.commit()
-    rebuild_daily_with_costs(db)
+    _s, _e = _month_range(_y, _mo)
+    rebuild_daily_with_costs(db, channel_id=_ch, since=_s, until=_e)
+    _bust_all_caches()
     return {"deleted": cost_id}
 
 

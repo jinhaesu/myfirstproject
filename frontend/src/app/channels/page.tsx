@@ -2610,7 +2610,7 @@ function MonthlyCostEditor({
     const amount = draft[channel.id] !== undefined ? draft[channel.id] : (existingFor(channel.id)?.amount ?? 0);
     setSavingChannel(channel.id);
     try {
-      await fetch(`${API_BASE}/api/csa/channel-monthly-costs`, {
+      const r = await fetch(`${API_BASE}/api/csa/channel-monthly-costs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
@@ -2620,9 +2620,16 @@ function MonthlyCostEditor({
           deduct_from_revenue: deductFor(channel.id),
         }),
       });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        alert(`저장 실패 (${r.status}): ${data.detail || '잠시 후 다시 시도해주세요'}`);
+        return;
+      }
       setDraft(d => { const nd = { ...d }; delete nd[channel.id]; return nd; });
       setDeductDraft(d => { const nd = { ...d }; delete nd[channel.id]; return nd; });
       onSaved();
+    } catch (e) {
+      alert(`저장 실패: ${e instanceof Error ? e.message : '네트워크 오류'}`);
     } finally { setSavingChannel(null); }
   };
 

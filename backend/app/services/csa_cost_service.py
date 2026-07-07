@@ -166,21 +166,26 @@ def rebuild_daily_with_costs(
     rows = rq.all()
 
     # 2) 영향 받는 범위 삭제
-    #    ⚠️ 전체(unscoped) 재집계 시 raw_lines가 없는 채널의 daily까지 지우면
-    #    BQ복구 과거데이터(raw_lines엔 없고 daily에만 존재)가 통째로 날아간다.
-    #    → raw_lines가 실제로 있는 채널만 삭제·재구축하고, BQ-only 채널은 보존.
-    del_q = db.query(ChannelSalesDailyProduct)
-    if channel_id:
-        del_q = del_q.filter(ChannelSalesDailyProduct.channel_id == channel_id)
-    else:
-        affected = list({r.channel_id for r in rows})
-        # raw가 하나도 없으면 아무것도 삭제하지 않음(전체 wipe 방지)
-        del_q = del_q.filter(ChannelSalesDailyProduct.channel_id.in_(affected or ["__no_channel__"]))
-    if since:
-        del_q = del_q.filter(ChannelSalesDailyProduct.sale_date >= since)
-    if until:
-        del_q = del_q.filter(ChannelSalesDailyProduct.sale_date <= until)
-    del_q.delete(synchronize_session=False)
+    #    ⚠️ raw_lines가 없는 채널/기간의 daily까지 지우면 BQ복구 과거데이터
+    #    (raw엔 없고 daily에만 존재)가 통째로 날아간다.
+    #    → 채널별로 raw가 실제 존재하는 날짜 구간(min~max)만 삭제·재구축.
+    #    rows가 비면 아무것도 삭제하지 않음 (스코프 호출 wipe 방지 포함).
+    ch_range: dict[str, tuple[date, date]] = {}
+    for r in rows:
+        lo, hi = ch_range.get(r.channel_id, (r.sale_date, r.sale_date))
+        ch_range[r.channel_id] = (min(lo, r.sale_date), max(hi, r.sale_date))
+    for _ch, (_lo, _hi) in ch_range.items():
+        if since and _lo < since:
+            _lo = since
+        if until and _hi > until:
+            _hi = until
+        db.query(ChannelSalesDailyProduct).filter(
+            ChannelSalesDailyProduct.channel_id == _ch,
+            ChannelSalesDailyProduct.sale_date >= _lo,
+            ChannelSalesDailyProduct.sale_date <= _hi,
+        ).delete(synchronize_session=False)
+    if not rows:
+        return 0
 
     # 3) 캐시
     rules_by_item = _rules_by_item(db)
