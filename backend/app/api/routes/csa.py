@@ -2091,8 +2091,13 @@ def dashboard(
     db: Session = Depends(get_db),
 ):
     import time as _time
+    _t0 = _time.monotonic()
+    _tprev = [_t0]
+
     def _dlap(label):
-        pass
+        _now = _time.monotonic()
+        log.info("dashboard-timing %s: +%.2fs (누적 %.2fs)", label, _now - _tprev[0], _now - _t0)
+        _tprev[0] = _now
     # 날짜 입력 중 키 입력마다 fetch가 나가면 '0002-07-01' 같은 연도가 들어와
     # 2000년치 범위를 만들다 인스턴스가 죽는(OOM→503) 사고 방지 (2026-07-01 실사고).
     # 데이터는 2024년 이후뿐이므로 그 이전/비정상 연도는 클램프.
@@ -2334,6 +2339,7 @@ def dashboard(
     }
     _DASH_CACHE[cache_key] = {"data": {k: v for k, v in resp.items() if k != "_cached"},
                               "expires": now + _DASH_TTL_SEC}
+    _dlap("aggregate+serialize")
     return resp
 
 
