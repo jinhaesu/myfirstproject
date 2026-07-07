@@ -195,15 +195,6 @@ def init_db():
         except Exception:
             pass
 
-        # 대시보드 취소 집계용 복합 인덱스 (mapping_status, sale_date) — 풀스캔 방지
-        try:
-            from sqlalchemy import text
-            with engine.connect() as conn:
-                conn.execute(text("SET statement_timeout = 0"))
-                conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS ix_csa_raw_status_date "
-                    "ON csa_sales_raw_lines (mapping_status, sale_date)"
-                ))
-                conn.commit()
-        except Exception:
-            pass
+        # NOTE: raw_lines (mapping_status, sale_date) 인덱스는 startup에서 만들지 않는다 —
+        # 160만행 CREATE INDEX가 부팅을 붙잡아 startup probe 실패(배포 00087 실사고).
+        # 생성은 POST /api/csa/admin/create-raw-status-index (세션 한정 timeout 해제)로 1회 수행.
