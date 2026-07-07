@@ -1811,6 +1811,30 @@ def delete_channel_monthly_cost(cost_id: int, db: Session = Depends(get_db)):
     return {"deleted": cost_id}
 
 
+@router.get("/admin/db-stats")
+def admin_db_stats(db: Session = Depends(get_db)):
+    """pg_stat_activity 요약 — 연결 포화/장기 쿼리/락 대기 진단."""
+    from sqlalchemy import text as _text
+    rows = db.execute(_text(
+        "SELECT state, wait_event_type, count(*) AS n, "
+        "       max(EXTRACT(EPOCH FROM (now() - query_start)))::int AS max_age_s "
+        "FROM pg_stat_activity WHERE datname = current_database() "
+        "GROUP BY state, wait_event_type ORDER BY n DESC"
+    )).fetchall()
+    long_q = db.execute(_text(
+        "SELECT pid, state, EXTRACT(EPOCH FROM (now() - query_start))::int AS age_s, "
+        "       left(query, 160) AS q "
+        "FROM pg_stat_activity "
+        "WHERE datname = current_database() AND state <> 'idle' "
+        "  AND query_start < now() - interval '10 seconds' "
+        "ORDER BY query_start LIMIT 15"
+    )).fetchall()
+    return {
+        "summary": [dict(r._mapping) for r in rows],
+        "long_running": [dict(r._mapping) for r in long_q],
+    }
+
+
 @router.post("/admin/create-channel")
 def admin_create_channel(
     name: str,
