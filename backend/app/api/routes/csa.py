@@ -1016,13 +1016,18 @@ def _run_reprocess_background(channel_id: str, channel_name: str):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        files = (
-            db.query(CsaUploadFile)
-            .filter(CsaUploadFile.channel_id == channel_id)
-            .order_by(CsaUploadFile.created_at.asc())
-            .all()
-        )
-        if not files:
+        # 파일 목록은 id만 — content(BLOB 수십 MB)까지 한 문장으로 당기면
+        # Supabase pooler가 긴 statement를 끊어(SSL closed/timeout) 재처리가 통째로 no-op 됨.
+        # content는 루프 안에서 파일별 단건 조회.
+        file_ids = [
+            fid for (fid,) in (
+                db.query(CsaUploadFile.id)
+                .filter(CsaUploadFile.channel_id == channel_id)
+                .order_by(CsaUploadFile.created_at.asc())
+                .all()
+            )
+        ]
+        if not file_ids:
             return
 
         # 1) upload_files.batch_id를 먼저 NULL로 끊어 FK 위반 방지 (보관본은 보존)
@@ -1050,8 +1055,11 @@ def _run_reprocess_background(channel_id: str, channel_name: str):
             _bust_all_caches()
             return
 
-        # 3) 각 보관 원본을 임시파일로 풀어 동일 적재 로직 실행
-        for f in files:
+        # 3) 각 보관 원본을 임시파일로 풀어 동일 적재 로직 실행 (content는 파일별 단건 조회)
+        for fid in file_ids:
+            f = db.query(CsaUploadFile).filter(CsaUploadFile.id == fid).first()
+            if f is None:
+                continue
             suffix = os.path.splitext(f.file_name or "")[1] or ".xlsx"
             tmp_path = None
             tmp_dir = None
@@ -1082,8 +1090,13 @@ def _run_reprocess_background(channel_id: str, channel_name: str):
                     db.commit()
             except Exception:
                 db.rollback()
-                log.exception("reprocess: 파일 재처리 실패 file_id=%s", f.id)
+                log.exception("reprocess: 파일 재처리 실패 file_id=%s", fid)
             finally:
+                # 대용량 content가 세션에 계속 잡혀 있지 않도록 파일별로 정리
+                try:
+                    db.expunge(f)
+                except Exception:
+                    pass
                 if tmp_path:
                     try:
                         os.unlink(tmp_path)
