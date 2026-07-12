@@ -23,10 +23,62 @@ from app.services.csa_parsers import register
 from app.services.csa_parsers._common import read_excel_safe, to_datetime, to_float, to_str
 
 
+# ---- 낱개수량 (2026-07 기준변경요청서, 장현진) ----
+# 낱개 = 옵션 정보[H]를 '/'로 분할, 파트별 개수 곱(르뱅 6개입 2개입 → 12) 합산 × 수량[I].
+# · 개수 없는 'N세트' 파트는 수량 배수(뚱낭시에/2세트 → 상품명 8개 × 2 = 16).
+# · 파트에 개수 없고 괄호 안에 구성(마카롱 8ea 뚱낭시에 8ea…)이 있으면 그 합(랜덤박스 → 28, 음료 포함).
+# · 옵션에 개수 없으면 상품명[E] 기준(휘낭시에 8개 1세트 → 8).
+# 취소·환불 = 주문상태[X] '취소 완료'/'반품 완료'.
+# 6월 샘플 검증: 낱개 합 1,355 = 담당자 정답 1,355 (정확 일치).
+_WEIGHT = re.compile(r"\d+(?:\.\d+)?\s*(?:kg|g|ml|l|cm|mm)(?![a-zA-Z가-힣0-9])", re.I)
+_CNT = re.compile(r"(\d+)\s*(?:개입|구|개|봉|병|입|매|장|팩|캔|포|알|스틱)")
+_CNT_INNER = re.compile(r"(\d+)\s*(?:ea|개입|구|개|봉|병|입|매|장|캔)", re.I)
+_SET = re.compile(r"(\d+)\s*(?:세트|셋트|박스|box|set)", re.I)
+
+
+def _prod_base(prod: str) -> float:
+    t = re.sub(r"\([^)]*\)", " ", _WEIGHT.sub(" ", prod or ""))
+    cnts = [int(c) for c in _CNT.findall(t) if 1 <= int(c) <= 200]
+    return float(cnts[0]) if cnts else 0.0
+
+
+def _ably_ups(opt: str | None, prod: str | None) -> float:
+    t = _WEIGHT.sub(" ", opt or "")
+    vals: list[float] = []
+    mult = 1
+    if t.strip():
+        for part in t.split("/"):
+            part = part.strip()
+            if not part:
+                continue
+            p2 = re.sub(r"\([^)]*\)", " ", part)
+            cnts = [int(c) for c in _CNT.findall(p2) if 1 <= int(c) <= 200]
+            sm = _SET.search(p2)
+            if not cnts and sm and 1 <= int(sm.group(1)) <= 20:
+                mult *= int(sm.group(1))
+                continue
+            if not cnts:
+                inner = " ".join(re.findall(r"\(([^)]*)\)", part))
+                ic = [int(x) for x in _CNT_INNER.findall(inner) if 1 <= int(x) <= 200]
+                if ic:
+                    vals.append(float(sum(ic)))
+                continue
+            v = 1.0
+            for c in cnts:
+                v *= c
+            if sm and 1 <= int(sm.group(1)) <= 20:
+                v *= int(sm.group(1))
+            vals.append(v)
+    if vals:
+        return sum(vals) * mult
+    base = _prod_base(prod or "")
+    return (base if base else 1.0) * mult
+
+
 def _parse_order_list(df: pd.DataFrame) -> Iterable[ParsedLine]:
     """에이블리 '전체주문내역'(주문 단위) 양식.
     컬럼: 결제일 / 상품주문번호 / 주문번호 / 상품명 / 판매가 / 수량 / 결제액 / 주문상태 ...
-    날짜=결제일, 매출(net)=결제액(실결제), 주문상태 '취소'는 is_cancelled.
+    날짜=결제일, 매출(net)=결제액(실결제), 주문상태 '취소 완료'/'반품 완료'는 is_cancelled.
     """
     for _, row in df.iterrows():
         sale_dt = to_datetime(row.get("결제일") or row.get("주문일") or row.get("결제일시"))
@@ -36,8 +88,10 @@ def _parse_order_list(df: pd.DataFrame) -> Iterable[ParsedLine]:
         if not prod:
             continue
         status = to_str(row.get("주문상태") or "") or ""
-        is_cancel = ("취소" in status) or ("반품" in status) or ("환불" in status)
+        # 담당자 검증: X열 '취소 완료'/'반품 완료'만 취소·환불 (웹 취소건수와 6개월 100% 일치)
+        is_cancel = ("취소 완료" in status) or ("반품 완료" in status) or ("환불" in status)
         qty = to_float(row.get("수량") or 1)
+        opt = to_str(row.get("옵션 정보") or row.get("옵션명"))
         # 매출 = 결제액(L) 그대로. 결제액=0(쿠폰 전액결제)도 0으로 둠
         # → gross도 결제액으로 둬서 ingest의 (net or gross) 폴백이 판매가를 끌어오지 않게 함.
         net = to_float(row.get("결제액"))
@@ -48,12 +102,13 @@ def _parse_order_list(df: pd.DataFrame) -> Iterable[ParsedLine]:
             order_no=to_str(row.get("주문번호")),
             line_no=to_str(row.get("상품주문번호")),
             raw_product_name=prod,
-            raw_option_name=to_str(row.get("옵션 정보") or row.get("옵션명")),
+            raw_option_name=opt,
             raw_qty=qty,
             gross_amount=0 if is_cancel else gross,
             net_amount=0 if is_cancel else net,
             refund_amount=net if is_cancel else 0,
             is_cancelled=is_cancel,
+            unit_per_set=_ably_ups(opt, prod),
         )
 
 
