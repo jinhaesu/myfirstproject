@@ -24,6 +24,12 @@ from app.services.csa_parsers._common import read_excel_safe, to_date, to_float,
 # 상품명에서 1팩당 낱개 입수 추출: 'N구' / 'N개입' / 'N개'
 _UNIT_RE = re.compile(r"(\d+)\s*(?:구|개입|개)")
 
+# 상품명에 숫자가 없는 SKU의 팩당 개수 (담당자 이창헌 확인, 2026-07-13).
+# 예: '고단백저당네모바게트플레인' → 팩당 5개 (베이글4구·뚱카롱6구는 이름 숫자로 자동 인식)
+_UNIT_BY_KEYWORD = {
+    "네모바게트": 5.0,
+}
+
 
 def _unit_from_name(name: Optional[str]) -> Optional[float]:
     if not name:
@@ -33,6 +39,9 @@ def _unit_from_name(name: Optional[str]) -> Optional[float]:
         v = int(m.group(1))
         if 1 <= v <= 500:
             return float(v)
+    for kw, unit in _UNIT_BY_KEYWORD.items():
+        if kw in name:
+            return unit
     return None
 
 
