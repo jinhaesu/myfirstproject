@@ -2375,6 +2375,84 @@ def dashboard(
     return resp
 
 
+@router.get("/matrix")
+def csa_matrix(
+    year: int,
+    by: str = Query("product", pattern="^(product|channel)$"),
+    db: Session = Depends(get_db),
+):
+    """연간 월별 매트릭스 — 품목(또는 채널) × 1~12월.
+
+    각 셀: 낱개수량(pcs)·매출(net−월정액차감)·주문건수·공헌이익.
+    객단가/공헌이익률은 프론트에서 파생(매출÷낱개, 공헌이익÷매출 — 상세 테이블과 동일 기준).
+    daily aggregate(csa_sales_daily_product) 기반이라 대시보드 수치와 정합.
+    """
+    from sqlalchemy import func as sa_func
+
+    D = ChannelSalesDailyProduct
+    rev_expr = sa_func.sum(D.net_sales - sa_func.coalesce(D.revenue_deduction, 0.0))
+
+    if by == "channel":
+        q = (
+            db.query(
+                D.channel_id.label("rid"),
+                D.channel_name.label("rname"),
+                sa_func.max(D.channel_category).label("rcat"),
+                D.month.label("m"),
+                rev_expr.label("revenue"),
+                sa_func.sum(D.pcs_qty).label("pcs"),
+                sa_func.sum(D.order_count).label("orders"),
+                sa_func.sum(D.contribution_margin).label("cm"),
+            )
+            .filter(D.year == year)
+            .group_by(D.channel_id, D.channel_name, D.month)
+        )
+        cat_by_id: dict = {}
+    else:
+        q = (
+            db.query(
+                D.product_id.label("rid"),
+                D.product_name.label("rname"),
+                D.month.label("m"),
+                rev_expr.label("revenue"),
+                sa_func.sum(D.pcs_qty).label("pcs"),
+                sa_func.sum(D.order_count).label("orders"),
+                sa_func.sum(D.contribution_margin).label("cm"),
+            )
+            .filter(D.year == year)
+            .group_by(D.product_id, D.product_name, D.month)
+        )
+        cat_by_id = {
+            p.id: (p.category or "기타")
+            for p in db.query(ProductMaster.id, ProductMaster.category).all()
+        }
+
+    rows_out: dict = {}
+    for r in q.all():
+        if by == "channel":
+            rid, rname, rcat = r.rid, r.rname, (r.rcat or "-")
+        else:
+            rid = r.rid if r.rid is not None else 0
+            rname = r.rname if r.rid is not None else "(미매핑)"
+            rcat = cat_by_id.get(r.rid, "기타") if r.rid is not None else "기타"
+        slot = rows_out.setdefault(rid, {
+            "id": rid, "name": rname, "category": rcat,
+            "monthly": {}, "total": {"pcs": 0, "revenue": 0, "orders": 0, "cm": 0},
+        })
+        cell = {
+            "pcs": float(r.pcs or 0),
+            "revenue": float(r.revenue or 0),
+            "orders": int(r.orders or 0),
+            "cm": float(r.cm or 0),
+        }
+        slot["monthly"][str(int(r.m))] = cell
+        for k in ("pcs", "revenue", "orders", "cm"):
+            slot["total"][k] += cell[k]
+
+    out = sorted(rows_out.values(), key=lambda x: -x["total"]["revenue"])
+    return {"year": year, "by": by, "rows": out}
+
+
 # ──────────────────────────────────────────────────────────────
 # 직원 / 채널 그룹 / 담당 매핑
 # ──────────────────────────────────────────────────────────────

@@ -147,6 +147,23 @@ const fmtKR = (n: number): string => {
 const fmtNum = (n: number): string => n.toLocaleString();
 const fmtPct = (n: number): string => `${n.toFixed(1)}%`;
 
+// CSV(엑셀 호환, UTF-8 BOM) 다운로드 — 외부 라이브러리 불필요
+const downloadCsv = (filename: string, headers: string[], rows: (string | number)[][]) => {
+  const esc = (v: string | number) => {
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = '﻿' + [headers, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const DL_BTN = 'px-2.5 py-1 rounded-md text-[11px] bg-[#1A1C22] border border-[#2C2F36] text-[#A3A9B3] hover:text-[#F7F8F8] hover:border-[#4C5EF7] transition-colors';
+
 const today = new Date();
 const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 const isoDate = (d: Date): string =>
@@ -366,6 +383,7 @@ function Content() {
             setCompareEnd={setCompareEnd}
             compareManual={compareManual}
             setCompareManual={setCompareManual}
+            authHeaders={authHeaders}
           />
         )}
 
@@ -487,6 +505,197 @@ const COST_LABELS: Record<string, string> = {
   shipping: '운반비', packaging: '포장비',
 };
 
+// ──────────────────────────────────────────────────────────────
+// 월별 매트릭스 (품목/채널 × 1~12월, 지표 드롭다운)
+// ──────────────────────────────────────────────────────────────
+
+const MATRIX_METRICS = [
+  { key: 'pcs', label: '낱개수량' },
+  { key: 'revenue', label: '매출(VAT-)' },
+  { key: 'avg_price', label: '객단가' },
+  { key: 'cm', label: '공헌이익' },
+  { key: 'cm_rate', label: '공헌이익률' },
+  { key: 'orders', label: '주문건수' },
+] as const;
+
+const matrixCellValue = (cell: any, metric: string): number => {
+  if (!cell) return 0;
+  if (metric === 'avg_price') return cell.pcs ? cell.revenue / cell.pcs : 0;
+  if (metric === 'cm_rate') return cell.revenue ? (cell.cm / cell.revenue) * 100 : 0;
+  return cell[metric] || 0;
+};
+
+const fmtMatrixCell = (v: number, metric: string): string => {
+  if (!v) return '-';
+  if (metric === 'cm_rate') return fmtPct(v);
+  if (metric === 'pcs' || metric === 'orders') return fmtNum(Math.round(v));
+  if (metric === 'avg_price') return `₩${fmtNum(Math.round(v))}`;
+  return `₩${fmtKR(v)}`;
+};
+
+function MatrixSection({ title, by, authHeaders, categoryToggle = false }: {
+  title: string; by: 'product' | 'channel';
+  authHeaders: () => HeadersInit; categoryToggle?: boolean;
+}) {
+  const nowYear = new Date().getFullYear();
+  const yearOpts: number[] = [];
+  for (let y = 2025; y <= nowYear; y++) yearOpts.push(y);
+  const [year, setYear] = useState(nowYear);
+  const [metric, setMetric] = useState<string>('revenue');
+  const [byCategory, setByCategory] = useState(false);
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    fetch(`${API_BASE}/api/csa/matrix?year=${year}&by=${by}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(d => { if (alive) setRows(d.rows || []); })
+      .catch(() => { if (alive) setRows([]); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year, by]);
+
+  const displayRows = useMemo(() => {
+    if (!categoryToggle || !byCategory) return rows;
+    const byCat: Record<string, any> = {};
+    for (const r of rows) {
+      const key = r.category || '기타';
+      const slot = byCat[key] || (byCat[key] = {
+        id: key, name: key, monthly: {}, total: { pcs: 0, revenue: 0, orders: 0, cm: 0 },
+      });
+      for (const [m, c] of Object.entries<any>(r.monthly || {})) {
+        const mc = slot.monthly[m] || (slot.monthly[m] = { pcs: 0, revenue: 0, orders: 0, cm: 0 });
+        mc.pcs += c.pcs; mc.revenue += c.revenue; mc.orders += c.orders; mc.cm += c.cm;
+      }
+      (['pcs', 'revenue', 'orders', 'cm'] as const).forEach(k => { slot.total[k] += r.total[k] || 0; });
+    }
+    return Object.values(byCat).sort((a: any, b: any) => b.total.revenue - a.total.revenue);
+  }, [rows, byCategory, categoryToggle]);
+
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+
+  // 월별 합계(footer): 파생지표(객단가·이익률)는 합산 원값에서 재계산
+  const colTotals = useMemo(() => {
+    const totals: Record<string, any> = { total: { pcs: 0, revenue: 0, orders: 0, cm: 0 } };
+    for (const m of months) totals[String(m)] = { pcs: 0, revenue: 0, orders: 0, cm: 0 };
+    for (const r of displayRows) {
+      for (const m of months) {
+        const c = r.monthly?.[String(m)];
+        if (!c) continue;
+        const t = totals[String(m)];
+        t.pcs += c.pcs; t.revenue += c.revenue; t.orders += c.orders; t.cm += c.cm;
+      }
+      const g = totals.total;
+      g.pcs += r.total.pcs; g.revenue += r.total.revenue; g.orders += r.total.orders; g.cm += r.total.cm;
+    }
+    return totals;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayRows]);
+
+  const metricLabel = MATRIX_METRICS.find(m => m.key === metric)?.label || metric;
+  const rowLabel = by === 'product' ? (byCategory ? '카테고리' : '품목') : '채널';
+
+  const download = () => {
+    const round2 = (v: number) => Math.round(v * 100) / 100;
+    downloadCsv(
+      `${title}_${year}년_${metricLabel}.csv`,
+      [rowLabel, ...months.map(m => `${m}월`), '합계'],
+      [
+        ...displayRows.map((r: any) => [
+          r.name,
+          ...months.map(m => round2(matrixCellValue(r.monthly?.[String(m)], metric))),
+          round2(matrixCellValue(r.total, metric)),
+        ]),
+        ['합계', ...months.map(m => round2(matrixCellValue(colTotals[String(m)], metric))), round2(matrixCellValue(colTotals.total, metric))],
+      ],
+    );
+  };
+
+  return (
+    <div className={`${PANEL} p-5 mt-5`}>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h2 className="text-sm font-semibold text-[#F7F8F8]">
+          {title}
+          <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">{year}년 · {metricLabel}</span>
+        </h2>
+        <div className="flex items-center gap-2">
+          <select
+            value={year} onChange={e => setYear(Number(e.target.value))}
+            className="bg-[#1A1C22] border border-[#2C2F36] rounded-md px-2 py-1 text-[11px] text-[#D0D6E0]"
+          >
+            {yearOpts.map(y => <option key={y} value={y}>{y}년</option>)}
+          </select>
+          <select
+            value={metric} onChange={e => setMetric(e.target.value)}
+            className="bg-[#1A1C22] border border-[#2C2F36] rounded-md px-2 py-1 text-[11px] text-[#D0D6E0]"
+          >
+            {MATRIX_METRICS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+          </select>
+          {categoryToggle && (
+            <button
+              onClick={() => setByCategory(v => !v)}
+              className={`${DL_BTN} ${byCategory ? 'text-[#828FFF] border-[#4C5EF7]' : ''}`}
+            >
+              {byCategory ? '카테고리별' : '품목별'}
+            </button>
+          )}
+          <button onClick={download} className={DL_BTN}>⬇ 엑셀 다운로드</button>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12px] whitespace-nowrap">
+          <thead>
+            <tr className="border-b border-[#23252A] text-[10px] uppercase tracking-wider text-[#62666D]">
+              <th className="text-left py-2 px-2 sticky left-0 bg-[#0F1011]">{rowLabel}</th>
+              {months.map(m => <th key={m} className="text-right py-2 px-2">{m}월</th>)}
+              <th className="text-right py-2 px-2 text-[#A3A9B3]">합계</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={14} className="py-8 text-center text-[#62666D]">불러오는 중…</td></tr>
+            ) : displayRows.length ? (
+              displayRows.map((r: any) => (
+                <tr key={r.id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
+                  <td className="py-1.5 px-2 text-[#F7F8F8] sticky left-0 bg-[#0F1011]">{r.name}</td>
+                  {months.map(m => (
+                    <td key={m} className="py-1.5 px-2 text-right font-mono text-[#D0D6E0]">
+                      {fmtMatrixCell(matrixCellValue(r.monthly?.[String(m)], metric), metric)}
+                    </td>
+                  ))}
+                  <td className="py-1.5 px-2 text-right font-mono text-[#F7F8F8] font-semibold">
+                    {fmtMatrixCell(matrixCellValue(r.total, metric), metric)}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr><td colSpan={14} className="py-8 text-center text-[#62666D]">{year}년 데이터가 없습니다.</td></tr>
+            )}
+          </tbody>
+          {displayRows.length ? (
+            <tfoot>
+              <tr className="border-t-2 border-[#2C2F36] font-semibold bg-[#15171A]">
+                <td className="py-2 px-2 text-[#F7F8F8] sticky left-0 bg-[#15171A]">합계</td>
+                {months.map(m => (
+                  <td key={m} className="py-2 px-2 text-right font-mono text-[#F7F8F8]">
+                    {fmtMatrixCell(matrixCellValue(colTotals[String(m)], metric), metric)}
+                  </td>
+                ))}
+                <td className="py-2 px-2 text-right font-mono text-[#828FFF]">
+                  {fmtMatrixCell(matrixCellValue(colTotals.total, metric), metric)}
+                </td>
+              </tr>
+            </tfoot>
+          ) : null}
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function DashboardTab({
   data, compareData, loading, channels, products, employees,
   periodStart, periodEnd, setPeriodStart, setPeriodEnd,
@@ -494,7 +703,7 @@ function DashboardTab({
   selChannels, setSelChannels, selProducts, setSelProducts,
   selEmployees, setSelEmployees,
   compareOpen, setCompareOpen, compareStart, setCompareStart, compareEnd, setCompareEnd,
-  compareManual, setCompareManual,
+  compareManual, setCompareManual, authHeaders,
 }: any) {
   const hasCompare = !!(compareData && compareOpen);
   // 기준 기간 길이(일)
@@ -953,9 +1162,30 @@ function DashboardTab({
 
       {/* 품목 테이블 */}
       <div className={`${PANEL} p-5 mb-5`}>
-        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">
-          품목별 상세{hasCompare && <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-[#F7F8F8]">
+            품목별 상세{hasCompare && <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+          </h2>
+          <button
+            className={DL_BTN}
+            onClick={() => {
+              const rows = productsWithCmp.map((p: any) => [
+                p.product_name, Math.round(p.pcs || 0), p.orders || 0, Math.round(p.revenue || 0),
+                p.pcs ? Math.round(p.revenue / p.pcs) : 0, Math.round(p.contribution_margin || 0),
+                Math.round((p.cm_rate || 0) * 10) / 10,
+              ]);
+              const t = productsWithCmp.reduce((a: any, p: any) => ({
+                pcs: a.pcs + (p.pcs || 0), orders: a.orders + (p.orders || 0),
+                revenue: a.revenue + (p.revenue || 0), cm: a.cm + (p.contribution_margin || 0),
+              }), { pcs: 0, orders: 0, revenue: 0, cm: 0 });
+              rows.push(['합계', Math.round(t.pcs), t.orders, Math.round(t.revenue),
+                t.pcs ? Math.round(t.revenue / t.pcs) : 0, Math.round(t.cm),
+                t.revenue ? Math.round(t.cm / t.revenue * 1000) / 10 : 0]);
+              downloadCsv(`품목별상세_${periodStart}~${periodEnd}.csv`,
+                ['품목', '낱개수량', '주문건수', '매출(VAT-)', '객단가', '공헌이익', '공헌이익률(%)'], rows);
+            }}
+          >⬇ 엑셀 다운로드</button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -1023,9 +1253,30 @@ function DashboardTab({
 
       {/* 채널 테이블 */}
       <div className={`${PANEL} p-5`}>
-        <h2 className="text-sm font-semibold text-[#F7F8F8] mb-3">
-          채널별 상세{hasCompare && <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-[#F7F8F8]">
+            채널별 상세{hasCompare && <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+          </h2>
+          <button
+            className={DL_BTN}
+            onClick={() => {
+              const rows = channelsWithCmp.map((c: any) => [
+                c.channel_name, c.channel_category || '-', Math.round(c.pcs || 0), c.orders || 0,
+                Math.round(c.revenue || 0), c.pcs ? Math.round(c.revenue / c.pcs) : 0,
+                Math.round(c.contribution_margin || 0), Math.round((c.cm_rate || 0) * 10) / 10,
+              ]);
+              const t = channelsWithCmp.reduce((a: any, c: any) => ({
+                pcs: a.pcs + (c.pcs || 0), orders: a.orders + (c.orders || 0),
+                revenue: a.revenue + (c.revenue || 0), cm: a.cm + (c.contribution_margin || 0),
+              }), { pcs: 0, orders: 0, revenue: 0, cm: 0 });
+              rows.push(['합계', '-', Math.round(t.pcs), t.orders, Math.round(t.revenue),
+                t.pcs ? Math.round(t.revenue / t.pcs) : 0, Math.round(t.cm),
+                t.revenue ? Math.round(t.cm / t.revenue * 1000) / 10 : 0]);
+              downloadCsv(`채널별상세_${periodStart}~${periodEnd}.csv`,
+                ['채널', '카테고리', '낱개수량', '주문건수', '매출(VAT-)', '객단가', '공헌이익', '공헌이익률(%)'], rows);
+            }}
+          >⬇ 엑셀 다운로드</button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -1097,6 +1348,10 @@ function DashboardTab({
           </table>
         </div>
       </div>
+
+      {/* 월별 매트릭스: 품목(카테고리) × 1~12월 / 채널 × 1~12월 */}
+      <MatrixSection title="품목별 월별 실적" by="product" authHeaders={authHeaders} categoryToggle />
+      <MatrixSection title="채널별 월별 실적" by="channel" authHeaders={authHeaders} />
     </div>
   );
 }
