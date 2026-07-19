@@ -735,8 +735,19 @@ function DashboardTab({
   const productsCmpMap: Record<string | number, any> = hasCompare
     ? Object.fromEntries((compareData?.products || []).map((p: any) => [p.product_id, p]))
     : {};
+  // 채널 → 담당자 이름들 (미배정 채널 2중 검토용)
+  const channelOwners: Record<string, string> = {};
+  (employees || []).forEach((e: any) => {
+    if (e.is_active === false) return;
+    (e.channels || []).forEach((a: any) => {
+      if (a.is_active === false) return;
+      channelOwners[a.channel_id] = channelOwners[a.channel_id]
+        ? `${channelOwners[a.channel_id]}, ${e.name}` : e.name;
+    });
+  });
   const channelsWithCmp = (data?.channels || []).map((c: any) => ({
     ...c,
+    owner: channelOwners[c.channel_id] || null,
     compare_revenue: channelsCmpMap[c.channel_id]?.revenue ?? null,
     compare_cm: channelsCmpMap[c.channel_id]?.contribution_margin ?? null,
   }));
@@ -1261,7 +1272,7 @@ function DashboardTab({
             className={DL_BTN}
             onClick={() => {
               const rows = channelsWithCmp.map((c: any) => [
-                c.channel_name, c.channel_category || '-', Math.round(c.pcs || 0), c.orders || 0,
+                c.channel_name, c.channel_category || '-', c.owner || '미배정', Math.round(c.pcs || 0), c.orders || 0,
                 Math.round(c.revenue || 0), c.pcs ? Math.round(c.revenue / c.pcs) : 0,
                 Math.round(c.contribution_margin || 0), Math.round((c.cm_rate || 0) * 10) / 10,
               ]);
@@ -1269,11 +1280,11 @@ function DashboardTab({
                 pcs: a.pcs + (c.pcs || 0), orders: a.orders + (c.orders || 0),
                 revenue: a.revenue + (c.revenue || 0), cm: a.cm + (c.contribution_margin || 0),
               }), { pcs: 0, orders: 0, revenue: 0, cm: 0 });
-              rows.push(['합계', '-', Math.round(t.pcs), t.orders, Math.round(t.revenue),
+              rows.push(['합계', '-', '-', Math.round(t.pcs), t.orders, Math.round(t.revenue),
                 t.pcs ? Math.round(t.revenue / t.pcs) : 0, Math.round(t.cm),
                 t.revenue ? Math.round(t.cm / t.revenue * 1000) / 10 : 0]);
               downloadCsv(`채널별상세_${periodStart}~${periodEnd}.csv`,
-                ['채널', '카테고리', '낱개수량', '주문건수', '매출(VAT-)', '객단가', '공헌이익', '공헌이익률(%)'], rows);
+                ['채널', '카테고리', '담당자', '낱개수량', '주문건수', '매출(VAT-)', '객단가', '공헌이익', '공헌이익률(%)'], rows);
             }}
           >⬇ 엑셀 다운로드</button>
         </div>
@@ -1283,6 +1294,7 @@ function DashboardTab({
               <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
                 <th className="text-left py-2.5 px-2">채널</th>
                 <th className="text-left py-2.5 px-2">카테고리</th>
+                <th className="text-left py-2.5 px-2">담당자</th>
                 <th className="text-right py-2.5 px-2">낱개수량</th>
                 <th className="text-right py-2.5 px-2">주문건수</th>
                 <th className="text-right py-2.5 px-2">매출(VAT-)</th>
@@ -1300,6 +1312,13 @@ function DashboardTab({
                     <tr key={c.channel_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
                       <td className="py-2 px-2 text-[#F7F8F8]">{c.channel_name}</td>
                       <td className="py-2 px-2 text-[#8A8F98]">{c.channel_category || '-'}</td>
+                      <td className="py-2 px-2">
+                        {c.owner ? (
+                          <span className="text-[#8A8F98]">{c.owner}</span>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-[#F59E0B] bg-[#F59E0B]/10 rounded px-1.5 py-0.5" title="담당자가 배정되지 않은 채널입니다 — 직원 관리 탭에서 배정하세요">미배정</span>
+                        )}
+                      </td>
                       <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(c.pcs))}</td>
                       <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(c.orders)}</td>
                       <td
@@ -1322,7 +1341,7 @@ function DashboardTab({
                   );
                 })
               ) : (
-                <tr><td colSpan={8} className="py-8 text-center text-[#62666D]">데이터가 없습니다.</td></tr>
+                <tr><td colSpan={9} className="py-8 text-center text-[#62666D]">데이터가 없습니다.</td></tr>
               )}
             </tbody>
             {data && data.channels.length ? (() => {
@@ -1330,11 +1349,15 @@ function DashboardTab({
                 pcs: a.pcs + (c.pcs || 0), orders: a.orders + (c.orders || 0),
                 revenue: a.revenue + (c.revenue || 0), cm: a.cm + (c.contribution_margin || 0),
               }), { pcs: 0, orders: 0, revenue: 0, cm: 0 });
+              const unassigned = channelsWithCmp.filter((c: any) => !c.owner).length;
               return (
                 <tfoot>
                   <tr className="border-t-2 border-[#2C2F36] font-semibold bg-[#15171A]">
                     <td className="py-2.5 px-2 text-[#F7F8F8]">합계</td>
                     <td className="py-2.5 px-2 text-[#8A8F98]">-</td>
+                    <td className="py-2.5 px-2 text-[11px]">
+                      {unassigned ? <span className="text-[#F59E0B]">미배정 {unassigned}개</span> : <span className="text-[#27A644]">전부 배정됨</span>}
+                    </td>
                     <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">{fmtNum(Math.round(t.pcs))}</td>
                     <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">{fmtNum(t.orders)}</td>
                     <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(t.revenue)}</td>
