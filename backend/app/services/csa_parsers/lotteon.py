@@ -17,6 +17,7 @@
 """
 from __future__ import annotations
 
+import re
 from typing import Iterable, Optional
 
 from app.services.csa_service import ParsedLine
@@ -56,14 +57,43 @@ _DISPLAY_NAME_UNITS: list[tuple[str, float]] = [
 _DISPLAY_NAME_UNITS.sort(key=lambda kv: len(kv[0]), reverse=True)
 
 
+# 매핑키 미일치 시 상품명 정규식 폴백. 실측(2026-05·06): 프로모션 문구가 끼어들면
+# 부분 매칭이 실패하므로("피스타치오 두바이 [컬렉션 쫀득] 뚱카롱 … 8구 1박스" 등)
+# 담당자 매핑표의 산정 방식과 동일한 규칙으로 개수를 추출한다.
+_LO_TOTAL = re.compile(r"총\s*(\d+)\s*(?:구|개입|개|봉|병)")
+_LO_CNT = re.compile(r"(\d+)\s*(?:개입|구|봉|병|개)(?!월)")
+_LO_BOX = re.compile(r"(\d+)\s*(?:box|박스)", re.I)
+
+
+def _lo_regex_unit(name: str) -> Optional[float]:
+    m = _LO_TOTAL.search(name)
+    if m:
+        return float(m.group(1))
+    cnts = [int(v) for v in _LO_CNT.findall(name) if 1 <= int(v) <= 200]
+    if not cnts:
+        return None
+    # 'Mbox (N개입/구)' 형태는 괄호 안이 전체 합계 → 마지막 개수 토큰이 총량.
+    # 'N구 M박스' 형태는 개수가 박스 앞에 오므로 박스수를 곱한다.
+    last = cnts[-1]
+    mb = _LO_BOX.search(name)
+    if mb:
+        box = int(mb.group(1))
+        tail = name[mb.end():]
+        if _LO_CNT.search(tail):  # 박스 뒤에 개수 표기(괄호 총량) → 그 값 그대로
+            return float(last)
+        return float(last * box) if box >= 1 else float(last)
+    return float(last)
+
+
 def _lookup_unit_per_set(display_name: Optional[str]) -> Optional[float]:
-    """전시상품명에서 낱개 입수를 부분 매칭(포함)으로 찾는다. 매핑 없으면 None(미매핑)."""
+    """전시상품명에서 낱개 입수를 부분 매칭(포함)으로 찾고, 실패 시 정규식 폴백.
+    둘 다 실패하면 None(미매핑)."""
     if not display_name:
         return None
     for key, unit in _DISPLAY_NAME_UNITS:
         if key in display_name:
             return unit
-    return None
+    return _lo_regex_unit(display_name)
 
 
 @register("롯데온")
