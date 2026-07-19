@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, File, Form, HTTPException, Query, UploadFile
@@ -4232,3 +4232,32 @@ def admin_set_mapping_product(
         "unit_per_set": mapping.unit_per_set,
         "is_excluded": mapping.is_excluded,
     }
+
+
+# ── 카페사업부(mycafeproject) 3지점 매출 자동 연동 ──────────────────────────
+
+
+@router.post("/cafe/sync")
+def cafe_sync(
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """카페 3지점(경복궁·행궁동·해방촌) 매출을 mycafeproject DB에서 당겨와 구간 교체 적재.
+
+    기본 구간: KST 기준 최근 3일(전일 포함) — 카페측 03:10 재동기화(어제·그제) 창을 커버.
+    Cloud Scheduler가 매일 04:30 KST에 무파라미터로 호출한다.
+    """
+    from zoneinfo import ZoneInfo
+
+    from app.services.csa_cafe_sync import sync_cafe_sales
+
+    kst_today = datetime.now(ZoneInfo("Asia/Seoul")).date()
+    if date_to is None:
+        date_to = kst_today  # 당일 실시간분까지 반영(다음 실행에서 재교체됨)
+    if date_from is None:
+        date_from = date_to - timedelta(days=3)
+    if date_from > date_to:
+        raise HTTPException(400, "date_from > date_to")
+    results = sync_cafe_sales(db, date_from=date_from, date_to=date_to)
+    return {"date_from": str(date_from), "date_to": str(date_to), "results": results}
