@@ -24,6 +24,7 @@ _CANCEL_TOKENS = ("취소", "반품", "환불")
 
 @register("SSG")
 @register("SSG닷컴")
+@register("SSG(사입)")  # 채널 표시명 변경(2026-07-19, 온라인 사입 명시) — 파서는 동일
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=None)
     if df is None or df.empty:
