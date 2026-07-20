@@ -6,8 +6,8 @@ import { AuthProvider } from '@/contexts/AuthContext';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Nuldam BigQuery Chat Analytics',
-  description: '자연어로 BigQuery 데이터를 분석하세요',
+  title: 'Nuldam Analytics',
+  description: '자연어로 매출 데이터를 분석하세요',
 };
 
 export default function RootLayout({

@@ -17,7 +17,7 @@ export interface TableSchema {
 
 export interface ChatRequest {
   question: string;
-  table_id: string;
+  table_id?: string;
   dataset_id?: string;
 }
 

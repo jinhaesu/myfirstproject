@@ -26,3 +26,7 @@ def get_llm_service() -> LLMService:
 def get_sql_generator() -> SQLGenerator:
     llm_service = get_llm_service()
     return SQLGenerator(llm_service=llm_service)
+
+
+# NOTE: get_bigquery_service는 /api/tables, /api/query 등 다른 라우트에서 여전히 사용됨.
+# AI 채팅(/api/chat)은 CSA(Postgres) 기반으로 전환되어 더 이상 BigQuery에 의존하지 않는다.

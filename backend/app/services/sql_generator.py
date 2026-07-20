@@ -8,32 +8,55 @@ from app.models.prompts import (
     SQL_GENERATION_SYSTEM, SQL_GENERATION_PROMPT, SQL_FIX_PROMPT,
     RESULT_EXPLANATION_SYSTEM, RESULT_EXPLANATION_PROMPT,
 )
-from app.models.schemas import TableSchema
 
 logger = logging.getLogger(__name__)
 
 
-class SQLGenerator:
-    FORBIDDEN_KEYWORDS = [
-        'INSERT', 'UPDATE', 'DELETE', 'DROP', 'TRUNCATE',
-        'ALTER', 'CREATE', 'GRANT', 'REVOKE', 'MERGE'
-    ]
+# PostgreSQL 실행 대상 쿼리에서 차단할 명령어. SQLGenerator(생성 단계)와
+# csa_query_service(실행 단계) 양쪽에서 재사용해 방어를 이중화한다.
+FORBIDDEN_SQL_KEYWORDS = [
+    'INSERT', 'UPDATE', 'DELETE', 'DROP', 'TRUNCATE',
+    'ALTER', 'CREATE', 'GRANT', 'REVOKE', 'MERGE',
+    'COPY', 'CALL', 'EXECUTE', 'VACUUM', 'REINDEX',
+    'LOCK', 'REFRESH', 'ATTACH', 'DETACH',
+]
 
+
+def validate_readonly_sql(sql: str) -> None:
+    """읽기 전용 SELECT/WITH 단일 쿼리인지 검증한다.
+
+    - INSERT/UPDATE/DELETE/DROP 등 위험 명령어 차단
+    - SELECT 또는 WITH(CTE)로 시작하는지 확인
+    - 세미콜론으로 연결된 다중 statement 차단 (끝의 세미콜론 1개만 허용)
+    """
+    if not sql or not sql.strip():
+        raise ValueError("빈 SQL 쿼리입니다")
+
+    sql_upper = sql.upper()
+
+    for keyword in FORBIDDEN_SQL_KEYWORDS:
+        pattern = r'\b' + keyword + r'\b'
+        if re.search(pattern, sql_upper):
+            raise ValueError(f"허용되지 않는 SQL 명령어입니다: {keyword}")
+
+    stripped = sql.strip()
+    stripped_upper = stripped.upper()
+    if not (stripped_upper.startswith('SELECT') or stripped_upper.startswith('WITH')):
+        raise ValueError("SELECT 또는 WITH 쿼리만 허용됩니다")
+
+    # 다중 statement(세미콜론 연결) 차단 — 끝의 세미콜론 1개만 허용
+    body = stripped[:-1] if stripped.endswith(';') else stripped
+    if ';' in body:
+        raise ValueError("세미콜론으로 연결된 다중 SQL 문은 허용되지 않습니다")
+
+
+class SQLGenerator:
     def __init__(self, llm_service: LLMService):
         self.llm = llm_service
 
-    def generate_sql(
-        self,
-        question: str,
-        schema: TableSchema,
-        schema_text: str,
-        project_id: str
-    ) -> str:
-        """사용자 질문을 SQL로 변환"""
+    def generate_sql(self, question: str, schema_text: str) -> str:
+        """사용자 질문을 PostgreSQL SQL로 변환"""
         prompt = SQL_GENERATION_PROMPT.format(
-            project_id=project_id,
-            dataset_id=schema.dataset_id,
-            table_id=schema.table_name,
             schema=schema_text,
             question=question
         )
@@ -48,17 +71,12 @@ class SQLGenerator:
     def fix_sql(
         self,
         question: str,
-        schema: TableSchema,
         schema_text: str,
-        project_id: str,
         failed_sql: str,
         error_message: str
     ) -> str:
-        """BigQuery 실행 오류가 발생한 SQL을 수정"""
+        """실행 오류가 발생한 SQL을 수정"""
         prompt = SQL_FIX_PROMPT.format(
-            project_id=project_id,
-            dataset_id=schema.dataset_id,
-            table_id=schema.table_name,
             schema=schema_text,
             question=question,
             failed_sql=failed_sql,
@@ -123,16 +141,5 @@ class SQLGenerator:
         return sql
 
     def _validate_sql(self, sql: str) -> None:
-        """위험한 SQL 명령어 차단"""
-        sql_upper = sql.upper()
-
-        for keyword in self.FORBIDDEN_KEYWORDS:
-            # 단어 경계 확인
-            pattern = r'\b' + keyword + r'\b'
-            if re.search(pattern, sql_upper):
-                raise ValueError(f"허용되지 않는 SQL 명령어입니다: {keyword}")
-
-        # SELECT로 시작하는지 확인 (WITH CTE도 허용)
-        stripped = sql_upper.strip()
-        if not (stripped.startswith('SELECT') or stripped.startswith('WITH')):
-            raise ValueError("SELECT 또는 WITH 쿼리만 허용됩니다")
+        """위험한 SQL 명령어 차단 (공용 검증 함수 재사용)"""
+        validate_readonly_sql(sql)

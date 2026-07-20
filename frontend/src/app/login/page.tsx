@@ -148,7 +148,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] bg-clip-text text-transparent">
-            Nuldam BigQuery Chat Analytics
+            Nuldam Analytics
           </h1>
           <p className="text-[#8A8F98] mt-2">로그인하여 데이터 분석을 시작하세요</p>
         </div>

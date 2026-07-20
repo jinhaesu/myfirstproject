@@ -32,7 +32,8 @@ class QueryResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     question: str
-    table_id: str
+    # CSA(Postgres) 전환 이후 미사용 — 프론트 하위호환을 위해 Optional로 유지, 값은 무시됨
+    table_id: str | None = None
     dataset_id: str | None = None
 
 

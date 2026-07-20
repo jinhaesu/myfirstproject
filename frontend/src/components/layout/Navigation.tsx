@@ -23,10 +23,9 @@ const navGroups: NavGroup[] = [
   {
     label: '영업부 매출 관리·분석',
     icon: 'sales',
-    pathPrefix: ['/', '/targets', '/channels', '/settlement'],
+    pathPrefix: ['/', '/channels', '/settlement'],
     items: [
-      { href: '/', label: 'BigQuery 채팅', icon: 'chat' },
-      { href: '/targets', label: '목표 영업 지표', icon: 'target' },
+      { href: '/', label: 'AI 매출 분석', icon: 'chat' },
       { href: '/channels', label: '채널별 매출 취합', icon: 'channel' },
       { href: '/settlement', label: '월별 결산', icon: 'settlement' },
       { href: '/contribution-margin', label: '공헌이익 시뮬레이션', icon: 'simulation' },

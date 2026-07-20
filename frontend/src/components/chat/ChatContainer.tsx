@@ -5,13 +5,8 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { useChat } from '@/hooks/useChat';
 
-interface ChatContainerProps {
-  tableId: string;
-  datasetId?: string;
-}
-
-export function ChatContainer({ tableId, datasetId }: ChatContainerProps) {
-  const { messages, isLoading, error, sendMessage, clearMessages } = useChat(tableId, datasetId);
+export function ChatContainer() {
+  const { messages, isLoading, error, sendMessage, clearMessages } = useChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 새 메시지가 추가되면 스크롤
@@ -30,9 +25,9 @@ export function ChatContainer({ tableId, datasetId }: ChatContainerProps) {
             </svg>
           </div>
           <div>
-            <h2 className="text-base font-bold text-[#F7F8F8]">데이터 분석 채팅</h2>
+            <h2 className="text-base font-bold text-[#F7F8F8]">AI 매출 분석</h2>
             <p className="text-xs text-[#8A8F98]">
-              테이블: <span className="font-semibold text-[#7070FF]">{tableId || '선택 안됨'}</span>
+              <span className="font-semibold text-[#7070FF]">채널별 매출 취합</span> 업로드 데이터 기반
             </p>
           </div>
         </div>
@@ -68,17 +63,17 @@ export function ChatContainer({ tableId, datasetId }: ChatContainerProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-[#D0D6E0] mb-2">데이터에 대해 질문하세요</h3>
-            <p className="text-sm text-[#8A8F98] mb-6">AI가 자연어를 SQL로 변환하여 데이터를 분석합니다</p>
+            <h3 className="text-lg font-bold text-[#D0D6E0] mb-2">매출 데이터에 대해 질문하세요</h3>
+            <p className="text-sm text-[#8A8F98] mb-6">채널별 매출 취합에 업로드된 데이터를 AI가 분석해 답변합니다</p>
             <div className="space-y-2">
               <div className="px-4 py-2 bg-[#0F1011] rounded-full shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] text-sm text-[#8A8F98]">
-                &quot;지난달 매출 상위 10개 제품은?&quot;
+                &quot;올해 채널별 매출 순위를 보여줘&quot;
               </div>
               <div className="px-4 py-2 bg-[#0F1011] rounded-full shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] text-sm text-[#8A8F98]">
-                &quot;카테고리별 평균 가격을 알려줘&quot;
+                &quot;지난달 매출 상위 10개 품목은?&quot;
               </div>
               <div className="px-4 py-2 bg-[#0F1011] rounded-full shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] text-sm text-[#8A8F98]">
-                &quot;최근 일주일 판매 트렌드 보여줘&quot;
+                &quot;담당자별 이번 달 매출을 알려줘&quot;
               </div>
             </div>
           </div>
@@ -108,12 +103,8 @@ export function ChatContainer({ tableId, datasetId }: ChatContainerProps) {
       {/* 입력 영역 */}
       <ChatInput
         onSend={sendMessage}
-        disabled={isLoading || !tableId}
-        placeholder={
-          !tableId
-            ? '먼저 테이블을 선택하세요'
-            : '데이터에 대해 질문하세요...'
-        }
+        disabled={isLoading}
+        placeholder="매출 데이터에 대해 질문하세요..."
       />
     </div>
   );

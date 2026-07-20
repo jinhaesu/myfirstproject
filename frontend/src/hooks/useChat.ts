@@ -5,14 +5,14 @@ import { api } from '@/lib/api';
 import { generateId } from '@/lib/utils';
 import type { Message } from '@/types';
 
-export function useChat(tableId: string, datasetId?: string) {
+export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sendMessage = useCallback(
     async (question: string) => {
-      if (!tableId || !question.trim()) return;
+      if (!question.trim()) return;
 
       setIsLoading(true);
       setError(null);
@@ -27,11 +27,7 @@ export function useChat(tableId: string, datasetId?: string) {
       setMessages((prev) => [...prev, userMessage]);
 
       try {
-        const response = await api.chat({
-          question,
-          table_id: tableId,
-          dataset_id: datasetId,
-        });
+        const response = await api.chat({ question });
 
         // 응답 유효성 검사
         const explanation = response.explanation || '결과를 가져왔습니다.';
@@ -66,7 +62,7 @@ export function useChat(tableId: string, datasetId?: string) {
         setIsLoading(false);
       }
     },
-    [tableId, datasetId]
+    []
   );
 
   const clearMessages = useCallback(() => {
