@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
@@ -235,6 +235,8 @@ function Content() {
   }, [compareOpen, compareManual, periodStart, periodEnd]);
 
   const [loading, setLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const dashboardAbortRef = useRef<AbortController | null>(null);
   const [seedDone, setSeedDone] = useState(false);
 
   useEffect(() => {
@@ -294,6 +296,11 @@ function Content() {
     // 비정상 초장기 범위 요청으로 서버가 죽던 사고 방지 (2026-07-01).
     const validDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && parseInt(s.slice(0, 4), 10) >= 2020;
     if (!validDate(periodStart) || !validDate(periodEnd)) return;
+    // 진행 중인 이전 요청은 취소 — 응답 역전(옛 요청이 새 요청보다 늦게 도착)으로 화면이
+    // 예전 기간 데이터로 되돌아가는 사고 방지.
+    dashboardAbortRef.current?.abort();
+    const controller = new AbortController();
+    dashboardAbortRef.current = controller;
     setLoading(true);
     try {
       const buildQs = (ps: string, pe: string) => {
@@ -304,18 +311,27 @@ function Content() {
         return qs.toString();
       };
       const calls: Promise<Response>[] = [
-        fetch(`${API_BASE}/api/csa/dashboard?${buildQs(periodStart, periodEnd)}`, { headers: authHeaders() }),
+        fetch(`${API_BASE}/api/csa/dashboard?${buildQs(periodStart, periodEnd)}`, { headers: authHeaders(), signal: controller.signal }),
       ];
       const wantCompare = compareOpen && compareStart && compareEnd;
       if (wantCompare) {
-        calls.push(fetch(`${API_BASE}/api/csa/dashboard?${buildQs(compareStart, compareEnd)}`, { headers: authHeaders() }));
+        calls.push(fetch(`${API_BASE}/api/csa/dashboard?${buildQs(compareStart, compareEnd)}`, { headers: authHeaders(), signal: controller.signal }));
       }
       const results = await Promise.all(calls);
       if (results[0].ok) setDashboard(await results[0].json());
+      else throw new Error(`dashboard fetch failed: ${results[0].status}`);
       if (wantCompare && results[1]?.ok) setCompareDashboard(await results[1].json());
       else if (!wantCompare) setCompareDashboard(null);
+      setDashboardError(null);
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return; // 최신 요청에 의해 취소됨 — 에러 아님, 기존 데이터 유지
+      console.error('fetchDashboard failed', e);
+      setDashboardError('데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
-      setLoading(false);
+      // 취소된(구버전) 요청이면 최신 요청의 loading 상태를 덮어쓰지 않음
+      if (dashboardAbortRef.current === controller) {
+        setLoading(false);
+      }
     }
   }, [authHeaders, periodStart, periodEnd, granularity, selChannels, selProducts, selEmployees, compareOpen, compareStart, compareEnd]);
 
@@ -332,9 +348,36 @@ function Content() {
     seedIfEmpty().then(fetchAll);
   }, [user, seedIfEmpty, fetchAll]);
 
+  // fetchDashboard 트리거 디바운스(400ms) — 날짜/필터를 빠르게 바꿀 때마다 매번
+  // 요청을 쏘지 않도록 지연시키고, 값이 다시 바뀌면 cleanup이 예약된 호출을 취소한다.
   useEffect(() => {
-    if (user) fetchDashboard();
+    if (!user) return;
+    const t = setTimeout(() => { fetchDashboard(); }, 400);
+    return () => clearTimeout(t);
   }, [user, fetchDashboard]);
+
+  // 장기간(92일 초과) + 일간(day) 조합은 응답이 매우 무거우므로 자동으로 월간(month)
+  // 전환. 동일 기간에 대해 사용자가 이후 수동으로 'day'를 다시 선택하면 존중하고
+  // 재전환하지 않는다(기간이 실제로 바뀌면 다시 가드가 걸린다).
+  const autoGranularitySwitchRef = useRef<{ start: string; end: string } | null>(null);
+  useEffect(() => {
+    const validDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && parseInt(s.slice(0, 4), 10) >= 2020;
+    if (!validDate(periodStart) || !validDate(periodEnd)) return;
+    const s = new Date(periodStart), e = new Date(periodEnd);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return;
+    const spanDays = Math.round((e.getTime() - s.getTime()) / (24 * 3600 * 1000)) + 1;
+    if (spanDays <= 92) {
+      autoGranularitySwitchRef.current = null; // 짧은 기간으로 돌아오면 가드 초기화
+      return;
+    }
+    if (granularity !== 'day') return;
+    const already = autoGranularitySwitchRef.current
+      && autoGranularitySwitchRef.current.start === periodStart
+      && autoGranularitySwitchRef.current.end === periodEnd;
+    if (already) return; // 이 기간에 대해 이미 한 번 전환했음 — 사용자의 재선택 존중
+    autoGranularitySwitchRef.current = { start: periodStart, end: periodEnd };
+    setGranularity('month');
+  }, [periodStart, periodEnd, granularity]);
 
   if (authLoading || !user) {
     return (
@@ -384,6 +427,8 @@ function Content() {
             compareManual={compareManual}
             setCompareManual={setCompareManual}
             authHeaders={authHeaders}
+            dashboardError={dashboardError}
+            clearDashboardError={() => setDashboardError(null)}
           />
         )}
 
@@ -696,7 +741,7 @@ function MatrixSection({ title, by, authHeaders, categoryToggle = false }: {
   );
 }
 
-function DashboardTab({
+const DashboardTab = memo(function DashboardTab({
   data, compareData, loading, channels, products, employees,
   periodStart, periodEnd, setPeriodStart, setPeriodEnd,
   granularity, setGranularity,
@@ -704,6 +749,7 @@ function DashboardTab({
   selEmployees, setSelEmployees,
   compareOpen, setCompareOpen, compareStart, setCompareStart, compareEnd, setCompareEnd,
   compareManual, setCompareManual, authHeaders,
+  dashboardError, clearDashboardError,
 }: any) {
   const hasCompare = !!(compareData && compareOpen);
   // 기준 기간 길이(일)
@@ -713,11 +759,17 @@ function DashboardTab({
     if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
     return Math.round((e.getTime() - s.getTime()) / (24 * 3600 * 1000)) + 1;
   })();
-  const sparkSeries = (data?.series || []).map((s: any) => ({ x: s.bucket, revenue: s.revenue, pcs: s.pcs, cm: s.contribution_margin }));
-  const sparkKey = (k: string) => sparkSeries.map((p: any) => ({ x: p.x, v: p[k] || 0 }));
+  const sparkSeries = useMemo(
+    () => (data?.series || []).map((s: any) => ({ x: s.bucket, revenue: s.revenue, pcs: s.pcs, cm: s.contribution_margin })),
+    [data]
+  );
+  const sparkKey = useCallback(
+    (k: string) => sparkSeries.map((p: any) => ({ x: p.x, v: p[k] || 0 })),
+    [sparkSeries]
+  );
 
   // 비교 시리즈/채널/품목 매핑
-  const seriesWithCompare = (() => {
+  const seriesWithCompare = useMemo(() => {
     if (!data?.series) return [];
     if (!hasCompare || !compareData?.series) return data.series;
     const cmp = compareData.series;
@@ -728,49 +780,76 @@ function DashboardTab({
       compare_pcs: cmp[i]?.pcs ?? null,
       compare_period: cmp[i]?.period,
     }));
-  })();
-  const channelsCmpMap: Record<string, any> = hasCompare
+  }, [data, compareData, hasCompare]);
+  const channelsCmpMap: Record<string, any> = useMemo(() => hasCompare
     ? Object.fromEntries((compareData?.channels || []).map((c: any) => [c.channel_id, c]))
-    : {};
-  const productsCmpMap: Record<string | number, any> = hasCompare
+    : {}, [hasCompare, compareData]);
+  const productsCmpMap: Record<string | number, any> = useMemo(() => hasCompare
     ? Object.fromEntries((compareData?.products || []).map((p: any) => [p.product_id, p]))
-    : {};
+    : {}, [hasCompare, compareData]);
   // 채널 → 담당자 이름들 (미배정 채널 2중 검토용)
-  const channelOwners: Record<string, string> = {};
-  (employees || []).forEach((e: any) => {
-    if (e.is_active === false) return;
-    (e.channels || []).forEach((a: any) => {
-      if (a.is_active === false) return;
-      channelOwners[a.channel_id] = channelOwners[a.channel_id]
-        ? `${channelOwners[a.channel_id]}, ${e.name}` : e.name;
+  const channelOwners: Record<string, string> = useMemo(() => {
+    const owners: Record<string, string> = {};
+    (employees || []).forEach((e: any) => {
+      if (e.is_active === false) return;
+      (e.channels || []).forEach((a: any) => {
+        if (a.is_active === false) return;
+        owners[a.channel_id] = owners[a.channel_id]
+          ? `${owners[a.channel_id]}, ${e.name}` : e.name;
+      });
     });
-  });
-  const channelsWithCmp = (data?.channels || []).map((c: any) => ({
+    return owners;
+  }, [employees]);
+  const channelsWithCmp = useMemo(() => (data?.channels || []).map((c: any) => ({
     ...c,
     owner: channelOwners[c.channel_id] || null,
     compare_revenue: channelsCmpMap[c.channel_id]?.revenue ?? null,
     compare_cm: channelsCmpMap[c.channel_id]?.contribution_margin ?? null,
-  }));
-  const productsWithCmp = (data?.products || []).map((p: any) => ({
+  })), [data, channelOwners, channelsCmpMap]);
+  const productsWithCmp = useMemo(() => (data?.products || []).map((p: any) => ({
     ...p,
     compare_revenue: productsCmpMap[p.product_id]?.revenue ?? null,
     compare_cm: productsCmpMap[p.product_id]?.contribution_margin ?? null,
-  }));
+  })), [data, productsCmpMap]);
   const fmtDelta = (cur: number | null | undefined, cmp: number | null | undefined) => {
     if (cur === null || cur === undefined || cmp === null || cmp === undefined) return null;
     if (cmp === 0) return cur > 0 ? { pct: 100, sign: 'up' as const } : null;
     const pct = ((cur - cmp) / Math.abs(cmp)) * 100;
     return { pct, sign: pct > 0.05 ? 'up' as const : pct < -0.05 ? 'down' as const : 'flat' as const };
   };
-  const costBreakdown = data?.cost_breakdown
+  const costBreakdown = useMemo(() => data?.cost_breakdown
     ? Object.entries(data.cost_breakdown)
         .filter(([_, v]) => (v as number) > 0)
         .map(([k, v]) => ({ key: k, name: COST_LABELS[k] || k, value: v as number }))
         .sort((a, b) => b.value - a.value)
-    : [];
+    : [], [data]);
+  // 품목/채널 테이블 합계 — CSV 다운로드와 tfoot 렌더가 동일 값을 재사용
+  const productsTotal = useMemo(() => productsWithCmp.reduce((a: any, p: any) => ({
+    pcs: a.pcs + (p.pcs || 0), orders: a.orders + (p.orders || 0),
+    revenue: a.revenue + (p.revenue || 0), cm: a.cm + (p.contribution_margin || 0),
+  }), { pcs: 0, orders: 0, revenue: 0, cm: 0 }), [productsWithCmp]);
+  const channelsTotal = useMemo(() => channelsWithCmp.reduce((a: any, c: any) => ({
+    pcs: a.pcs + (c.pcs || 0), orders: a.orders + (c.orders || 0),
+    revenue: a.revenue + (c.revenue || 0), cm: a.cm + (c.contribution_margin || 0),
+  }), { pcs: 0, orders: 0, revenue: 0, cm: 0 }), [channelsWithCmp]);
   const groupsData = data?.groups || [];
   return (
-    <div className="space-y-4">
+    <div className="relative space-y-4">
+      {/* 기간/필터 변경으로 재조회 중일 때 — 기존 데이터는 유지한 채 살짝 딤 처리만 */}
+      {loading && data && (
+        <div className="absolute inset-0 z-20 bg-[#08090A]/55 backdrop-blur-[1px] flex items-start justify-center pt-24 pointer-events-none rounded-xl">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#13141A] border border-[#2C2F36] shadow-lg text-xs text-[#D0D6E0]">
+            <span className="w-3.5 h-3.5 border-2 border-[#828FFF] border-t-transparent rounded-full animate-spin" />
+            데이터 불러오는 중…
+          </div>
+        </div>
+      )}
+      {dashboardError && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-md bg-[#3A1418] border border-[#5C1F26] text-[#FCA5A5] text-xs">
+          <span>{dashboardError}</span>
+          <button onClick={clearDashboardError} className="text-[#FCA5A5]/70 hover:text-[#FCA5A5] px-2">✕</button>
+        </div>
+      )}
       {/* Filter bar */}
       <div className={`${PANEL} p-3`}>
         <div className="flex flex-wrap gap-2 items-end">
@@ -957,7 +1036,7 @@ function DashboardTab({
               {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
             </span>
           </div>
-          {loading ? <Skeleton h={240} /> : data && data.series.length ? (
+          {loading && !data ? <Skeleton h={240} /> : data && data.series.length ? (
             <ResponsiveContainer width="100%" height={240}>
               <ComposedChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                 <defs>
@@ -1044,7 +1123,7 @@ function DashboardTab({
             {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
           </span>
         </div>
-        {loading ? <Skeleton h={220} /> : data && data.series.length ? (
+        {loading && !data ? <Skeleton h={220} /> : data && data.series.length ? (
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <defs>
@@ -1185,10 +1264,7 @@ function DashboardTab({
                 p.pcs ? Math.round(p.revenue / p.pcs) : 0, Math.round(p.contribution_margin || 0),
                 Math.round((p.cm_rate || 0) * 10) / 10,
               ]);
-              const t = productsWithCmp.reduce((a: any, p: any) => ({
-                pcs: a.pcs + (p.pcs || 0), orders: a.orders + (p.orders || 0),
-                revenue: a.revenue + (p.revenue || 0), cm: a.cm + (p.contribution_margin || 0),
-              }), { pcs: 0, orders: 0, revenue: 0, cm: 0 });
+              const t = productsTotal;
               rows.push(['합계', Math.round(t.pcs), t.orders, Math.round(t.revenue),
                 t.pcs ? Math.round(t.revenue / t.pcs) : 0, Math.round(t.cm),
                 t.revenue ? Math.round(t.cm / t.revenue * 1000) / 10 : 0]);
@@ -1240,10 +1316,7 @@ function DashboardTab({
               )}
             </tbody>
             {data && data.products.length ? (() => {
-              const t = productsWithCmp.reduce((a: any, p: any) => ({
-                pcs: a.pcs + (p.pcs || 0), orders: a.orders + (p.orders || 0),
-                revenue: a.revenue + (p.revenue || 0), cm: a.cm + (p.contribution_margin || 0),
-              }), { pcs: 0, orders: 0, revenue: 0, cm: 0 });
+              const t = productsTotal;
               return (
                 <tfoot>
                   <tr className="border-t-2 border-[#2C2F36] font-semibold bg-[#15171A]">
@@ -1276,10 +1349,7 @@ function DashboardTab({
                 Math.round(c.revenue || 0), c.pcs ? Math.round(c.revenue / c.pcs) : 0,
                 Math.round(c.contribution_margin || 0), Math.round((c.cm_rate || 0) * 10) / 10,
               ]);
-              const t = channelsWithCmp.reduce((a: any, c: any) => ({
-                pcs: a.pcs + (c.pcs || 0), orders: a.orders + (c.orders || 0),
-                revenue: a.revenue + (c.revenue || 0), cm: a.cm + (c.contribution_margin || 0),
-              }), { pcs: 0, orders: 0, revenue: 0, cm: 0 });
+              const t = channelsTotal;
               rows.push(['합계', '-', '-', Math.round(t.pcs), t.orders, Math.round(t.revenue),
                 t.pcs ? Math.round(t.revenue / t.pcs) : 0, Math.round(t.cm),
                 t.revenue ? Math.round(t.cm / t.revenue * 1000) / 10 : 0]);
@@ -1345,10 +1415,7 @@ function DashboardTab({
               )}
             </tbody>
             {data && data.channels.length ? (() => {
-              const t = channelsWithCmp.reduce((a: any, c: any) => ({
-                pcs: a.pcs + (c.pcs || 0), orders: a.orders + (c.orders || 0),
-                revenue: a.revenue + (c.revenue || 0), cm: a.cm + (c.contribution_margin || 0),
-              }), { pcs: 0, orders: 0, revenue: 0, cm: 0 });
+              const t = channelsTotal;
               const unassigned = channelsWithCmp.filter((c: any) => !c.owner).length;
               return (
                 <tfoot>
@@ -1377,7 +1444,7 @@ function DashboardTab({
       <MatrixSection title="채널별 월별 실적" by="channel" authHeaders={authHeaders} />
     </div>
   );
-}
+});
 
 // ──────────────────────────────────────────────────────────────
 // Upload Tab

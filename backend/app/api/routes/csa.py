@@ -2147,9 +2147,28 @@ def dashboard(
         if cached and cached["expires"] > now:
             return {**cached["data"], "_cached": True}
 
-    q = db.query(ChannelSalesDailyProduct).filter(
-        ChannelSalesDailyProduct.sale_date >= period_start,
-        ChannelSalesDailyProduct.sale_date <= period_end,
+    # 사전집계 쿼리 — 일별 원시행(수만 건)을 전부 끌어와 파이썬에서 합산하던 것을
+    # granularity 버킷×채널×품목 GROUP BY로 DB에서 합산해 전송·집계량을 수십 배 축소.
+    # 이후 파이썬 집계는 전부 SUM의 재합산이라 결과는 원시행 합산과 동일.
+    D = ChannelSalesDailyProduct
+    dims = [D.year, D.month, D.quarter,
+            D.channel_id, D.channel_name, D.channel_category,
+            D.product_id, D.product_name]
+    if granularity == "day":
+        dims.insert(0, D.sale_date)
+    measures = [
+        func.sum(c).label(c.key) for c in (
+            D.net_sales, D.revenue_deduction, D.pcs_qty, D.order_count,
+            D.variable_cost, D.commission, D.contribution_margin,
+            D.cost_cogs, D.cost_labor, D.cost_overhead,
+            D.cost_logistics_work, D.cost_logistics_oh, D.cost_advertising,
+            D.cost_platform_fee, D.cost_commission_rate, D.cost_commission_fixed,
+            D.cost_shipping, D.cost_packaging,
+        )
+    ]
+    q = db.query(*dims, *measures).filter(
+        D.sale_date >= period_start,
+        D.sale_date <= period_end,
     )
 
     # 채널 필터 (직원별 담당 채널 우선 합집합)
@@ -2166,16 +2185,16 @@ def dashboard(
             for (cid,) in emp_channels:
                 selected_channels.add(cid)
     if selected_channels:
-        q = q.filter(ChannelSalesDailyProduct.channel_id.in_(list(selected_channels)))
+        q = q.filter(D.channel_id.in_(list(selected_channels)))
 
     _dlap("filters")
     if product_ids:
         ids = [int(s) for s in product_ids.split(",") if s.strip()]
         if ids:
-            q = q.filter(ChannelSalesDailyProduct.product_id.in_(ids))
+            q = q.filter(D.product_id.in_(ids))
 
-    rows = q.all()
-    _dlap(f"main_query({len(rows)} rows)")
+    rows = q.group_by(*dims).all()
+    _dlap(f"main_query({len(rows)} rows, pre-aggregated)")
 
     # 집계 — 매출은 매출차감형 월정액(revenue_deduction, 예: 쿠팡 로켓프레시)을 뺀 실수령 기준
     def _rev(r) -> float:
