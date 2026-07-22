@@ -189,13 +189,16 @@ def _sum_daily_field(db: Session, year: int, month: int, field: str) -> float:
     return float(v or 0)
 
 
-def compute_actual(db: Session, year: int) -> dict[tuple[str, int], float]:
+def compute_actual(db: Session, year: int,
+                   channel_ids: Optional[list[str]] = None) -> dict[tuple[str, int], float]:
     """{(formula_code, month): value} 형태로 자동 계산값 반환.
 
     이전엔 (12개월 × 11개 컬럼 = 132개) 개별 SUM query를 순차 호출했으나
     Supabase pooler RTT × 132 ≈ 30~60초로 PNL endpoint timeout. 단일 GROUP BY 1회 호출로 통합.
+
+    channel_ids: 주어지면 해당 채널만 집계(채널·담당자 필터). None이면 전사.
     """
-    rows = db.query(
+    q = db.query(
         ChannelSalesDailyProduct.month,
         # 매출 = net_sales − 매출차감형 월정액(revenue_deduction, 예: 쿠팡 로켓프레시)
         func.coalesce(func.sum(
@@ -214,7 +217,10 @@ def compute_actual(db: Session, year: int) -> dict[tuple[str, int], float]:
         func.coalesce(func.sum(ChannelSalesDailyProduct.cost_logistics_oh), 0),
     ).filter(
         ChannelSalesDailyProduct.year == year,
-    ).group_by(ChannelSalesDailyProduct.month).all()
+    )
+    if channel_ids is not None:
+        q = q.filter(ChannelSalesDailyProduct.channel_id.in_(channel_ids))
+    rows = q.group_by(ChannelSalesDailyProduct.month).all()
 
     out: dict[tuple[str, int], float] = {}
     # 데이터 없는 월은 0으로 채움 (frontend는 12개월 전체 노출)
@@ -243,13 +249,19 @@ def compute_actual(db: Session, year: int) -> dict[tuple[str, int], float]:
     return out
 
 
-def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
+def compute_plan(db: Session, year: int,
+                 channel_ids: Optional[list[str]] = None) -> dict[tuple[str, int], float]:
     """사업계획 매출/수량 + 변동비 규칙으로 plan 공헌이익까지 자동 산출.
 
     사업계획 엑셀에는 매출(채널×월)과 수량(채널×품목×월)만 들어있으므로,
     변동비 설정(채널/품목/기간별 규칙)을 곱해 변동비 plan을 만들고
     공헌이익 plan = 매출 − 변동비(원가+판관) 으로 산출한다.
+
+    channel_ids: 주어지면 해당 채널만 집계. 이때 사업계획 그룹요약(광고비·공헌이익
+    target)은 채널 차원이 없어 채널 귀속이 불가하므로 override를 쓰지 않고
+    필터된 구성요소로 공헌이익을 다시 산출한다.
     """
+    filtered = channel_ids is not None
     import time as _time
     _tp0 = _time.time()
     def _plap(label):
@@ -272,11 +284,14 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
         return out
 
     # 1) 채널×월 매출 plan
-    rev_rows = db.query(
+    rev_q = db.query(
         BusinessPlanChannelRevenue.channel_id,
         BusinessPlanChannelRevenue.month,
         func.sum(BusinessPlanChannelRevenue.target_revenue),
-    ).filter(BusinessPlanChannelRevenue.year == year).group_by(
+    ).filter(BusinessPlanChannelRevenue.year == year)
+    if filtered:
+        rev_q = rev_q.filter(BusinessPlanChannelRevenue.channel_id.in_(channel_ids))
+    rev_rows = rev_q.group_by(
         BusinessPlanChannelRevenue.channel_id, BusinessPlanChannelRevenue.month,
     ).all()
     _plap("rev_rows")
@@ -303,9 +318,12 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
         return _best_rule(rules_by_item.get(it.id, []), ch, pid, ref_date)
 
     # 3) 채널×품목×월 수량 plan → 낱개 기준 (cogs, labor)
-    qty_rows = db.query(BusinessPlanProductQty).filter(
+    qty_q = db.query(BusinessPlanProductQty).filter(
         BusinessPlanProductQty.year == year
-    ).all()
+    )
+    if filtered:
+        qty_q = qty_q.filter(BusinessPlanProductQty.channel_id.in_(channel_ids))
+    qty_rows = qty_q.all()
     _plap(f"qty_rows({len(qty_rows)})")
     cogs_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
     labor_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
@@ -351,19 +369,23 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     ).filter(BusinessPlanGroupSummary.year == year).group_by(
         BusinessPlanGroupSummary.month
     ).all()
-    if any((total or 0) > 0 for _, total in group_rows):
+    # 그룹요약 광고비는 채널 차원이 없어 필터 시 귀속 불가 → 필터 중엔 채널월 광고비만 사용
+    if not filtered and any((total or 0) > 0 for _, total in group_rows):
         for m, total in group_rows:
             adv_by_month[m] = float(total or 0)
     else:
         adv_item = items.get("advertising")
         if adv_item:
-            adv_rows = db.query(
+            adv_q = db.query(
                 CsaChannelMonthlyCost.month,
                 func.sum(CsaChannelMonthlyCost.amount),
             ).filter(
                 CsaChannelMonthlyCost.year == year,
                 CsaChannelMonthlyCost.cost_item_id == adv_item.id,
-            ).group_by(CsaChannelMonthlyCost.month).all()
+            )
+            if filtered:
+                adv_q = adv_q.filter(CsaChannelMonthlyCost.channel_id.in_(channel_ids))
+            adv_rows = adv_q.group_by(CsaChannelMonthlyCost.month).all()
             for m, total in adv_rows:
                 adv_by_month[m] = float(total or 0)
     for m in range(1, 13):
@@ -371,18 +393,20 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
     _plap("advertising")
 
     # 사업계획 엑셀의 그룹별 공헌이익 합계 (대시보드 시트 '공헌이익' 섹션)
-    cm_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
-    cm_rows = db.query(
-        BusinessPlanGroupSummary.month,
-        func.sum(BusinessPlanGroupSummary.target_cm),
-    ).filter(BusinessPlanGroupSummary.year == year).group_by(
-        BusinessPlanGroupSummary.month
-    ).all()
-    for m, total in cm_rows:
-        cm_by_month[m] = float(total or 0)
-    for m in range(1, 13):
-        if cm_by_month[m]:
-            out[("contribution_margin", m)] = cm_by_month[m]
+    # 그룹요약은 채널 차원이 없어 필터 시 override 불가 → 필터 중엔 매출−변동비 산식으로만 산출
+    if not filtered:
+        cm_by_month: dict[int, float] = {m: 0.0 for m in range(1, 13)}
+        cm_rows = db.query(
+            BusinessPlanGroupSummary.month,
+            func.sum(BusinessPlanGroupSummary.target_cm),
+        ).filter(BusinessPlanGroupSummary.year == year).group_by(
+            BusinessPlanGroupSummary.month
+        ).all()
+        for m, total in cm_rows:
+            cm_by_month[m] = float(total or 0)
+        for m in range(1, 13):
+            if cm_by_month[m]:
+                out[("contribution_margin", m)] = cm_by_month[m]
     _plap("cm_rows")
 
     # 주문건수 기반(commission_fixed, shipping order_fixed, packaging)은 plan에 주문수가 없어 0으로 둠
@@ -393,7 +417,14 @@ def compute_plan(db: Session, year: int) -> dict[tuple[str, int], float]:
 # 조회 — 8행 트리 × 12월 매트릭스
 # ──────────────────────────────────────────────────────────────
 
-def get_pnl_matrix(db: Session, year: int) -> dict:
+def get_pnl_matrix(db: Session, year: int,
+                   channel_ids: Optional[list[str]] = None) -> dict:
+    """월별 P&L 매트릭스. channel_ids가 주어지면 해당 채널만(채널·담당자 필터).
+
+    필터 적용 시 수동입력값(원재료 override·고정비 등 회사 전체 값)은 채널 귀속이
+    불가하므로 제외한다 → 매출·변동비·공헌이익만 채널/담당자 기준으로 산출되고,
+    고정비·매출총이익·영업이익은 0으로 비운다. (frontend가 'filtered' 플래그로 안내)
+    """
     import time as _time
     _t0 = _time.time()
     def _lap(label):
@@ -410,15 +441,17 @@ def get_pnl_matrix(db: Session, year: int) -> dict:
         seed_pnl_rows(db)
         rows = db.query(CsaPnlRow).filter(CsaPnlRow.is_active.is_(True)).order_by(CsaPnlRow.sort_order).all()
         _lap("seed+reload")
-    actual_calc = compute_actual(db, year)
+    actual_calc = compute_actual(db, year, channel_ids=channel_ids)
     _lap("compute_actual")
-    plan_calc = compute_plan(db, year)
+    plan_calc = compute_plan(db, year, channel_ids=channel_ids)
     _lap("compute_plan")
 
-    # DB에 저장된 manual 값
+    # DB에 저장된 manual 값 (원재료·부재료·고정비 등). 회사 전체 값이라 채널 차원이
+    # 없으므로 채널/담당자 필터 중엔 제외 — 필터 뷰는 변동비·공헌이익만 정확히 표시.
     manual_vals: dict[tuple[int, int, str], float] = {}
-    for v in db.query(CsaPnlValue).filter(CsaPnlValue.year == year).all():
-        manual_vals[(v.row_id, v.month, v.scope)] = v.value
+    if channel_ids is None:
+        for v in db.query(CsaPnlValue).filter(CsaPnlValue.year == year).all():
+            manual_vals[(v.row_id, v.month, v.scope)] = v.value
     _lap("manual_vals")
 
     # 행별 월 값 계산 (자동 우선, manual override 가능)
@@ -552,7 +585,7 @@ def get_pnl_matrix(db: Session, year: int) -> dict:
             "actual": vals["actual"],
             "plan": vals["plan"],
         })
-    return {"year": year, "rows": out_rows}
+    return {"year": year, "rows": out_rows, "filtered": channel_ids is not None}
 
 
 # ──────────────────────────────────────────────────────────────

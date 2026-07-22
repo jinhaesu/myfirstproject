@@ -2907,20 +2907,51 @@ _PNL_TTL_SEC = 300  # 업로드/PNL값 수정 시 _bust_pnl_cache()로 무효화
 
 
 @router.get("/pnl")
-def pnl_matrix(year: int, force: bool = False, db: Session = Depends(get_db)):
+def pnl_matrix(
+    year: int,
+    force: bool = False,
+    channel_ids: Optional[str] = Query(None, description="콤마구분 channel_id"),
+    employee_ids: Optional[str] = Query(None, description="콤마구분 employee_id (담당 채널로 변환)"),
+    db: Session = Depends(get_db),
+):
     import time as _time
+
+    # 채널 필터 (직원별 담당 채널 우선 합집합) — 대시보드와 동일 규칙
+    filter_requested = bool(channel_ids or employee_ids)
+    selected_channels: set[str] = set()
+    if channel_ids:
+        selected_channels.update(s.strip() for s in channel_ids.split(",") if s.strip())
+    if employee_ids:
+        emp_id_list = [int(s) for s in employee_ids.split(",") if s.strip()]
+        if emp_id_list:
+            emp_channels = db.query(EmployeeChannelAssignment.channel_id).filter(
+                EmployeeChannelAssignment.employee_id.in_(emp_id_list),
+                EmployeeChannelAssignment.is_active.is_(True),
+            ).all()
+            for (cid,) in emp_channels:
+                selected_channels.add(cid)
+    if filter_requested and not selected_channels:
+        # 필터를 걸었는데 담당 채널이 하나도 없으면 전사 대신 빈 결과(0)
+        ch_filter: Optional[list[str]] = ["__no_channel__"]
+    elif selected_channels:
+        ch_filter = sorted(selected_channels)
+    else:
+        ch_filter = None
+
+    filter_key = ",".join(ch_filter) if ch_filter else ""
+    cache_key = (year, filter_key)
     now = _time.time()
-    cached = _PNL_CACHE.get(year)
+    cached = _PNL_CACHE.get(cache_key)
     if not force and cached and cached["expires"] > now:
         return {**cached["data"], "_timing_ms": 0, "_cached": True}
     _t0 = _time.time()
-    result = get_pnl_matrix(db, year)
+    result = get_pnl_matrix(db, year, channel_ids=ch_filter)
     elapsed_ms = int((_time.time() - _t0) * 1000)
     if isinstance(result, dict):
         result["_timing_ms"] = elapsed_ms
         result["_cached"] = False
-        _PNL_CACHE[year] = {"data": {k: v for k, v in result.items() if not k.startswith("_")},
-                            "expires": now + _PNL_TTL_SEC}
+        _PNL_CACHE[cache_key] = {"data": {k: v for k, v in result.items() if not k.startswith("_")},
+                                 "expires": now + _PNL_TTL_SEC}
     return result
 
 

@@ -469,7 +469,8 @@ function Content() {
         )}
 
         {activeTab === 'pnl' && (
-          <PnlTab authHeaders={authHeaders} userEmail={user?.email || ''} />
+          <PnlTab authHeaders={authHeaders} userEmail={user?.email || ''}
+                  channels={channels} employees={employees} />
         )}
 
         {activeTab === 'products' && (
@@ -4615,6 +4616,7 @@ interface PnlRow {
 interface PnlData {
   year: number;
   rows: PnlRow[];
+  filtered?: boolean;
 }
 
 const SECTION_COLOR: Record<string, string> = {
@@ -4641,11 +4643,16 @@ const SECTION_BG: Record<string, string> = {
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-function PnlTab({ authHeaders, userEmail }: { authHeaders: () => HeadersInit; userEmail: string }) {
+function PnlTab({ authHeaders, userEmail, channels, employees }: {
+  authHeaders: () => HeadersInit; userEmail: string;
+  channels: Channel[]; employees: Employee[];
+}) {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [data, setData] = useState<PnlData | null>(null);
   const [scope, setScope] = useState<'actual' | 'plan' | 'both'>('both');
+  const [selChannels, setSelChannels] = useState<string[]>([]);
+  const [selEmployees, setSelEmployees] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [pwStatus, setPwStatus] = useState<{ is_set: boolean; owner_email: string } | null>(null);
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
@@ -4665,12 +4672,15 @@ function PnlTab({ authHeaders, userEmail }: { authHeaders: () => HeadersInit; us
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${API_BASE}/api/csa/pnl?year=${year}`, { headers: authHeaders() });
+      const qs = new URLSearchParams({ year: String(year) });
+      if (selChannels.length) qs.set('channel_ids', selChannels.join(','));
+      if (selEmployees.length) qs.set('employee_ids', selEmployees.join(','));
+      const r = await fetch(`${API_BASE}/api/csa/pnl?${qs.toString()}`, { headers: authHeaders() });
       if (r.ok) setData(await r.json());
       const pw = await fetch(`${API_BASE}/api/csa/pnl/password-status`, { headers: authHeaders() });
       if (pw.ok) setPwStatus(await pw.json());
     } finally { setLoading(false); }
-  }, [authHeaders, year]);
+  }, [authHeaders, year, selChannels, selEmployees]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -4799,6 +4809,31 @@ function PnlTab({ authHeaders, userEmail }: { authHeaders: () => HeadersInit; us
               value={scope}
               onChange={setScope}
             />
+            <MultiSelect
+              label="채널"
+              options={channels.map((c: Channel) => ({ v: c.id, l: c.name, group: c.category }))}
+              value={selChannels}
+              onChange={setSelChannels}
+            />
+            <MultiSelect
+              label="담당자"
+              options={(employees || [])
+                .filter((e: Employee) => e.is_active)
+                .map((e: Employee) => ({
+                  v: String(e.id),
+                  l: `${e.name} (${(e.channels?.length ?? 0)}채널)`,
+                  group: e.role === 'admin' ? '관리자' : e.role === 'manager' ? '매니저' : '담당자',
+                }))
+              }
+              value={selEmployees.map((n: number) => String(n))}
+              onChange={(vs: string[]) => setSelEmployees(vs.map(s => parseInt(s)))}
+            />
+            {(selChannels.length > 0 || selEmployees.length > 0) && (
+              <button
+                onClick={() => { setSelChannels([]); setSelEmployees([]); }}
+                className="text-[11px] text-[#EB5757] hover:underline pb-1.5"
+              >필터 해제</button>
+            )}
           </div>
           <div className="text-[11px] text-[#A3A9B3] max-w-md text-right">
             <div>매출·변동비는 <span className="text-[#828FFF]">실제 업로드된 엑셀 + 변동비 규칙</span>에서 자동 산출.</div>
@@ -4808,6 +4843,12 @@ function PnlTab({ authHeaders, userEmail }: { authHeaders: () => HeadersInit; us
             )}
           </div>
         </div>
+        {data?.filtered && (
+          <div className="mt-3 text-[11px] text-[#F0BF00] bg-[#F0BF00]/10 border border-[#F0BF00]/30 rounded px-3 py-2">
+            채널·담당자 필터 적용 중 — <span className="font-semibold">매출·변동비·공헌이익</span>만 선택 대상 기준으로 산출됩니다.
+            원재료·고정비 등 <span className="font-semibold">수동입력·회사 전체 값은 채널 귀속이 불가</span>해 0으로 표시되며, 매출총이익·영업이익도 이 뷰에선 의미가 없습니다.
+          </div>
+        )}
       </div>
 
       {/* 매트릭스 */}
