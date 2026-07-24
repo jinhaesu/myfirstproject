@@ -1404,3 +1404,126 @@ class CsaUploadFile(Base):
     file_hash = Column(String(64), nullable=True, index=True)
     content = Column(LargeBinary, nullable=False)  # 원본 파일 바이트 (BYTEA)
     created_at = Column(DateTime, default=func.now())
+
+
+# ──────────────────────────────────────────────
+# 재고 관리 (Inventory Management) — 매출→재고 1단계
+#
+# 설계: "가상 판매차감 원장". 판매출고는 원장에 물리 기록하지 않는다
+# (판매 집계 csa_sales_daily_product가 업로드마다 재빌드되므로 이중부기 위험).
+# 원장에는 기초재고·생산입고·수동조정·실사보정·창고이동만 append.
+#   현재고(창고w, 품목p, d시점)
+#     = Σ 원장이동(w,p, movement_date ≤ d)
+#     − Σ 판매낱개(csa_sales_daily_product.pcs_qty, product_id=p,
+#                  채널→창고 매핑이 w, sale_date ≤ d)
+# 품목 단위 = csa_product_master (판매가 차감하는 표준 SKU). 원재료 폭발은 생산(2단계).
+# ──────────────────────────────────────────────
+
+class InventoryWarehouse(Base):
+    """창고 마스터"""
+    __tablename__ = "inventory_warehouse"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(50), unique=True, index=True)  # WH1 등 자체 코드
+    name = Column(String(200), nullable=False, unique=True)
+    location = Column(String(300), nullable=True)
+    is_active = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class InventoryChannelWarehouse(Base):
+    """판매채널 → 창고 지정 (채널당 1창고). 이 매핑으로 판매출고가 어느 창고에서
+    빠지는지 결정한다. 매핑 없는 채널의 판매는 재고 차감되지 않고 경고로 표시."""
+    __tablename__ = "inventory_channel_warehouse"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    channel_id = Column(String(100), nullable=False, unique=True, index=True)
+    channel_name = Column(String(200), nullable=True)
+    warehouse_id = Column(Integer, ForeignKey("inventory_warehouse.id"), nullable=False, index=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class InventoryStockLedger(Base):
+    """재고 이동 원장 (판매출고 제외 — 판매 집계에서 실시간 차감).
+    movement_type: opening(기초) / production_in(생산입고) / adjustment(수동조정) /
+                   count_correction(실사보정) / transfer_in / transfer_out(창고이동).
+    qty_delta 부호 포함(입고 +, 출고 −). adjustment·count_correction은 reason 필수."""
+    __tablename__ = "inventory_stock_ledger"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    warehouse_id = Column(Integer, ForeignKey("inventory_warehouse.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=False, index=True)
+    movement_date = Column(Date, nullable=False, index=True)
+    movement_type = Column(String(30), nullable=False, index=True)
+    qty_delta = Column(Float, nullable=False, default=0)
+    ref_type = Column(String(30), nullable=True)   # count_session / upload_batch 등
+    ref_id = Column(String(64), nullable=True, index=True)
+    reason = Column(Text, nullable=True)
+    created_by = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+
+
+class InventorySafetyStock(Base):
+    """안전재고·재주문점 (창고×품목). warehouse_id NULL = 전체 창고 공통 기본값.
+    현재고 < reorder_point → 보충 알림. 권장보충 = reorder_qty 또는 (target_stock−현재고)."""
+    __tablename__ = "inventory_safety_stock"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    warehouse_id = Column(Integer, ForeignKey("inventory_warehouse.id"), nullable=True, index=True)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=False, index=True)
+    safety_stock = Column(Float, default=0)    # 안전재고 (하회 시 위험)
+    reorder_point = Column(Float, default=0)   # 재주문점 (하회 시 보충 알림)
+    reorder_qty = Column(Float, default=0)     # 권장 보충량 (0이면 target_stock 기준 자동)
+    target_stock = Column(Float, default=0)    # 목표 재고
+    is_active = Column(Boolean, default=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('warehouse_id', 'product_id', name='uq_inv_safety_wh_prod'),
+    )
+
+
+class InventoryCountSession(Base):
+    """재고 실사 세션 (주/월/분기). 확정 시 각 라인의 diff(=실재고−시스템)만큼
+    count_correction 이동을 원장에 기록해 시스템재고를 실재고에 맞춘다."""
+    __tablename__ = "inventory_count_session"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    warehouse_id = Column(Integer, ForeignKey("inventory_warehouse.id"), nullable=False, index=True)
+    count_date = Column(Date, nullable=False, index=True)
+    period_type = Column(String(20), default="monthly")  # weekly/monthly/quarterly/adhoc
+    status = Column(String(20), default="draft", index=True)  # draft/confirmed
+    title = Column(String(200), nullable=True)
+    created_by = Column(String(200), nullable=True)
+    confirmed_by = Column(String(200), nullable=True)
+    confirmed_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class InventoryCountLine(Base):
+    """실사 라인 — 시스템재고 스냅샷 vs 실재고. diff≠0로 확정 시 reason 필수."""
+    __tablename__ = "inventory_count_line"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Integer, ForeignKey("inventory_count_session.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=False, index=True)
+    product_name = Column(String(200), nullable=True)
+    system_qty = Column(Float, default=0)       # 실사 시점 시스템 계산 재고 (스냅샷)
+    counted_qty = Column(Float, nullable=True)  # 실재고 입력
+    diff = Column(Float, default=0)             # counted − system
+    reason = Column(Text, nullable=True)        # diff≠0 확정 시 필수
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('session_id', 'product_id', name='uq_inv_count_line'),
+    )

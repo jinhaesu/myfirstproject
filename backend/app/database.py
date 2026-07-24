@@ -82,6 +82,8 @@ def init_db():
             CsaCostItem, CsaCostRule, CsaChannelMonthlyCost,
             CsaPnlRow, CsaPnlValue, CsaPnlConfig,
             CsaChannelProduct,
+            InventoryWarehouse, InventoryChannelWarehouse, InventoryStockLedger,
+            InventorySafetyStock, InventoryCountSession, InventoryCountLine,
         )
         from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401
         from app.models.scheduled_report import ScheduledReport  # noqa: F401

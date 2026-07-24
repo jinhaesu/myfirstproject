@@ -45,6 +45,14 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: '물류·재고 관리',
+    icon: 'inventory',
+    pathPrefix: ['/inventory'],
+    items: [
+      { href: '/inventory', label: '재고 대시보드', icon: 'inventory' },
+    ],
+  },
+  {
     label: '제품 관리',
     icon: 'productList',
     pathPrefix: ['/sabangnet/products', '/sabangnet/mapping'],
