@@ -23,14 +23,16 @@ const getJSON = async <T,>(path: string, def: T): Promise<T> => {
 
 // ── types ──
 interface Warehouse { id: number; name: string; }
-interface ProdRow { id: number; prod_date: string; worker: string; location: string; category: string; product_name: string; qty: number; hours: number; unit_price: number; prod_amount: number; unit_cost: number; total_cost: number; grade: string; matched: boolean; matched_name: string | null; batch_id: string; }
+interface ProdRow { id: number; prod_date: string; worker: string; location: string; category: string; product_name: string; qty: number; hours: number; unit_price: number; prod_amount: number; unit_cost: number; total_cost: number; labor_cost: number; unit_labor: number; hourly_qty: number; grade: string; matched: boolean; matched_name: string | null; batch_id: string; }
 interface Batch { batch_id: string; count: number; qty: number; period: string; uploaded_at: string; }
 interface ProdDash {
-  record_count: number; total_qty: number; total_amount: number; total_cost: number; total_hours: number; cost_ratio: number;
-  by_category: { category: string; qty: number; amount: number; cost: number }[];
-  by_worker: { worker: string; qty: number; amount: number; hours: number }[];
-  by_month: { month: string; qty: number; amount: number; cost: number }[];
+  record_count: number; total_qty: number; total_amount: number; total_cost: number; total_hours: number;
+  total_labor: number; hourly_wage: number; cost_ratio: number; labor_ratio: number;
+  by_category: { category: string; qty: number; amount: number; cost: number; labor: number; hours: number; unit_labor: number; hourly_qty: number }[];
+  by_worker: { worker: string; qty: number; amount: number; hours: number; labor: number }[];
+  by_month: { month: string; qty: number; amount: number; cost: number; labor: number }[];
   by_grade: { grade: string; qty: number }[];
+  by_location: { location: string; qty: number; hours: number; labor: number }[];
 }
 
 // ── UI atoms ──
@@ -47,6 +49,38 @@ const fmt = (n: number | null | undefined) => (n === null || n === undefined ? '
 const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
 const COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#00B8CC', '#EB5757', '#A855F7', '#F97316', '#14B8A6'];
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+function presetRange(kind: string): { start: string; end: string } {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  if (kind === '7d') { const s = new Date(now); s.setDate(now.getDate() - 6); return { start: iso(s), end: iso(now) }; }
+  if (kind === '14d') { const s = new Date(now); s.setDate(now.getDate() - 13); return { start: iso(s), end: iso(now) }; }
+  if (kind === 'thisMonth') return { start: iso(new Date(y, m, 1)), end: iso(new Date(y, m + 1, 0)) };
+  if (kind === 'lastMonth') return { start: iso(new Date(y, m - 1, 1)), end: iso(new Date(y, m, 0)) };
+  if (kind === 'thisQuarter') { const q = Math.floor(m / 3); return { start: iso(new Date(y, q * 3, 1)), end: iso(new Date(y, q * 3 + 3, 0)) }; }
+  if (kind === 'lastQuarter') { const q = Math.floor(m / 3) - 1; const yy = q < 0 ? y - 1 : y; const qq = (q + 4) % 4; return { start: iso(new Date(yy, qq * 3, 1)), end: iso(new Date(yy, qq * 3 + 3, 0)) }; }
+  if (kind === 'lastYear') return { start: iso(new Date(y - 1, 0, 1)), end: iso(new Date(y - 1, 11, 31)) };
+  if (kind === 'thisYear') return { start: iso(new Date(y, 0, 1)), end: iso(now) };
+  return { start: '2025-01-01', end: iso(now) };
+}
+const PRESETS: [string, string][] = [
+  ['7d', '7일'], ['14d', '14일'], ['thisMonth', '당월'], ['lastMonth', '전월'],
+  ['thisQuarter', '당분기'], ['lastQuarter', '전분기'], ['lastYear', '전년도'], ['all', '전체'],
+];
+function PeriodBar({ range, setRange }: { range: { start: string; end: string }; setRange: (r: { start: string; end: string }) => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
+      <span className="text-[#62666D]">~</span>
+      <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
+      <div className="flex flex-wrap gap-1">
+        {PRESETS.map(([k, l]) => (
+          <button key={k} onClick={() => setRange(presetRange(k))} className={`${C.btn} ${C.btnGhost} px-2.5 py-1.5`}>{l}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return (
@@ -99,48 +133,48 @@ export default function ProductionPage() {
 }
 
 function DashTab() {
-  const [start, setStart] = useState('2025-01-01');
-  const [end, setEnd] = useState(todayISO());
+  const [range, setRange] = useState({ start: '2025-01-01', end: todayISO() });
   const [d, setD] = useState<ProdDash | null>(null);
   const [loading, setLoading] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
-    setD(await getJSON<ProdDash | null>(`/inventory/production/dashboard?start=${start}&end=${end}`, null));
+    setD(await getJSON<ProdDash | null>(`/inventory/production/dashboard?start=${range.start}&end=${range.end}`, null));
     setLoading(false);
-  }, [start, end]);
+  }, [range]);
   useEffect(() => { load(); }, [load]);
 
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-2">
-        <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={C.input} />
-        <span className="text-[#62666D]">~</span>
-        <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className={C.input} />
+        <PeriodBar range={range} setRange={setRange} />
         {loading && <span className="text-xs text-[#62666D]">불러오는 중…</span>}
       </div>
       {d && d.record_count === 0 && (
-        <div className={`${C.card} p-8 text-center text-sm text-[#62666D]`}>생산 데이터가 없습니다. [업로드] 탭에서 RAW-DATA 엑셀을 올려주세요.</div>
+        <div className={`${C.card} p-8 text-center text-sm text-[#62666D]`}>이 기간에 생산 데이터가 없습니다. [업로드] 탭에서 RAW-DATA 엑셀을 올려주세요.</div>
       )}
       {d && d.record_count > 0 && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <StatCard label="총 생산량 (낱개)" value={fmt(d.total_qty)} />
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            <StatCard label="총 생산량 (낱개)" value={fmt(d.total_qty)} sub={`${fmt(d.record_count)}건`} />
             <StatCard label="총 생산액" value={won(d.total_amount)} />
-            <StatCard label="총 원가" value={won(d.total_cost)} tone="text-[#F0BF00]" />
-            <StatCard label="원가율" value={`${d.cost_ratio}%`} tone={d.cost_ratio > 40 ? 'text-[#EB5757]' : 'text-[#3FBE5B]'} />
-            <StatCard label="총 생산시간" value={`${fmt(d.total_hours)}h`} sub={`${fmt(d.record_count)}건`} />
+            <StatCard label="총 원가" value={won(d.total_cost)} tone="text-[#F0BF00]" sub={`원가율 ${d.cost_ratio}%`} />
+            <StatCard label={`노무비 (시급 ${fmt(d.hourly_wage)})`} value={won(d.total_labor)} tone="text-[#00B8CC]" sub={`노무비율 ${d.labor_ratio}%`} />
+            <StatCard label="총 생산시간" value={`${fmt(d.total_hours)}h`} />
+            <StatCard label="시간당 생산량" value={fmt(d.total_hours ? Math.round(d.total_qty / d.total_hours) : 0)} sub="낱개/시간" />
           </div>
 
           <div className={`${C.card} p-4`}>
-            <div className="text-sm font-semibold text-[#F7F8F8] mb-3">월별 생산 추이</div>
+            <div className="text-sm font-semibold text-[#F7F8F8] mb-3">월별 생산 추이 (생산량 · 원가 · 노무비)</div>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={d.by_month}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
                 <XAxis dataKey="month" tick={{ fill: '#8A8F98', fontSize: 11 }} />
-                <YAxis tick={{ fill: '#8A8F98', fontSize: 11 }} />
+                <YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 11 }} />
+                <YAxis yAxisId="r" orientation="right" tick={{ fill: '#8A8F98', fontSize: 11 }} />
                 <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                <Line type="monotone" dataKey="qty" name="생산량" stroke="#5E6AD2" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="cost" name="원가" stroke="#F0BF00" strokeWidth={2} dot={false} />
+                <Line yAxisId="l" type="monotone" dataKey="qty" name="생산량" stroke="#5E6AD2" strokeWidth={2} dot={false} />
+                <Line yAxisId="r" type="monotone" dataKey="cost" name="원가" stroke="#F0BF00" strokeWidth={2} dot={false} />
+                <Line yAxisId="r" type="monotone" dataKey="labor" name="노무비" stroke="#00B8CC" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -148,7 +182,7 @@ function DashTab() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-[#F7F8F8] mb-3">품목류별 생산량</div>
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={d.by_category.slice(0, 12)} layout="vertical" margin={{ left: 30 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
                   <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 11 }} />
@@ -161,20 +195,71 @@ function DashTab() {
               </ResponsiveContainer>
             </div>
             <div className={`${C.card} p-4`}>
-              <div className="text-sm font-semibold text-[#F7F8F8] mb-3">담당자별 생산량 · 시간</div>
-              <div className="overflow-x-auto max-h-[260px]">
-                <table className="w-full">
-                  <thead className="sticky top-0 bg-[#0F1011]"><tr><th className={C.th}>담당자</th><th className={C.th}>생산량</th><th className={C.th}>생산액</th><th className={C.th}>시간</th></tr></thead>
-                  <tbody>
-                    {d.by_worker.map((w) => (
-                      <tr key={w.worker}><td className={`${C.td} text-[#F7F8F8]`}>{w.worker}</td><td className={C.td}>{fmt(w.qty)}</td><td className={C.td}>{won(w.amount)}</td><td className={C.td}>{fmt(w.hours)}h</td></tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-[#F7F8F8]">생산위치(층)별 · 주야</div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-[#8A8F98] mb-2">층별 생산량·시간</div>
+                  {d.by_location.map((l, i) => (
+                    <div key={l.location} className="flex items-center justify-between py-1.5 border-b border-[#1A1B1E]">
+                      <span className="text-sm text-[#F7F8F8]" style={{ color: COLORS[i % COLORS.length] }}>{l.location}</span>
+                      <span className="text-sm text-[#D0D6E0]">{fmt(l.qty)} · {fmt(l.hours)}h</span>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <div className="text-xs text-[#8A8F98] mb-2">주간/야간 생산량</div>
+                  {d.by_grade.map((g, i) => (
+                    <div key={g.grade} className="flex items-center justify-between py-1.5 border-b border-[#1A1B1E]">
+                      <span className="text-sm text-[#F7F8F8]">{g.grade}</span>
+                      <span className="text-sm text-[#D0D6E0]">{fmt(g.qty)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-          <p className="text-xs text-[#62666D]">기간 {d.by_month[0]?.month ?? start} ~ {end} · {fmt(d.record_count)}건 집계</p>
+
+          <div className={`${C.card} p-4`}>
+            <div className="text-sm font-semibold text-[#F7F8F8] mb-3">품목류별 원가·노무비·생산성</div>
+            <div className="overflow-x-auto max-h-[360px]">
+              <table className="w-full">
+                <thead className="sticky top-0 bg-[#0F1011]"><tr>
+                  <th className={C.th}>품목류</th><th className={C.th}>생산량</th><th className={C.th}>생산액</th><th className={C.th}>원가총액</th>
+                  <th className={C.th}>노무비</th><th className={C.th}>시간당 생산량</th><th className={C.th}>개당 노무비</th>
+                </tr></thead>
+                <tbody>
+                  {d.by_category.map((c) => (
+                    <tr key={c.category}>
+                      <td className={`${C.td} text-[#F7F8F8] font-medium`}>{c.category}</td>
+                      <td className={C.td}>{fmt(c.qty)}</td>
+                      <td className={C.td}>{won(c.amount)}</td>
+                      <td className={C.td}>{won(c.cost)}</td>
+                      <td className={`${C.td} text-[#00B8CC]`}>{won(c.labor)}</td>
+                      <td className={C.td}>{fmt(c.hourly_qty)}/h</td>
+                      <td className={C.td}>₩{fmt(c.unit_labor)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className={`${C.card} p-4`}>
+            <div className="text-sm font-semibold text-[#F7F8F8] mb-3">담당자별 생산량 · 시간 · 노무비</div>
+            <div className="overflow-x-auto max-h-[300px]">
+              <table className="w-full">
+                <thead className="sticky top-0 bg-[#0F1011]"><tr><th className={C.th}>담당자</th><th className={C.th}>생산량</th><th className={C.th}>생산액</th><th className={C.th}>시간</th><th className={C.th}>노무비</th></tr></thead>
+                <tbody>
+                  {d.by_worker.map((w) => (
+                    <tr key={w.worker}><td className={`${C.td} text-[#F7F8F8]`}>{w.worker}</td><td className={C.td}>{fmt(w.qty)}</td><td className={C.td}>{won(w.amount)}</td><td className={C.td}>{fmt(w.hours)}h</td><td className={`${C.td} text-[#00B8CC]`}>{won(w.labor)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p className="text-xs text-[#62666D]">노무비 = 시급 {fmt(d.hourly_wage)}원 × 생산투여시간 · 개당 노무비 = 노무비 ÷ 생산량 · {range.start} ~ {range.end}</p>
         </>
       )}
     </div>
@@ -184,27 +269,24 @@ function DashTab() {
 function RecordsTab() {
   const [rows, setRows] = useState<ProdRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [start, setStart] = useState('2025-01-01');
-  const [end, setEnd] = useState(todayISO());
+  const [range, setRange] = useState({ start: '2025-01-01', end: todayISO() });
   const [cat, setCat] = useState('');
   const [worker, setWorker] = useState('');
   const [loading, setLoading] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
-    const qs = new URLSearchParams({ start, end, limit: '500' });
+    const qs = new URLSearchParams({ start: range.start, end: range.end, limit: '500' });
     if (cat) qs.set('category', cat);
     if (worker) qs.set('worker', worker);
     const r = await getJSON<{ rows: ProdRow[]; total: number }>(`/inventory/production?${qs}`, { rows: [], total: 0 });
     setRows(r.rows); setTotal(r.total); setLoading(false);
-  }, [start, end, cat, worker]);
+  }, [range, cat, worker]);
   useEffect(() => { load(); }, [load]);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={C.input} />
-        <span className="text-[#62666D]">~</span>
-        <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className={C.input} />
+        <PeriodBar range={range} setRange={setRange} />
         <input value={cat} onChange={(e) => setCat(e.target.value)} placeholder="품목류" className={`${C.input} w-28`} />
         <input value={worker} onChange={(e) => setWorker(e.target.value)} placeholder="담당자" className={`${C.input} w-28`} />
         <span className="text-xs text-[#8A8F98] ml-auto">{loading ? '불러오는 중…' : `${fmt(rows.length)} / 총 ${fmt(total)}건`}</span>
@@ -213,11 +295,11 @@ function RecordsTab() {
         <table className="w-full">
           <thead className="sticky top-0 bg-[#0F1011]"><tr>
             <th className={C.th}>생산일</th><th className={C.th}>담당자</th><th className={C.th}>위치</th><th className={C.th}>품목류</th>
-            <th className={C.th}>품목명</th><th className={C.th}>생산량</th><th className={C.th}>생산액</th><th className={C.th}>원가총액</th>
-            <th className={C.th}>등급</th><th className={C.th}>재고반영</th>
+            <th className={C.th}>품목명</th><th className={C.th}>생산량</th><th className={C.th}>시간</th><th className={C.th}>생산액</th>
+            <th className={C.th}>원가총액</th><th className={C.th}>노무비</th><th className={C.th}>주야</th><th className={C.th}>재고반영</th>
           </tr></thead>
           <tbody>
-            {rows.length === 0 ? <tr><td colSpan={10} className="p-6 text-center text-[#62666D] text-sm">데이터 없음</td></tr> :
+            {rows.length === 0 ? <tr><td colSpan={12} className="p-6 text-center text-[#62666D] text-sm">데이터 없음</td></tr> :
               rows.map((r) => (
                 <tr key={r.id}>
                   <td className={C.td}>{r.prod_date}</td>
@@ -226,8 +308,10 @@ function RecordsTab() {
                   <td className={`${C.td} text-[#F7F8F8]`}>{r.category}</td>
                   <td className={C.td}>{r.product_name}</td>
                   <td className={`${C.td} font-semibold`}>{fmt(r.qty)}</td>
+                  <td className={C.td}>{fmt(r.hours)}h</td>
                   <td className={C.td}>{won(r.prod_amount)}</td>
                   <td className={C.td}>{won(r.total_cost)}</td>
+                  <td className={`${C.td} text-[#00B8CC]`}>{won(r.labor_cost)}</td>
                   <td className={C.td}>{r.grade || '-'}</td>
                   <td className={C.td}>{r.matched ? <span className="text-[#3FBE5B] text-xs">{r.matched_name}</span> : <span className="text-[#EB5757] text-xs">미매칭</span>}</td>
                 </tr>

@@ -98,15 +98,19 @@ const todayISO = () => iso(new Date());
 function presetRange(kind: string): { start: string; end: string } {
   const now = new Date();
   const y = now.getFullYear(), m = now.getMonth();
-  if (kind === 'week') {
-    const day = now.getDay() || 7; const s = new Date(now); s.setDate(now.getDate() - day + 1);
-    const e = new Date(s); e.setDate(s.getDate() + 6); return { start: iso(s), end: iso(e) };
-  }
-  if (kind === 'month') return { start: iso(new Date(y, m, 1)), end: iso(new Date(y, m + 1, 0)) };
-  if (kind === 'quarter') { const q = Math.floor(m / 3); return { start: iso(new Date(y, q * 3, 1)), end: iso(new Date(y, q * 3 + 3, 0)) }; }
-  if (kind === 'year') return { start: iso(new Date(y, 0, 1)), end: iso(new Date(y, 11, 31)) };
+  if (kind === '7d') { const s = new Date(now); s.setDate(now.getDate() - 6); return { start: iso(s), end: iso(now) }; }
+  if (kind === '14d') { const s = new Date(now); s.setDate(now.getDate() - 13); return { start: iso(s), end: iso(now) }; }
+  if (kind === 'thisMonth') return { start: iso(new Date(y, m, 1)), end: iso(new Date(y, m + 1, 0)) };
+  if (kind === 'lastMonth') return { start: iso(new Date(y, m - 1, 1)), end: iso(new Date(y, m, 0)) };
+  if (kind === 'thisQuarter') { const q = Math.floor(m / 3); return { start: iso(new Date(y, q * 3, 1)), end: iso(new Date(y, q * 3 + 3, 0)) }; }
+  if (kind === 'lastQuarter') { const q = Math.floor(m / 3) - 1; const yy = q < 0 ? y - 1 : y; const qq = (q + 4) % 4; return { start: iso(new Date(yy, qq * 3, 1)), end: iso(new Date(yy, qq * 3 + 3, 0)) }; }
+  if (kind === 'lastYear') return { start: iso(new Date(y - 1, 0, 1)), end: iso(new Date(y - 1, 11, 31)) };
   return { start: todayISO(), end: todayISO() };
 }
+const RANGE_PRESETS: [string, string][] = [
+  ['7d', '7일'], ['14d', '14일'], ['thisMonth', '당월'], ['lastMonth', '전월'],
+  ['thisQuarter', '당분기'], ['lastQuarter', '전분기'], ['lastYear', '전년도'],
+];
 const CHART_COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#00B8CC', '#EB5757', '#A855F7', '#F97316', '#14B8A6'];
 
 // ═════════════════════════════════════════════════════════
@@ -198,6 +202,38 @@ function DashboardTab() {
             <StatCard label="보충 필요" value={fmt(d.shortage_count)} tone="text-[#F0BF00]" sub="재주문점 이하" />
             <StatCard label="품절" value={fmt(d.out_of_stock_count)} tone="text-[#EB5757]" sub="현재고 0 이하" />
           </div>
+
+          {(() => {
+            const oos = d.out_of_stock_count, short = d.shortage_count;
+            const normal = Math.max(d.product_count - oos - short, 0);
+            const segs = [
+              { label: '정상', v: normal, c: '#27A644' },
+              { label: '보충 필요', v: short, c: '#F0BF00' },
+              { label: '품절', v: oos, c: '#EB5757' },
+            ];
+            const tot = Math.max(d.product_count, 1);
+            return (
+              <div className={`${C.card} p-4`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-semibold text-[#F7F8F8]">재고 상태 분포</div>
+                  <div className="text-xs text-[#8A8F98]">총 {fmt(d.product_count)} 품목</div>
+                </div>
+                <div className="flex h-4 rounded-lg overflow-hidden mb-2">
+                  {segs.map((s) => s.v > 0 && <div key={s.label} style={{ width: `${(s.v / tot) * 100}%`, background: s.c }} title={`${s.label} ${s.v}`} />)}
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  {segs.map((s) => (
+                    <div key={s.label} className="flex items-center gap-1.5 text-xs">
+                      <span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.c }} />
+                      <span className="text-[#8A8F98]">{s.label}</span>
+                      <span className="text-[#F7F8F8] font-semibold">{fmt(s.v)}</span>
+                      <span className="text-[#62666D]">({Math.round((s.v / tot) * 100)}%)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className={`${C.card} p-4`}>
@@ -323,8 +359,8 @@ function StockTab({ warehouses, categories }: { warehouses: Warehouse[]; categor
             <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
             <span className="text-[#62666D]">~</span>
             <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
-            <div className="flex gap-1">
-              {[['week', '주'], ['month', '월'], ['quarter', '분기'], ['year', '년']].map(([k, l]) => (
+            <div className="flex flex-wrap gap-1">
+              {RANGE_PRESETS.map(([k, l]) => (
                 <button key={k} onClick={() => setRange(presetRange(k))} className={`${C.btn} ${C.btnGhost} px-2.5 py-1.5`}>{l}</button>
               ))}
             </div>

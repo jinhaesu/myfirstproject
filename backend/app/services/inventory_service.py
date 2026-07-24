@@ -675,6 +675,9 @@ def dashboard(db: Session, as_of: Optional[date] = None) -> dict:
 # 생산 실적 (RAW-DATA 엑셀 → 재고 보충)
 # ──────────────────────────────────────────────
 
+HOURLY_WAGE = 15000  # 노무비 산출 기준 시급(원). 노무비 = 시급 × 생산투여시간.
+
+
 def _norm(s) -> str:
     return str(s or "").strip().replace(" ", "").lower()
 
@@ -711,7 +714,17 @@ def parse_production_excel(file_path: str) -> dict:
     열: 날짜·담당자·생산위치·품목류·품목명·생산량·소요시간·단가·생산액·노무비·원가·원가총액·등급."""
     import pandas as pd
     try:
-        sheets = pd.read_excel(file_path, sheet_name=None, header=None)
+        if str(file_path).lower().endswith(".csv"):
+            for enc in ("utf-8-sig", "utf-8", "cp949", "euc-kr"):
+                try:
+                    sheets = {"CSV": pd.read_csv(file_path, header=None, encoding=enc)}
+                    break
+                except UnicodeDecodeError:
+                    continue
+            else:
+                sheets = {"CSV": pd.read_csv(file_path, header=None, encoding="utf-8", errors="ignore")}
+        else:
+            sheets = pd.read_excel(file_path, sheet_name=None, header=None)
     except Exception as e:
         return {"rows": [], "errors": [f"엑셀 읽기 실패: {e}"]}
     if not sheets:
@@ -767,7 +780,8 @@ def parse_production_excel(file_path: str) -> dict:
     c_labor = find("노무", "인건")
     c_ucost = find("원가", exclude=("총", "액"))
     c_tcost = find("원가총액", "총원가", "원가 총액") or find("총액")
-    c_grade = find("등급", "평가")
+    c_deduct = find("공제")
+    c_grade = find("등급", "평가", "구분", "주간", "야간", "주야")  # 주간/야간 생산 구분
 
     import pandas as pd
     def num(v):
@@ -828,6 +842,7 @@ def apply_production(db: Session, rows: list[dict], warehouse_id: int,
                      user: Optional[str] = None, batch_id: Optional[str] = None) -> dict:
     """생산 행을 inventory_production에 적재(dedup). 품목류/품목명→마스터 매핑."""
     cat_map, scm_map = _production_maps(db)
+    id2name = {p.id: p.name for p in db.query(ProductMaster).all()}
     existing = {h for (h,) in db.query(InventoryProduction.dedup_hash).all()}
     applied = dup = 0
     unmatched: dict[str, float] = {}
@@ -837,17 +852,20 @@ def apply_production(db: Session, rows: list[dict], warehouse_id: int,
             dup += 1
             continue
         pid = _resolve_prod(cat_map, scm_map, r.get("category"), r.get("product_name"))
+        # 매칭되면 품목류를 마스터 표준명으로 통일(하나의 표현). 미매칭이면 원본 유지.
+        canon_cat = id2name.get(pid) if pid else (r.get("category") or None)
         if not pid:
             key = r.get("category") or r.get("product_name") or "?"
             unmatched[key] = unmatched.get(key, 0.0) + float(r.get("qty") or 0)
+        hours = float(r.get("hours") or 0)
         db.add(InventoryProduction(
             batch_id=batch_id,
             prod_date=date.fromisoformat(r["prod_date"]),
             worker=r.get("worker") or None, location=r.get("location") or None,
-            category=r.get("category") or None, product_name=r.get("product_name") or None,
-            qty=float(r.get("qty") or 0), hours=float(r.get("hours") or 0),
+            category=canon_cat, product_name=r.get("product_name") or None,
+            qty=float(r.get("qty") or 0), hours=hours,
             unit_price=float(r.get("unit_price") or 0), prod_amount=float(r.get("prod_amount") or 0),
-            labor_cost=float(r.get("labor_cost") or 0), unit_cost=float(r.get("unit_cost") or 0),
+            labor_cost=round(HOURLY_WAGE * hours, 2), unit_cost=float(r.get("unit_cost") or 0),
             total_cost=float(r.get("total_cost") or 0), grade=r.get("grade") or None,
             product_id=pid, warehouse_id=warehouse_id, dedup_hash=h, created_by=user,
         ))
@@ -869,37 +887,57 @@ def production_dashboard(db: Session, start: Optional[date] = None,
     if end:
         q = q.filter(InventoryProduction.prod_date <= end)
     recs = q.all()
-    tot_qty = tot_amt = tot_cost = tot_hours = 0.0
+    tot_qty = tot_amt = tot_cost = tot_hours = tot_labor = 0.0
     by_cat: dict[str, dict] = {}
     by_worker: dict[str, dict] = {}
     by_month: dict[str, dict] = {}
     by_grade: dict[str, float] = {}
+    by_location: dict[str, dict] = {}
     for r in recs:
+        labor = float(r.labor_cost or 0)  # 노무비 = 시급 15,000 × 시간
         tot_qty += r.qty or 0; tot_amt += r.prod_amount or 0
-        tot_cost += r.total_cost or 0; tot_hours += r.hours or 0
+        tot_cost += r.total_cost or 0; tot_hours += r.hours or 0; tot_labor += labor
         c = r.category or "미분류"
-        by_cat.setdefault(c, {"qty": 0.0, "amount": 0.0, "cost": 0.0})
-        by_cat[c]["qty"] += r.qty or 0; by_cat[c]["amount"] += r.prod_amount or 0; by_cat[c]["cost"] += r.total_cost or 0
+        by_cat.setdefault(c, {"qty": 0.0, "amount": 0.0, "cost": 0.0, "labor": 0.0, "hours": 0.0})
+        by_cat[c]["qty"] += r.qty or 0; by_cat[c]["amount"] += r.prod_amount or 0
+        by_cat[c]["cost"] += r.total_cost or 0; by_cat[c]["labor"] += labor; by_cat[c]["hours"] += r.hours or 0
         w = r.worker or "미상"
-        by_worker.setdefault(w, {"qty": 0.0, "amount": 0.0, "hours": 0.0})
-        by_worker[w]["qty"] += r.qty or 0; by_worker[w]["amount"] += r.prod_amount or 0; by_worker[w]["hours"] += r.hours or 0
+        by_worker.setdefault(w, {"qty": 0.0, "amount": 0.0, "hours": 0.0, "labor": 0.0})
+        by_worker[w]["qty"] += r.qty or 0; by_worker[w]["amount"] += r.prod_amount or 0
+        by_worker[w]["hours"] += r.hours or 0; by_worker[w]["labor"] += labor
         mk = f"{r.prod_date.year}-{r.prod_date.month:02d}" if r.prod_date else "?"
-        by_month.setdefault(mk, {"qty": 0.0, "amount": 0.0, "cost": 0.0})
-        by_month[mk]["qty"] += r.qty or 0; by_month[mk]["amount"] += r.prod_amount or 0; by_month[mk]["cost"] += r.total_cost or 0
+        by_month.setdefault(mk, {"qty": 0.0, "amount": 0.0, "cost": 0.0, "labor": 0.0})
+        by_month[mk]["qty"] += r.qty or 0; by_month[mk]["amount"] += r.prod_amount or 0
+        by_month[mk]["cost"] += r.total_cost or 0; by_month[mk]["labor"] += labor
         g = r.grade or "미분류"
         by_grade[g] = by_grade.get(g, 0.0) + (r.qty or 0)
+        loc = r.location or "미상"
+        by_location.setdefault(loc, {"qty": 0.0, "hours": 0.0, "labor": 0.0})
+        by_location[loc]["qty"] += r.qty or 0; by_location[loc]["hours"] += r.hours or 0; by_location[loc]["labor"] += labor
+
+    def _cat_row(k, v):
+        return {"category": k, "qty": round(v["qty"]), "amount": round(v["amount"]),
+                "cost": round(v["cost"]), "labor": round(v["labor"]), "hours": round(v["hours"], 1),
+                "unit_labor": round(v["labor"] / v["qty"], 1) if v["qty"] else 0,  # 개당 노무비
+                "hourly_qty": round(v["qty"] / v["hours"], 1) if v["hours"] else 0}  # 시간당 생산량
+
     return {
         "start": start.isoformat() if start else None,
         "end": end.isoformat() if end else None,
         "record_count": len(recs),
         "total_qty": round(tot_qty), "total_amount": round(tot_amt),
         "total_cost": round(tot_cost), "total_hours": round(tot_hours, 1),
+        "total_labor": round(tot_labor), "hourly_wage": HOURLY_WAGE,
         "cost_ratio": round(tot_cost / tot_amt * 100, 1) if tot_amt else 0,
-        "by_category": [{"category": k, **{kk: round(vv) for kk, vv in v.items()}}
-                        for k, v in sorted(by_cat.items(), key=lambda x: -x[1]["qty"])],
-        "by_worker": [{"worker": k, **{kk: round(vv) for kk, vv in v.items()}}
+        "labor_ratio": round(tot_labor / tot_amt * 100, 1) if tot_amt else 0,
+        "by_category": [_cat_row(k, v) for k, v in sorted(by_cat.items(), key=lambda x: -x[1]["qty"])],
+        "by_worker": [{"worker": k, "qty": round(v["qty"]), "amount": round(v["amount"]),
+                       "hours": round(v["hours"], 1), "labor": round(v["labor"])}
                       for k, v in sorted(by_worker.items(), key=lambda x: -x[1]["qty"])],
-        "by_month": [{"month": k, **{kk: round(vv) for kk, vv in v.items()}}
+        "by_month": [{"month": k, "qty": round(v["qty"]), "amount": round(v["amount"]),
+                      "cost": round(v["cost"]), "labor": round(v["labor"])}
                      for k, v in sorted(by_month.items())],
         "by_grade": [{"grade": k, "qty": round(v)} for k, v in sorted(by_grade.items(), key=lambda x: -x[1])],
+        "by_location": [{"location": k, "qty": round(v["qty"]), "hours": round(v["hours"], 1), "labor": round(v["labor"])}
+                        for k, v in sorted(by_location.items(), key=lambda x: -x[1]["qty"])],
     }
