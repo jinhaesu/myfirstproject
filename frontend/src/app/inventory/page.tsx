@@ -364,13 +364,16 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
           </div>
 
           {(() => {
-            const pos = d.by_category.filter((c) => c.qty > 0).sort((a, b) => b.qty - a.qty);
-            const PIE = pos.slice(0, 10).map((c, i) => ({ name: c.category, value: c.qty, fill: CHART_COLORS[i % CHART_COLORS.length] }));
+            const positives = d.by_category.filter((c) => c.qty > 0);
+            const usingAbs = positives.length === 0;
+            const src = (usingAbs ? d.by_category.map((c) => ({ ...c, qty: Math.abs(c.qty) })) : positives)
+              .filter((c) => c.qty > 0).sort((a, b) => b.qty - a.qty);
+            const PIE = src.slice(0, 10).map((c, i) => ({ name: c.category, value: c.qty, fill: CHART_COLORS[i % CHART_COLORS.length] }));
             return (
               <div className={`${C.card} p-4`}>
-                <div className="text-sm font-semibold text-[#F7F8F8] mb-1">현재 잔여 재고 비중 (카테고리별)</div>
-                <div className="text-xs text-[#62666D] mb-3">기준일 {d.as_of} · 잔여(양수) 재고만 표시</div>
-                {PIE.length === 0 ? <Empty msg="잔여 재고(양수)가 없습니다 — 기초재고 업로드 후 표시됩니다" /> : (
+                <div className="text-sm font-semibold text-[#F7F8F8] mb-1">{usingAbs ? '카테고리별 재고 포지션 규모 (원형)' : '현재 잔여 재고 비중 (카테고리별)'}</div>
+                <div className="text-xs text-[#62666D] mb-3">기준일 {d.as_of} · {usingAbs ? '기초재고 미반영 → 순포지션(절대값) 규모 표시. 기초재고 업로드 시 실제 잔여재고로 전환' : '잔여(양수) 재고'}</div>
+                {PIE.length === 0 ? <Empty msg="데이터 없음" /> : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
                     <ResponsiveContainer width="100%" height={260}>
                       <PieChart>
@@ -381,10 +384,10 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="space-y-1">
-                      {pos.slice(0, 10).map((c, i) => (
+                      {src.slice(0, 10).map((c, i) => (
                         <div key={c.category} className="flex items-center justify-between text-sm py-1 border-b border-[#1A1B1E]">
                           <span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} /><span className="text-[#D0D6E0]">{c.category}</span></span>
-                          <span className="text-[#F7F8F8] tabular-nums">{fmt(c.qty)}</span>
+                          <span className="text-[#F7F8F8] tabular-nums">{usingAbs ? '−' : ''}{fmt(c.qty)}</span>
                         </div>
                       ))}
                     </div>

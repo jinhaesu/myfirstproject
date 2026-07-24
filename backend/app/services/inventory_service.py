@@ -1192,3 +1192,48 @@ def stock_heatmap(db: Session, start: date, end: date,
                      "category": p.get("category", ""), "cells": cells,
                      "total": sum(cells)})
     return {"months": months, "rows": rows, "warehouse_id": warehouse_id}
+
+
+def labor_compare(db: Session, start: date, end: date) -> dict:
+    """생산실적 투여시간·산출노무비 vs mysixthproject 근태 노무시간·실지급 노무비 (월별 대조)."""
+    from app.services import mysixth_client
+    months = _month_list(start, end)
+
+    # 생산실적 월별 (투여시간·산출노무비·층별시간)
+    prod_col_y = func.extract("year", InventoryProduction.prod_date)
+    prod_col_m = func.extract("month", InventoryProduction.prod_date)
+    pq = db.query(
+        prod_col_y, prod_col_m,
+        func.coalesce(func.sum(InventoryProduction.hours), 0.0),
+        func.coalesce(func.sum(InventoryProduction.labor_cost), 0.0),
+    ).filter(InventoryProduction.prod_date >= start, InventoryProduction.prod_date <= end).group_by(prod_col_y, prod_col_m)
+    prod_m = {f"{int(y)}-{int(m):02d}": (float(h or 0), float(l or 0)) for y, m, h, l in pq.all()}
+
+    att = mysixth_client.labor_by_month(months)
+
+    series = []
+    tot_ph = tot_ah = tot_pl = tot_al = tot_ae = 0.0
+    for ym in months:
+        ph, pl = prod_m.get(ym, (0.0, 0.0))
+        a = att.get(ym, {})
+        ah = float(a.get("att_hours") or 0)
+        al = float(a.get("att_cost") or 0)
+        ae = float(a.get("att_cost_est") or 0)
+        tot_ph += ph; tot_ah += ah; tot_pl += pl; tot_al += al; tot_ae += ae
+        series.append({
+            "month": ym,
+            "prod_hours": round(ph, 1), "att_hours": round(ah, 1),
+            "hours_diff": round(ph - ah, 1),
+            "hours_ratio": round(ph / ah, 2) if ah else 0,   # 생산투여÷근태 (1이면 일치)
+            "prod_labor": round(pl), "att_cost": round(al), "att_cost_est": round(ae),
+            "by_workplace": a.get("by_workplace", {}),
+            "att_ok": a.get("ok", False),
+        })
+    return {
+        "start": start.isoformat(), "end": end.isoformat(), "series": series,
+        "total_prod_hours": round(tot_ph, 1), "total_att_hours": round(tot_ah, 1),
+        "total_hours_ratio": round(tot_ph / tot_ah, 2) if tot_ah else 0,
+        "total_prod_labor": round(tot_pl), "total_att_cost": round(tot_al),
+        "total_att_cost_est": round(tot_ae),
+        "note": "근태는 인시(man-hour). 근태 실지급은 mysixthproject 시급 미설정 시 0 → 환산(근태시간×15,000)으로 비교. 생산투여시간이 근태보다 크게 많으면 생산일보 시간 기준을 점검.",
+    }
