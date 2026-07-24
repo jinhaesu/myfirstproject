@@ -1166,18 +1166,40 @@ def stock_trend(db: Session, start: date, end: date, warehouse_id: Optional[int]
 
 
 def stock_heatmap(db: Session, start: date, end: date,
-                  warehouse_id: Optional[int] = None, top_n: int = 20) -> dict:
-    """품목 × 월 순증감(생산−판매) 히트맵. 활동량 상위 top_n 품목."""
-    months = _month_list(start, end)
+                  warehouse_id: Optional[int] = None, top_n: int = 20,
+                  granularity: str = "month") -> dict:
+    """품목 × 기간(일/주/월) 순증감(생산−판매) 히트맵. 활동량 상위 top_n 품목."""
+    gran = granularity if granularity in ("day", "week", "month") else "month"
     products = load_products(db)
 
-    prod = {}
-    for pid, y, m, s in _prod_month_sums(db, start, end, warehouse_id, by_product=True):
-        prod[(pid, f"{int(y)}-{int(m):02d}")] = float(s or 0)
-    sales = {}
-    for pid, y, m, s in _sales_month_sums(db, start, end, warehouse_id, by_product=True):
-        sales[(pid, f"{int(y)}-{int(m):02d}")] = float(s or 0)
+    pcol = func.date_trunc(gran, InventoryProduction.prod_date)
+    pq = db.query(InventoryProduction.product_id, pcol,
+                  func.coalesce(func.sum(InventoryProduction.qty), 0.0)).filter(
+        InventoryProduction.prod_date >= start, InventoryProduction.prod_date <= end,
+        InventoryProduction.product_id.isnot(None))
+    if warehouse_id is not None:
+        pq = pq.filter(InventoryProduction.warehouse_id == warehouse_id)
+    prod, bucket_set = {}, set()
+    for pid, dt, s in pq.group_by(InventoryProduction.product_id, pcol).all():
+        lbl = _trunc_label(dt, gran)
+        prod[(pid, lbl)] = float(s or 0); bucket_set.add(lbl)
 
+    scol = func.date_trunc(gran, ChannelSalesDailyProduct.sale_date)
+    sq = db.query(ChannelSalesDailyProduct.product_id, scol,
+                  func.coalesce(func.sum(ChannelSalesDailyProduct.pcs_qty), 0.0)).join(
+        InventoryChannelWarehouse,
+        InventoryChannelWarehouse.channel_id == ChannelSalesDailyProduct.channel_id).filter(
+        InventoryChannelWarehouse.is_active.is_(True),
+        ChannelSalesDailyProduct.product_id.isnot(None),
+        ChannelSalesDailyProduct.sale_date >= start, ChannelSalesDailyProduct.sale_date <= end)
+    if warehouse_id is not None:
+        sq = sq.filter(InventoryChannelWarehouse.warehouse_id == warehouse_id)
+    sales = {}
+    for pid, dt, s in sq.group_by(ChannelSalesDailyProduct.product_id, scol).all():
+        lbl = _trunc_label(dt, gran)
+        sales[(pid, lbl)] = float(s or 0); bucket_set.add(lbl)
+
+    months = sorted(bucket_set)
     pids = {k[0] for k in prod} | {k[0] for k in sales}
     scored = []
     for pid in pids:

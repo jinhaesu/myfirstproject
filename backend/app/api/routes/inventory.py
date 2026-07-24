@@ -743,11 +743,11 @@ def stock_trend(start: str, end: str, warehouse_id: Optional[int] = None,
 
 @router.get("/heatmap")
 def stock_heatmap(start: str, end: str, warehouse_id: Optional[int] = None,
-                  top_n: int = 20, db: Session = Depends(get_db)):
+                  top_n: int = 20, granularity: str = "month", db: Session = Depends(get_db)):
     s, e = _parse_date(start), _parse_date(end)
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
-    return inv.stock_heatmap(db, start=s, end=e, warehouse_id=warehouse_id, top_n=top_n)
+    return inv.stock_heatmap(db, start=s, end=e, warehouse_id=warehouse_id, top_n=top_n, granularity=granularity)
 
 
 @router.get("/production/catalog")

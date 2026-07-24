@@ -198,7 +198,7 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
     const whq = whId ? `&warehouse_id=${whId}` : '';
     const [t, h] = await Promise.all([
       getJSON<{ series: TrendPoint[] }>(`/inventory/stock-trend?start=${range.start}&end=${range.end}&granularity=${gran}${whq}`, { series: [] }),
-      getJSON<{ months: string[]; rows: HeatRow[] }>(`/inventory/heatmap?start=${range.start}&end=${range.end}&top_n=15${whq}`, { months: [], rows: [] }),
+      getJSON<{ months: string[]; rows: HeatRow[] }>(`/inventory/heatmap?start=${range.start}&end=${range.end}&granularity=${gran}&top_n=15${whq}`, { months: [], rows: [] }),
     ]);
     setTrend(t.series); setHeat(h);
   }, [range, gran, whId]);
