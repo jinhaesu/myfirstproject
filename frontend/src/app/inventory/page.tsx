@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  ComposedChart, Line, Area, Legend,
 } from 'recharts';
 
 // ─────────────────────────────────────────────────────────
@@ -54,6 +55,9 @@ interface Dashboard {
   by_category: { category: string; qty: number }[];
   replenishment_top: ReplItem[]; replenishment_total: number;
 }
+
+interface TrendPoint { period: string; inbound: number; outbound: number; net: number; closing: number; }
+interface HeatRow { product_id: number; product_name: string; category: string; cells: number[]; total: number; }
 
 type Tab = '대시보드' | '재고 현황' | '보충 알림' | '재고 실사' | '설정';
 type SettingsTab = '창고' | '채널-창고 매핑' | '안전재고' | '기초재고 업로드';
@@ -160,7 +164,7 @@ export default function InventoryPage() {
           ))}
         </div>
 
-        {tab === '대시보드' && <DashboardTab />}
+        {tab === '대시보드' && <DashboardTab warehouses={warehouses} />}
         {tab === '재고 현황' && <StockTab warehouses={warehouses} categories={categories} />}
         {tab === '보충 알림' && <ReplenishmentTab warehouses={warehouses} />}
         {tab === '재고 실사' && <CountTab warehouses={warehouses} />}
@@ -173,10 +177,15 @@ export default function InventoryPage() {
 // ═════════════════════════════════════════════════════════
 // 대시보드
 // ═════════════════════════════════════════════════════════
-function DashboardTab() {
+function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
   const [asOf, setAsOf] = useState(todayISO());
   const [d, setD] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(false);
+  const [range, setRange] = useState({ start: '2026-01-01', end: todayISO() });
+  const [gran, setGran] = useState<'month' | 'week' | 'day'>('month');
+  const [whId, setWhId] = useState<number | ''>('');
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
+  const [heat, setHeat] = useState<{ months: string[]; rows: HeatRow[] }>({ months: [], rows: [] });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -184,6 +193,23 @@ function DashboardTab() {
     setLoading(false);
   }, [asOf]);
   useEffect(() => { load(); }, [load]);
+
+  const loadTrend = useCallback(async () => {
+    const whq = whId ? `&warehouse_id=${whId}` : '';
+    const [t, h] = await Promise.all([
+      getJSON<{ series: TrendPoint[] }>(`/inventory/stock-trend?start=${range.start}&end=${range.end}&granularity=${gran}${whq}`, { series: [] }),
+      getJSON<{ months: string[]; rows: HeatRow[] }>(`/inventory/heatmap?start=${range.start}&end=${range.end}&top_n=15${whq}`, { months: [], rows: [] }),
+    ]);
+    setTrend(t.series); setHeat(h);
+  }, [range, gran, whId]);
+  useEffect(() => { loadTrend(); }, [loadTrend]);
+
+  const heatMax = Math.max(1, ...heat.rows.flatMap((r) => r.cells.map((c) => Math.abs(c))));
+  const heatColor = (v: number) => {
+    if (v === 0) return 'transparent';
+    const a = Math.min(Math.abs(v) / heatMax, 1) * 0.85 + 0.1;
+    return v > 0 ? `rgba(39,166,68,${a})` : `rgba(235,87,87,${a})`;
+  };
 
   return (
     <div className="space-y-5">
@@ -234,6 +260,73 @@ function DashboardTab() {
               </div>
             );
           })()}
+
+          {/* 기간 재고 흐름 + 입출고 히트맵 */}
+          <div className={`${C.card} p-4`}>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <div className="text-sm font-semibold text-[#F7F8F8] mr-2">재고 흐름 (입고·출고·기말)</div>
+              <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
+              <span className="text-[#62666D]">~</span>
+              <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
+              <div className="flex bg-[#08090A] border border-[#23252A] rounded-lg p-0.5">
+                {(['month', 'week', 'day'] as const).map((g) => (
+                  <button key={g} onClick={() => setGran(g)} className={`${C.btn} px-2.5 py-1 ${gran === g ? C.btnPrimary : 'text-[#8A8F98]'}`}>{g === 'month' ? '월' : g === 'week' ? '주' : '일'}</button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {RANGE_PRESETS.map(([k, l]) => <button key={k} onClick={() => setRange(presetRange(k))} className={`${C.btn} ${C.btnGhost} px-2 py-1`}>{l}</button>)}
+              </div>
+              <select value={whId} onChange={(e) => setWhId(e.target.value ? Number(e.target.value) : '')} className={C.input}>
+                <option value="">전체 창고</option>
+                {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+            </div>
+            {trend.length === 0 ? <Empty msg="이 기간 흐름 데이터 없음" /> : (
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={trend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
+                  <XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <YAxis yAxisId="r" orientation="right" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
+                  <Legend />
+                  <Bar yAxisId="l" dataKey="inbound" name="생산입고" fill="#27A644" />
+                  <Bar yAxisId="l" dataKey="outbound" name="판매출고" fill="#EB5757" />
+                  <Line yAxisId="r" type="monotone" dataKey="closing" name="기말재고" stroke="#5E6AD2" strokeWidth={2} dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className={`${C.card} p-4`}>
+            <div className="text-sm font-semibold text-[#F7F8F8] mb-1">재고 입출고 히트맵 (순증감 = 생산−판매)</div>
+            <div className="text-xs text-[#62666D] mb-3">초록=순증(생산 우위) · 빨강=순감(판매 우위) · 활동 상위 15품목</div>
+            {heat.rows.length === 0 ? <Empty msg="데이터 없음" /> : (
+              <div className="overflow-x-auto">
+                <table className="border-collapse">
+                  <thead><tr>
+                    <th className="text-left text-xs font-semibold text-[#8A8F98] px-2 py-1 sticky left-0 bg-[#0F1011]">품목</th>
+                    {heat.months.map((m) => <th key={m} className="text-xs text-[#8A8F98] px-1 py-1 whitespace-nowrap">{m.slice(5)}</th>)}
+                    <th className="text-xs text-[#8A8F98] px-2 py-1">누계</th>
+                  </tr></thead>
+                  <tbody>
+                    {heat.rows.map((r) => (
+                      <tr key={r.product_id}>
+                        <td className="text-xs text-[#F7F8F8] px-2 py-1 whitespace-nowrap sticky left-0 bg-[#0F1011]">{r.product_name}</td>
+                        {r.cells.map((c, i) => (
+                          <td key={i} className="text-[10px] text-center px-1 py-1 whitespace-nowrap" style={{ background: heatColor(c), color: Math.abs(c) / heatMax > 0.5 ? '#fff' : '#8A8F98' }}
+                            title={`${heat.months[i]}: ${c > 0 ? '+' : ''}${fmt(c)}`}>
+                            {c === 0 ? '·' : (c > 0 ? '+' : '') + (Math.abs(c) >= 10000 ? Math.round(c / 1000) + 'k' : fmt(c))}
+                          </td>
+                        ))}
+                        <td className={`text-xs px-2 py-1 text-right font-semibold ${r.total >= 0 ? 'text-[#3FBE5B]' : 'text-[#EB5757]'}`}>{r.total > 0 ? '+' : ''}{fmt(r.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className={`${C.card} p-4`}>

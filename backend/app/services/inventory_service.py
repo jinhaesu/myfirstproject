@@ -675,7 +675,20 @@ def dashboard(db: Session, as_of: Optional[date] = None) -> dict:
 # 생산 실적 (RAW-DATA 엑셀 → 재고 보충)
 # ──────────────────────────────────────────────
 
-HOURLY_WAGE = 15000  # 노무비 산출 기준 시급(원). 노무비 = 시급 × 생산투여시간.
+HOURLY_WAGE = 15000       # 노무비 산출 기준 시급(원, 최저시급). 노무비 = 시급 × 생산투여시간.
+NIGHT_MULTIPLIER = 1.5    # 야간(22:00~06:00) 생산 노무비 가산율. 야간 = 시급 × 1.5.
+
+
+def _is_night(grade) -> bool:
+    """생산 구분(주간/야간)에서 야간 여부. 야간=밤 10시~아침 6시."""
+    g = str(grade or "")
+    return ("야" in g) or ("night" in g.lower())
+
+
+def _labor_cost(hours, grade) -> float:
+    """노무비 = 시급 × 시간 × (야간이면 1.5)."""
+    mult = NIGHT_MULTIPLIER if _is_night(grade) else 1.0
+    return round(HOURLY_WAGE * float(hours or 0) * mult, 2)
 
 
 def _norm(s) -> str:
@@ -865,7 +878,7 @@ def apply_production(db: Session, rows: list[dict], warehouse_id: int,
             category=canon_cat, product_name=r.get("product_name") or None,
             qty=float(r.get("qty") or 0), hours=hours,
             unit_price=float(r.get("unit_price") or 0), prod_amount=float(r.get("prod_amount") or 0),
-            labor_cost=round(HOURLY_WAGE * hours, 2), unit_cost=float(r.get("unit_cost") or 0),
+            labor_cost=_labor_cost(hours, r.get("grade")), unit_cost=float(r.get("unit_cost") or 0),
             total_cost=float(r.get("total_cost") or 0), grade=r.get("grade") or None,
             product_id=pid, warehouse_id=warehouse_id, dedup_hash=h, created_by=user,
         ))
@@ -919,7 +932,8 @@ def production_dashboard(db: Session, start: Optional[date] = None,
         return {"category": k, "qty": round(v["qty"]), "amount": round(v["amount"]),
                 "cost": round(v["cost"]), "labor": round(v["labor"]), "hours": round(v["hours"], 1),
                 "unit_labor": round(v["labor"] / v["qty"], 1) if v["qty"] else 0,  # 개당 노무비
-                "hourly_qty": round(v["qty"] / v["hours"], 1) if v["hours"] else 0}  # 시간당 생산량
+                "hourly_qty": round(v["qty"] / v["hours"], 1) if v["hours"] else 0,  # 시간당 생산량
+                "profitability": round(v["amount"] / v["labor"], 2) if v["labor"] else 0}  # 채산성=생산액/노무비
 
     return {
         "start": start.isoformat() if start else None,
@@ -930,6 +944,8 @@ def production_dashboard(db: Session, start: Optional[date] = None,
         "total_labor": round(tot_labor), "hourly_wage": HOURLY_WAGE,
         "cost_ratio": round(tot_cost / tot_amt * 100, 1) if tot_amt else 0,
         "labor_ratio": round(tot_labor / tot_amt * 100, 1) if tot_amt else 0,
+        "profitability": round(tot_amt / tot_labor, 2) if tot_labor else 0,  # 채산성=생산액/노무비
+        "hourly_qty": round(tot_qty / tot_hours, 1) if tot_hours else 0,     # 총 시간당 생산량
         "by_category": [_cat_row(k, v) for k, v in sorted(by_cat.items(), key=lambda x: -x[1]["qty"])],
         "by_worker": [{"worker": k, "qty": round(v["qty"]), "amount": round(v["amount"]),
                        "hours": round(v["hours"], 1), "labor": round(v["labor"])}
@@ -941,3 +957,219 @@ def production_dashboard(db: Session, start: Optional[date] = None,
         "by_location": [{"location": k, "qty": round(v["qty"]), "hours": round(v["hours"], 1), "labor": round(v["labor"])}
                         for k, v in sorted(by_location.items(), key=lambda x: -x[1]["qty"])],
     }
+
+
+# ──────────────────────────────────────────────
+# 생산 시계열 / 채산성 / 수동입력
+# ──────────────────────────────────────────────
+
+def _month_key(d) -> str:
+    return f"{d.year}-{d.month:02d}"
+
+
+def _month_list(start: date, end: date) -> list[str]:
+    out, y, m = [], start.year, start.month
+    while (y, m) <= (end.year, end.month):
+        out.append(f"{y}-{m:02d}")
+        m += 1
+        if m > 12:
+            m = 1; y += 1
+    return out
+
+
+def production_categories(db: Session) -> list[str]:
+    rows = db.query(InventoryProduction.category).filter(InventoryProduction.category.isnot(None)).distinct().all()
+    return sorted({r[0] for r in rows if r[0]})
+
+
+def production_timeseries(db: Session, granularity: str = "month",
+                          start: Optional[date] = None, end: Optional[date] = None,
+                          category: Optional[str] = None) -> dict:
+    """일/월 생산 시계열 — 생산성(시간당생산량)·채산성(생산액/노무비)·주야 포함. 품목류 필터."""
+    q = db.query(InventoryProduction)
+    if start:
+        q = q.filter(InventoryProduction.prod_date >= start)
+    if end:
+        q = q.filter(InventoryProduction.prod_date <= end)
+    if category:
+        q = q.filter(InventoryProduction.category == category)
+    buckets: dict[str, dict] = {}
+    for r in q.all():
+        if granularity == "day":
+            key = r.prod_date.isoformat()
+        elif granularity == "week":
+            iso = r.prod_date.isocalendar()
+            key = f"{iso[0]}-W{iso[1]:02d}"
+        else:
+            key = _month_key(r.prod_date)
+        b = buckets.setdefault(key, {"qty": 0.0, "hours": 0.0, "amount": 0.0, "cost": 0.0,
+                                     "labor": 0.0, "day_qty": 0.0, "night_qty": 0.0})
+        b["qty"] += r.qty or 0; b["hours"] += r.hours or 0; b["amount"] += r.prod_amount or 0
+        b["cost"] += r.total_cost or 0; b["labor"] += r.labor_cost or 0
+        if _is_night(r.grade):
+            b["night_qty"] += r.qty or 0
+        else:
+            b["day_qty"] += r.qty or 0
+    series = []
+    for k in sorted(buckets):
+        v = buckets[k]
+        series.append({
+            "period": k, "qty": round(v["qty"]), "hours": round(v["hours"], 1),
+            "amount": round(v["amount"]), "cost": round(v["cost"]), "labor": round(v["labor"]),
+            "hourly_qty": round(v["qty"] / v["hours"], 1) if v["hours"] else 0,          # 생산성(시간당생산량)
+            "profitability": round(v["amount"] / v["labor"], 2) if v["labor"] else 0,    # 채산성=생산액/노무비
+            "day_qty": round(v["day_qty"]), "night_qty": round(v["night_qty"]),
+        })
+    return {"granularity": granularity, "category": category, "series": series}
+
+
+def add_production_record(db: Session, data: dict, warehouse_id: int,
+                          user: Optional[str] = None) -> dict:
+    """생산 실적 1건 수동 입력. 품목류→마스터 매핑 + dedup + 야간 노무비."""
+    cat_map, scm_map = _production_maps(db)
+    id2name = {p.id: p.name for p in db.query(ProductMaster).all()}
+    r = {
+        "prod_date": data["prod_date"], "worker": data.get("worker", ""),
+        "location": data.get("location", ""), "category": data.get("category", ""),
+        "product_name": data.get("product_name", ""), "qty": float(data.get("qty") or 0),
+        "unit_price": float(data.get("unit_price") or 0),
+    }
+    h = _prod_hash(r)
+    if db.query(InventoryProduction.id).filter(InventoryProduction.dedup_hash == h).first():
+        return {"ok": False, "error": "duplicate", "msg": "동일 생산 기록이 이미 있습니다"}
+    pid = _resolve_prod(cat_map, scm_map, r["category"], r["product_name"])
+    canon = id2name.get(pid) if pid else (r["category"] or None)
+    hours = float(data.get("hours") or 0)
+    qty = r["qty"]; up = r["unit_price"]; uc = float(data.get("unit_cost") or 0)
+    grade = data.get("grade") or "주간"
+    rec = InventoryProduction(
+        batch_id="manual", prod_date=date.fromisoformat(r["prod_date"]),
+        worker=r["worker"] or None, location=r["location"] or None, category=canon,
+        product_name=r["product_name"] or None, qty=qty, hours=hours,
+        unit_price=up, prod_amount=round(qty * up, 2), labor_cost=_labor_cost(hours, grade),
+        unit_cost=uc, total_cost=round(qty * uc, 2), grade=grade,
+        product_id=pid, warehouse_id=warehouse_id, dedup_hash=h, created_by=user,
+    )
+    db.add(rec)
+    db.commit()
+    db.refresh(rec)
+    return {"ok": True, "id": rec.id, "matched": pid is not None, "matched_name": canon}
+
+
+# ──────────────────────────────────────────────
+# 재고 월별 흐름 / 히트맵
+# ──────────────────────────────────────────────
+
+def _prod_month_sums(db, start, end, warehouse_id=None, by_product=False):
+    cols = [func.extract("year", InventoryProduction.prod_date),
+            func.extract("month", InventoryProduction.prod_date)]
+    if by_product:
+        cols.insert(0, InventoryProduction.product_id)
+    q = db.query(*cols, func.coalesce(func.sum(InventoryProduction.qty), 0.0)).filter(
+        InventoryProduction.prod_date >= start, InventoryProduction.prod_date <= end,
+        InventoryProduction.product_id.isnot(None))
+    if warehouse_id is not None:
+        q = q.filter(InventoryProduction.warehouse_id == warehouse_id)
+    q = q.group_by(*cols)
+    return q.all()
+
+
+def _sales_month_sums(db, start, end, warehouse_id=None, by_product=False):
+    cols = [ChannelSalesDailyProduct.year, ChannelSalesDailyProduct.month]
+    if by_product:
+        cols.insert(0, ChannelSalesDailyProduct.product_id)
+    q = db.query(*cols, func.coalesce(func.sum(ChannelSalesDailyProduct.pcs_qty), 0.0)).join(
+        InventoryChannelWarehouse,
+        InventoryChannelWarehouse.channel_id == ChannelSalesDailyProduct.channel_id,
+    ).filter(
+        InventoryChannelWarehouse.is_active.is_(True),
+        ChannelSalesDailyProduct.product_id.isnot(None),
+        ChannelSalesDailyProduct.sale_date >= start,
+        ChannelSalesDailyProduct.sale_date <= end,
+    )
+    if warehouse_id is not None:
+        q = q.filter(InventoryChannelWarehouse.warehouse_id == warehouse_id)
+    q = q.group_by(*cols)
+    return q.all()
+
+
+def _trunc_label(dt, gran: str) -> str:
+    if gran == "day":
+        return dt.strftime("%Y-%m-%d")
+    if gran == "week":
+        iso = dt.isocalendar()
+        return f"{iso[0]}-W{iso[1]:02d}"
+    return dt.strftime("%Y-%m")
+
+
+def stock_trend(db: Session, start: date, end: date, warehouse_id: Optional[int] = None,
+                granularity: str = "month") -> dict:
+    """재고 흐름(일/주/월): 기초재고 + 기간별(생산입고·판매출고·순증감) → 기말 재고 누계."""
+    from datetime import timedelta
+    gran = granularity if granularity in ("day", "week", "month") else "month"
+    before = start - timedelta(days=1)
+    opening = sum(current_stock_map(db, as_of=before, warehouse_id=warehouse_id).values())
+
+    pcol = func.date_trunc(gran, InventoryProduction.prod_date)
+    pq = db.query(pcol, func.coalesce(func.sum(InventoryProduction.qty), 0.0)).filter(
+        InventoryProduction.prod_date >= start, InventoryProduction.prod_date <= end,
+        InventoryProduction.product_id.isnot(None))
+    if warehouse_id is not None:
+        pq = pq.filter(InventoryProduction.warehouse_id == warehouse_id)
+    prod_b = {dt: float(s or 0) for dt, s in pq.group_by(pcol).all()}
+
+    scol = func.date_trunc(gran, ChannelSalesDailyProduct.sale_date)
+    sq = db.query(scol, func.coalesce(func.sum(ChannelSalesDailyProduct.pcs_qty), 0.0)).join(
+        InventoryChannelWarehouse,
+        InventoryChannelWarehouse.channel_id == ChannelSalesDailyProduct.channel_id,
+    ).filter(
+        InventoryChannelWarehouse.is_active.is_(True),
+        ChannelSalesDailyProduct.product_id.isnot(None),
+        ChannelSalesDailyProduct.sale_date >= start, ChannelSalesDailyProduct.sale_date <= end)
+    if warehouse_id is not None:
+        sq = sq.filter(InventoryChannelWarehouse.warehouse_id == warehouse_id)
+    sales_b = {dt: float(s or 0) for dt, s in sq.group_by(scol).all()}
+
+    keys = sorted(set(prod_b) | set(sales_b))
+    running = opening
+    series = []
+    for dt in keys:
+        inbound = prod_b.get(dt, 0.0)
+        outbound = sales_b.get(dt, 0.0)
+        net = inbound - outbound
+        running += net
+        series.append({
+            "period": _trunc_label(dt, gran), "inbound": round(inbound),
+            "outbound": round(outbound), "net": round(net), "closing": round(running),
+        })
+    return {"opening": round(opening), "warehouse_id": warehouse_id,
+            "granularity": gran, "series": series}
+
+
+def stock_heatmap(db: Session, start: date, end: date,
+                  warehouse_id: Optional[int] = None, top_n: int = 20) -> dict:
+    """품목 × 월 순증감(생산−판매) 히트맵. 활동량 상위 top_n 품목."""
+    months = _month_list(start, end)
+    products = load_products(db)
+
+    prod = {}
+    for pid, y, m, s in _prod_month_sums(db, start, end, warehouse_id, by_product=True):
+        prod[(pid, f"{int(y)}-{int(m):02d}")] = float(s or 0)
+    sales = {}
+    for pid, y, m, s in _sales_month_sums(db, start, end, warehouse_id, by_product=True):
+        sales[(pid, f"{int(y)}-{int(m):02d}")] = float(s or 0)
+
+    pids = {k[0] for k in prod} | {k[0] for k in sales}
+    scored = []
+    for pid in pids:
+        cells = [round(prod.get((pid, mk), 0.0) - sales.get((pid, mk), 0.0)) for mk in months]
+        activity = sum(abs(prod.get((pid, mk), 0.0)) + abs(sales.get((pid, mk), 0.0)) for mk in months)
+        scored.append((activity, pid, cells))
+    scored.sort(key=lambda x: -x[0])
+    rows = []
+    for _act, pid, cells in scored[:top_n]:
+        p = products.get(pid, {})
+        rows.append({"product_id": pid, "product_name": p.get("name", f"#{pid}"),
+                     "category": p.get("category", ""), "cells": cells,
+                     "total": sum(cells)})
+    return {"months": months, "rows": rows, "warehouse_id": warehouse_id}

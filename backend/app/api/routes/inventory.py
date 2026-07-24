@@ -683,3 +683,67 @@ def list_production_batches(db: Session = Depends(get_db)):
     } for b, c, q, d1, d2, ca in rows]
     out.sort(key=lambda x: x["uploaded_at"] or "", reverse=True)
     return {"batches": out}
+
+
+@router.get("/production/categories")
+def production_categories(db: Session = Depends(get_db)):
+    return {"categories": inv.production_categories(db)}
+
+
+@router.get("/production/timeseries")
+def production_timeseries(granularity: str = "month", start: Optional[str] = None,
+                          end: Optional[str] = None, category: Optional[str] = None,
+                          db: Session = Depends(get_db)):
+    gran = granularity if granularity in ("day", "week", "month") else "month"
+    return inv.production_timeseries(db, granularity=gran, start=_parse_date(start),
+                                     end=_parse_date(end), category=category)
+
+
+class ProductionManualIn(BaseModel):
+    prod_date: str
+    worker: Optional[str] = None
+    location: Optional[str] = None
+    category: str
+    product_name: Optional[str] = None
+    qty: float
+    hours: float = 0
+    unit_price: float = 0
+    unit_cost: float = 0
+    grade: str = "주간"  # 주간/야간
+    warehouse_id: int
+
+
+@router.post("/production/manual")
+def add_production_manual(body: ProductionManualIn, db: Session = Depends(get_db),
+                          user: dict = Depends(get_current_user)):
+    res = inv.add_production_record(db, body.model_dump(), warehouse_id=body.warehouse_id,
+                                    user=user.get("email"))
+    if not res.get("ok"):
+        raise HTTPException(400, res.get("msg") or res.get("error") or "실패")
+    return res
+
+
+@router.delete("/production/{rec_id}")
+def delete_production_record(rec_id: int, db: Session = Depends(get_db),
+                            user: dict = Depends(get_current_user)):
+    n = db.query(InventoryProduction).filter(InventoryProduction.id == rec_id).delete()
+    db.commit()
+    return {"ok": True, "deleted": n}
+
+
+@router.get("/stock-trend")
+def stock_trend(start: str, end: str, warehouse_id: Optional[int] = None,
+                granularity: str = "month", db: Session = Depends(get_db)):
+    s, e = _parse_date(start), _parse_date(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return inv.stock_trend(db, start=s, end=e, warehouse_id=warehouse_id, granularity=granularity)
+
+
+@router.get("/heatmap")
+def stock_heatmap(start: str, end: str, warehouse_id: Optional[int] = None,
+                  top_n: int = 20, db: Session = Depends(get_db)):
+    s, e = _parse_date(start), _parse_date(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return inv.stock_heatmap(db, start=s, end=e, warehouse_id=warehouse_id, top_n=top_n)

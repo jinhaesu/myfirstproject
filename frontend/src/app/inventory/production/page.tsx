@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  LineChart, Line,
+  LineChart, Line, PieChart, Pie, Legend, ComposedChart, Area,
 } from 'recharts';
 
 // ── API ──
@@ -20,6 +20,13 @@ const getJSON = async <T,>(path: string, def: T): Promise<T> => {
   try { const r = await fetch(`/api${path}`, { headers: getAuthHeaders() }); if (!r.ok) throw new Error(); return await r.json(); }
   catch { return def; }
 };
+const send = async (path: string, method: string, body?: any): Promise<{ ok: boolean; data: any }> => {
+  try {
+    const r = await fetch(`/api${path}`, { method, headers: getAuthHeaders(), body: body !== undefined ? JSON.stringify(body) : undefined });
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, data };
+  } catch { return { ok: false, data: {} }; }
+};
 
 // ── types ──
 interface Warehouse { id: number; name: string; }
@@ -28,7 +35,8 @@ interface Batch { batch_id: string; count: number; qty: number; period: string; 
 interface ProdDash {
   record_count: number; total_qty: number; total_amount: number; total_cost: number; total_hours: number;
   total_labor: number; hourly_wage: number; cost_ratio: number; labor_ratio: number;
-  by_category: { category: string; qty: number; amount: number; cost: number; labor: number; hours: number; unit_labor: number; hourly_qty: number }[];
+  profitability: number; hourly_qty: number;
+  by_category: { category: string; qty: number; amount: number; cost: number; labor: number; hours: number; unit_labor: number; hourly_qty: number; profitability: number }[];
   by_worker: { worker: string; qty: number; amount: number; hours: number; labor: number }[];
   by_month: { month: string; qty: number; amount: number; cost: number; labor: number }[];
   by_grade: { grade: string; qty: number }[];
@@ -92,7 +100,8 @@ function StatCard({ label, value, sub, tone }: { label: string; value: string; s
   );
 }
 
-type Tab = '대시보드' | '실적 조회' | '업로드';
+type Tab = '대시보드' | '실적 조회' | '실적 입력' | '업로드';
+interface TSPoint { period: string; qty: number; hours: number; amount: number; cost: number; labor: number; hourly_qty: number; profitability: number; day_qty: number; night_qty: number; }
 
 export default function ProductionPage() {
   const { user, isLoading } = useAuth();
@@ -106,7 +115,7 @@ export default function ProductionPage() {
   }, [user]);
 
   if (isLoading || !user) return <div className="min-h-screen bg-[#08090A]" />;
-  const tabs: Tab[] = ['대시보드', '실적 조회', '업로드'];
+  const tabs: Tab[] = ['대시보드', '실적 조회', '실적 입력', '업로드'];
 
   return (
     <div className="min-h-screen bg-[#08090A]">
@@ -126,6 +135,7 @@ export default function ProductionPage() {
         </div>
         {tab === '대시보드' && <DashTab />}
         {tab === '실적 조회' && <RecordsTab />}
+        {tab === '실적 입력' && <InputTab warehouses={warehouses} />}
         {tab === '업로드' && <UploadTab warehouses={warehouses} />}
       </main>
     </div>
@@ -133,53 +143,137 @@ export default function ProductionPage() {
 }
 
 function DashTab() {
-  const [range, setRange] = useState({ start: '2025-01-01', end: todayISO() });
+  const [range, setRange] = useState({ start: '2026-01-01', end: todayISO() });
+  const [cat, setCat] = useState('');
+  const [gran, setGran] = useState<'month' | 'week' | 'day'>('month');
   const [d, setD] = useState<ProdDash | null>(null);
+  const [ts, setTs] = useState<TSPoint[]>([]);
+  const [cats, setCats] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => { getJSON<{ categories: string[] }>('/inventory/production/categories', { categories: [] }).then((r) => setCats(r.categories)); }, []);
   const load = useCallback(async () => {
     setLoading(true);
-    setD(await getJSON<ProdDash | null>(`/inventory/production/dashboard?start=${range.start}&end=${range.end}`, null));
-    setLoading(false);
-  }, [range]);
+    const catq = cat ? `&category=${encodeURIComponent(cat)}` : '';
+    const [dd, tt] = await Promise.all([
+      getJSON<ProdDash | null>(`/inventory/production/dashboard?start=${range.start}&end=${range.end}`, null),
+      getJSON<{ series: TSPoint[] }>(`/inventory/production/timeseries?granularity=${gran}&start=${range.start}&end=${range.end}${catq}`, { series: [] }),
+    ]);
+    setD(dd); setTs(tt.series); setLoading(false);
+  }, [range, cat, gran]);
   useEffect(() => { load(); }, [load]);
+
+  const PIE = d?.by_category.slice(0, 10).map((c, i) => ({ name: c.category, value: c.qty, fill: COLORS[i % COLORS.length] })) || [];
+  const granLabel = gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별';
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <PeriodBar range={range} setRange={setRange} />
+        <select value={cat} onChange={(e) => setCat(e.target.value)} className={C.input}>
+          <option value="">전체 품목류</option>
+          {cats.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <div className="flex bg-[#0F1011] border border-[#23252A] rounded-lg p-0.5">
+          <button onClick={() => setGran('month')} className={`${C.btn} px-2.5 py-1 ${gran === 'month' ? C.btnPrimary : 'text-[#8A8F98]'}`}>월</button>
+          <button onClick={() => setGran('week')} className={`${C.btn} px-2.5 py-1 ${gran === 'week' ? C.btnPrimary : 'text-[#8A8F98]'}`}>주</button>
+          <button onClick={() => setGran('day')} className={`${C.btn} px-2.5 py-1 ${gran === 'day' ? C.btnPrimary : 'text-[#8A8F98]'}`}>일</button>
+        </div>
         {loading && <span className="text-xs text-[#62666D]">불러오는 중…</span>}
       </div>
       {d && d.record_count === 0 && (
-        <div className={`${C.card} p-8 text-center text-sm text-[#62666D]`}>이 기간에 생산 데이터가 없습니다. [업로드] 탭에서 RAW-DATA 엑셀을 올려주세요.</div>
+        <div className={`${C.card} p-8 text-center text-sm text-[#62666D]`}>이 기간에 생산 데이터가 없습니다. [업로드] 또는 [실적 입력] 탭에서 추가하세요.</div>
       )}
       {d && d.record_count > 0 && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
             <StatCard label="총 생산량 (낱개)" value={fmt(d.total_qty)} sub={`${fmt(d.record_count)}건`} />
             <StatCard label="총 생산액" value={won(d.total_amount)} />
             <StatCard label="총 원가" value={won(d.total_cost)} tone="text-[#F0BF00]" sub={`원가율 ${d.cost_ratio}%`} />
-            <StatCard label={`노무비 (시급 ${fmt(d.hourly_wage)})`} value={won(d.total_labor)} tone="text-[#00B8CC]" sub={`노무비율 ${d.labor_ratio}%`} />
+            <StatCard label={`노무비 (시급 ${fmt(d.hourly_wage)}·야간1.5)`} value={won(d.total_labor)} tone="text-[#00B8CC]" sub={`노무비율 ${d.labor_ratio}%`} />
+            <StatCard label="채산성" value={`${d.profitability}배`} tone={d.profitability >= 3 ? 'text-[#3FBE5B]' : 'text-[#F0BF00]'} sub="생산액÷노무비" />
             <StatCard label="총 생산시간" value={`${fmt(d.total_hours)}h`} />
-            <StatCard label="시간당 생산량" value={fmt(d.total_hours ? Math.round(d.total_qty / d.total_hours) : 0)} sub="낱개/시간" />
+            <StatCard label="시간당 생산량" value={fmt(d.hourly_qty)} sub="낱개/시간" />
           </div>
 
-          <div className={`${C.card} p-4`}>
-            <div className="text-sm font-semibold text-[#F7F8F8] mb-3">월별 생산 추이 (생산량 · 원가 · 노무비)</div>
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={d.by_month}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
-                <XAxis dataKey="month" tick={{ fill: '#8A8F98', fontSize: 11 }} />
-                <YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 11 }} />
-                <YAxis yAxisId="r" orientation="right" tick={{ fill: '#8A8F98', fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                <Line yAxisId="l" type="monotone" dataKey="qty" name="생산량" stroke="#5E6AD2" strokeWidth={2} dot={false} />
-                <Line yAxisId="r" type="monotone" dataKey="cost" name="원가" stroke="#F0BF00" strokeWidth={2} dot={false} />
-                <Line yAxisId="r" type="monotone" dataKey="labor" name="노무비" stroke="#00B8CC" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
+          {/* 생산성·채산성 시계열 (품목류 필터 적용) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className={`${C.card} p-4`}>
+              <div className="text-sm font-semibold text-[#F7F8F8] mb-3">{granLabel} 생산성 (시간당 생산량){cat && ` · ${cat}`}</div>
+              <ResponsiveContainer width="100%" height={240}>
+                <ComposedChart data={ts}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
+                  <XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <YAxis yAxisId="r" orientation="right" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
+                  <Bar yAxisId="l" dataKey="hours" name="투여시간" fill="#23252A" />
+                  <Line yAxisId="r" type="monotone" dataKey="hourly_qty" name="시간당 생산량" stroke="#5E6AD2" strokeWidth={2} dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <div className={`${C.card} p-4`}>
+              <div className="text-sm font-semibold text-[#F7F8F8] mb-3">{granLabel} 채산성 (생산액÷노무비){cat && ` · ${cat}`}</div>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={ts}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
+                  <XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => v} />
+                  <Line type="monotone" dataKey="profitability" name="채산성(배)" stroke="#3FBE5B" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* 생산량 추이 + 주야 비교 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className={`${C.card} p-4`}>
+              <div className="text-sm font-semibold text-[#F7F8F8] mb-3">{granLabel} 생산량 · 원가 · 노무비</div>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={ts}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
+                  <XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <YAxis yAxisId="r" orientation="right" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
+                  <Line yAxisId="l" type="monotone" dataKey="qty" name="생산량" stroke="#5E6AD2" strokeWidth={2} dot={false} />
+                  <Line yAxisId="r" type="monotone" dataKey="cost" name="원가" stroke="#F0BF00" strokeWidth={2} dot={false} />
+                  <Line yAxisId="r" type="monotone" dataKey="labor" name="노무비" stroke="#00B8CC" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className={`${C.card} p-4`}>
+              <div className="text-sm font-semibold text-[#F7F8F8] mb-3">주간 / 야간 생산량 비교</div>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={ts}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
+                  <XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
+                  <Legend />
+                  <Bar dataKey="day_qty" name="주간" stackId="s" fill="#5E6AD2" />
+                  <Bar dataKey="night_qty" name="야간" stackId="s" fill="#A855F7" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* 생산 비중 파이 + 층/주야 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className={`${C.card} p-4`}>
+              <div className="text-sm font-semibold text-[#F7F8F8] mb-3">기간 누계 품목류별 생산 비중</div>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={PIE} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={(e: any) => e.name}>
+                    {PIE.map((p, i) => <Cell key={i} fill={p.fill} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+          <div className="contents">
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-[#F7F8F8] mb-3">품목류별 생산량</div>
               <ResponsiveContainer width="100%" height={280}>
@@ -219,6 +313,7 @@ function DashTab() {
                 </div>
               </div>
             </div>
+          </div>
           </div>
 
           <div className={`${C.card} p-4`}>
@@ -318,6 +413,101 @@ function RecordsTab() {
               ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function InputTab({ warehouses }: { warehouses: Warehouse[] }) {
+  const [cats, setCats] = useState<string[]>([]);
+  const [recent, setRecent] = useState<ProdRow[]>([]);
+  const [f, setF] = useState<any>({ prod_date: todayISO(), worker: '', location: '2층', category: '', product_name: '', qty: '', hours: '', unit_price: '', unit_cost: '', grade: '주간', warehouse_id: '' });
+  const [saving, setSaving] = useState(false);
+
+  const loadRecent = useCallback(async () => {
+    const r = await getJSON<{ rows: ProdRow[] }>('/inventory/production?limit=20', { rows: [] });
+    setRecent(r.rows.filter((x) => x.batch_id === 'manual'));
+  }, []);
+  useEffect(() => {
+    getJSON<{ categories: string[] }>('/inventory/production/categories', { categories: [] }).then((r) => setCats(r.categories));
+    loadRecent();
+  }, [loadRecent]);
+  useEffect(() => { if (warehouses.length && !f.warehouse_id) setF((p: any) => ({ ...p, warehouse_id: warehouses[0].id })); }, [warehouses, f.warehouse_id]);
+
+  const submit = async () => {
+    if (!f.category) { alert('품목류를 입력/선택하세요'); return; }
+    if (!f.qty || Number(f.qty) <= 0) { alert('생산량을 입력하세요'); return; }
+    if (!f.warehouse_id) { alert('입고 창고를 선택하세요'); return; }
+    setSaving(true);
+    const body = { ...f, qty: Number(f.qty), hours: Number(f.hours || 0), unit_price: Number(f.unit_price || 0), unit_cost: Number(f.unit_cost || 0), warehouse_id: Number(f.warehouse_id) };
+    const r = await send('/inventory/production/manual', 'POST', body);
+    setSaving(false);
+    if (r.ok) {
+      alert(`등록 완료 · ${r.data.matched ? '재고반영(' + r.data.matched_name + ')' : '미매칭(재고 미반영)'}`);
+      setF((p: any) => ({ ...p, product_name: '', qty: '', hours: '', unit_price: '', unit_cost: '' }));
+      loadRecent();
+    } else alert('실패: ' + (r.data?.detail || r.data?.msg || ''));
+  };
+  const del = async (id: number) => {
+    if (!confirm('삭제하시겠습니까? (재고 반영분도 취소됩니다)')) return;
+    const r = await send(`/inventory/production/${id}`, 'DELETE');
+    if (r.ok) loadRecent();
+  };
+
+  const nightLabor = f.hours ? Math.round(15000 * Number(f.hours) * (f.grade === '야간' ? 1.5 : 1)) : 0;
+
+  return (
+    <div className="space-y-4">
+      <div className={`${C.card} p-4`}>
+        <div className="text-sm font-semibold text-[#F7F8F8] mb-3">생산 실적 직접 입력</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div><div className="text-xs text-[#8A8F98] mb-1">생산일 *</div><input type="date" value={f.prod_date} onChange={(e) => setF({ ...f, prod_date: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">담당자</div><input value={f.worker} onChange={(e) => setF({ ...f, worker: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">생산위치(층)</div>
+            <select value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} className={`${C.input} w-full`}>
+              <option value="2층">2층</option><option value="3층">3층</option><option value="">기타</option>
+            </select></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">주야 구분</div>
+            <select value={f.grade} onChange={(e) => setF({ ...f, grade: e.target.value })} className={`${C.input} w-full`}>
+              <option value="주간">주간</option><option value="야간">야간(노무비 1.5배)</option>
+            </select></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">품목류 * (마스터 매칭)</div>
+            <input list="catlist" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} placeholder="마카롱 등" className={`${C.input} w-full`} />
+            <datalist id="catlist">{cats.map((c) => <option key={c} value={c} />)}</datalist></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">품목명(상세)</div><input value={f.product_name} onChange={(e) => setF({ ...f, product_name: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">생산량(낱개) *</div><input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">투여시간(h)</div><input type="number" value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">개당 생산단가</div><input type="number" value={f.unit_price} onChange={(e) => setF({ ...f, unit_price: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">개당 원가</div><input type="number" value={f.unit_cost} onChange={(e) => setF({ ...f, unit_cost: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">입고 창고 *</div>
+            <select value={f.warehouse_id} onChange={(e) => setF({ ...f, warehouse_id: e.target.value })} className={`${C.input} w-full`}>
+              <option value="">선택</option>{warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select></div>
+          <div className="flex items-end"><button onClick={submit} disabled={saving} className={`${C.btn} ${C.btnPrimary} w-full`}>{saving ? '저장 중…' : '실적 등록'}</button></div>
+        </div>
+        <p className="text-xs text-[#62666D] mt-2">예상 노무비: <span className="text-[#00B8CC]">{won(nightLabor)}</span> (시급 15,000{f.grade === '야간' ? ' × 1.5(야간)' : ''} × {f.hours || 0}h)</p>
+      </div>
+
+      <div className={`${C.card} p-4`}>
+        <div className="text-sm font-semibold text-[#F7F8F8] mb-3">최근 직접 입력분</div>
+        {recent.length === 0 ? <div className="text-sm text-[#62666D]">없음</div> : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead><tr><th className={C.th}>생산일</th><th className={C.th}>품목류</th><th className={C.th}>생산량</th><th className={C.th}>시간</th><th className={C.th}>노무비</th><th className={C.th}>주야</th><th className={C.th}>반영</th><th className={C.th}></th></tr></thead>
+              <tbody>
+                {recent.map((r) => (
+                  <tr key={r.id}>
+                    <td className={C.td}>{r.prod_date}</td><td className={`${C.td} text-[#F7F8F8]`}>{r.category}</td>
+                    <td className={C.td}>{fmt(r.qty)}</td><td className={C.td}>{fmt(r.hours)}h</td>
+                    <td className={`${C.td} text-[#00B8CC]`}>{won(r.labor_cost)}</td><td className={C.td}>{r.grade}</td>
+                    <td className={C.td}>{r.matched ? <span className="text-[#3FBE5B] text-xs">{r.matched_name}</span> : <span className="text-[#EB5757] text-xs">미매칭</span>}</td>
+                    <td className={C.td}><button onClick={() => del(r.id)} className="text-[#EB5757] text-xs hover:underline">삭제</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
