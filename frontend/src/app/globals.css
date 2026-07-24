@@ -54,6 +54,18 @@ select option, select optgroup {
 input[type="date"], input[type="datetime-local"], input[type="month"], input[type="time"] {
   color-scheme: dark;
 }
+
+/* Recharts 툴팁/범례/파이 라벨이 어두운 배경에 검은 글씨로 안 보이는 문제 방지 */
+.recharts-default-tooltip {
+  background-color: #0F1011 !important;
+  border: 1px solid #23252A !important;
+  border-radius: 8px !important;
+}
+.recharts-tooltip-label { color: #F7F8F8 !important; }
+.recharts-tooltip-item { color: #D0D6E0 !important; }
+.recharts-legend-item-text { color: #D0D6E0 !important; }
+.recharts-pie-label-text, .recharts-text.recharts-pie-label-text { fill: #D0D6E0 !important; }
+.recharts-cartesian-axis-tick-value { fill: #8A8F98; }
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   filter: invert(0.7);

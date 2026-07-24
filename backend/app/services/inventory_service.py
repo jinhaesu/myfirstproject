@@ -954,7 +954,9 @@ def production_dashboard(db: Session, start: Optional[date] = None,
                       "cost": round(v["cost"]), "labor": round(v["labor"])}
                      for k, v in sorted(by_month.items())],
         "by_grade": [{"grade": k, "qty": round(v)} for k, v in sorted(by_grade.items(), key=lambda x: -x[1])],
-        "by_location": [{"location": k, "qty": round(v["qty"]), "hours": round(v["hours"], 1), "labor": round(v["labor"])}
+        "by_location": [{"location": k, "qty": round(v["qty"]), "hours": round(v["hours"], 1),
+                         "labor": round(v["labor"]),
+                         "hourly_qty": round(v["qty"] / v["hours"], 1) if v["hours"] else 0}
                         for k, v in sorted(by_location.items(), key=lambda x: -x[1]["qty"])],
     }
 
@@ -980,6 +982,23 @@ def _month_list(start: date, end: date) -> list[str]:
 def production_categories(db: Session) -> list[str]:
     rows = db.query(InventoryProduction.category).filter(InventoryProduction.category.isnot(None)).distinct().all()
     return sorted({r[0] for r in rows if r[0]})
+
+
+def production_catalog(db: Session, category: Optional[str] = None) -> list[dict]:
+    """생산 이력의 품목명별 평균 생산단가·원가 (실적 입력 자동계산용)."""
+    q = db.query(
+        InventoryProduction.product_name, InventoryProduction.category,
+        func.avg(InventoryProduction.unit_price), func.avg(InventoryProduction.unit_cost),
+    ).filter(InventoryProduction.product_name.isnot(None), InventoryProduction.product_name != "")
+    if category:
+        q = q.filter(InventoryProduction.category == category)
+    q = q.group_by(InventoryProduction.product_name, InventoryProduction.category)
+    out = []
+    for name, cat, up, uc in q.all():
+        out.append({"product_name": name, "category": cat,
+                    "unit_price": round(float(up or 0), 1), "unit_cost": round(float(uc or 0), 1)})
+    out.sort(key=lambda x: (x["category"] or "", x["product_name"]))
+    return out
 
 
 def production_timeseries(db: Session, granularity: str = "month",

@@ -1557,3 +1557,18 @@ class InventoryProduction(Base):
     dedup_hash = Column(String(64), nullable=False, unique=True, index=True)
     created_by = Column(String(200), nullable=True)
     created_at = Column(DateTime, default=func.now())
+
+
+class InventoryWorkerPhone(Base):
+    """생산 담당자 핸드폰 리스트 — 실적 입력 요청 문자 발송 대상."""
+    __tablename__ = "inventory_worker_phone"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    phone = Column(String(30), nullable=False)      # 010-1234-5678
+    location = Column(String(50), nullable=True)    # 담당 층/라인 (2층/3층)
+    role = Column(String(50), nullable=True)        # 직무/구분
+    is_active = Column(Boolean, default=True)
+    last_sent_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

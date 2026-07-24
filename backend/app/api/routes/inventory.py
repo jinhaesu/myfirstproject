@@ -27,6 +27,7 @@ from app.db_models import (
     InventoryCountSession,
     InventoryCountLine,
     InventoryProduction,
+    InventoryWorkerPhone,
     ChannelSalesDailyProduct,
     ProductMaster,
 )
@@ -747,3 +748,111 @@ def stock_heatmap(start: str, end: str, warehouse_id: Optional[int] = None,
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
     return inv.stock_heatmap(db, start=s, end=e, warehouse_id=warehouse_id, top_n=top_n)
+
+
+@router.get("/production/catalog")
+def production_catalog(category: Optional[str] = None, db: Session = Depends(get_db)):
+    """품목명 목록 + 평균 생산단가·원가 (실적 입력 자동계산용)."""
+    return {"items": inv.production_catalog(db, category=category)}
+
+
+# ──────────────────────────────────────────────
+# 생산 담당자 핸드폰 리스트 + 실적입력 요청 문자
+# ──────────────────────────────────────────────
+
+@router.get("/worker-phones")
+def list_worker_phones(db: Session = Depends(get_db)):
+    rows = db.query(InventoryWorkerPhone).order_by(
+        InventoryWorkerPhone.location, InventoryWorkerPhone.name).all()
+    return {"rows": [{
+        "id": p.id, "name": p.name, "phone": p.phone, "location": p.location,
+        "role": p.role, "is_active": p.is_active,
+        "last_sent_at": p.last_sent_at.isoformat() if p.last_sent_at else None,
+    } for p in rows]}
+
+
+class WorkerPhoneIn(BaseModel):
+    id: Optional[int] = None
+    name: str
+    phone: str
+    location: Optional[str] = None
+    role: Optional[str] = None
+    is_active: bool = True
+
+
+@router.post("/worker-phones")
+def upsert_worker_phone(body: WorkerPhoneIn, db: Session = Depends(get_db),
+                        user: dict = Depends(get_current_user)):
+    if body.id:
+        p = db.get(InventoryWorkerPhone, body.id)
+        if not p:
+            raise HTTPException(404, "없음")
+    else:
+        p = InventoryWorkerPhone()
+        db.add(p)
+    p.name = body.name.strip()
+    p.phone = body.phone.strip()
+    p.location = body.location
+    p.role = body.role
+    p.is_active = body.is_active
+    db.commit()
+    db.refresh(p)
+    return {"id": p.id}
+
+
+@router.delete("/worker-phones/{pid}")
+def delete_worker_phone(pid: int, db: Session = Depends(get_db),
+                        user: dict = Depends(get_current_user)):
+    db.query(InventoryWorkerPhone).filter(InventoryWorkerPhone.id == pid).delete()
+    db.commit()
+    return {"ok": True}
+
+
+class SmsSendIn(BaseModel):
+    ids: Optional[list[int]] = None   # None이면 활성 전체
+    message: str
+
+
+@router.post("/worker-phones/send")
+def send_worker_sms(body: SmsSendIn, db: Session = Depends(get_db),
+                    user: dict = Depends(get_current_user)):
+    """생산 담당자에게 실적 입력 요청 문자. ALIGO_* env 있으면 서버발송,
+    없으면 프론트 sms: 딥링크용 번호 목록 반환."""
+    q = db.query(InventoryWorkerPhone).filter(InventoryWorkerPhone.is_active.is_(True))
+    if body.ids:
+        q = q.filter(InventoryWorkerPhone.id.in_(body.ids))
+    targets = q.all()
+    phones = [p.phone for p in targets if p.phone]
+    if not phones:
+        raise HTTPException(400, "대상 번호가 없습니다")
+
+    api_key = os.getenv("ALIGO_API_KEY")
+    user_id = os.getenv("ALIGO_USER_ID")
+    sender = os.getenv("ALIGO_SENDER")
+    now = datetime.utcnow()
+
+    if api_key and user_id and sender:
+        import requests
+        try:
+            resp = requests.post("https://apis.aligo.in/send/", data={
+                "key": api_key, "user_id": user_id, "sender": sender,
+                "receiver": ",".join(phones), "msg": body.message,
+                "title": "생산 실적 입력 요청",
+            }, timeout=15)
+            data = resp.json()
+            ok = str(data.get("result_code")) == "1"
+            if ok:
+                for p in targets:
+                    p.last_sent_at = now
+                db.commit()
+            return {"sent": ok, "provider": "aligo", "count": len(phones), "detail": data}
+        except Exception as e:
+            return {"sent": False, "provider": "aligo", "error": str(e),
+                    "phones": phones, "message": body.message}
+
+    # provider 미설정 → 프론트에서 문자앱(sms:) 딥링크 사용
+    for p in targets:
+        p.last_sent_at = now
+    db.commit()
+    return {"sent": False, "provider": "none", "phones": phones, "message": body.message,
+            "note": "서버 SMS 미설정 — 문자앱 딥링크로 발송하세요(ALIGO_API_KEY/USER_ID/SENDER 설정 시 서버발송)"}

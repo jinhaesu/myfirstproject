@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  ComposedChart, Line, Area, Legend,
+  ComposedChart, Line, Legend, PieChart, Pie,
 } from 'recharts';
 
 // ─────────────────────────────────────────────────────────
@@ -75,6 +75,7 @@ const C = {
   td: 'px-3 py-2 text-sm text-[#D0D6E0] border-b border-[#1A1B1E] whitespace-nowrap',
 };
 const fmt = (n: number | null | undefined) => (n === null || n === undefined ? '-' : Number(n).toLocaleString('ko-KR'));
+const numShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(2).replace(/\.00$/, '') + '억'; if (a >= 1e4) return (n / 1e4).toFixed(1).replace(/\.0$/, '') + '만'; return Math.round(n || 0).toLocaleString('ko-KR'); };
 
 function StatusBadge({ s }: { s: string }) {
   const m: Record<string, string> = {
@@ -87,9 +88,9 @@ function StatusBadge({ s }: { s: string }) {
 function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return (
     <div className={`${C.card} p-4`}>
-      <div className="text-xs text-[#8A8F98] mb-1">{label}</div>
-      <div className={`text-2xl font-bold ${tone || 'text-[#F7F8F8]'}`}>{value}</div>
-      {sub && <div className="text-xs text-[#62666D] mt-1">{sub}</div>}
+      <div className="text-[11px] text-[#8A8F98] mb-1 truncate" title={label}>{label}</div>
+      <div className={`text-lg font-bold tabular-nums leading-tight break-keep ${tone || 'text-[#F7F8F8]'}`}>{value}</div>
+      {sub && <div className="text-[11px] text-[#62666D] mt-1 truncate">{sub}</div>}
     </div>
   );
 }
@@ -178,7 +179,6 @@ export default function InventoryPage() {
 // 대시보드
 // ═════════════════════════════════════════════════════════
 function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
-  const [asOf, setAsOf] = useState(todayISO());
   const [d, setD] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(false);
   const [range, setRange] = useState({ start: '2026-01-01', end: todayISO() });
@@ -189,9 +189,9 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setD(await getJSON<Dashboard | null>(`/inventory/dashboard?as_of=${asOf}`, null));
+    setD(await getJSON<Dashboard | null>(`/inventory/dashboard?as_of=${range.end}`, null));
     setLoading(false);
-  }, [asOf]);
+  }, [range.end]);
   useEffect(() => { load(); }, [load]);
 
   const loadTrend = useCallback(async () => {
@@ -213,16 +213,31 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        <label className="text-sm text-[#8A8F98]">기준일</label>
-        <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className={C.input} />
+      <div className={`${C.card} p-3 flex flex-wrap items-center gap-2 sticky top-[52px] z-10`}>
+        <span className="text-sm font-semibold text-[#F7F8F8]">기간</span>
+        <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
+        <span className="text-[#62666D]">~</span>
+        <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
+        <div className="flex flex-wrap gap-1">
+          {RANGE_PRESETS.map(([k, l]) => <button key={k} onClick={() => setRange(presetRange(k))} className={`${C.btn} ${C.btnGhost} px-2 py-1`}>{l}</button>)}
+        </div>
+        <div className="flex bg-[#08090A] border border-[#23252A] rounded-lg p-0.5">
+          {(['month', 'week', 'day'] as const).map((g) => (
+            <button key={g} onClick={() => setGran(g)} className={`${C.btn} px-2.5 py-1 ${gran === g ? C.btnPrimary : 'text-[#8A8F98]'}`}>{g === 'month' ? '월' : g === 'week' ? '주' : '일'}</button>
+          ))}
+        </div>
+        <select value={whId} onChange={(e) => setWhId(e.target.value ? Number(e.target.value) : '')} className={C.input}>
+          <option value="">전체 창고</option>
+          {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+        <span className="text-xs text-[#62666D] ml-auto">현황 기준일 = {range.end}</span>
         {loading && <span className="text-xs text-[#62666D]">불러오는 중…</span>}
       </div>
 
       {d && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <StatCard label="총 재고 수량 (낱개)" value={fmt(d.total_qty)} />
+            <StatCard label="총 재고 수량 (낱개)" value={numShort(d.total_qty)} />
             <StatCard label="관리 품목 수" value={fmt(d.product_count)} />
             <StatCard label="창고 수" value={fmt(d.warehouse_count)} />
             <StatCard label="보충 필요" value={fmt(d.shortage_count)} tone="text-[#F0BF00]" sub="재주문점 이하" />
@@ -263,24 +278,7 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
 
           {/* 기간 재고 흐름 + 입출고 히트맵 */}
           <div className={`${C.card} p-4`}>
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <div className="text-sm font-semibold text-[#F7F8F8] mr-2">재고 흐름 (입고·출고·기말)</div>
-              <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
-              <span className="text-[#62666D]">~</span>
-              <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
-              <div className="flex bg-[#08090A] border border-[#23252A] rounded-lg p-0.5">
-                {(['month', 'week', 'day'] as const).map((g) => (
-                  <button key={g} onClick={() => setGran(g)} className={`${C.btn} px-2.5 py-1 ${gran === g ? C.btnPrimary : 'text-[#8A8F98]'}`}>{g === 'month' ? '월' : g === 'week' ? '주' : '일'}</button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {RANGE_PRESETS.map(([k, l]) => <button key={k} onClick={() => setRange(presetRange(k))} className={`${C.btn} ${C.btnGhost} px-2 py-1`}>{l}</button>)}
-              </div>
-              <select value={whId} onChange={(e) => setWhId(e.target.value ? Number(e.target.value) : '')} className={C.input}>
-                <option value="">전체 창고</option>
-                {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select>
-            </div>
+            <div className="text-sm font-semibold text-[#F7F8F8] mb-3">재고 흐름 · {gran === 'month' ? '월별' : gran === 'week' ? '주별' : '일별'} (생산입고·판매출고·기말재고)</div>
             {trend.length === 0 ? <Empty msg="이 기간 흐름 데이터 없음" /> : (
               <ResponsiveContainer width="100%" height={280}>
                 <ComposedChart data={trend}>
@@ -364,6 +362,37 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
               )}
             </div>
           </div>
+
+          {(() => {
+            const pos = d.by_category.filter((c) => c.qty > 0).sort((a, b) => b.qty - a.qty);
+            const PIE = pos.slice(0, 10).map((c, i) => ({ name: c.category, value: c.qty, fill: CHART_COLORS[i % CHART_COLORS.length] }));
+            return (
+              <div className={`${C.card} p-4`}>
+                <div className="text-sm font-semibold text-[#F7F8F8] mb-1">현재 잔여 재고 비중 (카테고리별)</div>
+                <div className="text-xs text-[#62666D] mb-3">기준일 {d.as_of} · 잔여(양수) 재고만 표시</div>
+                {PIE.length === 0 ? <Empty msg="잔여 재고(양수)가 없습니다 — 기초재고 업로드 후 표시됩니다" /> : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
+                    <ResponsiveContainer width="100%" height={260}>
+                      <PieChart>
+                        <Pie data={PIE} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={95} label={(e: any) => e.name}>
+                          {PIE.map((p, i) => <Cell key={i} fill={p.fill} />)}
+                        </Pie>
+                        <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-1">
+                      {pos.slice(0, 10).map((c, i) => (
+                        <div key={c.category} className="flex items-center justify-between text-sm py-1 border-b border-[#1A1B1E]">
+                          <span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} /><span className="text-[#D0D6E0]">{c.category}</span></span>
+                          <span className="text-[#F7F8F8] tabular-nums">{fmt(c.qty)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <div className={`${C.card} p-4`}>
             <div className="flex items-center justify-between mb-3">

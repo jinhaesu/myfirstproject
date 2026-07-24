@@ -40,7 +40,7 @@ interface ProdDash {
   by_worker: { worker: string; qty: number; amount: number; hours: number; labor: number }[];
   by_month: { month: string; qty: number; amount: number; cost: number; labor: number }[];
   by_grade: { grade: string; qty: number }[];
-  by_location: { location: string; qty: number; hours: number; labor: number }[];
+  by_location: { location: string; qty: number; hours: number; labor: number; hourly_qty: number }[];
 }
 
 // ── UI atoms ──
@@ -55,6 +55,8 @@ const C = {
 };
 const fmt = (n: number | null | undefined) => (n === null || n === undefined ? '-' : Number(n).toLocaleString('ko-KR'));
 const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
+const wonShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억'; if (a >= 1e4) return Math.round(n / 1e4).toLocaleString('ko-KR') + '만'; return '₩' + Math.round(n || 0).toLocaleString('ko-KR'); };
+const numShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(2).replace(/\.00$/, '') + '억'; if (a >= 1e4) return (n / 1e4).toFixed(1).replace(/\.0$/, '') + '만'; return Math.round(n || 0).toLocaleString('ko-KR'); };
 const COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#00B8CC', '#EB5757', '#A855F7', '#F97316', '#14B8A6'];
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -93,14 +95,14 @@ function PeriodBar({ range, setRange }: { range: { start: string; end: string };
 function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return (
     <div className={`${C.card} p-4`}>
-      <div className="text-xs text-[#8A8F98] mb-1">{label}</div>
-      <div className={`text-2xl font-bold ${tone || 'text-[#F7F8F8]'}`}>{value}</div>
-      {sub && <div className="text-xs text-[#62666D] mt-1">{sub}</div>}
+      <div className="text-[11px] text-[#8A8F98] mb-1 truncate" title={label}>{label}</div>
+      <div className={`text-lg font-bold tabular-nums leading-tight break-keep ${tone || 'text-[#F7F8F8]'}`}>{value}</div>
+      {sub && <div className="text-[11px] text-[#62666D] mt-1 truncate">{sub}</div>}
     </div>
   );
 }
 
-type Tab = '대시보드' | '실적 조회' | '실적 입력' | '업로드';
+type Tab = '대시보드' | '실적 조회' | '실적 입력' | '담당자·문자' | '업로드';
 interface TSPoint { period: string; qty: number; hours: number; amount: number; cost: number; labor: number; hourly_qty: number; profitability: number; day_qty: number; night_qty: number; }
 
 export default function ProductionPage() {
@@ -115,7 +117,7 @@ export default function ProductionPage() {
   }, [user]);
 
   if (isLoading || !user) return <div className="min-h-screen bg-[#08090A]" />;
-  const tabs: Tab[] = ['대시보드', '실적 조회', '실적 입력', '업로드'];
+  const tabs: Tab[] = ['대시보드', '실적 조회', '실적 입력', '담당자·문자', '업로드'];
 
   return (
     <div className="min-h-screen bg-[#08090A]">
@@ -136,6 +138,7 @@ export default function ProductionPage() {
         {tab === '대시보드' && <DashTab />}
         {tab === '실적 조회' && <RecordsTab />}
         {tab === '실적 입력' && <InputTab warehouses={warehouses} />}
+        {tab === '담당자·문자' && <PhoneTab />}
         {tab === '업로드' && <UploadTab warehouses={warehouses} />}
       </main>
     </div>
@@ -187,13 +190,29 @@ function DashTab() {
       {d && d.record_count > 0 && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-            <StatCard label="총 생산량 (낱개)" value={fmt(d.total_qty)} sub={`${fmt(d.record_count)}건`} />
-            <StatCard label="총 생산액" value={won(d.total_amount)} />
-            <StatCard label="총 원가" value={won(d.total_cost)} tone="text-[#F0BF00]" sub={`원가율 ${d.cost_ratio}%`} />
-            <StatCard label={`노무비 (시급 ${fmt(d.hourly_wage)}·야간1.5)`} value={won(d.total_labor)} tone="text-[#00B8CC]" sub={`노무비율 ${d.labor_ratio}%`} />
+            <StatCard label="총 생산량 (낱개)" value={numShort(d.total_qty)} sub={`${fmt(d.record_count)}건`} />
+            <StatCard label="총 생산액" value={wonShort(d.total_amount)} />
+            <StatCard label="총 원가" value={wonShort(d.total_cost)} tone="text-[#F0BF00]" sub={`원가율 ${d.cost_ratio}%`} />
+            <StatCard label={`노무비 (시급 ${fmt(d.hourly_wage)}·야1.5)`} value={wonShort(d.total_labor)} tone="text-[#00B8CC]" sub={`노무비율 ${d.labor_ratio}%`} />
             <StatCard label="채산성" value={`${d.profitability}배`} tone={d.profitability >= 3 ? 'text-[#3FBE5B]' : 'text-[#F0BF00]'} sub="생산액÷노무비" />
-            <StatCard label="총 생산시간" value={`${fmt(d.total_hours)}h`} />
+            <StatCard label="총 생산시간" value={`${numShort(d.total_hours)}h`} />
             <StatCard label="시간당 생산량" value={fmt(d.hourly_qty)} sub="낱개/시간" />
+          </div>
+
+          {/* 층별 생산량·투여시간·시간당생산량 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {d.by_location.filter((l) => l.location && l.location !== '미상').map((l, i) => (
+              <div key={l.location} className={`${C.card} p-4`}>
+                <div className="text-sm font-semibold mb-2 flex items-center gap-2" style={{ color: COLORS[i % COLORS.length] }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />{l.location} 생산
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div><div className="text-[11px] text-[#8A8F98]">생산량</div><div className="text-lg font-bold tabular-nums text-[#F7F8F8]">{numShort(l.qty)}</div></div>
+                  <div><div className="text-[11px] text-[#8A8F98]">투여시간</div><div className="text-lg font-bold tabular-nums text-[#F7F8F8]">{numShort(l.hours)}h</div></div>
+                  <div><div className="text-[11px] text-[#8A8F98]">시간당생산량</div><div className="text-lg font-bold tabular-nums text-[#3FBE5B]">{fmt(l.hourly_qty)}</div></div>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* 생산성·채산성 시계열 (품목류 필터 적용) */}
@@ -418,8 +437,105 @@ function RecordsTab() {
   );
 }
 
+interface WorkerPhone { id: number; name: string; phone: string; location: string | null; role: string | null; is_active: boolean; last_sent_at: string | null; }
+function PhoneTab() {
+  const [rows, setRows] = useState<WorkerPhone[]>([]);
+  const [form, setForm] = useState<any>({ name: '', phone: '', location: '2층', role: '생산' });
+  const [sel, setSel] = useState<Set<number>>(new Set());
+  const [msg, setMsg] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const load = useCallback(async () => {
+    const r = await getJSON<{ rows: WorkerPhone[] }>('/inventory/worker-phones', { rows: [] });
+    setRows(r.rows);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const link = typeof window !== 'undefined' ? `${window.location.origin}/inventory/production` : '';
+    setMsg(`[조인앤조인 생산] 오늘 생산 실적을 입력해 주세요.\n입력: ${link}\n(품목명·생산량·투여시간 필수)`);
+  }, []);
+
+  const save = async () => {
+    if (!form.name.trim() || !form.phone.trim()) { alert('이름·핸드폰을 입력하세요'); return; }
+    const r = await send('/inventory/worker-phones', 'POST', { id: form.id, name: form.name, phone: form.phone, location: form.location || null, role: form.role || null, is_active: true });
+    if (r.ok) { setForm({ name: '', phone: '', location: '2층', role: '생산' }); load(); } else alert('저장 실패');
+  };
+  const del = async (id: number) => { if (!confirm('삭제?')) return; const r = await send(`/inventory/worker-phones/${id}`, 'DELETE'); if (r.ok) load(); };
+  const toggle = (id: number) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const allActive = rows.filter((r) => r.is_active);
+
+  const sendSms = async () => {
+    const ids = sel.size ? Array.from(sel) : allActive.map((r) => r.id);
+    if (!ids.length) { alert('발송 대상이 없습니다'); return; }
+    if (!confirm(`${ids.length}명에게 실적 입력 요청 문자를 발송합니다.`)) return;
+    setSending(true);
+    const r = await send('/inventory/worker-phones/send', 'POST', { ids, message: msg });
+    setSending(false);
+    if (r.ok && r.data.sent) { alert(`서버 발송 완료 · ${r.data.count}건`); load(); return; }
+    // provider 미설정 → 문자앱 딥링크
+    const phones: string[] = r.data?.phones || rows.filter((x) => ids.includes(x.id)).map((x) => x.phone);
+    const link = `sms:${phones.join(',')}?&body=${encodeURIComponent(msg)}`;
+    if (typeof window !== 'undefined') window.location.href = link;
+    load();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className={`${C.card} p-4`}>
+        <div className="text-sm font-semibold text-[#F7F8F8] mb-1">생산 담당자 핸드폰 리스트</div>
+        <p className="text-xs text-[#62666D] mb-3">여기 담긴 담당자에게 실적 입력 요청 문자를 발송합니다. (서버 SMS 미설정 시 휴대폰 문자앱이 열립니다)</p>
+        <div className="flex flex-wrap items-end gap-2 mb-3">
+          <div><div className="text-xs text-[#8A8F98] mb-1">이름 *</div><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={`${C.input} w-28`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">핸드폰 *</div><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-1234-5678" className={`${C.input} w-36`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">담당 층</div>
+            <select value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className={C.input}><option>2층</option><option>3층</option><option value="">기타</option></select></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">구분</div><input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={`${C.input} w-24`} /></div>
+          <button onClick={save} className={`${C.btn} ${C.btnPrimary}`}>{form.id ? '수정' : '+ 추가'}</button>
+          {form.id && <button onClick={() => setForm({ name: '', phone: '', location: '2층', role: '생산' })} className={`${C.btn} ${C.btnGhost}`}>취소</button>}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr>
+              <th className={C.th}><input type="checkbox" checked={sel.size > 0 && sel.size === allActive.length} onChange={(e) => setSel(e.target.checked ? new Set(allActive.map((r) => r.id)) : new Set())} /></th>
+              <th className={C.th}>이름</th><th className={C.th}>핸드폰</th><th className={C.th}>층</th><th className={C.th}>구분</th><th className={C.th}>최근 발송</th><th className={C.th}></th>
+            </tr></thead>
+            <tbody>
+              {rows.length === 0 ? <tr><td colSpan={7} className="p-6 text-center text-[#62666D] text-sm">담당자를 추가하세요</td></tr> :
+                rows.map((r) => (
+                  <tr key={r.id}>
+                    <td className={C.td}><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggle(r.id)} /></td>
+                    <td className={`${C.td} text-[#F7F8F8]`}>{r.name}</td>
+                    <td className={C.td}>{r.phone}</td>
+                    <td className={C.td}>{r.location || '-'}</td>
+                    <td className={C.td}>{r.role || '-'}</td>
+                    <td className={C.td}>{r.last_sent_at ? new Date(r.last_sent_at).toLocaleString('ko-KR') : '-'}</td>
+                    <td className={C.td}>
+                      <button onClick={() => setForm({ id: r.id, name: r.name, phone: r.phone, location: r.location || '', role: r.role || '' })} className="text-[#828FFF] text-xs hover:underline mr-2">수정</button>
+                      <button onClick={() => del(r.id)} className="text-[#EB5757] text-xs hover:underline">삭제</button>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className={`${C.card} p-4`}>
+        <div className="text-sm font-semibold text-[#F7F8F8] mb-2">실적 입력 요청 문자</div>
+        <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={4} className={`${C.input} w-full mb-2`} />
+        <div className="flex items-center gap-2">
+          <button onClick={sendSms} disabled={sending} className={`${C.btn} ${C.btnPrimary}`}>{sending ? '발송 중…' : `📩 ${sel.size ? sel.size + '명 선택' : '활성 전체'} 발송`}</button>
+          <span className="text-xs text-[#62666D]">체크한 담당자에게(미선택 시 전체) 발송 · 링크 포함</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface CatalogItem { product_name: string; category: string; unit_price: number; unit_cost: number; }
 function InputTab({ warehouses }: { warehouses: Warehouse[] }) {
   const [cats, setCats] = useState<string[]>([]);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [recent, setRecent] = useState<ProdRow[]>([]);
   const [f, setF] = useState<any>({ prod_date: todayISO(), worker: '', location: '2층', category: '', product_name: '', qty: '', hours: '', unit_price: '', unit_cost: '', grade: '주간', warehouse_id: '' });
   const [saving, setSaving] = useState(false);
@@ -430,12 +546,22 @@ function InputTab({ warehouses }: { warehouses: Warehouse[] }) {
   }, []);
   useEffect(() => {
     getJSON<{ categories: string[] }>('/inventory/production/categories', { categories: [] }).then((r) => setCats(r.categories));
+    getJSON<{ items: CatalogItem[] }>('/inventory/production/catalog', { items: [] }).then((r) => setCatalog(r.items));
     loadRecent();
   }, [loadRecent]);
   useEffect(() => { if (warehouses.length && !f.warehouse_id) setF((p: any) => ({ ...p, warehouse_id: warehouses[0].id })); }, [warehouses, f.warehouse_id]);
 
+  // 품목명 선택 시 평균 생산단가·원가 자동계산
+  const onPickProduct = (name: string) => {
+    const hit = catalog.find((c) => c.product_name === name);
+    setF((p: any) => ({ ...p, product_name: name, ...(hit ? { unit_price: hit.unit_price, unit_cost: hit.unit_cost, category: hit.category || p.category } : {}) }));
+  };
+  const filteredCatalog = f.category ? catalog.filter((c) => c.category === f.category) : catalog;
+
   const submit = async () => {
     if (!f.category) { alert('품목류를 입력/선택하세요'); return; }
+    if (!f.product_name) { alert('품목명(상세)을 선택/입력하세요 — 필수'); return; }
+    if (!f.hours || Number(f.hours) <= 0) { alert('투여시간을 입력하세요 — 필수'); return; }
     if (!f.qty || Number(f.qty) <= 0) { alert('생산량을 입력하세요'); return; }
     if (!f.warehouse_id) { alert('입고 창고를 선택하세요'); return; }
     setSaving(true);
@@ -474,11 +600,13 @@ function InputTab({ warehouses }: { warehouses: Warehouse[] }) {
           <div><div className="text-xs text-[#8A8F98] mb-1">품목류 * (마스터 매칭)</div>
             <input list="catlist" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} placeholder="마카롱 등" className={`${C.input} w-full`} />
             <datalist id="catlist">{cats.map((c) => <option key={c} value={c} />)}</datalist></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">품목명(상세)</div><input value={f.product_name} onChange={(e) => setF({ ...f, product_name: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">품목명(상세) *</div>
+            <input list="prodlist" value={f.product_name} onChange={(e) => onPickProduct(e.target.value)} placeholder="목록에서 선택" className={`${C.input} w-full ${!f.product_name ? 'border-[#EB5757]/50' : ''}`} />
+            <datalist id="prodlist">{filteredCatalog.map((c) => <option key={c.product_name} value={c.product_name}>{c.category}</option>)}</datalist></div>
           <div><div className="text-xs text-[#8A8F98] mb-1">생산량(낱개) *</div><input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} className={`${C.input} w-full`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">투여시간(h)</div><input type="number" value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} className={`${C.input} w-full`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">개당 생산단가</div><input type="number" value={f.unit_price} onChange={(e) => setF({ ...f, unit_price: e.target.value })} className={`${C.input} w-full`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">개당 원가</div><input type="number" value={f.unit_cost} onChange={(e) => setF({ ...f, unit_cost: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">투여시간(h) *</div><input type="number" value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} className={`${C.input} w-full ${!f.hours ? 'border-[#EB5757]/50' : ''}`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">개당 생산단가 (자동)</div><input readOnly value={f.unit_price !== '' ? Number(f.unit_price).toLocaleString('ko-KR') : ''} placeholder="품목명 선택 시 자동" className={`${C.input} w-full bg-[#141516] text-[#8A8F98]`} /></div>
+          <div><div className="text-xs text-[#8A8F98] mb-1">개당 원가 (자동)</div><input readOnly value={f.unit_cost !== '' ? Number(f.unit_cost).toLocaleString('ko-KR') : ''} placeholder="품목명 선택 시 자동" className={`${C.input} w-full bg-[#141516] text-[#8A8F98]`} /></div>
           <div><div className="text-xs text-[#8A8F98] mb-1">입고 창고 *</div>
             <select value={f.warehouse_id} onChange={(e) => setF({ ...f, warehouse_id: e.target.value })} className={`${C.input} w-full`}>
               <option value="">선택</option>{warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
