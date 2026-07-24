@@ -1527,3 +1527,33 @@ class InventoryCountLine(Base):
     __table_args__ = (
         UniqueConstraint('session_id', 'product_id', name='uq_inv_count_line'),
     )
+
+
+class InventoryProduction(Base):
+    """생산 실적 (생산 RAW-DATA 엑셀 1행 = 1생산건). 생산=재고 보충원.
+    현재고 공식에 판매차감과 대칭으로 가산된다(가상, prod_date≤조회일).
+    품목류(category)→csa_product_master(product_id) 매핑으로 재고 단위 정합.
+    재업로드 안전을 위해 dedup_hash 유니크."""
+    __tablename__ = "inventory_production"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    batch_id = Column(String(64), nullable=True, index=True)
+    prod_date = Column(Date, nullable=False, index=True)
+    worker = Column(String(100), nullable=True)          # 담당자
+    location = Column(String(50), nullable=True)         # 생산위치(2층/3층) — 참고정보
+    category = Column(String(100), nullable=True, index=True)  # 품목류 → 마스터 매핑키
+    product_name = Column(String(300), nullable=True)    # 품목명(상세)
+    qty = Column(Float, default=0)                       # 생산량(낱개)
+    hours = Column(Float, default=0)                     # 소요시간
+    unit_price = Column(Float, default=0)                # 개당단가
+    prod_amount = Column(Float, default=0)               # 생산액
+    labor_cost = Column(Float, default=0)                # 노무비
+    unit_cost = Column(Float, default=0)                 # 개당원가
+    total_cost = Column(Float, default=0)                # 원가총액
+    grade = Column(String(30), nullable=True)            # 등급(최고/중간)
+
+    product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True, index=True)
+    warehouse_id = Column(Integer, ForeignKey("inventory_warehouse.id"), nullable=True, index=True)
+    dedup_hash = Column(String(64), nullable=False, unique=True, index=True)
+    created_by = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())

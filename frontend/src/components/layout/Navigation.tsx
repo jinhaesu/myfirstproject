@@ -41,7 +41,6 @@ const navGroups: NavGroup[] = [
       { href: '/scm/orders', label: '주문 계획', icon: 'orders' },
       { href: '/scm/production', label: '생산 계획', icon: 'production' },
       { href: '/scm/production-results', label: '생산 결과', icon: 'results' },
-      { href: '/scm/inventory', label: '재고/출고현황', icon: 'inventory' },
     ],
   },
   {
@@ -50,14 +49,14 @@ const navGroups: NavGroup[] = [
     pathPrefix: ['/inventory'],
     items: [
       { href: '/inventory', label: '재고 대시보드', icon: 'inventory' },
+      { href: '/inventory/production', label: '생산 실적', icon: 'production' },
     ],
   },
   {
-    label: '제품 관리',
-    icon: 'productList',
-    pathPrefix: ['/sabangnet/products', '/sabangnet/mapping'],
+    label: '매핑 관리',
+    icon: 'mapping',
+    pathPrefix: ['/sabangnet/mapping'],
     items: [
-      { href: '/sabangnet/products', label: '제품 목록', icon: 'productList' },
       { href: '/sabangnet/mapping', label: '매핑 자동화', icon: 'mapping' },
     ],
   },

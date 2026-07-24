@@ -23,6 +23,7 @@ from app.db_models import (
     InventorySafetyStock,
     InventoryCountSession,
     InventoryCountLine,
+    InventoryProduction,
     ChannelSalesDailyProduct,
     ProductMaster,
 )
@@ -133,17 +134,48 @@ def _sales_sums(
     return {(w, p): float(s or 0) for w, p, s in q.all()}
 
 
+def _production_sums(
+    db: Session,
+    as_of: Optional[date] = None,
+    start: Optional[date] = None,
+    warehouse_id: Optional[int] = None,
+    product_id: Optional[int] = None,
+) -> dict[tuple[int, int], float]:
+    """Σ 생산량(inventory_production.qty) grouped by (warehouse_id, product_id).
+    생산은 재고 보충원 — 판매차감과 대칭으로 현재고에 가산된다."""
+    q = db.query(
+        InventoryProduction.warehouse_id,
+        InventoryProduction.product_id,
+        func.coalesce(func.sum(InventoryProduction.qty), 0.0),
+    ).filter(
+        InventoryProduction.product_id.isnot(None),
+        InventoryProduction.warehouse_id.isnot(None),
+    )
+    if as_of is not None:
+        q = q.filter(InventoryProduction.prod_date <= as_of)
+    if start is not None:
+        q = q.filter(InventoryProduction.prod_date >= start)
+    if warehouse_id is not None:
+        q = q.filter(InventoryProduction.warehouse_id == warehouse_id)
+    if product_id is not None:
+        q = q.filter(InventoryProduction.product_id == product_id)
+    q = q.group_by(InventoryProduction.warehouse_id, InventoryProduction.product_id)
+    return {(w, p): float(s or 0) for w, p, s in q.all()}
+
+
 def current_stock_map(
     db: Session,
     as_of: Optional[date] = None,
     warehouse_id: Optional[int] = None,
     product_id: Optional[int] = None,
 ) -> dict[tuple[int, int], float]:
-    """{(warehouse_id, product_id): 현재고}. as_of 미지정 시 오늘 시점(전체)."""
+    """{(warehouse_id, product_id): 현재고}. as_of 미지정 시 오늘 시점(전체).
+    현재고 = 원장(기초·조정·실사보정) + 생산 − 판매."""
     ledger = _ledger_sums(db, as_of=as_of, warehouse_id=warehouse_id, product_id=product_id)
+    prod = _production_sums(db, as_of=as_of, warehouse_id=warehouse_id, product_id=product_id)
     sales = _sales_sums(db, as_of=as_of, warehouse_id=warehouse_id, product_id=product_id)
-    keys = set(ledger) | set(sales)
-    return {k: ledger.get(k, 0.0) - sales.get(k, 0.0) for k in keys}
+    keys = set(ledger) | set(prod) | set(sales)
+    return {k: ledger.get(k, 0.0) + prod.get(k, 0.0) - sales.get(k, 0.0) for k in keys}
 
 
 # ──────────────────────────────────────────────
@@ -276,6 +308,10 @@ def period_flows(
         return {p: float(s or 0) for p, s in q.all()}
 
     inflow = _ledger_period(["production_in", "transfer_in", "opening"])
+    # 생산 입고(생산 테이블) 기간내 합산 → 입고에 가산
+    prod_period = _production_sums(db, start=start, as_of=end, warehouse_id=warehouse_id)
+    for (_w, pid), v in prod_period.items():
+        inflow[pid] = inflow.get(pid, 0.0) + v
     adjust = _ledger_period(["adjustment"])
     correction = _ledger_period(["count_correction"])
     transfer_out = _ledger_period(["transfer_out"])
@@ -632,4 +668,238 @@ def dashboard(db: Session, as_of: Optional[date] = None) -> dict:
         ],
         "replenishment_top": repl["items"][:10],
         "replenishment_total": repl["count"],
+    }
+
+
+# ──────────────────────────────────────────────
+# 생산 실적 (RAW-DATA 엑셀 → 재고 보충)
+# ──────────────────────────────────────────────
+
+def _norm(s) -> str:
+    return str(s or "").strip().replace(" ", "").lower()
+
+
+def _production_maps(db: Session):
+    """품목류/품목명 → csa_product_master.id 매핑 소스."""
+    cat_map: dict[str, int] = {}
+    for p in db.query(ProductMaster).all():
+        if p.name:
+            cat_map[_norm(p.name)] = p.id
+        for a in (p.aliases or []):
+            cat_map.setdefault(_norm(a), p.id)
+    # scm_products.product_name → csa_product_id (보조 경로)
+    scm_map: dict[str, int] = {}
+    try:
+        from app.db_models import ScmProduct
+        for s in db.query(ScmProduct).filter(ScmProduct.csa_product_id.isnot(None)).all():
+            if s.product_name:
+                scm_map[_norm(s.product_name)] = s.csa_product_id
+    except Exception:
+        pass
+    return cat_map, scm_map
+
+
+def _resolve_prod(cat_map, scm_map, category, product_name) -> Optional[int]:
+    pid = cat_map.get(_norm(category))
+    if pid:
+        return pid
+    return scm_map.get(_norm(product_name))
+
+
+def parse_production_excel(file_path: str) -> dict:
+    """생산 RAW-DATA 엑셀 파싱. RAW-DATA 시트 우선, 유연 헤더 매칭.
+    열: 날짜·담당자·생산위치·품목류·품목명·생산량·소요시간·단가·생산액·노무비·원가·원가총액·등급."""
+    import pandas as pd
+    try:
+        sheets = pd.read_excel(file_path, sheet_name=None, header=None)
+    except Exception as e:
+        return {"rows": [], "errors": [f"엑셀 읽기 실패: {e}"]}
+    if not sheets:
+        return {"rows": [], "errors": ["빈 파일"]}
+
+    # RAW 시트 선택
+    target_name = None
+    for name in sheets:
+        if "raw" in _norm(name):
+            target_name = name
+            break
+    if target_name is None:
+        # 생산량 헤더가 있는 첫 시트
+        for name, df in sheets.items():
+            if df.astype(str).apply(lambda col: col.str.contains("생산량", na=False)).any().any():
+                target_name = name
+                break
+    if target_name is None:
+        target_name = list(sheets.keys())[0]
+    df = sheets[target_name]
+
+    # 헤더행 탐색
+    hdr = None
+    for i in range(min(15, len(df))):
+        joined = " ".join(str(x) for x in df.iloc[i].tolist())
+        if "생산량" in joined or ("날짜" in joined and "품목" in joined):
+            hdr = i
+            break
+    if hdr is None:
+        return {"rows": [], "errors": [f"'{target_name}' 시트에서 헤더행(생산량/품목)을 찾지 못했습니다"]}
+    cols = [str(x).strip() for x in df.iloc[hdr].tolist()]
+    data = df.iloc[hdr + 1:].copy()
+    data.columns = cols
+
+    def find(*cands, exclude=()):
+        for c in cols:
+            cn = _norm(c)
+            if any(ex in cn for ex in exclude):
+                continue
+            if any(_norm(cand) in cn for cand in cands):
+                return c
+        return None
+
+    c_date = find("날짜", "일자", "date")
+    c_worker = find("담당", "작업자", "생산자")
+    c_loc = find("생산위치", "위치", "층")
+    c_cat = find("품목류", "분류", "카테고리", exclude=("품목명", "품명"))
+    c_prod = find("품목명", "제품명", "상품명", "품명")
+    c_qty = find("생산량", "생산수량", exclude=("금액", "액"))
+    c_hours = find("시간", "소요")
+    c_uprice = find("단가", exclude=("원가",))
+    c_amount = find("생산액", "생산금액", "생산 금액")
+    c_labor = find("노무", "인건")
+    c_ucost = find("원가", exclude=("총", "액"))
+    c_tcost = find("원가총액", "총원가", "원가 총액") or find("총액")
+    c_grade = find("등급", "평가")
+
+    import pandas as pd
+    def num(v):
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return 0.0
+        try:
+            return float(str(v).replace(",", "").replace("-", "0").strip() or 0)
+        except Exception:
+            return 0.0
+
+    rows, errors = [], []
+    if c_qty is None or (c_cat is None and c_prod is None) or c_date is None:
+        return {"rows": [], "errors": ["필수 열(날짜·품목·생산량)을 찾지 못했습니다"], "sheet": target_name, "headers": cols}
+
+    for _, r in data.iterrows():
+        try:
+            dval = r[c_date]
+            if pd.isna(dval):
+                continue
+            d = pd.to_datetime(dval, errors="coerce")
+            if pd.isna(d):
+                continue
+            qty = num(r[c_qty]) if c_qty else 0.0
+            cat = str(r[c_cat]).strip() if c_cat is not None and not pd.isna(r[c_cat]) else ""
+            pname = str(r[c_prod]).strip() if c_prod is not None and not pd.isna(r[c_prod]) else ""
+            if not cat and not pname:
+                continue
+            if qty <= 0:
+                continue
+            up = num(r[c_uprice]) if c_uprice else 0.0
+            uc = num(r[c_ucost]) if c_ucost else 0.0
+            rows.append({
+                "prod_date": d.date().isoformat(),
+                "worker": str(r[c_worker]).strip() if c_worker is not None and not pd.isna(r[c_worker]) else "",
+                "location": str(r[c_loc]).strip() if c_loc is not None and not pd.isna(r[c_loc]) else "",
+                "category": cat, "product_name": pname, "qty": qty,
+                "hours": num(r[c_hours]) if c_hours else 0.0,
+                "unit_price": up,
+                "prod_amount": num(r[c_amount]) if c_amount else round(qty * up, 2),
+                "labor_cost": num(r[c_labor]) if c_labor else 0.0,
+                "unit_cost": uc,
+                "total_cost": num(r[c_tcost]) if c_tcost else round(qty * uc, 2),
+                "grade": str(r[c_grade]).strip() if c_grade is not None and not pd.isna(r[c_grade]) else "",
+            })
+        except Exception as e:
+            errors.append(str(e))
+    return {"rows": rows, "errors": errors, "sheet": target_name}
+
+
+def _prod_hash(r: dict) -> str:
+    import hashlib
+    key = "|".join(str(r.get(k, "")) for k in
+                    ("prod_date", "category", "product_name", "qty", "worker", "unit_price"))
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def apply_production(db: Session, rows: list[dict], warehouse_id: int,
+                     user: Optional[str] = None, batch_id: Optional[str] = None) -> dict:
+    """생산 행을 inventory_production에 적재(dedup). 품목류/품목명→마스터 매핑."""
+    cat_map, scm_map = _production_maps(db)
+    existing = {h for (h,) in db.query(InventoryProduction.dedup_hash).all()}
+    applied = dup = 0
+    unmatched: dict[str, float] = {}
+    for r in rows:
+        h = _prod_hash(r)
+        if h in existing:
+            dup += 1
+            continue
+        pid = _resolve_prod(cat_map, scm_map, r.get("category"), r.get("product_name"))
+        if not pid:
+            key = r.get("category") or r.get("product_name") or "?"
+            unmatched[key] = unmatched.get(key, 0.0) + float(r.get("qty") or 0)
+        db.add(InventoryProduction(
+            batch_id=batch_id,
+            prod_date=date.fromisoformat(r["prod_date"]),
+            worker=r.get("worker") or None, location=r.get("location") or None,
+            category=r.get("category") or None, product_name=r.get("product_name") or None,
+            qty=float(r.get("qty") or 0), hours=float(r.get("hours") or 0),
+            unit_price=float(r.get("unit_price") or 0), prod_amount=float(r.get("prod_amount") or 0),
+            labor_cost=float(r.get("labor_cost") or 0), unit_cost=float(r.get("unit_cost") or 0),
+            total_cost=float(r.get("total_cost") or 0), grade=r.get("grade") or None,
+            product_id=pid, warehouse_id=warehouse_id, dedup_hash=h, created_by=user,
+        ))
+        existing.add(h)
+        applied += 1
+    db.commit()
+    unmatched_list = sorted(({"key": k, "qty": round(v, 1)} for k, v in unmatched.items()),
+                            key=lambda x: -x["qty"])
+    return {"applied": applied, "duplicate": dup, "unmatched_count": len(unmatched_list),
+            "unmatched": unmatched_list}
+
+
+def production_dashboard(db: Session, start: Optional[date] = None,
+                         end: Optional[date] = None) -> dict:
+    """생산 대시보드: 총생산량·생산액·원가 + 일별/품목류별/담당자별/등급별 집계."""
+    q = db.query(InventoryProduction)
+    if start:
+        q = q.filter(InventoryProduction.prod_date >= start)
+    if end:
+        q = q.filter(InventoryProduction.prod_date <= end)
+    recs = q.all()
+    tot_qty = tot_amt = tot_cost = tot_hours = 0.0
+    by_cat: dict[str, dict] = {}
+    by_worker: dict[str, dict] = {}
+    by_month: dict[str, dict] = {}
+    by_grade: dict[str, float] = {}
+    for r in recs:
+        tot_qty += r.qty or 0; tot_amt += r.prod_amount or 0
+        tot_cost += r.total_cost or 0; tot_hours += r.hours or 0
+        c = r.category or "미분류"
+        by_cat.setdefault(c, {"qty": 0.0, "amount": 0.0, "cost": 0.0})
+        by_cat[c]["qty"] += r.qty or 0; by_cat[c]["amount"] += r.prod_amount or 0; by_cat[c]["cost"] += r.total_cost or 0
+        w = r.worker or "미상"
+        by_worker.setdefault(w, {"qty": 0.0, "amount": 0.0, "hours": 0.0})
+        by_worker[w]["qty"] += r.qty or 0; by_worker[w]["amount"] += r.prod_amount or 0; by_worker[w]["hours"] += r.hours or 0
+        mk = f"{r.prod_date.year}-{r.prod_date.month:02d}" if r.prod_date else "?"
+        by_month.setdefault(mk, {"qty": 0.0, "amount": 0.0, "cost": 0.0})
+        by_month[mk]["qty"] += r.qty or 0; by_month[mk]["amount"] += r.prod_amount or 0; by_month[mk]["cost"] += r.total_cost or 0
+        g = r.grade or "미분류"
+        by_grade[g] = by_grade.get(g, 0.0) + (r.qty or 0)
+    return {
+        "start": start.isoformat() if start else None,
+        "end": end.isoformat() if end else None,
+        "record_count": len(recs),
+        "total_qty": round(tot_qty), "total_amount": round(tot_amt),
+        "total_cost": round(tot_cost), "total_hours": round(tot_hours, 1),
+        "cost_ratio": round(tot_cost / tot_amt * 100, 1) if tot_amt else 0,
+        "by_category": [{"category": k, **{kk: round(vv) for kk, vv in v.items()}}
+                        for k, v in sorted(by_cat.items(), key=lambda x: -x[1]["qty"])],
+        "by_worker": [{"worker": k, **{kk: round(vv) for kk, vv in v.items()}}
+                      for k, v in sorted(by_worker.items(), key=lambda x: -x[1]["qty"])],
+        "by_month": [{"month": k, **{kk: round(vv) for kk, vv in v.items()}}
+                     for k, v in sorted(by_month.items())],
+        "by_grade": [{"grade": k, "qty": round(v)} for k, v in sorted(by_grade.items(), key=lambda x: -x[1])],
     }

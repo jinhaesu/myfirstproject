@@ -26,6 +26,7 @@ from app.db_models import (
     InventorySafetyStock,
     InventoryCountSession,
     InventoryCountLine,
+    InventoryProduction,
     ChannelSalesDailyProduct,
     ProductMaster,
 )
@@ -557,3 +558,125 @@ def delete_count_session(sid: int, db: Session = Depends(get_db),
     db.delete(s)
     db.commit()
     return {"ok": True}
+
+
+# ──────────────────────────────────────────────
+# 생산 실적 (RAW-DATA 엑셀 → 재고 보충)
+# ──────────────────────────────────────────────
+
+@router.post("/production/upload")
+async def upload_production(
+    file: UploadFile = File(...),
+    warehouse_id: int = Query(..., description="생산 입고 창고(재고 보충 대상)"),
+    dry_run: bool = Query(True),
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """생산 RAW-DATA 엑셀 업로드. dry_run=true면 파싱·매칭 미리보기, false면 적재+재고 보충."""
+    content = await file.read()
+    suffix = os.path.splitext(file.filename or "")[1] or ".xlsx"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tf:
+        tf.write(content)
+        tmp_path = tf.name
+    try:
+        parsed = inv.parse_production_excel(tmp_path)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+
+    rows = parsed.get("rows", [])
+    if parsed.get("errors") and not rows:
+        return {"ok": False, "parse_errors": parsed["errors"],
+                "headers": parsed.get("headers"), "sheet": parsed.get("sheet")}
+
+    if dry_run:
+        cat_map, scm_map = inv._production_maps(db)
+        matched = unmatched = 0
+        unmatched_keys: dict[str, float] = {}
+        for r in rows:
+            pid = inv._resolve_prod(cat_map, scm_map, r.get("category"), r.get("product_name"))
+            if pid:
+                matched += 1
+            else:
+                unmatched += 1
+                k = r.get("category") or r.get("product_name") or "?"
+                unmatched_keys[k] = unmatched_keys.get(k, 0.0) + float(r.get("qty") or 0)
+        return {
+            "ok": True, "dry_run": True, "sheet": parsed.get("sheet"),
+            "row_count": len(rows), "matched": matched, "unmatched": unmatched,
+            "unmatched_keys": sorted(({"key": k, "qty": round(v)} for k, v in unmatched_keys.items()),
+                                     key=lambda x: -x["qty"]),
+            "rows": rows[:100],
+        }
+
+    batch_id = uuid.uuid4().hex
+    res = inv.apply_production(db, rows, warehouse_id=warehouse_id,
+                              user=user.get("email"), batch_id=batch_id)
+    return {"ok": True, "dry_run": False, "batch_id": batch_id, "row_count": len(rows), **res}
+
+
+@router.get("/production")
+def list_production(
+    start: Optional[str] = None, end: Optional[str] = None,
+    category: Optional[str] = None, worker: Optional[str] = None,
+    limit: int = 300, db: Session = Depends(get_db),
+):
+    q = db.query(InventoryProduction)
+    s, e = _parse_date(start), _parse_date(end)
+    if s:
+        q = q.filter(InventoryProduction.prod_date >= s)
+    if e:
+        q = q.filter(InventoryProduction.prod_date <= e)
+    if category:
+        q = q.filter(InventoryProduction.category == category)
+    if worker:
+        q = q.filter(InventoryProduction.worker == worker)
+    total = q.count()
+    q = q.order_by(InventoryProduction.prod_date.desc(), InventoryProduction.id.desc()).limit(limit)
+    products = inv.load_products(db)
+    rows = [{
+        "id": r.id, "prod_date": r.prod_date.isoformat() if r.prod_date else None,
+        "worker": r.worker, "location": r.location, "category": r.category,
+        "product_name": r.product_name, "qty": r.qty, "hours": r.hours,
+        "unit_price": r.unit_price, "prod_amount": r.prod_amount,
+        "unit_cost": r.unit_cost, "total_cost": r.total_cost, "grade": r.grade,
+        "matched": r.product_id is not None,
+        "matched_name": products.get(r.product_id, {}).get("name") if r.product_id else None,
+        "batch_id": r.batch_id,
+    } for r in q.all()]
+    return {"rows": rows, "total": total, "shown": len(rows)}
+
+
+@router.get("/production/dashboard")
+def production_dashboard(start: Optional[str] = None, end: Optional[str] = None,
+                         db: Session = Depends(get_db)):
+    return inv.production_dashboard(db, start=_parse_date(start), end=_parse_date(end))
+
+
+@router.delete("/production/batch/{batch_id}")
+def delete_production_batch(batch_id: str, db: Session = Depends(get_db),
+                            user: dict = Depends(get_current_user)):
+    n = db.query(InventoryProduction).filter(InventoryProduction.batch_id == batch_id).delete()
+    db.commit()
+    return {"ok": True, "deleted": n}
+
+
+@router.get("/production/batches")
+def list_production_batches(db: Session = Depends(get_db)):
+    from sqlalchemy import func as _f
+    rows = db.query(
+        InventoryProduction.batch_id,
+        _f.count(InventoryProduction.id),
+        _f.sum(InventoryProduction.qty),
+        _f.min(InventoryProduction.prod_date),
+        _f.max(InventoryProduction.prod_date),
+        _f.min(InventoryProduction.created_at),
+    ).filter(InventoryProduction.batch_id.isnot(None)).group_by(InventoryProduction.batch_id).all()
+    out = [{
+        "batch_id": b, "count": c, "qty": round(float(q or 0)),
+        "period": f"{d1}~{d2}", "uploaded_at": ca.isoformat() if ca else None,
+    } for b, c, q, d1, d2, ca in rows]
+    out.sort(key=lambda x: x["uploaded_at"] or "", reverse=True)
+    return {"batches": out}
