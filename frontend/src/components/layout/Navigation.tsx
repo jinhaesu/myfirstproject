@@ -44,11 +44,12 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: '물류·재고 관리',
+    label: '물류·생산 관리',
     icon: 'inventory',
     pathPrefix: ['/inventory'],
     items: [
-      { href: '/inventory', label: '재고 대시보드', icon: 'inventory' },
+      { href: '/inventory', label: '물류/재고 실적', icon: 'inventory' },
+      { href: '/inventory/logistics', label: '물류 작업 실적', icon: 'orders' },
       { href: '/inventory/production', label: '생산 실적', icon: 'production' },
     ],
   },

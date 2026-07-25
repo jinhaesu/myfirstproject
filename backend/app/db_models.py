@@ -1559,6 +1559,29 @@ class InventoryProduction(Base):
     created_at = Column(DateTime, default=func.now())
 
 
+class InventoryLogisticsWork(Base):
+    """물류 작업 실적 (물류 RAW-DATA 1행 = 1작업). 생산일보의 물류 버전.
+    작업종류(B2B/단상자/택배 등)·작업명·작업량·투여시간·단가·작업액·주야."""
+    __tablename__ = "inventory_logistics_work"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    batch_id = Column(String(64), nullable=True, index=True)
+    work_date = Column(Date, nullable=False, index=True)
+    worker = Column(String(100), nullable=True)          # 책임자
+    team = Column(String(50), nullable=True)             # 소속 조 (1조/2조/3조)
+    work_type = Column(String(100), nullable=True, index=True)  # 작업 종류
+    work_name = Column(String(500), nullable=True)       # 작업명(상세)
+    qty = Column(Float, default=0)                       # 작업량
+    hours = Column(Float, default=0)                     # 작업 투여 총 시간
+    unit_price = Column(Float, default=0)                # 작업 단가
+    amount = Column(Float, default=0)                    # 총 작업액
+    labor_cost = Column(Float, default=0)                # 노무비(시급×시간, 야간1.5)
+    shift = Column(String(30), nullable=True)            # 주간/야간 구분
+    dedup_hash = Column(String(64), nullable=False, unique=True, index=True)
+    created_by = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+
+
 class AppSetting(Base):
     """전역 설정 키-값 (관리자 전용). 예: bom_access_pw_hash 등 보안 게이트 암호."""
     __tablename__ = "app_setting"

@@ -78,9 +78,17 @@ def _clock_hours(ci, co):
         return 0.0
 
 
-def production_labor_daily(start_iso: str, end_iso: str) -> dict:
-    """생산팀 일별 노무시간 {date: {regular, dispatch}} (정규직 실근태 clock + 파견/알바 사업장)."""
-    key = ("daily", start_iso, end_iso)
+def _is_logistics_dept(dept: str) -> bool:
+    return "물류" in (dept or "")
+
+
+def _is_logistics_wp(wp: str) -> bool:
+    return "물류" in (wp or "")
+
+
+def _labor_daily(start_iso: str, end_iso: str, tag: str, dept_fn, wp_fn) -> dict:
+    """팀별 일별 노무시간 {date: {regular, dispatch}} — 정규직 실근태 clock + 파견/알바 사업장."""
+    key = ("daily", tag, start_iso, end_iso)
     now = time.time()
     c = _CACHE.get(key)
     if c and c["exp"] > now:
@@ -89,11 +97,10 @@ def production_labor_daily(start_iso: str, end_iso: str) -> dict:
     daily = defaultdict(lambda: {"regular": 0.0, "dispatch": 0.0})
     for ym in _months_between(start_iso, end_iso):
         y2, m2 = ym[:4], str(int(ym[5:7]))
-        # 정규직 — 실제 근태 clock in/out (생산 부서만)
         try:
             summ = _get(f"/api/regular/attendance-summary?year={y2}&month={m2}")
             for emp in summ.get("employees", []):
-                if not _is_production_dept(emp.get("department") or ""):
+                if not dept_fn(emp.get("department") or ""):
                     continue
                 for a in emp.get("actuals", []):
                     d = (a.get("date") or "")[:10]
@@ -104,14 +111,13 @@ def production_labor_daily(start_iso: str, end_iso: str) -> dict:
                         daily[d]["regular"] += h
         except Exception:
             pass
-        # 파견/알바 — 근태 raw rows (생산 사업장만)
         try:
             s, e = _month_bounds(ym)
             page = 1
             while page <= 10:
                 res = _get(f"/api/attendance?startDate={s}&endDate={e}&limit=1000&page={page}")
                 for r in res.get("records", []):
-                    if not _is_production_wp(r.get("workplace", "")):
+                    if not wp_fn(r.get("workplace", "")):
                         continue
                     d = (str(r.get("date") or ""))[:10]
                     if not (start_iso <= d <= end_iso):
@@ -130,9 +136,8 @@ def production_labor_daily(start_iso: str, end_iso: str) -> dict:
     return out
 
 
-def production_pay_by_month(months: list[str]) -> dict:
-    """생산팀 정규직 실지급 노무비 {ym: gross_pay합} (급여대장, 생산 부서만)."""
-    key = ("pay", tuple(months))
+def _pay_by_month(months: list[str], tag: str, dept_fn) -> dict:
+    key = ("pay", tag, tuple(months))
     now = time.time()
     c = _CACHE.get(key)
     if c and c["exp"] > now:
@@ -143,13 +148,29 @@ def production_pay_by_month(months: list[str]) -> dict:
         try:
             reg = _get(f"/api/regular/payroll-calc?year_month={ym}")
             for p in reg.get("results", []):
-                if _is_production_dept(p.get("department") or ""):
+                if dept_fn(p.get("department") or ""):
                     pay += float(p.get("gross_pay") or 0)
         except Exception:
             pass
         out[ym] = round(pay)
     _CACHE[key] = {"data": out, "exp": now + _TTL}
     return out
+
+
+def production_labor_daily(start_iso: str, end_iso: str) -> dict:
+    return _labor_daily(start_iso, end_iso, "prod", _is_production_dept, _is_production_wp)
+
+
+def production_pay_by_month(months: list[str]) -> dict:
+    return _pay_by_month(months, "prod", _is_production_dept)
+
+
+def logistics_labor_daily(start_iso: str, end_iso: str) -> dict:
+    return _labor_daily(start_iso, end_iso, "logi", _is_logistics_dept, _is_logistics_wp)
+
+
+def logistics_pay_by_month(months: list[str]) -> dict:
+    return _pay_by_month(months, "logi", _is_logistics_dept)
 
 
 def health() -> dict:

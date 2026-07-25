@@ -28,10 +28,12 @@ from app.db_models import (
     InventoryCountLine,
     InventoryProduction,
     InventoryWorkerPhone,
+    InventoryLogisticsWork,
     ChannelSalesDailyProduct,
     ProductMaster,
 )
 from app.services import inventory_service as inv
+from app.services import logistics_service as logi
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 logger = logging.getLogger(__name__)
@@ -760,6 +762,139 @@ def production_catalog(category: Optional[str] = None, db: Session = Depends(get
 def product_cost(db: Session = Depends(get_db)):
     """품목류(csa_product_master)별 개당 원가·노무비 (생산이력 기반)."""
     return {"costs": inv.product_cost_map(db)}
+
+
+# ──────────────────────────────────────────────
+# 물류 작업 실적
+# ──────────────────────────────────────────────
+
+@router.post("/logistics/upload")
+async def upload_logistics(file: UploadFile = File(...), dry_run: bool = Query(True),
+                           db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    content = await file.read()
+    suffix = os.path.splitext(file.filename or "")[1] or ".xlsx"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tf:
+        tf.write(content); tmp_path = tf.name
+    try:
+        parsed = logi.parse_logistics_excel(tmp_path)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+    rows = parsed.get("rows", [])
+    if parsed.get("errors") and not rows:
+        return {"ok": False, "parse_errors": parsed["errors"], "headers": parsed.get("headers"), "sheet": parsed.get("sheet")}
+    if dry_run:
+        return {"ok": True, "dry_run": True, "sheet": parsed.get("sheet"), "row_count": len(rows), "rows": rows[:100]}
+    batch_id = uuid.uuid4().hex
+    res = logi.apply_logistics(db, rows, user=user.get("email"), batch_id=batch_id)
+    return {"ok": True, "dry_run": False, "batch_id": batch_id, "row_count": len(rows), **res}
+
+
+@router.get("/logistics")
+def list_logistics(start: Optional[str] = None, end: Optional[str] = None,
+                   work_type: Optional[str] = None, worker: Optional[str] = None,
+                   limit: int = 400, db: Session = Depends(get_db)):
+    q = db.query(InventoryLogisticsWork)
+    s, e = _parse_date(start), _parse_date(end)
+    if s:
+        q = q.filter(InventoryLogisticsWork.work_date >= s)
+    if e:
+        q = q.filter(InventoryLogisticsWork.work_date <= e)
+    if work_type:
+        q = q.filter(InventoryLogisticsWork.work_type == work_type)
+    if worker:
+        q = q.filter(InventoryLogisticsWork.worker == worker)
+    total = q.count()
+    q = q.order_by(InventoryLogisticsWork.work_date.desc(), InventoryLogisticsWork.id.desc()).limit(limit)
+    rows = [{
+        "id": r.id, "work_date": r.work_date.isoformat() if r.work_date else None,
+        "worker": r.worker, "team": r.team, "work_type": r.work_type, "work_name": r.work_name,
+        "qty": r.qty, "hours": r.hours, "unit_price": r.unit_price, "amount": r.amount,
+        "labor_cost": r.labor_cost, "shift": r.shift, "batch_id": r.batch_id,
+    } for r in q.all()]
+    return {"rows": rows, "total": total, "shown": len(rows)}
+
+
+@router.get("/logistics/dashboard")
+def logistics_dashboard(start: Optional[str] = None, end: Optional[str] = None, db: Session = Depends(get_db)):
+    return logi.logistics_dashboard(db, start=_parse_date(start), end=_parse_date(end))
+
+
+@router.get("/logistics/timeseries")
+def logistics_timeseries(granularity: str = "day", start: Optional[str] = None, end: Optional[str] = None,
+                         work_type: Optional[str] = None, db: Session = Depends(get_db)):
+    gran = granularity if granularity in ("day", "week", "month") else "day"
+    return logi.logistics_timeseries(db, granularity=gran, start=_parse_date(start), end=_parse_date(end), work_type=work_type)
+
+
+@router.get("/logistics/categories")
+def logistics_categories(db: Session = Depends(get_db)):
+    return {"categories": logi.logistics_categories(db)}
+
+
+@router.get("/logistics/catalog")
+def logistics_catalog(db: Session = Depends(get_db)):
+    return {"items": logi.logistics_catalog(db)}
+
+
+@router.get("/logistics/batches")
+def logistics_batches(db: Session = Depends(get_db)):
+    from sqlalchemy import func as _f
+    rows = db.query(InventoryLogisticsWork.batch_id, _f.count(InventoryLogisticsWork.id),
+                    _f.sum(InventoryLogisticsWork.qty), _f.min(InventoryLogisticsWork.work_date),
+                    _f.max(InventoryLogisticsWork.work_date), _f.min(InventoryLogisticsWork.created_at)).filter(
+        InventoryLogisticsWork.batch_id.isnot(None)).group_by(InventoryLogisticsWork.batch_id).all()
+    out = [{"batch_id": b, "count": c, "qty": round(float(q or 0)), "period": f"{d1}~{d2}",
+            "uploaded_at": ca.isoformat() if ca else None} for b, c, q, d1, d2, ca in rows]
+    out.sort(key=lambda x: x["uploaded_at"] or "", reverse=True)
+    return {"batches": out}
+
+
+@router.delete("/logistics/batch/{batch_id}")
+def delete_logistics_batch(batch_id: str, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    n = db.query(InventoryLogisticsWork).filter(InventoryLogisticsWork.batch_id == batch_id).delete()
+    db.commit()
+    return {"ok": True, "deleted": n}
+
+
+class LogisticsManualIn(BaseModel):
+    work_date: str
+    worker: Optional[str] = None
+    team: Optional[str] = None
+    work_type: str
+    work_name: Optional[str] = None
+    qty: float
+    hours: float = 0
+    unit_price: float = 0
+    shift: str = "주간"
+
+
+@router.post("/logistics/manual")
+def add_logistics_manual(body: LogisticsManualIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    res = logi.add_logistics_record(db, body.model_dump(), user=user.get("email"))
+    if not res.get("ok"):
+        raise HTTPException(400, res.get("msg") or res.get("error") or "실패")
+    return res
+
+
+@router.delete("/logistics/{rec_id}")
+def delete_logistics_record(rec_id: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    n = db.query(InventoryLogisticsWork).filter(InventoryLogisticsWork.id == rec_id).delete()
+    db.commit()
+    return {"ok": True, "deleted": n}
+
+
+@router.get("/logistics-labor-compare")
+def logistics_labor_compare(start: str, end: str, granularity: str = "day", db: Session = Depends(get_db)):
+    s, e = _parse_date(start), _parse_date(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    try:
+        return logi.logistics_compare(db, start=s, end=e, granularity=granularity)
+    except Exception as ex:
+        return {"error": str(ex)[:200], "series": []}
 
 
 @router.get("/labor-compare")

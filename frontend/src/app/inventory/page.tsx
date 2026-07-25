@@ -150,7 +150,7 @@ export default function InventoryPage() {
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-[#F7F8F8]">물류·재고 관리</h1>
+            <h1 className="text-xl font-bold text-[#F7F8F8]">물류/재고 실적</h1>
             <p className="text-sm text-[#8A8F98] mt-0.5">판매 데이터 연동 재고 — 기초재고에서 출발해 판매만큼 자동 차감됩니다.</p>
           </div>
         </div>
@@ -186,6 +186,7 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
   const [whId, setWhId] = useState<number | ''>('');
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [heat, setHeat] = useState<{ months: string[]; rows: HeatRow[] }>({ months: [], rows: [] });
+  const [logi, setLogi] = useState<any>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -193,6 +194,7 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
     setLoading(false);
   }, [range.end]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { getJSON<any>(`/inventory/logistics/dashboard?start=${range.start}&end=${range.end}`, null).then(setLogi); }, [range]);
 
   const loadTrend = useCallback(async () => {
     const whq = whId ? `&warehouse_id=${whId}` : '';
@@ -275,6 +277,36 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
               </div>
             );
           })()}
+
+          {/* 물류 작업 요약 (생산 실적 대시보드 기능 병합) */}
+          {logi && logi.record_count > 0 && (
+            <div className={`${C.card} p-4 border-l-2 border-l-[#00B8CC]`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-[#F7F8F8]">물류 작업 요약 <span className="text-xs text-[#62666D]">({range.start}~{range.end})</span></div>
+                <a href="/inventory/logistics" className="text-xs text-[#828FFF] hover:underline">물류 작업 실적 →</a>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+                <StatCard label="총 작업량" value={numShort(logi.total_qty)} sub={`${fmt(logi.record_count)}건`} />
+                <StatCard label="총 작업액" value={numShort(logi.total_amount)} />
+                <StatCard label="노무비" value={numShort(logi.total_labor)} tone="text-[#00B8CC]" sub={`노무비율 ${logi.labor_ratio}%`} />
+                <StatCard label="채산성" value={`${logi.profitability}배`} tone={logi.profitability >= 3 ? 'text-[#3FBE5B]' : 'text-[#F0BF00]'} />
+                <StatCard label="시간당 작업량" value={fmt(logi.hourly_qty)} sub={`${numShort(logi.total_hours)}h`} />
+              </div>
+              {logi.by_type?.length > 0 && (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={logi.by_type.slice(0, 8)} layout="vertical" margin={{ left: 30 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
+                    <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 11 }} />
+                    <YAxis type="category" dataKey="work_type" tick={{ fill: '#8A8F98', fontSize: 11 }} width={80} />
+                    <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
+                    <Bar dataKey="qty" name="작업량" radius={[0, 4, 4, 0]}>
+                      {logi.by_type.slice(0, 8).map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          )}
 
           {/* 기간 재고 흐름 + 입출고 히트맵 */}
           <div className={`${C.card} p-4`}>
