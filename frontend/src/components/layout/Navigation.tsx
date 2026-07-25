@@ -17,7 +17,10 @@ interface NavGroup {
   icon: string;
   items: NavItem[];
   pathPrefix: string[];
+  ownerOnly?: boolean;
 }
+
+const OWNER_EMAIL = 'lion9080@joinandjoin.com';
 
 const navGroups: NavGroup[] = [
   {
@@ -64,6 +67,15 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/sabangnet/cs', label: '게시판 CS 대응', icon: 'cs' },
       { href: '/sabangnet/voice-cs', label: '음성 CS 대응', icon: 'voiceCs' },
+    ],
+  },
+  {
+    label: '관리',
+    icon: 'settlement',
+    pathPrefix: ['/admin'],
+    ownerOnly: true,
+    items: [
+      { href: '/admin', label: '보안·설정 관리', icon: 'settlement' },
     ],
   },
 ];
@@ -164,6 +176,7 @@ const iconMap: Record<string, JSX.Element> = {
 export function Navigation() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const visibleGroups = navGroups.filter((g) => !g.ownerOnly || (user?.email || '').toLowerCase() === OWNER_EMAIL);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -203,7 +216,7 @@ export function Navigation() {
 
             {/* 데스크톱 네비게이션 */}
             <nav className="hidden md:flex items-center gap-1" ref={dropdownRef}>
-              {navGroups.map((group) => {
+              {visibleGroups.map((group) => {
                 const active = isGroupActive(group);
                 const isOpen = openGroup === group.label;
                 return (
@@ -305,7 +318,7 @@ export function Navigation() {
         {/* 모바일 메뉴 */}
         {mobileOpen && (
           <div className="md:hidden mt-3 pt-3 border-t border-[#23252A] pb-2">
-            {navGroups.map((group) => (
+            {visibleGroups.map((group) => (
               <div key={group.label} className="mb-3">
                 <p className="px-3 py-1 text-xs font-bold text-[#62666D] uppercase tracking-wider">
                   {group.label}

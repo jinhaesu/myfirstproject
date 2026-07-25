@@ -58,8 +58,8 @@ const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
 const wonShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억'; if (a >= 1e4) return Math.round(n / 1e4).toLocaleString('ko-KR') + '만'; return '₩' + Math.round(n || 0).toLocaleString('ko-KR'); };
 const numShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(2).replace(/\.00$/, '') + '억'; if (a >= 1e4) return (n / 1e4).toFixed(1).replace(/\.0$/, '') + '만'; return Math.round(n || 0).toLocaleString('ko-KR'); };
 const COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#00B8CC', '#EB5757', '#A855F7', '#F97316', '#14B8A6'];
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const todayISO = () => iso(new Date());
 function presetRange(kind: string): { start: string; end: string } {
   const now = new Date();
   const y = now.getFullYear(), m = now.getMonth();
@@ -225,7 +225,7 @@ function DashTab() {
           {/* 근태(mysixthproject) 노무시간·노무비 대조 */}
           <div className={`${C.card} p-4 border-l-2 border-l-[#F0BF00]`}>
             <div className="flex items-center gap-2 mb-1">
-              <div className="text-sm font-semibold text-[#F7F8F8]">노무시간·노무비 대조 (근태 시스템 연동)</div>
+              <div className="text-sm font-semibold text-[#F7F8F8]">노무시간·노무비 대조 (근태 시스템 연동 · 월별)</div>
               {laborLoading && <span className="text-xs text-[#62666D]">근태 불러오는 중…</span>}
             </div>
             {labor?.error && <div className="text-xs text-[#EB5757] mb-2">연동 오류: {labor.error}</div>}

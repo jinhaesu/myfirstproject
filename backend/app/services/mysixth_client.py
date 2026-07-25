@@ -82,20 +82,35 @@ def labor_by_month(months: list[str]) -> dict:
             rec["ok"] = True
         except Exception as e2:
             rec["error"] = str(e2)[:150]
-        # 2) 정규직 — regular payroll-calc (생산·물류 부서)
+        # 2) 정규직 노무시간 — 실제 근태(clock in/out) 기반, 생산·물류 부서
+        try:
+            y2, m2 = ym[:4], str(int(ym[5:7]))
+            summ = _get(f"/api/regular/attendance-summary?year={y2}&month={m2}")
+            for emp in summ.get("employees", []):
+                dept = emp.get("department") or ""
+                if not _is_production_dept(dept):
+                    continue
+                for a in emp.get("actuals", []):
+                    ci, co = a.get("clock_in_time"), a.get("clock_out_time")
+                    if not (ci and co):
+                        continue
+                    try:
+                        t1 = datetime.fromisoformat(ci.replace("Z", "+00:00"))
+                        t2 = datetime.fromisoformat(co.replace("Z", "+00:00"))
+                        h = (t2 - t1).total_seconds() / 3600
+                    except Exception:
+                        continue
+                    if 0 < h < 20:  # 이상치 제거
+                        rec["regular_hours"] += h
+                        rec["by_dept"][dept] = round(rec["by_dept"].get(dept, 0) + h, 1)
+        except Exception:
+            pass
+        # 정규직 노무비 — 급여대장 실지급 총급여, 생산·물류 부서
         try:
             reg = _get(f"/api/regular/payroll-calc?year_month={ym}")
             for p in reg.get("results", []):
-                dept = p.get("department") or ""
-                if not _is_production_dept(dept):
-                    continue
-                awd = float(p.get("actual_work_days") or p.get("work_days") or 0)
-                ot = float(p.get("overtime_hours") or 0)
-                hol = float(p.get("holiday_hours") or 0)
-                h = awd * 8 + ot + hol
-                rec["regular_hours"] += h
-                rec["regular_pay"] += float(p.get("gross_pay") or 0)
-                rec["by_dept"][dept] = round(rec["by_dept"].get(dept, 0) + h, 1)
+                if _is_production_dept(p.get("department") or ""):
+                    rec["regular_pay"] += float(p.get("gross_pay") or 0)
         except Exception:
             pass
         rec["att_hours"] = round(rec["dispatch_hours"] + rec["regular_hours"], 1)

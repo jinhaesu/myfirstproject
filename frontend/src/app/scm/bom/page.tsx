@@ -121,9 +121,6 @@ const TYPE_BADGE: Record<string, string> = {
 const won = (n: number) => `${Math.round(n || 0).toLocaleString('ko-KR')}원`;
 const inputCls = 'bg-[#08090A] border border-[#23252A] rounded-lg text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50';
 
-// BOM 접근 암호 (보안사항). 변경 원하면 이 값을 바꾸세요.
-const BOM_ACCESS_PW = 'nuldam-bom';
-
 export default function BomPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -135,8 +132,9 @@ export default function BomPage() {
   useEffect(() => {
     if (typeof window !== 'undefined' && sessionStorage.getItem('bom_unlocked') === '1') setBomUnlocked(true);
   }, []);
-  const tryUnlock = () => {
-    if (bomPwInput === BOM_ACCESS_PW) { sessionStorage.setItem('bom_unlocked', '1'); setBomUnlocked(true); }
+  const tryUnlock = async () => {
+    const res = await mutate('/api/admin/verify-gate', 'POST', { key: 'bom_access', password: bomPwInput });
+    if (res.ok && (res.data as any)?.ok) { sessionStorage.setItem('bom_unlocked', '1'); setBomUnlocked(true); }
     else setBomPwErr(true);
   };
 

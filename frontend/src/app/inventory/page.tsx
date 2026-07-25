@@ -98,7 +98,7 @@ function StatCard({ label, value, sub, tone }: { label: string; value: string; s
 // ─────────────────────────────────────────────────────────
 // Date helpers
 // ─────────────────────────────────────────────────────────
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const todayISO = () => iso(new Date());
 function presetRange(kind: string): { start: string; end: string } {
   const now = new Date();

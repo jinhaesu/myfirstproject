@@ -1559,6 +1559,16 @@ class InventoryProduction(Base):
     created_at = Column(DateTime, default=func.now())
 
 
+class AppSetting(Base):
+    """전역 설정 키-값 (관리자 전용). 예: bom_access_pw_hash 등 보안 게이트 암호."""
+    __tablename__ = "app_setting"
+
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, nullable=True)
+    updated_by = Column(String(200), nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
 class InventoryWorkerPhone(Base):
     """생산 담당자 핸드폰 리스트 — 실적 입력 요청 문자 발송 대상."""
     __tablename__ = "inventory_worker_phone"
