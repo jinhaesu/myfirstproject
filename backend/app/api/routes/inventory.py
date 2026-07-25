@@ -763,13 +763,13 @@ def product_cost(db: Session = Depends(get_db)):
 
 
 @router.get("/labor-compare")
-def labor_compare(start: str, end: str, db: Session = Depends(get_db)):
-    """생산실적 투여시간·노무비 vs mysixthproject 근태 노무시간·노무비 월별 대조."""
+def labor_compare(start: str, end: str, granularity: str = "day", db: Session = Depends(get_db)):
+    """생산실적 투여시간 vs mysixthproject 생산팀 근태 노무시간 (일/주/월 대조)."""
     s, e = _parse_date(start), _parse_date(end)
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
     try:
-        return inv.labor_compare(db, start=s, end=e)
+        return inv.labor_compare(db, start=s, end=e, granularity=granularity)
     except Exception as ex:
         return {"error": str(ex)[:200], "series": []}
 

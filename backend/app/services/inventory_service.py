@@ -1235,48 +1235,69 @@ def stock_heatmap(db: Session, start: date, end: date,
     return {"months": months, "rows": rows, "warehouse_id": warehouse_id}
 
 
-def labor_compare(db: Session, start: date, end: date) -> dict:
-    """생산실적 투여시간·산출노무비 vs mysixthproject 근태 노무시간·실지급 노무비 (월별 대조)."""
+def _date_bucket(d: date, gran: str) -> str:
+    if gran == "day":
+        return d.isoformat()
+    if gran == "week":
+        iso = d.isocalendar()
+        return f"{iso[0]}-W{iso[1]:02d}"
+    return f"{d.year}-{d.month:02d}"
+
+
+def labor_compare(db: Session, start: date, end: date, granularity: str = "day") -> dict:
+    """생산실적 투여시간 vs mysixthproject 생산팀 근태 노무시간 — 일/주/월 대조.
+    근태 = 생산팀만(정규직 생산부서 실근태 clock + 파견/알바 생산사업장, 물류·카페 제외)."""
     from app.services import mysixth_client
-    months = _month_list(start, end)
+    gran = granularity if granularity in ("day", "week", "month") else "day"
 
-    # 생산실적 월별 (투여시간·산출노무비·층별시간)
-    prod_col_y = func.extract("year", InventoryProduction.prod_date)
-    prod_col_m = func.extract("month", InventoryProduction.prod_date)
-    pq = db.query(
-        prod_col_y, prod_col_m,
-        func.coalesce(func.sum(InventoryProduction.hours), 0.0),
-        func.coalesce(func.sum(InventoryProduction.labor_cost), 0.0),
-    ).filter(InventoryProduction.prod_date >= start, InventoryProduction.prod_date <= end).group_by(prod_col_y, prod_col_m)
-    prod_m = {f"{int(y)}-{int(m):02d}": (float(h or 0), float(l or 0)) for y, m, h, l in pq.all()}
+    # 1) 생산일보 버킷 (투여시간·산출노무비)
+    pcol = func.date_trunc(gran, InventoryProduction.prod_date)
+    pq = db.query(pcol,
+                  func.coalesce(func.sum(InventoryProduction.hours), 0.0),
+                  func.coalesce(func.sum(InventoryProduction.labor_cost), 0.0)).filter(
+        InventoryProduction.prod_date >= start, InventoryProduction.prod_date <= end
+    ).group_by(pcol)
+    prod_b = {_trunc_label(dt, gran): (float(h or 0), float(l or 0)) for dt, h, l in pq.all()}
 
-    att = mysixth_client.labor_by_month(months)
+    # 2) 근태 일별 → 버킷 (생산팀만)
+    daily = mysixth_client.production_labor_daily(start.isoformat(), end.isoformat())
+    att_b: dict[str, dict] = {}
+    for dstr, v in daily.items():
+        try:
+            d = date.fromisoformat(dstr)
+        except Exception:
+            continue
+        lbl = _date_bucket(d, gran)
+        b = att_b.setdefault(lbl, {"regular": 0.0, "dispatch": 0.0})
+        b["regular"] += v.get("regular", 0); b["dispatch"] += v.get("dispatch", 0)
 
+    # 3) 노무비(월별) — 정규직 실지급 + 파견 환산
+    pay_m = mysixth_client.production_pay_by_month(_month_list(start, end))
+    tot_reg_pay = sum(pay_m.values())
+
+    labels = sorted(set(prod_b) | set(att_b))
     series = []
-    tot_ph = tot_ah = tot_pl = tot_al = tot_ae = 0.0
-    for ym in months:
-        ph, pl = prod_m.get(ym, (0.0, 0.0))
-        a = att.get(ym, {})
-        ah = float(a.get("att_hours") or 0)
-        al = float(a.get("att_cost") or 0)
-        ae = float(a.get("att_cost_est") or 0)
-        tot_ph += ph; tot_ah += ah; tot_pl += pl; tot_al += al; tot_ae += ae
+    tot_ph = tot_ah = tot_pl = tot_reg = tot_disp = 0.0
+    for lbl in labels:
+        ph, pl = prod_b.get(lbl, (0.0, 0.0))
+        a = att_b.get(lbl, {"regular": 0.0, "dispatch": 0.0})
+        reg, disp = a["regular"], a["dispatch"]
+        ah = reg + disp
+        tot_ph += ph; tot_ah += ah; tot_pl += pl; tot_reg += reg; tot_disp += disp
         series.append({
-            "month": ym,
+            "period": lbl,
             "prod_hours": round(ph, 1), "att_hours": round(ah, 1),
-            "dispatch_hours": a.get("dispatch_hours", 0), "regular_hours": a.get("regular_hours", 0),
-            "hours_diff": round(ph - ah, 1),
-            "hours_ratio": round(ph / ah, 2) if ah else 0,   # 생산투여÷근태 (1이면 일치)
-            "prod_labor": round(pl), "att_cost": round(al), "att_cost_est": round(ae),
-            "regular_pay": a.get("regular_pay", 0),
-            "by_workplace": a.get("by_workplace", {}), "by_dept": a.get("by_dept", {}),
-            "att_ok": a.get("ok", False),
+            "regular_hours": round(reg, 1), "dispatch_hours": round(disp, 1),
+            "hours_ratio": round(ph / ah, 2) if ah else 0,
+            "prod_labor": round(pl),
         })
+    tot_att_cost = round(tot_reg_pay + tot_disp * 15000)
     return {
-        "start": start.isoformat(), "end": end.isoformat(), "series": series,
+        "start": start.isoformat(), "end": end.isoformat(), "granularity": gran, "series": series,
         "total_prod_hours": round(tot_ph, 1), "total_att_hours": round(tot_ah, 1),
+        "total_regular_hours": round(tot_reg, 1), "total_dispatch_hours": round(tot_disp, 1),
         "total_hours_ratio": round(tot_ph / tot_ah, 2) if tot_ah else 0,
-        "total_prod_labor": round(tot_pl), "total_att_cost": round(tot_al),
-        "total_att_cost_est": round(tot_ae),
-        "note": "근태 노무시간 = 정규직(급여대장 생산·물류 부서, 근무일×8+연장+휴일) + 파견/알바(근태 사업장). 노무비 = 정규직 실지급 총급여 + 파견/알바 환산(시간×15,000). 비율(생산일보÷근태)이 1에 가까울수록 정합.",
+        "total_prod_labor": round(tot_pl), "total_att_cost": tot_att_cost,
+        "total_regular_pay": round(tot_reg_pay),
+        "note": "근태 노무시간 = 생산팀만(정규직 생산부서 실근태 clock in/out + 파견/알바 생산사업장). 물류·카페 제외. 노무비 = 정규직 실지급 + 파견/알바 환산(시간×15,000). 비율(생산일보÷근태) 1에 근접할수록 정합.",
     }

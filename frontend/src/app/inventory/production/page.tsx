@@ -104,7 +104,7 @@ function StatCard({ label, value, sub, tone }: { label: string; value: string; s
 
 type Tab = '대시보드' | '실적 조회' | '실적 입력' | '담당자·문자' | '업로드';
 interface TSPoint { period: string; qty: number; hours: number; amount: number; cost: number; labor: number; hourly_qty: number; profitability: number; day_qty: number; night_qty: number; }
-interface LaborCmp { total_prod_hours: number; total_att_hours: number; total_hours_ratio: number; total_prod_labor: number; total_att_cost: number; total_att_cost_est: number; note: string; error?: string; series: { month: string; prod_hours: number; att_hours: number; dispatch_hours: number; regular_hours: number; hours_ratio: number; prod_labor: number; att_cost: number; att_cost_est: number; regular_pay: number; att_ok: boolean; by_workplace: Record<string, number>; by_dept: Record<string, number> }[]; }
+interface LaborCmp { total_prod_hours: number; total_att_hours: number; total_regular_hours: number; total_dispatch_hours: number; total_hours_ratio: number; total_prod_labor: number; total_att_cost: number; total_regular_pay: number; granularity: string; note: string; error?: string; series: { period: string; prod_hours: number; att_hours: number; regular_hours: number; dispatch_hours: number; hours_ratio: number; prod_labor: number }[]; }
 
 export default function ProductionPage() {
   const { user, isLoading } = useAuth();
@@ -158,8 +158,8 @@ function DashTab() {
   const [laborLoading, setLaborLoading] = useState(false);
   useEffect(() => {
     setLaborLoading(true);
-    getJSON<LaborCmp | null>(`/inventory/labor-compare?start=${range.start}&end=${range.end}`, null).then((r) => { setLabor(r); setLaborLoading(false); });
-  }, [range]);
+    getJSON<LaborCmp | null>(`/inventory/labor-compare?start=${range.start}&end=${range.end}&granularity=${gran}`, null).then((r) => { setLabor(r); setLaborLoading(false); });
+  }, [range, gran]);
 
   useEffect(() => { getJSON<{ categories: string[] }>('/inventory/production/categories', { categories: [] }).then((r) => setCats(r.categories)); }, []);
   const load = useCallback(async () => {
@@ -225,41 +225,33 @@ function DashTab() {
           {/* 근태(mysixthproject) 노무시간·노무비 대조 */}
           <div className={`${C.card} p-4 border-l-2 border-l-[#F0BF00]`}>
             <div className="flex items-center gap-2 mb-1">
-              <div className="text-sm font-semibold text-[#F7F8F8]">노무시간·노무비 대조 (근태 시스템 연동 · 월별)</div>
+              <div className="text-sm font-semibold text-[#F7F8F8]">노무시간·노무비 대조 (근태 연동 · 생산팀 · {granLabel})</div>
               {laborLoading && <span className="text-xs text-[#62666D]">근태 불러오는 중…</span>}
             </div>
             {labor?.error && <div className="text-xs text-[#EB5757] mb-2">연동 오류: {labor.error}</div>}
             {labor && !labor.error && (
               <>
-                {(() => {
-                  const totReg = labor.series.reduce((s, x) => s + (x.regular_hours || 0), 0);
-                  const totDisp = labor.series.reduce((s, x) => s + (x.dispatch_hours || 0), 0);
-                  const totRegPay = labor.series.reduce((s, x) => s + (x.regular_pay || 0), 0);
-                  return (
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
-                      <StatCard label="생산일보 투여시간" value={`${numShort(labor.total_prod_hours)}h`} />
-                      <StatCard label="근태 노무시간" value={`${numShort(labor.total_att_hours)}h`} tone="text-[#00B8CC]" sub={`정규직 ${numShort(totReg)}h + 파견 ${numShort(totDisp)}h`} />
-                      <StatCard label="시간 비율(생산÷근태)" value={`${labor.total_hours_ratio}배`} tone={labor.total_hours_ratio > 1.3 || labor.total_hours_ratio < 0.7 ? 'text-[#EB5757]' : 'text-[#3FBE5B]'} sub="1에 가까울수록 정합" />
-                      <StatCard label="산출 노무비(15k기준)" value={wonShort(labor.total_prod_labor)} tone="text-[#00B8CC]" />
-                      <StatCard label="근태 실지급+환산" value={wonShort(labor.total_att_cost)} sub={`정규직 실급여 ${wonShort(totRegPay)}`} />
-                    </div>
-                  );
-                })()}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+                  <StatCard label="생산일보 투여시간" value={`${numShort(labor.total_prod_hours)}h`} />
+                  <StatCard label="근태 노무시간(생산팀)" value={`${numShort(labor.total_att_hours)}h`} tone="text-[#00B8CC]" sub={`정규직 ${numShort(labor.total_regular_hours)}h + 파견 ${numShort(labor.total_dispatch_hours)}h`} />
+                  <StatCard label="시간 비율(생산÷근태)" value={`${labor.total_hours_ratio}배`} tone={labor.total_hours_ratio > 1.2 || labor.total_hours_ratio < 0.8 ? 'text-[#F0BF00]' : 'text-[#3FBE5B]'} sub="1에 가까울수록 정합" />
+                  <StatCard label="산출 노무비(15k기준)" value={wonShort(labor.total_prod_labor)} tone="text-[#00B8CC]" />
+                  <StatCard label="근태 실지급+환산" value={wonShort(labor.total_att_cost)} sub={`정규직 실급여 ${wonShort(labor.total_regular_pay)}`} />
+                </div>
                 <ResponsiveContainer width="100%" height={240}>
                   <ComposedChart data={labor.series}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
-                    <XAxis dataKey="month" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                    <XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} />
                     <YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 10 }} />
-                    <YAxis yAxisId="r" orientation="right" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                    <YAxis yAxisId="r" orientation="right" tick={{ fill: '#8A8F98', fontSize: 10 }} domain={[0, 2]} />
                     <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
                     <Legend />
                     <Bar yAxisId="l" dataKey="prod_hours" name="생산일보 투여시간" fill="#5E6AD2" />
                     <Bar yAxisId="l" dataKey="att_hours" name="근태 노무시간" fill="#00B8CC" />
-                    <Line yAxisId="r" type="monotone" dataKey="hours_ratio" name="비율(배)" stroke="#F0BF00" strokeWidth={2} dot />
+                    <Line yAxisId="r" type="monotone" dataKey="hours_ratio" name="비율(배)" stroke="#F0BF00" strokeWidth={2} dot={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
-                <div className="text-xs text-[#F0BF00] mt-2">⚠ {labor.note}</div>
-                {labor.total_hours_ratio > 1.5 && <div className="text-xs text-[#8A8F98] mt-1">생산일보 투여시간이 실제 근태보다 {labor.total_hours_ratio}배 많습니다 — 생산일보의 시간 기입 기준(공정 중복/설비시간 포함 여부)을 점검하세요.</div>}
+                <div className="text-xs text-[#62666D] mt-2">{labor.note}</div>
               </>
             )}
           </div>
