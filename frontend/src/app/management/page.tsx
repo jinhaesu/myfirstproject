@@ -45,11 +45,13 @@ export default function ManagementPage() {
   const [gran, setGran] = useState<'day' | 'week' | 'month'>('month');
   const [d, setD] = useState<any>(null);
   const [tr, setTr] = useState<any>(null);
+  const [lt, setLt] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const apply = (r: { start: string; end: string }) => { setDraft(r); setRange(r); };
   useEffect(() => { if (!isLoading && !user) router.replace('/login'); }, [isLoading, user, router]);
   useEffect(() => { if (!user) return; setLoading(true); getJSON<any>(`/management/overview?start=${range.start}&end=${range.end}`, null).then((r) => { setD(r); setLoading(false); }); }, [range, user]);
   useEffect(() => { if (!user) return; getJSON<any>(`/management/trend?start=${range.start}&end=${range.end}&granularity=${gran}`, null).then(setTr); }, [range, gran, user]);
+  useEffect(() => { if (!user) return; getJSON<any>(`/management/labor-trend?start=${range.start}&end=${range.end}&granularity=${gran}`, null).then(setLt); }, [range, gran, user]);
   if (isLoading || !user) return <div className="min-h-screen bg-[#08090A]" />;
 
   const cp = d?.cost_vs_purchase, bp = d?.bom_vs_purchase, lb = d?.labor, iv = d?.inventory, adj = d?.adjustments;
@@ -82,6 +84,24 @@ export default function ManagementPage() {
           {tr?.series?.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}><ComposedChart data={tr.series}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="bucket" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><YAxis yAxisId="r" orientation="right" tick={{ fill: '#27A644', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar yAxisId="l" dataKey="purchase" name="실제구매" fill="#4DA3FF" radius={[3, 3, 0, 0]} /><Bar yAxisId="l" dataKey="cogs_est" name="매출원가추정" fill="#F0BF00" radius={[3, 3, 0, 0]} /><Bar yAxisId="l" dataKey="bom_req" name="BOM이론소요" fill="#A855F7" radius={[3, 3, 0, 0]} /><Line yAxisId="r" type="monotone" dataKey="sales" name="매출" stroke="#27A644" strokeWidth={2} dot={false} /></ComposedChart></ResponsiveContainer>
           ) : <div className="h-[220px] flex items-center justify-center text-sm text-[#62666D]">데이터 없음</div>}
+        </div>
+
+        {/* 매출원가율 추이 + 근무시간 추이 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+          <div className={`${C.card} p-4`}>
+            <div className="text-sm font-semibold text-[#F7F8F8] mb-1">매출원가율 추이 ({gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'})</div>
+            <p className="text-xs text-[#62666D] mb-3">실제구매액÷매출(구매기반 원가율) · 매출원가추정÷매출(BOM기반) 비교.</p>
+            {tr?.series?.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}><ComposedChart data={tr.series}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="bucket" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={(v) => `${v}%`} domain={[0, 'auto']} /><Tooltip contentStyle={TT} formatter={(v: any) => v == null ? '-' : `${v}%`} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="purchase_ratio" name="구매기반 원가율" fill="#4DA3FF" radius={[3, 3, 0, 0]} /><Line type="monotone" dataKey="cogs_ratio" name="BOM기반 원가율" stroke="#F0BF00" strokeWidth={2} dot={{ r: 3 }} /></ComposedChart></ResponsiveContainer>
+            ) : <div className="h-[220px] flex items-center justify-center text-sm text-[#62666D]">데이터 없음</div>}
+          </div>
+          <div className={`${C.card} p-4`}>
+            <div className="text-sm font-semibold text-[#F7F8F8] mb-1">근무시간 vs 기입시간 추이 ({gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'})</div>
+            <p className="text-xs text-[#62666D] mb-3">mysixth 근무시간 대비 생산·물류 일지 기입시간.</p>
+            {lt?.series?.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}><ComposedChart data={lt.series}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="bucket" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} /><Tooltip contentStyle={TT} formatter={(v: any) => `${fmt(v)}h`} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="prod_logged" name="생산 기입" fill="#5E6AD2" radius={[3, 3, 0, 0]} /><Bar dataKey="prod_att" name="생산 근무" fill="#00B8CC" radius={[3, 3, 0, 0]} /><Bar dataKey="logi_logged" name="물류 기입" fill="#A855F7" radius={[3, 3, 0, 0]} /><Bar dataKey="logi_att" name="물류 근무" fill="#F0BF00" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
+            ) : <div className="h-[220px] flex items-center justify-center text-sm text-[#62666D]">데이터 없음</div>}
+          </div>
         </div>
 
         {/* 핵심 요약 경보 */}

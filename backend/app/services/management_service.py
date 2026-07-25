@@ -249,3 +249,33 @@ def trend(db: Session, start: date, end: date, granularity: str = "month") -> di
             "bom_gap": p - bm, "cogs_gap": p - cg,
         })
     return {"granularity": granularity, "series": series}
+
+
+def labor_trend(db: Session, start: date, end: date, granularity: str = "month") -> dict:
+    """근무시간(mysixth) vs 기입시간(생산·물류) 기간별 추이."""
+    try:
+        pl = inv.labor_compare(db, start, end, granularity=granularity)
+    except Exception:
+        pl = {"series": []}
+    try:
+        ll = logi.logistics_compare(db, start, end, granularity=granularity)
+    except Exception:
+        ll = {"series": []}
+    idx: dict = {}
+    for s in pl.get("series", []):
+        b = s.get("period")
+        e = idx.setdefault(b, {"bucket": b, "prod_logged": 0, "prod_att": 0, "logi_logged": 0, "logi_att": 0})
+        e["prod_logged"] = round(s.get("prod_hours", 0) or 0, 1)
+        e["prod_att"] = round(s.get("att_hours", 0) or 0, 1)
+    for s in ll.get("series", []):
+        b = s.get("period")
+        e = idx.setdefault(b, {"bucket": b, "prod_logged": 0, "prod_att": 0, "logi_logged": 0, "logi_att": 0})
+        e["logi_logged"] = round(s.get("prod_hours", 0) or 0, 1)
+        e["logi_att"] = round(s.get("att_hours", 0) or 0, 1)
+    series = []
+    for b in sorted(idx.keys()):
+        e = idx[b]
+        e["prod_ratio"] = round(e["prod_logged"] / e["prod_att"], 2) if e["prod_att"] else None
+        e["logi_ratio"] = round(e["logi_logged"] / e["logi_att"], 2) if e["logi_att"] else None
+        series.append(e)
+    return {"granularity": granularity, "series": series}
