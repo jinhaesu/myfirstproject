@@ -88,7 +88,7 @@ type SortDirection = 'asc' | 'desc';
 // ─────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────
-const CATEGORIES = ['마카롱', '케이크', '쿠키', '비누', '캔들'];
+const CATEGORIES = ['마카롱', '뚱낭시에', '쿠키', '베이글', '파운드', '바게트', '식빵', '포카치아', '스콘', '슬랩'];
 const LOCATIONS = ['1층', '2층', '3층'];
 const ITEM_TYPES = ['완제품', '반제품', '세트', '혼합세트', '원재료', '부자재'];
 
@@ -96,8 +96,8 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
   '마카롱': { bg: 'bg-[#EB5757]/10', text: 'text-[#D04040]', border: 'border-[#EB5757]/25' },
   '케이크': { bg: 'bg-[#F0BF00]/10', text: 'text-[#F0BF00]', border: 'border-[#F0BF00]/30' },
   '쿠키':   { bg: 'bg-[#FC7840]/10', text: 'text-[#FC7840]', border: 'border-[#FC7840]/30' },
-  '비누':   { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-[#27A644]/25' },
-  '캔들':   { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30' },
+  '베이글': { bg: 'bg-[#27A644]/10', text: 'text-[#27A644]', border: 'border-[#27A644]/25' },
+  '뚱낭시에': { bg: 'bg-[#5E6AD2]/10', text: 'text-[#828FFF]', border: 'border-[#5E6AD2]/30' },
 };
 
 const DEFAULT_CATEGORY_COLOR = { bg: 'bg-[#08090A]', text: 'text-[#D0D6E0]', border: 'border-[#23252A]' };
@@ -111,21 +111,8 @@ const ITEM_TYPE_BADGE: Record<string, string> = {
   '부자재': 'bg-[#08090A] text-[#8A8F98] border-[#23252A]',
 };
 
-// ─────────────────────────────────────────────
-// Sample data
-// ─────────────────────────────────────────────
-const sampleProducts: Product[] = [
-  { id: 1, product_name: '널담 마카롱 복숭아 요거트 [50g]', product_code: 'MK-001', product_category: '마카롱', default_location: '2층', default_unit_price: 1200, default_cost: 290, avg_hourly_rate: 290, total_produced: 152800, total_hours: 527, safety_stock: 5000, is_active: true, notes: '' },
-  { id: 2, product_name: '널담 마카롱 녹차브라우니 [50g]', product_code: 'MK-002', product_category: '마카롱', default_location: '2층', default_unit_price: 1200, default_cost: 282, avg_hourly_rate: 281, total_produced: 143500, total_hours: 510, safety_stock: 5000, is_active: true, notes: '' },
-  { id: 3, product_name: '널담 마카롱 얼그레이캐러멜 [50g]', product_code: 'MK-003', product_category: '마카롱', default_location: '2층', default_unit_price: 1200, default_cost: 275, avg_hourly_rate: 274, total_produced: 98000, total_hours: 358, safety_stock: 3000, is_active: true, notes: '' },
-  { id: 4, product_name: '널담 케이크 바닐라치즈 [120g]', product_code: 'CK-001', product_category: '케이크', default_location: '1층', default_unit_price: 3500, default_cost: 820, avg_hourly_rate: 85, total_produced: 42000, total_hours: 494, safety_stock: 2000, is_active: true, notes: '' },
-  { id: 5, product_name: '널담 케이크 초콜릿 [120g]', product_code: 'CK-002', product_category: '케이크', default_location: '1층', default_unit_price: 3500, default_cost: 850, avg_hourly_rate: 80, total_produced: 38000, total_hours: 475, safety_stock: 2000, is_active: true, notes: '' },
-  { id: 6, product_name: '수제 비누 라벤더 [100g]', product_code: 'SP-001', product_category: '비누', default_location: '3층', default_unit_price: 800, default_cost: 180, avg_hourly_rate: 150, total_produced: 75000, total_hours: 500, safety_stock: 3000, is_active: true, notes: '' },
-  { id: 7, product_name: '수제 비누 티트리 [100g]', product_code: 'SP-002', product_category: '비누', default_location: '3층', default_unit_price: 800, default_cost: 190, avg_hourly_rate: 145, total_produced: 58000, total_hours: 400, safety_stock: 3000, is_active: true, notes: '' },
-  { id: 8, product_name: '아로마 캔들 우드 [200g]', product_code: 'CD-001', product_category: '캔들', default_location: '3층', default_unit_price: 2000, default_cost: 450, avg_hourly_rate: 45, total_produced: 22500, total_hours: 500, safety_stock: 1000, is_active: true, notes: '시즌 상품' },
-  { id: 9, product_name: '버터 쿠키 어쏘트 [150g]', product_code: 'CK-003', product_category: '쿠키', default_location: '1층', default_unit_price: 1500, default_cost: 350, avg_hourly_rate: 120, total_produced: 60000, total_hours: 500, safety_stock: 4000, is_active: true, notes: '' },
-  { id: 10, product_name: '초코칩 쿠키 [100g]', product_code: 'CK-004', product_category: '쿠키', default_location: '1층', default_unit_price: 1200, default_cost: 280, avg_hourly_rate: 135, total_produced: 67500, total_hours: 500, safety_stock: 4000, is_active: false, notes: '단종 예정' },
-];
+// 샘플 데이터 제거 — 실제 품목은 /api/scm/products(DB)에서 로드한다.
+const sampleProducts: Product[] = [];
 
 // ─────────────────────────────────────────────
 // Utility
