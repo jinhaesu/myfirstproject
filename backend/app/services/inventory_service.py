@@ -984,6 +984,25 @@ def production_categories(db: Session) -> list[str]:
     return sorted({r[0] for r in rows if r[0]})
 
 
+def product_cost_map(db: Session) -> dict:
+    """csa_product_master(품목류) 기준 개당 원가·노무비 (생산이력 가중평균)."""
+    rows = db.query(
+        InventoryProduction.product_id,
+        func.coalesce(func.sum(InventoryProduction.qty), 0.0),
+        func.coalesce(func.sum(InventoryProduction.total_cost), 0.0),
+        func.coalesce(func.sum(InventoryProduction.labor_cost), 0.0),
+    ).filter(InventoryProduction.product_id.isnot(None)).group_by(InventoryProduction.product_id).all()
+    out = {}
+    for pid, q, tc, lc in rows:
+        q = float(q or 0)
+        if q <= 0:
+            continue
+        out[int(pid)] = {"unit_cost": round(float(tc or 0) / q, 1),
+                         "unit_labor": round(float(lc or 0) / q, 1),
+                         "qty": round(q)}
+    return out
+
+
 def production_catalog(db: Session, category: Optional[str] = None) -> list[dict]:
     """생산 이력의 품목명별 평균 생산단가·원가 (실적 입력 자동계산용)."""
     q = db.query(
@@ -1245,10 +1264,12 @@ def labor_compare(db: Session, start: date, end: date) -> dict:
         series.append({
             "month": ym,
             "prod_hours": round(ph, 1), "att_hours": round(ah, 1),
+            "dispatch_hours": a.get("dispatch_hours", 0), "regular_hours": a.get("regular_hours", 0),
             "hours_diff": round(ph - ah, 1),
             "hours_ratio": round(ph / ah, 2) if ah else 0,   # 생산투여÷근태 (1이면 일치)
             "prod_labor": round(pl), "att_cost": round(al), "att_cost_est": round(ae),
-            "by_workplace": a.get("by_workplace", {}),
+            "regular_pay": a.get("regular_pay", 0),
+            "by_workplace": a.get("by_workplace", {}), "by_dept": a.get("by_dept", {}),
             "att_ok": a.get("ok", False),
         })
     return {
@@ -1257,5 +1278,5 @@ def labor_compare(db: Session, start: date, end: date) -> dict:
         "total_hours_ratio": round(tot_ph / tot_ah, 2) if tot_ah else 0,
         "total_prod_labor": round(tot_pl), "total_att_cost": round(tot_al),
         "total_att_cost_est": round(tot_ae),
-        "note": "근태는 인시(man-hour). 근태 실지급은 mysixthproject 시급 미설정 시 0 → 환산(근태시간×15,000)으로 비교. 생산투여시간이 근태보다 크게 많으면 생산일보 시간 기준을 점검.",
+        "note": "근태 노무시간 = 정규직(급여대장 생산·물류 부서, 근무일×8+연장+휴일) + 파견/알바(근태 사업장). 노무비 = 정규직 실지급 총급여 + 파견/알바 환산(시간×15,000). 비율(생산일보÷근태)이 1에 가까울수록 정합.",
     }

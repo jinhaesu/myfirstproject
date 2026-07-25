@@ -4242,12 +4242,19 @@ function ProductsTab({
   const [showProdEditor, setShowProdEditor] = useState(false);
   const [editProd, setEditProd] = useState<Partial<Product>>({});
 
+  const [costs, setCosts] = useState<Record<number, { unit_cost: number; unit_labor: number; qty: number }>>({});
+
   const fetchMappings = useCallback(async () => {
     const r = await fetch(`${API_BASE}/api/csa/channel-products?only_active=false`, { headers: authHeaders() });
     if (r.ok) setMappings(await r.json());
   }, [authHeaders]);
 
   useEffect(() => { fetchMappings(); }, [fetchMappings]);
+  useEffect(() => {
+    fetch(`${API_BASE}/api/inventory/product-cost`, { headers: authHeaders() })
+      .then((r) => r.ok ? r.json() : { costs: {} })
+      .then((d) => setCosts(d.costs || {})).catch(() => {});
+  }, [authHeaders]);
 
   // 채널별 활성 품목 ID 집합
   const byChannel = useMemo(() => {
@@ -4385,6 +4392,14 @@ function ProductsTab({
                   <span className="text-[#7A7F8A]">·</span>
                   <span className="text-[#828FFF] font-mono">{productChannelCount[p.id] || 0}채널</span>
                 </div>
+                {costs[p.id] ? (
+                  <div className="text-[10px] mt-1 flex items-center gap-2 font-mono">
+                    <span className="text-[#EB5757]">원가 ₩{costs[p.id].unit_cost.toLocaleString()}</span>
+                    <span className="text-[#FC7840]">노무 ₩{costs[p.id].unit_labor.toLocaleString()}</span>
+                  </div>
+                ) : (
+                  <div className="text-[10px] mt-1 text-[#62666D]">원가·노무비 미산출</div>
+                )}
               </div>
               <button
                 onClick={() => { setEditProd(p); setShowProdEditor(true); }}

@@ -181,8 +181,8 @@ export default function InventoryPage() {
 function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
   const [d, setD] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(false);
-  const [range, setRange] = useState({ start: '2026-01-01', end: todayISO() });
-  const [gran, setGran] = useState<'month' | 'week' | 'day'>('month');
+  const [range, setRange] = useState(presetRange('thisMonth'));
+  const [gran, setGran] = useState<'month' | 'week' | 'day'>('day');
   const [whId, setWhId] = useState<number | ''>('');
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [heat, setHeat] = useState<{ months: string[]; rows: HeatRow[] }>({ months: [], rows: [] });

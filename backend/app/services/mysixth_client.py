@@ -50,9 +50,16 @@ def _month_bounds(ym: str):
     return start.isoformat(), end.isoformat()
 
 
+def _is_production_dept(dept: str) -> bool:
+    dept = (dept or "")
+    return ("생산" in dept) or ("물류" in dept)
+
+
 def labor_by_month(months: list[str]) -> dict:
-    """{month: {att_hours, att_night, att_cost, by_workplace:{wp:hours}}} — 생산 사업장만."""
-    key = ("labor", tuple(months))
+    """월별 생산 노무시간·노무비 — 파견/알바(사업소득) + 정규직 합산.
+    파견/알바: attendance_records(사업장 F2/F3/공장/물류, 카페·본사 제외).
+    정규직: regular payroll-calc(부서 생산*·물류), 시간=근무일×8+연장+휴일, 노무비=총급여(실지급)."""
+    key = ("labor2", tuple(months))
     now = time.time()
     c = _CACHE.get(key)
     if c and c["exp"] > now:
@@ -61,31 +68,43 @@ def labor_by_month(months: list[str]) -> dict:
     out: dict = {}
     for ym in months:
         s, e = _month_bounds(ym)
-        rec = {"att_hours": 0.0, "att_night": 0.0, "att_cost": 0.0, "by_workplace": {}, "ok": False}
+        rec = {"att_hours": 0.0, "dispatch_hours": 0.0, "regular_hours": 0.0,
+               "regular_pay": 0.0, "att_cost": 0.0, "by_workplace": {}, "by_dept": {}, "ok": False}
+        # 1) 파견/알바 (사업소득) — attendance stats byWorkplace
         try:
             stats = _get(f"/api/attendance/stats?startDate={s}&endDate={e}")
             for w in stats.get("byWorkplace", []):
                 wp = w.get("workplace", "")
                 if _is_production_wp(wp):
                     h = float(w.get("total_hours") or 0)
-                    rec["att_hours"] += h
+                    rec["dispatch_hours"] += h
                     rec["by_workplace"][wp] = round(h, 1)
             rec["ok"] = True
         except Exception as e2:
             rec["error"] = str(e2)[:150]
-        # 노무비(파견/알바) — grandTotal은 dict {..., total_pay}
+        # 2) 정규직 — regular payroll-calc (생산·물류 부서)
         try:
-            y, m = ym[:4], str(int(ym[5:7]))
-            pay = _get(f"/api/payroll/calculate?year={y}&month={m}")
-            gt = pay.get("grandTotal") or {}
-            rec["att_cost"] = float(gt.get("total_pay") or 0) if isinstance(gt, dict) else 0.0
-            for r in pay.get("results", []):
-                rec["att_night"] += float(r.get("night_hours") or 0)
+            reg = _get(f"/api/regular/payroll-calc?year_month={ym}")
+            for p in reg.get("results", []):
+                dept = p.get("department") or ""
+                if not _is_production_dept(dept):
+                    continue
+                awd = float(p.get("actual_work_days") or p.get("work_days") or 0)
+                ot = float(p.get("overtime_hours") or 0)
+                hol = float(p.get("holiday_hours") or 0)
+                h = awd * 8 + ot + hol
+                rec["regular_hours"] += h
+                rec["regular_pay"] += float(p.get("gross_pay") or 0)
+                rec["by_dept"][dept] = round(rec["by_dept"].get(dept, 0) + h, 1)
         except Exception:
             pass
-        # 근태 시급 미설정(0)일 때 비교용 환산 노무비 = 근태시간 × 15,000 (야간분 ×1.5)
-        rec["att_cost_est"] = round((rec["att_hours"] - rec["att_night"]) * 15000
-                                    + rec["att_night"] * 15000 * 1.5)
+        rec["att_hours"] = round(rec["dispatch_hours"] + rec["regular_hours"], 1)
+        # 노무비 = 정규직 실지급(총급여) + 파견/알바 환산(시간×15,000)
+        rec["att_cost"] = round(rec["regular_pay"] + rec["dispatch_hours"] * 15000)
+        rec["att_cost_est"] = round(rec["att_hours"] * 15000)
+        rec["dispatch_hours"] = round(rec["dispatch_hours"], 1)
+        rec["regular_hours"] = round(rec["regular_hours"], 1)
+        rec["regular_pay"] = round(rec["regular_pay"])
         out[ym] = rec
 
     _CACHE[key] = {"data": out, "exp": now + _TTL}

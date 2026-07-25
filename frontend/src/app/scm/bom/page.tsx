@@ -121,9 +121,24 @@ const TYPE_BADGE: Record<string, string> = {
 const won = (n: number) => `${Math.round(n || 0).toLocaleString('ko-KR')}원`;
 const inputCls = 'bg-[#08090A] border border-[#23252A] rounded-lg text-[#D0D6E0] placeholder-[#62666D] focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/20 focus:border-[#5E6AD2]/50';
 
+// BOM 접근 암호 (보안사항). 변경 원하면 이 값을 바꾸세요.
+const BOM_ACCESS_PW = 'nuldam-bom';
+
 export default function BomPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+
+  // 보안 게이트
+  const [bomUnlocked, setBomUnlocked] = useState(false);
+  const [bomPwInput, setBomPwInput] = useState('');
+  const [bomPwErr, setBomPwErr] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('bom_unlocked') === '1') setBomUnlocked(true);
+  }, []);
+  const tryUnlock = () => {
+    if (bomPwInput === BOM_ACCESS_PW) { sessionStorage.setItem('bom_unlocked', '1'); setBomUnlocked(true); }
+    else setBomPwErr(true);
+  };
 
   const [summary, setSummary] = useState<any>(null);
   const [tab, setTab] = useState<string>('세트');
@@ -279,6 +294,30 @@ export default function BomPage() {
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-[#08090A]"><div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#5E6AD2]" /></div>;
   if (!user) return null;
+
+  if (!bomUnlocked) {
+    return (
+      <div className="min-h-screen bg-[#08090A]">
+        <Navigation />
+        <div className="max-w-md mx-auto mt-24 px-4">
+          <div className="bg-[#0F1011] border border-[#23252A] rounded-xl p-6 text-center">
+            <div className="text-3xl mb-2">🔒</div>
+            <h1 className="text-lg font-bold text-[#F7F8F8] mb-1">BOM·원부재료 (보안)</h1>
+            <p className="text-xs text-[#8A8F98] mb-4">원가·배합비 등 보안 정보입니다. 접근 암호를 입력하세요.</p>
+            <input
+              type="password" autoFocus value={bomPwInput}
+              onChange={(e) => { setBomPwInput(e.target.value); setBomPwErr(false); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') tryUnlock(); }}
+              placeholder="접근 암호"
+              className={`w-full bg-[#08090A] border rounded-lg px-3 py-2 text-sm text-[#F7F8F8] mb-2 ${bomPwErr ? 'border-[#EB5757]' : 'border-[#23252A]'}`}
+            />
+            {bomPwErr && <div className="text-xs text-[#EB5757] mb-2">암호가 올바르지 않습니다.</div>}
+            <button onClick={tryUnlock} className="w-full bg-[#5E6AD2] hover:bg-[#4d58bd] text-white rounded-lg px-3 py-2 text-sm font-semibold">진입</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#08090A]">

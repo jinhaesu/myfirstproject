@@ -104,7 +104,7 @@ function StatCard({ label, value, sub, tone }: { label: string; value: string; s
 
 type Tab = '대시보드' | '실적 조회' | '실적 입력' | '담당자·문자' | '업로드';
 interface TSPoint { period: string; qty: number; hours: number; amount: number; cost: number; labor: number; hourly_qty: number; profitability: number; day_qty: number; night_qty: number; }
-interface LaborCmp { total_prod_hours: number; total_att_hours: number; total_hours_ratio: number; total_prod_labor: number; total_att_cost: number; total_att_cost_est: number; note: string; error?: string; series: { month: string; prod_hours: number; att_hours: number; hours_ratio: number; prod_labor: number; att_cost: number; att_cost_est: number; att_ok: boolean; by_workplace: Record<string, number> }[]; }
+interface LaborCmp { total_prod_hours: number; total_att_hours: number; total_hours_ratio: number; total_prod_labor: number; total_att_cost: number; total_att_cost_est: number; note: string; error?: string; series: { month: string; prod_hours: number; att_hours: number; dispatch_hours: number; regular_hours: number; hours_ratio: number; prod_labor: number; att_cost: number; att_cost_est: number; regular_pay: number; att_ok: boolean; by_workplace: Record<string, number>; by_dept: Record<string, number> }[]; }
 
 export default function ProductionPage() {
   const { user, isLoading } = useAuth();
@@ -147,9 +147,9 @@ export default function ProductionPage() {
 }
 
 function DashTab() {
-  const [range, setRange] = useState({ start: '2026-01-01', end: todayISO() });
+  const [range, setRange] = useState(presetRange('thisMonth'));
   const [cat, setCat] = useState('');
-  const [gran, setGran] = useState<'month' | 'week' | 'day'>('month');
+  const [gran, setGran] = useState<'month' | 'week' | 'day'>('day');
   const [d, setD] = useState<ProdDash | null>(null);
   const [ts, setTs] = useState<TSPoint[]>([]);
   const [cats, setCats] = useState<string[]>([]);
@@ -231,13 +231,20 @@ function DashTab() {
             {labor?.error && <div className="text-xs text-[#EB5757] mb-2">연동 오류: {labor.error}</div>}
             {labor && !labor.error && (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
-                  <StatCard label="생산일보 투여시간" value={`${numShort(labor.total_prod_hours)}h`} />
-                  <StatCard label="근태 노무시간" value={`${numShort(labor.total_att_hours)}h`} tone="text-[#00B8CC]" sub="생산 사업장" />
-                  <StatCard label="시간 비율(생산÷근태)" value={`${labor.total_hours_ratio}배`} tone={labor.total_hours_ratio > 1.3 || labor.total_hours_ratio < 0.7 ? 'text-[#EB5757]' : 'text-[#3FBE5B]'} sub="1에 가까울수록 정합" />
-                  <StatCard label="산출 노무비(15k기준)" value={wonShort(labor.total_prod_labor)} tone="text-[#00B8CC]" />
-                  <StatCard label="근태 환산 노무비" value={wonShort(labor.total_att_cost_est)} sub="근태시간×15k(야1.5)" />
-                </div>
+                {(() => {
+                  const totReg = labor.series.reduce((s, x) => s + (x.regular_hours || 0), 0);
+                  const totDisp = labor.series.reduce((s, x) => s + (x.dispatch_hours || 0), 0);
+                  const totRegPay = labor.series.reduce((s, x) => s + (x.regular_pay || 0), 0);
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+                      <StatCard label="생산일보 투여시간" value={`${numShort(labor.total_prod_hours)}h`} />
+                      <StatCard label="근태 노무시간" value={`${numShort(labor.total_att_hours)}h`} tone="text-[#00B8CC]" sub={`정규직 ${numShort(totReg)}h + 파견 ${numShort(totDisp)}h`} />
+                      <StatCard label="시간 비율(생산÷근태)" value={`${labor.total_hours_ratio}배`} tone={labor.total_hours_ratio > 1.3 || labor.total_hours_ratio < 0.7 ? 'text-[#EB5757]' : 'text-[#3FBE5B]'} sub="1에 가까울수록 정합" />
+                      <StatCard label="산출 노무비(15k기준)" value={wonShort(labor.total_prod_labor)} tone="text-[#00B8CC]" />
+                      <StatCard label="근태 실지급+환산" value={wonShort(labor.total_att_cost)} sub={`정규직 실급여 ${wonShort(totRegPay)}`} />
+                    </div>
+                  );
+                })()}
                 <ResponsiveContainer width="100%" height={240}>
                   <ComposedChart data={labor.series}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />

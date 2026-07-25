@@ -756,6 +756,12 @@ def production_catalog(category: Optional[str] = None, db: Session = Depends(get
     return {"items": inv.production_catalog(db, category=category)}
 
 
+@router.get("/product-cost")
+def product_cost(db: Session = Depends(get_db)):
+    """품목류(csa_product_master)별 개당 원가·노무비 (생산이력 기반)."""
+    return {"costs": inv.product_cost_map(db)}
+
+
 @router.get("/labor-compare")
 def labor_compare(start: str, end: str, db: Session = Depends(get_db)):
     """생산실적 투여시간·노무비 vs mysixthproject 근태 노무시간·노무비 월별 대조."""
