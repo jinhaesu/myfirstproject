@@ -15,7 +15,8 @@ from sqlalchemy.orm import Session
 
 from app.api.routes.auth import get_current_user
 from app.database import get_db
-from app.db_models import AppSetting
+from app.db_models import AppSetting, UserDirectory, UserMenuPermission
+from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -25,6 +26,29 @@ OWNER_EMAIL = os.getenv("OWNER_EMAIL", "lion9080@joinandjoin.com")
 GATES = {
     "bom_access": "BOM·원부재료 접근 암호",
 }
+
+# 조회 권한을 부여할 수 있는 메뉴(그룹) 목록. 프론트 navGroups.key와 1:1.
+MENUS = [
+    {"key": "sales", "label": "영업부 매출 관리·분석"},
+    {"key": "scm", "label": "SCM 관리"},
+    {"key": "logistics", "label": "물류·생산 관리"},
+    {"key": "mapping", "label": "매핑 관리"},
+    {"key": "purchase", "label": "구매 관리"},
+    {"key": "management", "label": "경영관리"},
+    {"key": "cs", "label": "CS 관리"},
+]
+MENU_KEYS = {m["key"] for m in MENUS}
+DEFAULT_MENUS = ["sales"]   # 기본: 영업부 매출관리만
+
+
+def _menus_for(db: Session, email: str) -> list[str]:
+    """이메일의 조회 가능 메뉴 키. 오너=전체, 미등록=기본(sales)."""
+    if (email or "").lower() == OWNER_EMAIL.lower():
+        return [m["key"] for m in MENUS]
+    p = db.get(UserMenuPermission, email)
+    if p and (p.menu_keys or "").strip():
+        return [k for k in p.menu_keys.split(",") if k in MENU_KEYS]
+    return list(DEFAULT_MENUS)
 
 
 def _require_owner(user: dict):
@@ -102,3 +126,74 @@ def verify_gate(body: VerifyGate, db: Session = Depends(get_db),
         # 암호 미설정 → 관리자만 자동 통과, 그 외 거부
         return {"ok": (user.get("email") or "").lower() == OWNER_EMAIL.lower(), "not_set": True}
     return {"ok": _hash(body.password) == h}
+
+
+# ──────────────────────────────────────────────
+# 이메일별 메뉴 조회 권한
+# ──────────────────────────────────────────────
+
+@router.get("/my-menus")
+def my_menus(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    """현재 사용자가 볼 수 있는 메뉴 키 목록(프론트 나브 게이팅용)."""
+    email = user.get("email") or ""
+    return {
+        "email": email,
+        "is_owner": email.lower() == OWNER_EMAIL.lower(),
+        "menus": _menus_for(db, email),
+        "all_menus": MENUS,
+    }
+
+
+@router.get("/users")
+def list_users(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    """로그인 이메일 목록 + 각 이메일의 메뉴 권한 (관리자 전용)."""
+    _require_owner(user)
+    # 디렉토리(로그인 기록) + USERS_JSON 등록자 합집합
+    dir_rows = {u.email: u for u in db.query(UserDirectory).all()}
+    perms = {p.email: p for p in db.query(UserMenuPermission).all()}
+    emails = set(dir_rows.keys())
+    try:
+        for u in AuthService().users:
+            if u.get("email"):
+                emails.add(u["email"])
+    except Exception:
+        pass
+    out = []
+    for em in sorted(emails):
+        d = dir_rows.get(em)
+        is_owner = em.lower() == OWNER_EMAIL.lower()
+        p = perms.get(em)
+        menus = ([m["key"] for m in MENUS] if is_owner else
+                 ([k for k in (p.menu_keys or "").split(",") if k in MENU_KEYS] if p and (p.menu_keys or "").strip() else list(DEFAULT_MENUS)))
+        out.append({
+            "email": em, "name": d.name if d else (em.split("@")[0]),
+            "is_owner": is_owner,
+            "last_login": d.last_login.isoformat() if d and d.last_login else None,
+            "login_count": d.login_count if d else 0,
+            "menus": menus,
+            "custom": bool(p and (p.menu_keys or "").strip()),
+        })
+    return {"owner_email": OWNER_EMAIL, "all_menus": MENUS, "users": out}
+
+
+class SetPerm(BaseModel):
+    email: str
+    menu_keys: list[str]
+
+
+@router.post("/users/permissions")
+def set_permissions(body: SetPerm, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    """이메일별 메뉴 조회 권한 설정 (관리자 전용)."""
+    _require_owner(user)
+    email = (body.email or "").strip()
+    if not email:
+        raise HTTPException(400, "이메일 필요")
+    keys = [k for k in body.menu_keys if k in MENU_KEYS]
+    p = db.get(UserMenuPermission, email)
+    if not p:
+        p = UserMenuPermission(email=email)
+        db.add(p)
+    p.menu_keys = ",".join(keys)
+    p.updated_by = user.get("email")
+    db.commit()
+    return {"ok": True, "email": email, "menus": keys}

@@ -113,11 +113,36 @@ async def login(
     access_token = auth_service.create_access_token(
         data={"sub": user["email"]}
     )
+    _record_login(user["email"], user.get("name") or "")
 
     return LoginResponse(
         access_token=access_token,
         user={"email": user["email"], "name": user["name"]}
     )
+
+
+def _record_login(email: str, name: str):
+    """로그인한 이메일을 디렉토리에 기록(권한 관리 대상). 실패해도 로그인 흐름 방해 X."""
+    try:
+        from app.database import SessionLocal
+        from app.db_models import UserDirectory
+        from datetime import datetime as _dt
+        if not SessionLocal:
+            return
+        db = SessionLocal()
+        try:
+            u = db.get(UserDirectory, email)
+            if not u:
+                u = UserDirectory(email=email, name=name, login_count=0)
+                db.add(u)
+            u.name = name or u.name
+            u.last_login = _dt.utcnow()
+            u.login_count = (u.login_count or 0) + 1
+            db.commit()
+        finally:
+            db.close()
+    except Exception:
+        pass
 
 
 @router.get("/me", response_model=UserResponse)
@@ -188,6 +213,7 @@ async def verify_otp_login(
     access_token = auth_service.create_access_token(
         data={"sub": user["email"]}
     )
+    _record_login(user["email"], user.get("name") or "")
 
     return LoginResponse(
         access_token=access_token,

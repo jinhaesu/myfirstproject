@@ -1660,6 +1660,27 @@ class PurchaseRecord(Base):
     created_at = Column(DateTime, default=func.now())
 
 
+class UserDirectory(Base):
+    """로그인한 사용자 디렉토리 — 권한 관리 대상 이메일 목록."""
+    __tablename__ = "user_directory"
+
+    email = Column(String(200), primary_key=True)
+    name = Column(String(100), nullable=True)
+    first_login = Column(DateTime, default=func.now())
+    last_login = Column(DateTime, default=func.now())
+    login_count = Column(Integer, default=0)
+
+
+class UserMenuPermission(Base):
+    """이메일별 조회 가능 메뉴 권한. menu_keys = 콤마조인 키(sales,scm,...). 미등록시 기본=sales."""
+    __tablename__ = "user_menu_permission"
+
+    email = Column(String(200), primary_key=True)
+    menu_keys = Column(Text, nullable=True)       # "sales,purchase,management"
+    updated_by = Column(String(200), nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
 class AppSetting(Base):
     """전역 설정 키-값 (관리자 전용). 예: bom_access_pw_hash 등 보안 게이트 암호."""
     __tablename__ = "app_setting"

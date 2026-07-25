@@ -13,6 +13,7 @@ interface NavItem {
 }
 
 interface NavGroup {
+  key: string;
   label: string;
   icon: string;
   items: NavItem[];
@@ -24,6 +25,7 @@ const OWNER_EMAIL = 'lion9080@joinandjoin.com';
 
 const navGroups: NavGroup[] = [
   {
+    key: 'sales',
     label: '영업부 매출 관리·분석',
     icon: 'sales',
     pathPrefix: ['/', '/channels', '/settlement'],
@@ -35,6 +37,7 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    key: 'scm',
     label: 'SCM 관리',
     icon: 'scm',
     pathPrefix: ['/scm'],
@@ -44,6 +47,7 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    key: 'logistics',
     label: '물류·생산 관리',
     icon: 'inventory',
     pathPrefix: ['/inventory'],
@@ -54,6 +58,7 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    key: 'mapping',
     label: '매핑 관리',
     icon: 'mapping',
     pathPrefix: ['/inventory/mapping'],
@@ -62,6 +67,7 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    key: 'purchase',
     label: '구매 관리',
     icon: 'orders',
     pathPrefix: ['/purchase'],
@@ -70,6 +76,16 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    key: 'management',
+    label: '경영관리',
+    icon: 'target',
+    pathPrefix: ['/management'],
+    items: [
+      { href: '/management', label: '경영 교차분석', icon: 'target' },
+    ],
+  },
+  {
+    key: 'cs',
     label: 'CS 관리',
     icon: 'voiceCs',
     pathPrefix: ['/sabangnet/cs', '/sabangnet/voice-cs'],
@@ -79,12 +95,13 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    key: 'admin',
     label: '관리',
     icon: 'settlement',
     pathPrefix: ['/admin'],
     ownerOnly: true,
     items: [
-      { href: '/admin', label: '보안·설정 관리', icon: 'settlement' },
+      { href: '/admin', label: '보안·권한 관리', icon: 'settlement' },
     ],
   },
 ];
@@ -185,7 +202,25 @@ const iconMap: Record<string, JSX.Element> = {
 export function Navigation() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const visibleGroups = navGroups.filter((g) => !g.ownerOnly || (user?.email || '').toLowerCase() === OWNER_EMAIL);
+  const isOwner = (user?.email || '').toLowerCase() === OWNER_EMAIL;
+  const [allowedMenus, setAllowedMenus] = useState<string[] | null>(null);
+
+  // 이메일별 조회 권한 로드 (오너는 전체). 로딩 전엔 기본(sales)만 노출해 깜빡임 방지.
+  useEffect(() => {
+    if (!user) { setAllowedMenus(null); return; }
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    fetch('/api/admin/my-menus', { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setAllowedMenus(d?.menus || ['sales']))
+      .catch(() => setAllowedMenus(['sales']));
+  }, [user]);
+
+  const effectiveMenus = allowedMenus ?? ['sales'];
+  const visibleGroups = navGroups.filter((g) => {
+    if (g.ownerOnly) return isOwner;
+    if (isOwner) return true;
+    return effectiveMenus.includes(g.key);
+  });
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
