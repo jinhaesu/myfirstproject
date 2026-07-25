@@ -21,6 +21,17 @@ const fmt = (n: number) => Number(n || 0).toLocaleString('ko-KR');
 const TT = { background: '#0F1011', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8', fontSize: 12 } as const;
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const thisMonth = () => { const n = new Date(); return { start: iso(new Date(n.getFullYear(), n.getMonth(), 1)), end: iso(new Date(n.getFullYear(), n.getMonth() + 1, 0)) }; };
+const presets = () => {
+  const n = new Date();
+  const ym = (y: number, m: number, d: number) => iso(new Date(y, m, d));
+  return {
+    당월: { start: ym(n.getFullYear(), n.getMonth(), 1), end: ym(n.getFullYear(), n.getMonth() + 1, 0) },
+    전월: { start: ym(n.getFullYear(), n.getMonth() - 1, 1), end: ym(n.getFullYear(), n.getMonth(), 0) },
+    '최근3개월': { start: ym(n.getFullYear(), n.getMonth() - 2, 1), end: iso(n) },
+    올해: { start: ym(n.getFullYear(), 0, 1), end: iso(n) },
+    전체: { start: '2025-01-01', end: iso(n) },
+  } as Record<string, { start: string; end: string }>;
+};
 
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return <div className={`${C.card} p-4`}><div className="text-[11px] text-[#8A8F98] mb-1 truncate">{label}</div><div className={`text-lg font-bold tabular-nums ${tone || 'text-[#F7F8F8]'}`}>{value}</div>{sub && <div className="text-[11px] text-[#62666D] mt-1 truncate">{sub}</div>}</div>;
@@ -48,14 +59,14 @@ export default function ManagementPage() {
       <Navigation />
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="mb-4"><h1 className="text-xl font-bold text-[#F7F8F8]">경영관리 · 교차분석</h1><p className="text-sm text-[#8A8F98] mt-0.5">영업·구매·생산·물류·재고 데이터를 대조해 경영 관점의 gap·이상치를 요약합니다.</p></div>
-        <div className="flex flex-wrap items-center gap-2 mb-5">
+        <div className="flex flex-wrap items-center gap-2 mb-1">
+          {Object.entries(presets()).map(([k, v]) => { const on = range.start === v.start && range.end === v.end; return <button key={k} onClick={() => setRange(v)} className={`${C.btn} ${on ? 'bg-[#5E6AD2] text-white' : C.btnGhost}`}>{k}</button>; })}
           <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
           <span className="text-[#62666D]">~</span>
           <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
-          <button onClick={() => setRange(thisMonth())} className={`${C.btn} ${C.btnGhost}`}>당월</button>
-          <button onClick={() => setRange({ start: '2025-01-01', end: iso(new Date()) })} className={`${C.btn} ${C.btnGhost}`}>전체</button>
           {loading && <span className="text-xs text-[#62666D]">집계 중…</span>}
         </div>
+        <p className="text-xs text-[#62666D] mb-4">기간은 시작·종료일 모두 반영됩니다. 특정 월만 보려면 프리셋(전월 등)을 쓰세요.</p>
 
         {/* 핵심 요약 경보 */}
         {d?.alerts?.length > 0 && (
