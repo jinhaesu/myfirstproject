@@ -1582,6 +1582,60 @@ class InventoryLogisticsWork(Base):
     created_at = Column(DateTime, default=func.now())
 
 
+class PurchaseVendor(Base):
+    """구매 거래처(공급업체). 원부재료 supplier명과 연결."""
+    __tablename__ = "purchase_vendor"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False, unique=True)  # 거래처명 (= 자재 supplier)
+    biz_no = Column(String(30), nullable=True)               # 사업자번호
+    contact = Column(String(100), nullable=True)             # 담당자
+    phone = Column(String(50), nullable=True)
+    email = Column(String(200), nullable=True)
+    category = Column(String(100), nullable=True)            # 원재료/부자재/포장 등
+    lead_time_days = Column(Integer, default=0)              # 발주 리드타임
+    is_active = Column(Boolean, default=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class PurchaseOrder(Base):
+    """발주(구매 오더). 거래처 1건 = 1발주(여러 자재 라인)."""
+    __tablename__ = "purchase_order"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    po_no = Column(String(50), nullable=True, index=True)
+    vendor_id = Column(Integer, ForeignKey("purchase_vendor.id"), nullable=True, index=True)
+    vendor_name = Column(String(200), nullable=True)
+    order_date = Column(Date, nullable=False, index=True)
+    expected_date = Column(Date, nullable=True)      # 입고 예정일
+    status = Column(String(20), default="발주", index=True)  # 요청/발주/입고/완료/취소
+    total_amount = Column(Float, default=0)
+    notes = Column(Text, nullable=True)
+    created_by = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class PurchaseOrderLine(Base):
+    """발주 품목 라인."""
+    __tablename__ = "purchase_order_line"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    po_id = Column(Integer, ForeignKey("purchase_order.id"), nullable=False, index=True)
+    material_type = Column(String(20), nullable=True)   # raw/sub
+    material_id = Column(Integer, nullable=True)         # scm_raw_materials/sub id
+    material_name = Column(String(300), nullable=True)
+    erp_code = Column(String(100), nullable=True)
+    qty = Column(Float, default=0)
+    unit = Column(String(30), nullable=True)
+    unit_price = Column(Float, default=0)
+    amount = Column(Float, default=0)
+    received_qty = Column(Float, default=0)             # 입고 수량
+    created_at = Column(DateTime, default=func.now())
+
+
 class AppSetting(Base):
     """전역 설정 키-값 (관리자 전용). 예: bom_access_pw_hash 등 보안 게이트 암호."""
     __tablename__ = "app_setting"

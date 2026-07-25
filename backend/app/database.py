@@ -86,6 +86,7 @@ def init_db():
             InventorySafetyStock, InventoryCountSession, InventoryCountLine,
             InventoryProduction, InventoryWorkerPhone, AppSetting,
             InventoryLogisticsWork,
+            PurchaseVendor, PurchaseOrder, PurchaseOrderLine,
         )
         from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401
         from app.models.scheduled_report import ScheduledReport  # noqa: F401

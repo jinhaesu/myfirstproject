@@ -51,15 +51,22 @@ const navGroups: NavGroup[] = [
       { href: '/inventory', label: '물류/재고 실적', icon: 'inventory' },
       { href: '/inventory/logistics', label: '물류 작업 실적', icon: 'orders' },
       { href: '/inventory/production', label: '생산 실적', icon: 'production' },
-      { href: '/inventory/mapping', label: '품목 매핑 관계', icon: 'mapping' },
     ],
   },
   {
     label: '매핑 관리',
     icon: 'mapping',
-    pathPrefix: ['/sabangnet/mapping'],
+    pathPrefix: ['/inventory/mapping'],
     items: [
-      { href: '/sabangnet/mapping', label: '매핑 자동화', icon: 'mapping' },
+      { href: '/inventory/mapping', label: '품목 매핑 관계', icon: 'mapping' },
+    ],
+  },
+  {
+    label: '구매 관리',
+    icon: 'orders',
+    pathPrefix: ['/purchase'],
+    items: [
+      { href: '/purchase', label: '구매·발주 관리', icon: 'orders' },
     ],
   },
   {
