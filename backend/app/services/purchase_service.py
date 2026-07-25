@@ -6,7 +6,8 @@ BOM 폭발(_explode_item)을 재활용해 생산량으로부터 원재료(kg)·�
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+import hashlib
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from sqlalchemy import func
@@ -14,8 +15,19 @@ from sqlalchemy.orm import Session
 
 from app.db_models import (
     InventoryProduction, ScmProduct, ScmRawMaterial, ScmSubMaterial,
-    PurchaseVendor, PurchaseOrder, PurchaseOrderLine,
+    PurchaseVendor, PurchaseOrder, PurchaseOrderLine, PurchaseRecord,
+    ChannelSalesDailyProduct,
 )
+
+
+def _mclass_norm(s) -> str:
+    """원재료/부재료 표기 정규화."""
+    s = str(s or "").strip()
+    if "부" in s:
+        return "부재료"
+    if "원" in s:
+        return "원재료"
+    return s or "기타"
 
 
 def _norm(s) -> str:
@@ -230,4 +242,236 @@ def purchase_dashboard(db: Session, start: date, end: date) -> dict:
         "by_vendor": sorted(({"vendor": k, "amount": round(v)} for k, v in by_vendor.items()), key=lambda x: -x["amount"]),
         "by_status": [{"status": k, "count": v} for k, v in by_status.items()],
         "by_month": [{"month": k, "amount": round(v)} for k, v in sorted(by_month.items())],
+    }
+
+
+# ──────────────────────────────────────────────
+# 구매 실적(구매일보) 적재 · 분석
+# ──────────────────────────────────────────────
+
+def _rec_hash(r: dict) -> str:
+    key = f"{r.get('pdate')}|{r.get('seq')}|{r.get('item_code')}|{r.get('item_name')}|{r.get('supply')}|{r.get('total')}|{r.get('qty')}"
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def ingest_records(db: Session, rows: list[dict]) -> dict:
+    """구매일보 행 bulk 적재(row_hash 중복 스킵)."""
+    existing = {h for (h,) in db.query(PurchaseRecord.row_hash).all()}
+    added = skipped = 0
+    seen = set()
+    buf = []
+    for r in rows:
+        h = _rec_hash(r)
+        if h in existing or h in seen:
+            skipped += 1
+            continue
+        seen.add(h)
+        try:
+            pd = date.fromisoformat(str(r["pdate"])[:10])
+        except Exception:
+            skipped += 1
+            continue
+        buf.append(PurchaseRecord(
+            row_hash=h, pdate=pd, seq=int(r.get("seq") or 0),
+            warehouse=(r.get("warehouse") or "")[:100],
+            vendor_name=(r.get("vendor") or "")[:200],
+            mclass=_mclass_norm(r.get("mclass")),
+            staff=(r.get("staff") or "")[:50],
+            item_code=(str(r.get("item_code") or ""))[:50],
+            item_name=(r.get("item_name") or "")[:400],
+            unit=(r.get("unit") or "")[:30],
+            qty=float(r.get("qty") or 0), unit_price=float(r.get("unit_price") or 0),
+            supply_amount=float(r.get("supply") or 0), vat=float(r.get("vat") or 0),
+            total_amount=float(r.get("total") or 0), note=(r.get("note") or "")[:300],
+        ))
+        added += 1
+        if len(buf) >= 500:
+            db.bulk_save_objects(buf); db.commit(); buf = []
+    if buf:
+        db.bulk_save_objects(buf); db.commit()
+    return {"added": added, "skipped": skipped, "total_in_db": db.query(func.count(PurchaseRecord.id)).scalar()}
+
+
+def purge_records(db: Session) -> dict:
+    n = db.query(PurchaseRecord).delete()
+    db.commit()
+    return {"deleted": n}
+
+
+def _sales_sum(db: Session, start: date, end: date) -> float:
+    v = db.query(func.coalesce(func.sum(ChannelSalesDailyProduct.net_sales), 0.0)).filter(
+        ChannelSalesDailyProduct.sale_date >= start,
+        ChannelSalesDailyProduct.sale_date <= end,
+    ).scalar()
+    return float(v or 0)
+
+
+def records_dashboard(db: Session, start: date, end: date) -> dict:
+    """구매 실적 종합 대시보드 — 원/부재료·거래처·품목·일별·매출대비 누적비율."""
+    base = db.query(PurchaseRecord).filter(
+        PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
+    rows = base.all()
+    total_supply = sum(r.supply_amount or 0 for r in rows)
+    total_amount = sum(r.total_amount or 0 for r in rows)
+
+    by_class: dict = {}
+    by_vendor: dict = {}
+    by_item: dict = {}
+    by_day: dict = {}
+    by_month: dict = {}
+    by_staff: dict = {}
+    for r in rows:
+        amt = r.supply_amount or 0
+        c = r.mclass or "기타"
+        bc = by_class.setdefault(c, {"mclass": c, "supply": 0, "lines": 0})
+        bc["supply"] += amt; bc["lines"] += 1
+        by_vendor[r.vendor_name or "미지정"] = by_vendor.get(r.vendor_name or "미지정", 0) + amt
+        ik = r.item_code or r.item_name or "?"
+        bi = by_item.setdefault(ik, {"item_code": r.item_code, "item_name": r.item_name, "supply": 0, "qty": 0, "mclass": c})
+        bi["supply"] += amt; bi["qty"] += (r.qty or 0)
+        ds = r.pdate.isoformat() if r.pdate else "?"
+        by_day[ds] = by_day.get(ds, 0) + amt
+        mk = f"{r.pdate.year}-{r.pdate.month:02d}" if r.pdate else "?"
+        by_month[mk] = by_month.get(mk, 0) + amt
+        by_staff[r.staff or "미지정"] = by_staff.get(r.staff or "미지정", 0) + amt
+
+    sales = _sales_sum(db, start, end)
+    ratio = round(total_supply / sales * 100, 1) if sales > 0 else None
+
+    return {
+        "start": start.isoformat(), "end": end.isoformat(),
+        "line_count": len(rows), "total_supply": round(total_supply), "total_amount": round(total_amount),
+        "vendor_count": len(by_vendor), "item_count": len(by_item),
+        "sales": round(sales), "purchase_to_sales_ratio": ratio,
+        "by_class": sorted(by_class.values(), key=lambda x: -x["supply"]),
+        "by_vendor": sorted(({"vendor": k, "supply": round(v)} for k, v in by_vendor.items()), key=lambda x: -x["supply"])[:20],
+        "by_item": sorted(({**v, "supply": round(v["supply"]), "qty": round(v["qty"], 1)} for v in by_item.values()), key=lambda x: -x["supply"])[:20],
+        "by_day": [{"date": k, "supply": round(v)} for k, v in sorted(by_day.items())],
+        "by_month": [{"month": k, "supply": round(v)} for k, v in sorted(by_month.items())],
+        "by_staff": sorted(({"staff": k, "supply": round(v)} for k, v in by_staff.items()), key=lambda x: -x["supply"]),
+    }
+
+
+def sales_vs_purchase(db: Session, start: date, end: date, granularity: str = "day") -> dict:
+    """기간 내 매출 대비 구매 누적비율 시계열(일/주/월)."""
+    def bucket(d: date) -> str:
+        if granularity == "month":
+            return f"{d.year}-{d.month:02d}"
+        if granularity == "week":
+            monday = d - timedelta(days=d.weekday())
+            return monday.isoformat()
+        return d.isoformat()
+
+    pur: dict = {}
+    for r in db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount).filter(
+            PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end).all():
+        if r[0]:
+            pur[bucket(r[0])] = pur.get(bucket(r[0]), 0) + (r[1] or 0)
+    sal: dict = {}
+    for r in db.query(ChannelSalesDailyProduct.sale_date, ChannelSalesDailyProduct.net_sales).filter(
+            ChannelSalesDailyProduct.sale_date >= start, ChannelSalesDailyProduct.sale_date <= end).all():
+        if r[0]:
+            sal[bucket(r[0])] = sal.get(bucket(r[0]), 0) + (r[1] or 0)
+
+    keys = sorted(set(pur) | set(sal))
+    cum_p = cum_s = 0.0
+    series = []
+    for k in keys:
+        p = pur.get(k, 0); s = sal.get(k, 0)
+        cum_p += p; cum_s += s
+        series.append({
+            "bucket": k, "purchase": round(p), "sales": round(s),
+            "cum_purchase": round(cum_p), "cum_sales": round(cum_s),
+            "ratio": round(p / s * 100, 1) if s > 0 else None,
+            "cum_ratio": round(cum_p / cum_s * 100, 1) if cum_s > 0 else None,
+        })
+    return {"granularity": granularity, "series": series,
+            "cum_purchase": round(cum_p), "cum_sales": round(cum_s),
+            "cum_ratio": round(cum_p / cum_s * 100, 1) if cum_s > 0 else None}
+
+
+def records_list(db: Session, start=None, end=None, vendor=None, mclass=None,
+                 item_code=None, q=None, limit: int = 500, offset: int = 0) -> dict:
+    qry = db.query(PurchaseRecord)
+    if start:
+        qry = qry.filter(PurchaseRecord.pdate >= start)
+    if end:
+        qry = qry.filter(PurchaseRecord.pdate <= end)
+    if vendor:
+        qry = qry.filter(PurchaseRecord.vendor_name == vendor)
+    if mclass:
+        qry = qry.filter(PurchaseRecord.mclass == _mclass_norm(mclass))
+    if item_code:
+        qry = qry.filter(PurchaseRecord.item_code == item_code)
+    if q:
+        like = f"%{q}%"
+        qry = qry.filter((PurchaseRecord.item_name.ilike(like)) | (PurchaseRecord.vendor_name.ilike(like)))
+    total = qry.count()
+    supply_total = qry.with_entities(func.coalesce(func.sum(PurchaseRecord.supply_amount), 0.0)).scalar()
+    recs = qry.order_by(PurchaseRecord.pdate.desc(), PurchaseRecord.seq.desc()).offset(offset).limit(limit).all()
+    return {
+        "total": total, "supply_total": round(supply_total or 0), "offset": offset, "limit": limit,
+        "rows": [{
+            "id": r.id, "pdate": r.pdate.isoformat() if r.pdate else None, "seq": r.seq,
+            "warehouse": r.warehouse, "vendor": r.vendor_name, "mclass": r.mclass, "staff": r.staff,
+            "item_code": r.item_code, "item_name": r.item_name, "unit": r.unit,
+            "qty": r.qty, "unit_price": r.unit_price, "supply": round(r.supply_amount or 0),
+            "vat": round(r.vat or 0), "total": round(r.total_amount or 0), "note": r.note,
+        } for r in recs],
+    }
+
+
+def vendor_history(db: Session, vendor: str, start=None, end=None) -> dict:
+    qry = db.query(PurchaseRecord).filter(PurchaseRecord.vendor_name == vendor)
+    if start:
+        qry = qry.filter(PurchaseRecord.pdate >= start)
+    if end:
+        qry = qry.filter(PurchaseRecord.pdate <= end)
+    rows = qry.all()
+    by_month: dict = {}
+    by_item: dict = {}
+    for r in rows:
+        mk = f"{r.pdate.year}-{r.pdate.month:02d}" if r.pdate else "?"
+        by_month[mk] = by_month.get(mk, 0) + (r.supply_amount or 0)
+        ik = r.item_code or r.item_name
+        bi = by_item.setdefault(ik, {"item_code": r.item_code, "item_name": r.item_name, "supply": 0, "qty": 0})
+        bi["supply"] += (r.supply_amount or 0); bi["qty"] += (r.qty or 0)
+    return {
+        "vendor": vendor, "line_count": len(rows),
+        "total_supply": round(sum(r.supply_amount or 0 for r in rows)),
+        "first": min((r.pdate.isoformat() for r in rows if r.pdate), default=None),
+        "last": max((r.pdate.isoformat() for r in rows if r.pdate), default=None),
+        "by_month": [{"month": k, "supply": round(v)} for k, v in sorted(by_month.items())],
+        "by_item": sorted(({**v, "supply": round(v["supply"]), "qty": round(v["qty"], 1)} for v in by_item.values()), key=lambda x: -x["supply"]),
+    }
+
+
+def item_history(db: Session, item_code=None, item_name=None, start=None, end=None) -> dict:
+    qry = db.query(PurchaseRecord)
+    if item_code:
+        qry = qry.filter(PurchaseRecord.item_code == item_code)
+    elif item_name:
+        qry = qry.filter(PurchaseRecord.item_name.ilike(f"%{item_name}%"))
+    if start:
+        qry = qry.filter(PurchaseRecord.pdate >= start)
+    if end:
+        qry = qry.filter(PurchaseRecord.pdate <= end)
+    rows = qry.order_by(PurchaseRecord.pdate).all()
+    by_month: dict = {}
+    by_vendor: dict = {}
+    prices = []
+    for r in rows:
+        mk = f"{r.pdate.year}-{r.pdate.month:02d}" if r.pdate else "?"
+        bm = by_month.setdefault(mk, {"month": mk, "supply": 0, "qty": 0})
+        bm["supply"] += (r.supply_amount or 0); bm["qty"] += (r.qty or 0)
+        by_vendor[r.vendor_name or "미지정"] = by_vendor.get(r.vendor_name or "미지정", 0) + (r.supply_amount or 0)
+        if r.unit_price:
+            prices.append((r.pdate.isoformat() if r.pdate else None, r.unit_price, r.vendor_name))
+    return {
+        "item_code": item_code, "item_name": item_name or (rows[0].item_name if rows else None),
+        "line_count": len(rows), "total_supply": round(sum(r.supply_amount or 0 for r in rows)),
+        "total_qty": round(sum(r.qty or 0 for r in rows), 1),
+        "by_month": [{**v, "supply": round(v["supply"]), "qty": round(v["qty"], 1)} for v in by_month.values()],
+        "by_vendor": sorted(({"vendor": k, "supply": round(v)} for k, v in by_vendor.items()), key=lambda x: -x["supply"]),
+        "price_trend": [{"date": d, "unit_price": round(p, 2), "vendor": v} for d, p, v in prices],
     }

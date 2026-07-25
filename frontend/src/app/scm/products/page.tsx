@@ -264,8 +264,10 @@ export default function ProductsPage() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const data = await fetchSafe<Product[]>('/api/scm/products', []);
-      if (data.length > 0) setProducts(data);
+      // API는 {success, data, total} 또는 배열을 반환할 수 있음 — 양쪽 모두 대응
+      const resp = await fetchSafe<any>('/api/scm/products?limit=2000', { data: [] });
+      const rows: Product[] = Array.isArray(resp) ? resp : (resp?.data || []);
+      if (rows.length > 0) setProducts(rows);
     })();
   }, [user]);
 

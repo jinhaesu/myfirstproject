@@ -145,3 +145,120 @@ def dashboard(start: str, end: str, db: Session = Depends(get_db)):
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
     return pur.purchase_dashboard(db, s, e)
+
+
+# ── 구매 실적(구매일보) ──
+class RecordsIn(BaseModel):
+    rows: list[dict]
+
+
+@router.post("/records/ingest")
+def ingest_records(body: RecordsIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return pur.ingest_records(db, body.rows)
+
+
+@router.delete("/records")
+def purge_records(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return pur.purge_records(db)
+
+
+@router.get("/records")
+def list_records(start: Optional[str] = None, end: Optional[str] = None,
+                 vendor: Optional[str] = None, mclass: Optional[str] = None,
+                 item_code: Optional[str] = None, q: Optional[str] = None,
+                 limit: int = 500, offset: int = 0, db: Session = Depends(get_db)):
+    return pur.records_list(db, start=_pd(start), end=_pd(end), vendor=vendor,
+                            mclass=mclass, item_code=item_code, q=q, limit=limit, offset=offset)
+
+
+@router.get("/records/dashboard")
+def records_dashboard(start: str, end: str, db: Session = Depends(get_db)):
+    s, e = _pd(start), _pd(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return pur.records_dashboard(db, s, e)
+
+
+@router.get("/records/sales-ratio")
+def sales_ratio(start: str, end: str, granularity: str = "day", db: Session = Depends(get_db)):
+    s, e = _pd(start), _pd(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return pur.sales_vs_purchase(db, s, e, granularity=granularity)
+
+
+@router.get("/records/vendor-history")
+def vendor_history(vendor: str, start: Optional[str] = None, end: Optional[str] = None, db: Session = Depends(get_db)):
+    return pur.vendor_history(db, vendor, start=_pd(start), end=_pd(end))
+
+
+@router.get("/records/item-history")
+def item_history(item_code: Optional[str] = None, item_name: Optional[str] = None,
+                 start: Optional[str] = None, end: Optional[str] = None, db: Session = Depends(get_db)):
+    return pur.item_history(db, item_code=item_code, item_name=item_name, start=_pd(start), end=_pd(end))
+
+
+# ── 발주서 이메일 발행 ──
+@router.post("/orders/{pid}/issue")
+def issue_order(pid: int, to: Optional[str] = Query(None), db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    po = db.get(PurchaseOrder, pid)
+    if not po:
+        raise HTTPException(404, "발주 없음")
+    lines = db.query(PurchaseOrderLine).filter(PurchaseOrderLine.po_id == pid).all()
+    # 수신 이메일: 인자 > 거래처 이메일
+    recipient = to
+    if not recipient and po.vendor_id:
+        v = db.get(PurchaseVendor, po.vendor_id)
+        recipient = v.email if v else None
+    if not recipient:
+        raise HTTPException(400, "수신 이메일이 없습니다(거래처 이메일 등록 또는 to 지정).")
+
+    try:
+        from app.config import get_settings
+        import resend
+        settings = get_settings()
+        if not settings.RESEND_API_KEY:
+            raise HTTPException(500, "RESEND_API_KEY 미설정")
+        resend.api_key = settings.RESEND_API_KEY
+        rows_html = "".join(
+            f"<tr><td style='padding:6px 10px;border:1px solid #ddd'>{l.material_name or ''}</td>"
+            f"<td style='padding:6px 10px;border:1px solid #ddd'>{l.erp_code or ''}</td>"
+            f"<td style='padding:6px 10px;border:1px solid #ddd;text-align:right'>{(l.qty or 0):,.0f} {l.unit or ''}</td>"
+            f"<td style='padding:6px 10px;border:1px solid #ddd;text-align:right'>{(l.unit_price or 0):,.0f}</td>"
+            f"<td style='padding:6px 10px;border:1px solid #ddd;text-align:right'>{(l.amount or 0):,.0f}</td></tr>"
+            for l in lines
+        )
+        html = f"""
+        <div style='font-family:sans-serif;max-width:640px'>
+          <h2>발주서 (Purchase Order)</h2>
+          <p>거래처: <b>{po.vendor_name or ''}</b><br/>
+             발주일: {po.order_date.isoformat() if po.order_date else ''}<br/>
+             입고예정: {po.expected_date.isoformat() if po.expected_date else '-'}<br/>
+             발주번호: {po.po_no or f'PO-{po.id}'}</p>
+          <table style='border-collapse:collapse;width:100%;font-size:14px'>
+            <thead><tr style='background:#f4f4f5'>
+              <th style='padding:6px 10px;border:1px solid #ddd;text-align:left'>품목</th>
+              <th style='padding:6px 10px;border:1px solid #ddd'>코드</th>
+              <th style='padding:6px 10px;border:1px solid #ddd'>수량</th>
+              <th style='padding:6px 10px;border:1px solid #ddd'>단가</th>
+              <th style='padding:6px 10px;border:1px solid #ddd'>금액</th>
+            </tr></thead>
+            <tbody>{rows_html}</tbody>
+            <tfoot><tr><td colspan='4' style='padding:8px 10px;text-align:right;font-weight:bold'>합계</td>
+              <td style='padding:8px 10px;border:1px solid #ddd;text-align:right;font-weight:bold'>{(po.total_amount or 0):,.0f}원</td></tr></tfoot>
+          </table>
+          <p style='color:#888;font-size:12px;margin-top:16px'>본 발주서는 조인앤조인 구매관리 시스템에서 발행되었습니다.</p>
+        </div>"""
+        resend.Emails.send({
+            "from": settings.RESEND_FROM_EMAIL,
+            "to": [recipient],
+            "subject": f"[조인앤조인] 발주서 {po.po_no or f'PO-{po.id}'} — {po.vendor_name or ''}",
+            "html": html,
+        })
+        po.status = "발주"
+        db.commit()
+        return {"ok": True, "sent_to": recipient}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"발송 실패: {str(e)[:200]}")

@@ -1636,6 +1636,30 @@ class PurchaseOrderLine(Base):
     created_at = Column(DateTime, default=func.now())
 
 
+class PurchaseRecord(Base):
+    """구매 실적(구매일보). 실제 매입/입고 1건 = 1행. 25-26 구매일보 시트 적재."""
+    __tablename__ = "purchase_record"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    row_hash = Column(String(64), nullable=False, unique=True, index=True)  # 중복적재 방지
+    pdate = Column(Date, nullable=False, index=True)         # 구매일자
+    seq = Column(Integer, default=0)                          # 일자 내 전표 No.
+    warehouse = Column(String(100), nullable=True)           # 창고명(F1/F2)
+    vendor_name = Column(String(200), nullable=True, index=True)  # 거래처명
+    mclass = Column(String(20), nullable=True, index=True)   # 원재료/부재료
+    staff = Column(String(50), nullable=True)                # 담당자
+    item_code = Column(String(50), nullable=True, index=True)  # 품목코드
+    item_name = Column(String(400), nullable=True)           # 품목명 [규격]
+    unit = Column(String(30), nullable=True)
+    qty = Column(Float, default=0)
+    unit_price = Column(Float, default=0)
+    supply_amount = Column(Float, default=0)                 # 공급가액
+    vat = Column(Float, default=0)
+    total_amount = Column(Float, default=0)                  # 합계(VAT포함)
+    note = Column(String(300), nullable=True)                # 적요
+    created_at = Column(DateTime, default=func.now())
+
+
 class AppSetting(Base):
     """전역 설정 키-값 (관리자 전용). 예: bom_access_pw_hash 등 보안 게이트 암호."""
     __tablename__ = "app_setting"
