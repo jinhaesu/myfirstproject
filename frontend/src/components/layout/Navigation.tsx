@@ -51,6 +51,7 @@ const navGroups: NavGroup[] = [
       { href: '/inventory', label: '물류/재고 실적', icon: 'inventory' },
       { href: '/inventory/logistics', label: '물류 작업 실적', icon: 'orders' },
       { href: '/inventory/production', label: '생산 실적', icon: 'production' },
+      { href: '/inventory/mapping', label: '품목 매핑 관계', icon: 'mapping' },
     ],
   },
   {

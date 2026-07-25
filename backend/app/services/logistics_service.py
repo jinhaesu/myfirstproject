@@ -269,6 +269,8 @@ def logistics_timeseries(db: Session, granularity: str = "day", start: Optional[
                        "amount": round(v["amount"]), "labor": round(v["labor"]),
                        "hourly_qty": round(v["qty"] / v["hours"], 1) if v["hours"] else 0,
                        "profitability": round(v["amount"] / v["labor"], 2) if v["labor"] else 0,
+                       "unit_price": round(v["amount"] / v["qty"], 1) if v["qty"] else 0,   # 평균 작업단가
+                       "unit_labor": round(v["labor"] / v["qty"], 1) if v["qty"] else 0,    # 개당 노무단가(실인건비)
                        "day_qty": round(v["day_qty"]), "night_qty": round(v["night_qty"])})
     return {"granularity": granularity, "work_type": work_type, "series": series}
 

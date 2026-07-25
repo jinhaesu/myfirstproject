@@ -984,6 +984,127 @@ def production_categories(db: Session) -> list[str]:
     return sorted({r[0] for r in rows if r[0]})
 
 
+def automap_scm_products(db: Session, overwrite: bool = False) -> dict:
+    """scm_products(BOM) → csa_product_master 자동 연결(csa_product_id).
+    품목류(product_category)/품목명을 표준명·별칭·부분일치로 매칭."""
+    from app.db_models import ScmProduct
+    cat_map, _scm = _production_maps(db)  # norm(csa name/alias) -> id
+    csa = [(p.id, _norm(p.name)) for p in db.query(ProductMaster).all() if p.name]
+
+    def resolve(cat, name):
+        pid = cat_map.get(_norm(cat)) or cat_map.get(_norm(name))
+        if pid:
+            return pid
+        nc = _norm(cat)
+        best = None
+        for cid, cn in csa:
+            if cn and (cn in nc or nc in cn):
+                # 가장 긴 매칭 우선(마카롱 vs 비건 마카롱 구분)
+                if best is None or len(cn) > best[1]:
+                    best = (cid, len(cn))
+        return best[0] if best else None
+
+    q = db.query(ScmProduct)
+    if not overwrite:
+        q = q.filter(ScmProduct.csa_product_id.is_(None))
+    updated = 0
+    unmatched: dict[str, int] = {}
+    id2name = {p.id: p.name for p in db.query(ProductMaster).all()}
+    samples: dict[str, str] = {}
+    for s in q.all():
+        pid = resolve(s.product_category or "", s.product_name or "")
+        if pid:
+            s.csa_product_id = pid
+            updated += 1
+            samples.setdefault(s.product_category or "", id2name.get(pid, ""))
+        else:
+            unmatched[s.product_category or "?"] = unmatched.get(s.product_category or "?", 0) + 1
+    db.commit()
+    return {"updated": updated,
+            "matched_categories": samples,
+            "unmatched": sorted(unmatched.items(), key=lambda x: -x[1])}
+
+
+def mapping_overview(db: Session) -> dict:
+    """품목류(csa_product_master) 중심 통합 매핑 관계 — 영업·생산·물류재고·BOM/세트 연결.
+    한 품목이 각 시스템에서 어떻게 이어지는지 한눈에."""
+    from app.db_models import ScmProduct, CsaChannelProduct
+    prods: dict[int, dict] = {}
+    for p in db.query(ProductMaster).filter(ProductMaster.is_active.is_(True)).all():
+        prods[p.id] = {"id": p.id, "name": p.name, "category": p.category or "",
+                       "code": p.code, "aliases": p.aliases or [],
+                       "sales_channels": 0, "sales_qty": 0.0, "sales_amount": 0.0,
+                       "prod_qty": 0.0, "stock": 0.0,
+                       "bom_finished": 0, "bom_semi": 0, "bom_set": 0, "bom_items": []}
+
+    # 영업: 판매 수량·금액
+    for pid, q, amt in db.query(
+        ChannelSalesDailyProduct.product_id,
+        func.coalesce(func.sum(ChannelSalesDailyProduct.pcs_qty), 0.0),
+        func.coalesce(func.sum(ChannelSalesDailyProduct.net_sales), 0.0),
+    ).filter(ChannelSalesDailyProduct.product_id.isnot(None)).group_by(ChannelSalesDailyProduct.product_id).all():
+        if pid in prods:
+            prods[pid]["sales_qty"] = float(q or 0); prods[pid]["sales_amount"] = float(amt or 0)
+
+    # 영업: 판매 채널 수
+    try:
+        for pid, cnt in db.query(CsaChannelProduct.product_id, func.count(CsaChannelProduct.id)).filter(
+                CsaChannelProduct.is_active.is_(True)).group_by(CsaChannelProduct.product_id).all():
+            if pid in prods:
+                prods[pid]["sales_channels"] = int(cnt)
+    except Exception:
+        pass
+
+    # 생산
+    for pid, q in db.query(
+        InventoryProduction.product_id, func.coalesce(func.sum(InventoryProduction.qty), 0.0),
+    ).filter(InventoryProduction.product_id.isnot(None)).group_by(InventoryProduction.product_id).all():
+        if pid in prods:
+            prods[pid]["prod_qty"] = float(q or 0)
+
+    # 물류 재고
+    for (_w, pid), v in current_stock_map(db).items():
+        if pid in prods:
+            prods[pid]["stock"] += v
+
+    # BOM: scm_products (csa_product_id 연결)
+    for s in db.query(ScmProduct).filter(ScmProduct.csa_product_id.isnot(None)).all():
+        p = prods.get(s.csa_product_id)
+        if not p:
+            continue
+        it = s.item_type or ""
+        if "완제품" in it:
+            p["bom_finished"] += 1
+        elif "반제품" in it:
+            p["bom_semi"] += 1
+        elif "세트" in it:
+            p["bom_set"] += 1
+        if len(p["bom_items"]) < 40:
+            p["bom_items"].append({"name": s.product_name, "item_type": it, "code": s.product_code})
+
+    rows = []
+    for p in prods.values():
+        p["sales_qty"] = round(p["sales_qty"]); p["sales_amount"] = round(p["sales_amount"])
+        p["prod_qty"] = round(p["prod_qty"]); p["stock"] = round(p["stock"])
+        p["bom_total"] = p["bom_finished"] + p["bom_semi"] + p["bom_set"]
+        # 매핑 완성도: 영업/생산/BOM 세 축에 데이터 있으면 완결
+        p["linked"] = {"sales": p["sales_channels"] > 0 or p["sales_qty"] != 0,
+                       "production": p["prod_qty"] > 0, "bom": p["bom_total"] > 0}
+        p["link_score"] = sum(p["linked"].values())
+        rows.append(p)
+    rows.sort(key=lambda r: (-r["sales_amount"], r["name"]))
+    total = len(rows)
+    return {
+        "rows": rows, "count": total,
+        "summary": {
+            "sales_linked": sum(1 for r in rows if r["linked"]["sales"]),
+            "production_linked": sum(1 for r in rows if r["linked"]["production"]),
+            "bom_linked": sum(1 for r in rows if r["linked"]["bom"]),
+            "fully_linked": sum(1 for r in rows if r["link_score"] == 3),
+        },
+    }
+
+
 def product_cost_map(db: Session) -> dict:
     """csa_product_master(품목류) 기준 개당 원가·노무비 (생산이력 가중평균)."""
     rows = db.query(

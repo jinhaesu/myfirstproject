@@ -80,7 +80,7 @@ interface Dash {
   by_team: { team: string; qty: number; hours: number; labor: number; hourly_qty: number }[];
   by_shift: { shift: string; qty: number }[];
 }
-interface TS { period: string; qty: number; hours: number; amount: number; labor: number; hourly_qty: number; profitability: number; day_qty: number; night_qty: number; }
+interface TS { period: string; qty: number; hours: number; amount: number; labor: number; hourly_qty: number; profitability: number; unit_price: number; unit_labor: number; day_qty: number; night_qty: number; }
 interface LaborCmp { total_prod_hours: number; total_att_hours: number; total_regular_hours: number; total_dispatch_hours: number; total_hours_ratio: number; total_prod_labor: number; total_att_cost: number; total_regular_pay: number; note: string; error?: string; series: { period: string; prod_hours: number; att_hours: number; hours_ratio: number }[]; }
 
 type Tab = '대시보드' | '실적 조회' | '실적 입력' | '담당자·문자' | '업로드';
@@ -203,6 +203,22 @@ function DashTab() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+          </div>
+
+          <div className={`${C.card} p-4`}>
+            <div className="text-sm font-semibold text-[#F7F8F8] mb-1">{gl} 작업 단가 흐름 {wtype ? `· ${wtype}` : '(전체)'}</div>
+            <div className="text-xs text-[#62666D] mb-3">평균 작업단가(작업액÷작업량) vs 개당 노무단가(실인건비÷작업량). 작업종류를 고르면 그 종류의 단가 추이입니다.</div>
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={ts}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
+                <XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                <YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} />
+                <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => won(v)} />
+                <Legend />
+                <Line type="monotone" dataKey="unit_price" name="평균 작업단가" stroke="#F0BF00" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="unit_labor" name="개당 노무단가" stroke="#00B8CC" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

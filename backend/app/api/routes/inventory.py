@@ -764,6 +764,19 @@ def product_cost(db: Session = Depends(get_db)):
     return {"costs": inv.product_cost_map(db)}
 
 
+@router.get("/mapping-overview")
+def mapping_overview(db: Session = Depends(get_db)):
+    """품목 통합 매핑 관계 — 영업·생산·물류재고·BOM/세트 연결 현황."""
+    return inv.mapping_overview(db)
+
+
+@router.post("/mapping-automap")
+def mapping_automap(overwrite: bool = False, db: Session = Depends(get_db),
+                    user: dict = Depends(get_current_user)):
+    """scm_products(BOM)를 csa_product_master에 자동 연결."""
+    return inv.automap_scm_products(db, overwrite=overwrite)
+
+
 # ──────────────────────────────────────────────
 # 물류 작업 실적
 # ──────────────────────────────────────────────
