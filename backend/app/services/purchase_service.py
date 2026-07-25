@@ -306,10 +306,19 @@ def _sales_sum(db: Session, start: date, end: date) -> float:
     return float(v or 0)
 
 
-def records_dashboard(db: Session, start: date, end: date) -> dict:
-    """구매 실적 종합 대시보드 — 원/부재료·거래처·품목·일별·매출대비 누적비율."""
+def records_dashboard(db: Session, start: date, end: date,
+                      vendor: Optional[str] = None, mclass: Optional[str] = None,
+                      q: Optional[str] = None) -> dict:
+    """구매 실적 종합 대시보드 — 원/부재료·거래처·품목·일별·매출대비 누적비율. 거래처·구분·검색 필터."""
     base = db.query(PurchaseRecord).filter(
         PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
+    if vendor:
+        base = base.filter(PurchaseRecord.vendor_name == vendor)
+    if mclass:
+        base = base.filter(PurchaseRecord.mclass == _mclass_norm(mclass))
+    if q:
+        like = f"%{q}%"
+        base = base.filter((PurchaseRecord.item_name.ilike(like)) | (PurchaseRecord.vendor_name.ilike(like)))
     rows = base.all()
     total_supply = sum(r.supply_amount or 0 for r in rows)
     total_amount = sum(r.total_amount or 0 for r in rows)
@@ -474,4 +483,64 @@ def item_history(db: Session, item_code=None, item_name=None, start=None, end=No
         "by_month": [{**v, "supply": round(v["supply"]), "qty": round(v["qty"], 1)} for v in by_month.values()],
         "by_vendor": sorted(({"vendor": k, "supply": round(v)} for k, v in by_vendor.items()), key=lambda x: -x["supply"]),
         "price_trend": [{"date": d, "unit_price": round(p, 2), "vendor": v} for d, p, v in prices],
+    }
+
+
+def req_vs_actual(db: Session, start: date, end: date, top: int = 40) -> dict:
+    """생산 BOM 이론소요 vs 실제 구매를 품목(erp_code)별로 대조 — 히트맵/비교용.
+
+    매칭키: BOM 자재 erp_code ↔ 구매 item_code. 금액=원가/공급가, 수량=소요량/구매량.
+    """
+    try:
+        mr = material_requirement(db, start, end)
+    except Exception:
+        mr = {"materials": []}
+    req: dict = {}
+    for m in mr.get("materials", []):
+        code = (m.get("erp_code") or "").strip()
+        key = code or m.get("name")
+        r = req.setdefault(key, {"code": code, "name": m.get("name"), "type": m.get("type"),
+                                 "req_qty": 0.0, "req_cost": 0.0})
+        r["req_qty"] += m.get("qty", 0) or 0
+        r["req_cost"] += m.get("cost", 0) or 0
+
+    act: dict = {}
+    rows = db.query(
+        PurchaseRecord.item_code, PurchaseRecord.item_name,
+        func.coalesce(func.sum(PurchaseRecord.qty), 0.0),
+        func.coalesce(func.sum(PurchaseRecord.supply_amount), 0.0),
+    ).filter(PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end).group_by(
+        PurchaseRecord.item_code, PurchaseRecord.item_name).all()
+    for code, name, q, amt in rows:
+        code = (str(code) or "").strip()
+        key = code or name
+        a = act.setdefault(key, {"code": code, "name": name, "act_qty": 0.0, "act_cost": 0.0})
+        a["act_qty"] += float(q or 0)
+        a["act_cost"] += float(amt or 0)
+
+    keys = set(req) | set(act)
+    items = []
+    for k in keys:
+        r = req.get(k, {})
+        a = act.get(k, {})
+        rc = round(r.get("req_cost", 0))
+        ac = round(a.get("act_cost", 0))
+        items.append({
+            "code": r.get("code") or a.get("code") or "",
+            "name": r.get("name") or a.get("name") or k,
+            "type": r.get("type"),
+            "req_qty": round(r.get("req_qty", 0), 1), "req_cost": rc,
+            "act_qty": round(a.get("act_qty", 0), 1), "act_cost": ac,
+            "gap": ac - rc,
+            "coverage": round(ac / rc * 100, 1) if rc > 0 else (None if ac == 0 else 9999),
+            "matched": bool(r) and bool(a),
+        })
+    # 소요 또는 구매가 큰 순
+    items.sort(key=lambda x: -max(x["req_cost"], x["act_cost"]))
+    return {
+        "start": start.isoformat(), "end": end.isoformat(),
+        "items": items[:top],
+        "total_req": round(sum(i["req_cost"] for i in items)),
+        "total_act": round(sum(i["act_cost"] for i in items)),
+        "matched_count": sum(1 for i in items if i["matched"]),
     }

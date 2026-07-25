@@ -267,14 +267,14 @@ export function Navigation() {
                   <div key={group.label} className="relative">
                     <button
                       onClick={() => setOpenGroup(isOpen ? null : group.label)}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                      className={`flex items-center gap-1 px-2 lg:px-2.5 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-all ${
                         active
                           ? 'bg-[#5E6AD2]/10 text-[#828FFF]'
                           : 'text-[#8A8F98] hover:bg-white/5/5 hover:text-[#F7F8F8]'
                       }`}
                     >
-                      {iconMap[group.icon]}
-                      <span>{group.label}</span>
+                      <span className="shrink-0">{iconMap[group.icon]}</span>
+                      <span className="whitespace-nowrap">{group.label}</span>
                       <svg
                         className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24"

@@ -67,22 +67,53 @@ export default function PurchasePage() {
   );
 }
 
+// 기간 프리셋
+const presets = () => {
+  const n = new Date();
+  const ym = (y: number, m: number, d: number) => iso(new Date(y, m, d));
+  return {
+    당월: { start: ym(n.getFullYear(), n.getMonth(), 1), end: ym(n.getFullYear(), n.getMonth() + 1, 0) },
+    전월: { start: ym(n.getFullYear(), n.getMonth() - 1, 1), end: ym(n.getFullYear(), n.getMonth(), 0) },
+    '최근3개월': { start: ym(n.getFullYear(), n.getMonth() - 2, 1), end: iso(n) },
+    올해: { start: ym(n.getFullYear(), 0, 1), end: iso(n) },
+    전체: { start: '2025-01-01', end: iso(n) },
+  } as Record<string, { start: string; end: string }>;
+};
+
 // ─────────────────────────────────────────────
 // 실적 대시보드
 // ─────────────────────────────────────────────
 function DashTab() {
   const [range, setRange] = useState(thisMonth());
   const [gran, setGran] = useState<'day' | 'week' | 'month'>('day');
+  const [vendor, setVendor] = useState('');
+  const [mclass, setMclass] = useState('');
+  const [q, setQ] = useState('');
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [d, setD] = useState<any>(null);
   const [ratio, setRatio] = useState<any>(null);
-  useEffect(() => { getJSON<any>(`/purchase/records/dashboard?start=${range.start}&end=${range.end}`, null).then(setD); }, [range]);
+  const [heat, setHeat] = useState<any>(null);
+  const P = presets();
+  const qs = () => { const p = new URLSearchParams({ start: range.start, end: range.end }); if (vendor) p.set('vendor', vendor); if (mclass) p.set('mclass', mclass); if (q) p.set('q', q); return p.toString(); };
+  useEffect(() => { getJSON<{ vendors: Vendor[] }>('/purchase/vendors', { vendors: [] }).then((r) => setVendors(r.vendors)); }, []);
+  useEffect(() => { getJSON<any>(`/purchase/records/dashboard?${qs()}`, null).then(setD); }, [range, vendor, mclass, q]);
   useEffect(() => { getJSON<any>(`/purchase/records/sales-ratio?start=${range.start}&end=${range.end}&granularity=${gran}`, null).then(setRatio); }, [range, gran]);
+  useEffect(() => { getJSON<any>(`/purchase/records/req-vs-actual?start=${range.start}&end=${range.end}&top=30`, null).then(setHeat); }, [range]);
   const classData = (d?.by_class || []).map((x: any) => ({ name: x.mclass, value: x.supply }));
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
-        <RangeBar range={range} setRange={setRange} />
-        <div className="flex gap-1 ml-auto">{(['day', 'week', 'month'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} ${gran === g ? C.btnPrimary : C.btnGhost}`}>{g === 'day' ? '일' : g === 'week' ? '주' : '월'}</button>)}</div>
+        {Object.keys(P).map((k) => { const on = range.start === P[k].start && range.end === P[k].end; return <button key={k} onClick={() => setRange(P[k])} className={`${C.btn} ${on ? C.btnPrimary : C.btnGhost}`}>{k}</button>; })}
+        <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
+        <span className="text-[#62666D]">~</span>
+        <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={vendor} onChange={(e) => setVendor(e.target.value)} className={C.input}><option value="">전체 거래처</option>{vendors.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}</select>
+        <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목명 검색" className={`${C.input} w-40`} />
+        {(vendor || mclass || q) && <button onClick={() => { setVendor(''); setMclass(''); setQ(''); }} className={`${C.btn} ${C.btnGhost}`}>필터 해제</button>}
+        <div className="flex gap-1 ml-auto"><span className="text-xs text-[#62666D] self-center mr-1">비율 단위</span>{(['day', 'week', 'month'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} ${gran === g ? C.btnPrimary : C.btnGhost}`}>{g === 'day' ? '일' : g === 'week' ? '주' : '월'}</button>)}</div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard label="구매액(공급가)" value={wonShort(d?.total_supply || 0)} tone="text-[#F0BF00]" sub={`${fmt(d?.line_count || 0)}건`} />
@@ -127,6 +158,44 @@ function DashTab() {
           {d?.by_item?.length > 0 ? (
             <ResponsiveContainer width="100%" height={240}><BarChart data={d.by_item.slice(0, 12)} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><YAxis type="category" dataKey="item_name" tick={{ fill: '#8A8F98', fontSize: 9 }} width={130} tickFormatter={(v) => String(v).slice(0, 14)} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" radius={[0, 4, 4, 0]}>{d.by_item.slice(0, 12).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>
           ) : <Empty />}
+        </div>
+      </div>
+
+      {/* 생산 소요 vs 실제 구매 히트맵 */}
+      <div className={`${C.card} p-4`}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-sm font-semibold text-[#F7F8F8]">생산 BOM 소요 vs 실제 구매 · 품목별 히트맵</div>
+          {heat && <div className="text-xs text-[#8A8F98]">이론소요 {wonShort(heat.total_req)} · 실구매 {wonShort(heat.total_act)} · 매칭 {heat.matched_count}품목</div>}
+        </div>
+        <p className="text-xs text-[#62666D] mb-3">색이 진할수록 금액 큼. 커버리지 = 실구매÷이론소요(100% 미만=재고소진/과소구매, 초과=재고빌드/선구매).</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr>
+              <th className="text-left text-xs text-[#8A8F98] px-2 py-1.5 border-b border-[#23252A]">원부재료</th>
+              <th className="text-right text-xs text-[#8A8F98] px-2 py-1.5 border-b border-[#23252A]">BOM 소요</th>
+              <th className="text-right text-xs text-[#8A8F98] px-2 py-1.5 border-b border-[#23252A]">실제 구매</th>
+              <th className="text-right text-xs text-[#8A8F98] px-2 py-1.5 border-b border-[#23252A]">gap</th>
+              <th className="text-center text-xs text-[#8A8F98] px-2 py-1.5 border-b border-[#23252A]">커버리지</th>
+            </tr></thead>
+            <tbody>
+              {(heat?.items || []).map((it: any, i: number) => {
+                const maxv = Math.max(...(heat?.items || []).map((x: any) => Math.max(x.req_cost, x.act_cost)), 1);
+                const cell = (v: number, hue: string) => ({ background: v > 0 ? `${hue}${Math.max(0.06, Math.min(0.55, v / maxv)).toFixed(2)})` : 'transparent' });
+                const cov = it.coverage;
+                const covColor = cov == null ? 'text-[#62666D]' : cov > 130 ? 'text-[#F0BF00]' : cov < 70 ? 'text-[#EB5757]' : 'text-[#3FBE5B]';
+                return (
+                  <tr key={i}>
+                    <td className="px-2 py-1.5 text-[#D0D6E0] border-b border-[#1A1B1E]"><span className={it.type === 'raw' ? 'text-[#4DA3FF]' : it.type === 'sub' ? 'text-[#F0BF00]' : 'text-[#62666D]'}>[{it.type === 'raw' ? '원' : it.type === 'sub' ? '부' : '?'}]</span> {it.name}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums border-b border-[#1A1B1E]" style={cell(it.req_cost, 'rgba(168,85,247,')}>{it.req_cost ? won(it.req_cost) : '-'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums border-b border-[#1A1B1E]" style={cell(it.act_cost, 'rgba(77,163,255,')}>{it.act_cost ? won(it.act_cost) : '-'}</td>
+                    <td className={`px-2 py-1.5 text-right tabular-nums border-b border-[#1A1B1E] ${it.gap >= 0 ? 'text-[#4DA3FF]' : 'text-[#EB5757]'}`}>{wonShort(it.gap)}</td>
+                    <td className={`px-2 py-1.5 text-center tabular-nums border-b border-[#1A1B1E] ${covColor}`}>{cov == null ? '구매만' : cov >= 9999 ? '소요없음' : `${cov}%`}</td>
+                  </tr>
+                );
+              })}
+              {(!heat?.items || heat.items.length === 0) && <tr><td colSpan={5} className="px-2 py-6 text-center text-[#62666D]">데이터 없음</td></tr>}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

@@ -1666,6 +1666,7 @@ class UserDirectory(Base):
 
     email = Column(String(200), primary_key=True)
     name = Column(String(100), nullable=True)
+    department = Column(String(100), nullable=True)   # 부서(관리자 지정)
     first_login = Column(DateTime, default=func.now())
     last_login = Column(DateTime, default=func.now())
     login_count = Column(Integer, default=0)

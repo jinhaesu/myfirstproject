@@ -167,13 +167,42 @@ def list_users(db: Session = Depends(get_db), user: dict = Depends(get_current_u
                  ([k for k in (p.menu_keys or "").split(",") if k in MENU_KEYS] if p and (p.menu_keys or "").strip() else list(DEFAULT_MENUS)))
         out.append({
             "email": em, "name": d.name if d else (em.split("@")[0]),
+            "department": getattr(d, "department", None) if d else None,
             "is_owner": is_owner,
+            "in_directory": bool(d),
             "last_login": d.last_login.isoformat() if d and d.last_login else None,
             "login_count": d.login_count if d else 0,
             "menus": menus,
             "custom": bool(p and (p.menu_keys or "").strip()),
         })
+    # 로그인 이력 있는 계정(디렉토리) 우선 정렬
+    out.sort(key=lambda x: (not x["in_directory"], x["email"]))
     return {"owner_email": OWNER_EMAIL, "all_menus": MENUS, "users": out}
+
+
+class UserProfile(BaseModel):
+    email: str
+    name: Optional[str] = None
+    department: Optional[str] = None
+
+
+@router.post("/users/profile")
+def set_user_profile(body: UserProfile, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    """이메일별 이름·부서 지정 (관리자 전용). 디렉토리에 없으면 생성."""
+    _require_owner(user)
+    email = (body.email or "").strip()
+    if not email:
+        raise HTTPException(400, "이메일 필요")
+    d = db.get(UserDirectory, email)
+    if not d:
+        d = UserDirectory(email=email, login_count=0)
+        db.add(d)
+    if body.name is not None:
+        d.name = body.name.strip() or None
+    if body.department is not None:
+        d.department = body.department.strip() or None
+    db.commit()
+    return {"ok": True, "email": email, "name": d.name, "department": d.department}
 
 
 class SetPerm(BaseModel):

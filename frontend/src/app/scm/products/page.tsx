@@ -418,12 +418,16 @@ export default function ProductsPage() {
 
   const handleSyncRates = useCallback(async () => {
     setSyncing(true);
-    const result = await fetchMutate('/api/scm/products/sync-rates', 'POST');
-    if (result.ok && Array.isArray(result.data)) {
-      setProducts(result.data);
-      showToast('시간당 생산량이 동기화되었습니다.');
+    const result = await fetchMutate('/api/scm/products/sync-stats', 'POST');
+    if (result.ok) {
+      // 갱신된 마스터 재로딩
+      const resp = await fetchSafe<any>('/api/scm/products?limit=2000', { data: [] });
+      const rows: Product[] = Array.isArray(resp) ? resp : (resp?.data || []);
+      if (rows.length > 0) setProducts(rows);
+      const m = result.data || {};
+      showToast(`동기화 완료 — 생산매칭 ${m.matched_production_names ?? 0}건 · ${m.updated ?? 0}품목 갱신`);
     } else {
-      showToast('동기화 요청을 보냈으나 응답이 없습니다. (API 확인 필요)');
+      showToast('동기화 실패 (API 확인 필요)');
     }
     setSyncing(false);
   }, [showToast]);
@@ -469,7 +473,7 @@ export default function ProductsPage() {
               ) : (
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
               )}
-              시간당 생산량 동기화
+              생산·원가 동기화
             </button>
             <button
               onClick={() => downloadCSV(filteredProducts)}

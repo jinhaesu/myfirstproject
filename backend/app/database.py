@@ -106,6 +106,9 @@ def init_db():
                 conn.execute(text(
                     "ALTER TABLE target_report_schedules ADD COLUMN IF NOT EXISTS last_sent_at TIMESTAMP"
                 ))
+                conn.execute(text(
+                    "ALTER TABLE user_directory ADD COLUMN IF NOT EXISTS department VARCHAR(100)"
+                ))
                 conn.commit()
         except Exception:
             pass  # 이미 있거나 DB가 ALTER를 지원하지 않으면 무시

@@ -2492,6 +2492,88 @@ def list_products(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/products/sync-stats")
+def sync_product_stats(db: Session = Depends(get_db)):
+    """품목 마스터의 누적 생산량·투여시간·시간당생산량·개당원가(BOM)를 실데이터로 동기화.
+
+    - total_produced/total_hours/avg_hourly_rate ← InventoryProduction(품목명 정규화 매칭)
+    - default_cost ← BOM 1개 폭발 원가(원재료 kg단가 + 부자재 단가)
+    """
+    import re
+    from app.db_models import (
+        ScmProduct, InventoryProduction, ScmRawMaterial, ScmSubMaterial,
+    )
+
+    def _norm(s):
+        s = str(s or "")
+        s = re.sub(r"\[[^\]]*\]", "", s)
+        s = re.sub(r"\([^\)]*\)", "", s)
+        for p in ("널담", "뚱", "GS", "CU", "삼성", "세븐일레븐", "노브랜드", "올리브영", "상온", "고단백", "저당"):
+            s = s.replace(p, "")
+        return re.sub(r"\s+", "", s).lower()
+
+    products = db.query(ScmProduct).all()
+    # 정규화 이름 → 완제품/세트/반제품 우선 인덱스
+    by_norm = {}
+    for p in products:
+        if p.item_type in ("완제품", "세트", "혼합세트", "반제품"):
+            by_norm.setdefault(_norm(p.product_name), p.id)
+
+    produced: dict = {}
+    hours: dict = {}
+    rows = db.query(
+        InventoryProduction.product_name,
+        func.coalesce(func.sum(InventoryProduction.qty), 0.0),
+        func.coalesce(func.sum(InventoryProduction.hours), 0.0),
+    ).filter(InventoryProduction.product_name.isnot(None)).group_by(InventoryProduction.product_name).all()
+    matched = 0
+    for name, q, h in rows:
+        nm = _norm(name)
+        pid = by_norm.get(nm)
+        if not pid:
+            for k, v in by_norm.items():
+                if k and (k in nm or nm in k):
+                    pid = v
+                    break
+        if not pid:
+            continue
+        matched += 1
+        produced[pid] = produced.get(pid, 0.0) + float(q or 0)
+        hours[pid] = hours.get(pid, 0.0) + float(h or 0)
+
+    raw_price = {m.id: (m.kg_price or 0) for m in db.query(ScmRawMaterial).all()}
+    sub_price = {m.id: (m.unit_price or 0) for m in db.query(ScmSubMaterial).all()}
+
+    updated = 0
+    for p in products:
+        changed = False
+        if p.id in produced:
+            p.total_produced = round(produced[p.id], 1)
+            p.total_hours = round(hours.get(p.id, 0.0), 1)
+            p.avg_hourly_rate = round(produced[p.id] / hours[p.id]) if hours.get(p.id) else 0
+            changed = True
+        # BOM 개당 원가
+        if p.item_type in ("완제품", "세트", "혼합세트", "반제품"):
+            try:
+                acc: dict = {}
+                _explode_item(p.id, 1, db, acc, {p.id})
+                cost = 0.0
+                for e in acc.values():
+                    if e.get("type") == "raw":
+                        cost += (e.get("qty") or 0) * raw_price.get(e.get("ref_id"), 0)
+                    elif e.get("type") == "sub":
+                        cost += (e.get("qty") or 0) * sub_price.get(e.get("ref_id"), 0)
+                if cost > 0:
+                    p.default_cost = round(cost)
+                    changed = True
+            except Exception:
+                pass
+        if changed:
+            updated += 1
+    db.commit()
+    return {"ok": True, "products": len(products), "matched_production_names": matched, "updated": updated}
+
+
 @router.post("/products")
 def create_product(
     body: ProductCreate,

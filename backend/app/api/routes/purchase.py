@@ -172,11 +172,21 @@ def list_records(start: Optional[str] = None, end: Optional[str] = None,
 
 
 @router.get("/records/dashboard")
-def records_dashboard(start: str, end: str, db: Session = Depends(get_db)):
+def records_dashboard(start: str, end: str, vendor: Optional[str] = None,
+                      mclass: Optional[str] = None, q: Optional[str] = None,
+                      db: Session = Depends(get_db)):
     s, e = _pd(start), _pd(end)
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
-    return pur.records_dashboard(db, s, e)
+    return pur.records_dashboard(db, s, e, vendor=vendor, mclass=mclass, q=q)
+
+
+@router.get("/records/req-vs-actual")
+def req_vs_actual(start: str, end: str, top: int = 40, db: Session = Depends(get_db)):
+    s, e = _pd(start), _pd(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return pur.req_vs_actual(db, s, e, top=top)
 
 
 @router.get("/records/sales-ratio")
