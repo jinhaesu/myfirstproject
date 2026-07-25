@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ComposedChart, Line, Legend } from 'recharts';
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -40,11 +40,16 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub?:
 export default function ManagementPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const [range, setRange] = useState(thisMonth());
+  const [draft, setDraft] = useState(thisMonth());   // 입력 중(미적용)
+  const [range, setRange] = useState(thisMonth());    // 조회 적용된 기간
+  const [gran, setGran] = useState<'day' | 'week' | 'month'>('month');
   const [d, setD] = useState<any>(null);
+  const [tr, setTr] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const apply = (r: { start: string; end: string }) => { setDraft(r); setRange(r); };
   useEffect(() => { if (!isLoading && !user) router.replace('/login'); }, [isLoading, user, router]);
   useEffect(() => { if (!user) return; setLoading(true); getJSON<any>(`/management/overview?start=${range.start}&end=${range.end}`, null).then((r) => { setD(r); setLoading(false); }); }, [range, user]);
+  useEffect(() => { if (!user) return; getJSON<any>(`/management/trend?start=${range.start}&end=${range.end}&granularity=${gran}`, null).then(setTr); }, [range, gran, user]);
   if (isLoading || !user) return <div className="min-h-screen bg-[#08090A]" />;
 
   const cp = d?.cost_vs_purchase, bp = d?.bom_vs_purchase, lb = d?.labor, iv = d?.inventory, adj = d?.adjustments;
@@ -60,13 +65,24 @@ export default function ManagementPage() {
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="mb-4"><h1 className="text-xl font-bold text-[#F7F8F8]">경영관리 · 교차분석</h1><p className="text-sm text-[#8A8F98] mt-0.5">영업·구매·생산·물류·재고 데이터를 대조해 경영 관점의 gap·이상치를 요약합니다.</p></div>
         <div className="flex flex-wrap items-center gap-2 mb-1">
-          {Object.entries(presets()).map(([k, v]) => { const on = range.start === v.start && range.end === v.end; return <button key={k} onClick={() => setRange(v)} className={`${C.btn} ${on ? 'bg-[#5E6AD2] text-white' : C.btnGhost}`}>{k}</button>; })}
-          <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
+          {Object.entries(presets()).map(([k, v]) => { const on = range.start === v.start && range.end === v.end; return <button key={k} onClick={() => apply(v)} className={`${C.btn} ${on ? 'bg-[#5E6AD2] text-white' : C.btnGhost}`}>{k}</button>; })}
+          <input type="date" value={draft.start} onChange={(e) => setDraft({ ...draft, start: e.target.value })} className={C.input} />
           <span className="text-[#62666D]">~</span>
-          <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
+          <input type="date" value={draft.end} onChange={(e) => setDraft({ ...draft, end: e.target.value })} className={C.input} />
+          <button onClick={() => setRange(draft)} className={`${C.btn} bg-[#5E6AD2] text-white hover:bg-[#4d58bd] ${draft.start !== range.start || draft.end !== range.end ? 'ring-2 ring-[#5E6AD2]/50' : ''}`}>조회</button>
+          <div className="flex gap-1 ml-auto"><span className="text-xs text-[#62666D] self-center mr-1">추이 단위</span>{(['day', 'week', 'month'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} ${gran === g ? 'bg-[#5E6AD2] text-white' : C.btnGhost}`}>{g === 'day' ? '일' : g === 'week' ? '주' : '월'}</button>)}</div>
           {loading && <span className="text-xs text-[#62666D]">집계 중…</span>}
         </div>
-        <p className="text-xs text-[#62666D] mb-4">기간은 시작·종료일 모두 반영됩니다. 특정 월만 보려면 프리셋(전월 등)을 쓰세요.</p>
+        <p className="text-xs text-[#62666D] mb-4">기간·날짜를 바꾼 뒤 <b className="text-[#8A8F98]">조회</b>를 눌러야 반영됩니다(프리셋은 즉시 적용). 시작·종료일 모두 반영됩니다.</p>
+
+        {/* 월별 추이 */}
+        <div className={`${C.card} p-4 mb-5`}>
+          <div className="text-sm font-semibold text-[#F7F8F8] mb-1">구매·원가·매출 추이 ({gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'})</div>
+          <p className="text-xs text-[#62666D] mb-3">실제구매 · 매출원가추정(판매수량×BOM원가) · BOM이론소요 · 매출을 기간별로 비교.</p>
+          {tr?.series?.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}><ComposedChart data={tr.series}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="bucket" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><YAxis yAxisId="r" orientation="right" tick={{ fill: '#27A644', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar yAxisId="l" dataKey="purchase" name="실제구매" fill="#4DA3FF" radius={[3, 3, 0, 0]} /><Bar yAxisId="l" dataKey="cogs_est" name="매출원가추정" fill="#F0BF00" radius={[3, 3, 0, 0]} /><Bar yAxisId="l" dataKey="bom_req" name="BOM이론소요" fill="#A855F7" radius={[3, 3, 0, 0]} /><Line yAxisId="r" type="monotone" dataKey="sales" name="매출" stroke="#27A644" strokeWidth={2} dot={false} /></ComposedChart></ResponsiveContainer>
+          ) : <div className="h-[220px] flex items-center justify-center text-sm text-[#62666D]">데이터 없음</div>}
+        </div>
 
         {/* 핵심 요약 경보 */}
         {d?.alerts?.length > 0 && (

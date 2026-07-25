@@ -28,3 +28,11 @@ def overview(start: str, end: str, db: Session = Depends(get_db)):
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
     return mgmt.overview(db, s, e)
+
+
+@router.get("/trend")
+def trend(start: str, end: str, granularity: str = "month", db: Session = Depends(get_db)):
+    s, e = _pd(start), _pd(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return mgmt.trend(db, s, e, granularity=granularity)

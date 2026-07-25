@@ -181,6 +181,16 @@ def records_dashboard(start: str, end: str, vendor: Optional[str] = None,
     return pur.records_dashboard(db, s, e, vendor=vendor, mclass=mclass, q=q)
 
 
+@router.get("/records/gap-trend")
+def gap_trend(start: str, end: str, granularity: str = "month", db: Session = Depends(get_db)):
+    """월별 BOM이론소요 vs 실제구매 · 매출원가추정 vs 실제구매 추이."""
+    s, e = _pd(start), _pd(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    from app.services import management_service as mgmt
+    return mgmt.trend(db, s, e, granularity=granularity)
+
+
 @router.get("/records/req-vs-actual")
 def req_vs_actual(start: str, end: str, top: int = 40, db: Session = Depends(get_db)):
     s, e = _pd(start), _pd(end)

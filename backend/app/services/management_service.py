@@ -174,3 +174,78 @@ def pur_won(n) -> str:
     if n >= 1e4:
         return f"{round(n/1e4):,}만"
     return f"{round(n):,}원"
+
+
+def trend(db: Session, start: date, end: date, granularity: str = "month") -> dict:
+    """기간 내 월/주/일별 추이 — 실제구매·매출원가추정(cost_cogs)·BOM이론소요·매출.
+
+    BOM 이론소요는 동기화된 ScmProduct.default_cost(개당원가)×생산량으로 고속 계산.
+    """
+    import re
+    from datetime import timedelta
+    from app.db_models import ScmProduct, InventoryProduction
+    from app.services.purchase_service import _norm
+
+    def bucket(d):
+        if granularity == "month":
+            return f"{d.year}-{d.month:02d}"
+        if granularity == "week":
+            monday = d - timedelta(days=d.weekday())
+            return monday.isoformat()
+        return d.isoformat()
+
+    # 실제 구매(공급가)
+    pur: dict = {}
+    for pd, amt in db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount).filter(
+            PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end).all():
+        if pd:
+            pur[bucket(pd)] = pur.get(bucket(pd), 0) + (amt or 0)
+
+    # 매출·원가추정(cost_cogs)
+    sal: dict = {}
+    cogs: dict = {}
+    for sd, ns, cc in db.query(
+            ChannelSalesDailyProduct.sale_date, ChannelSalesDailyProduct.net_sales,
+            ChannelSalesDailyProduct.cost_cogs).filter(
+            ChannelSalesDailyProduct.sale_date >= start, ChannelSalesDailyProduct.sale_date <= end).all():
+        if sd:
+            b = bucket(sd)
+            sal[b] = sal.get(b, 0) + (ns or 0)
+            cogs[b] = cogs.get(b, 0) + (cc or 0)
+
+    # BOM 이론소요 = 생산량 × 개당원가(동기화된 default_cost)
+    cost_by_norm: dict = {}
+    for p in db.query(ScmProduct).filter(
+            ScmProduct.item_type.in_(["완제품", "세트", "혼합세트", "반제품"])).all():
+        if p.default_cost:
+            cost_by_norm.setdefault(_norm(p.product_name), p.default_cost)
+    bom: dict = {}
+    for pd, name, q in db.query(
+            InventoryProduction.prod_date, InventoryProduction.product_name,
+            InventoryProduction.qty).filter(
+            InventoryProduction.prod_date >= start, InventoryProduction.prod_date <= end,
+            InventoryProduction.product_name.isnot(None)).all():
+        if not pd or not q:
+            continue
+        nm = _norm(name)
+        c = cost_by_norm.get(nm)
+        if c is None:
+            for k, v in cost_by_norm.items():
+                if k and (k in nm or nm in k):
+                    c = v
+                    break
+        if c:
+            bom[bucket(pd)] = bom.get(bucket(pd), 0) + q * c
+
+    keys = sorted(set(pur) | set(sal) | set(bom))
+    series = []
+    for k in keys:
+        p = round(pur.get(k, 0)); s = round(sal.get(k, 0))
+        cg = round(cogs.get(k, 0)); bm = round(bom.get(k, 0))
+        series.append({
+            "bucket": k, "purchase": p, "sales": s, "cogs_est": cg, "bom_req": bm,
+            "purchase_ratio": round(p / s * 100, 1) if s else None,
+            "cogs_ratio": round(cg / s * 100, 1) if s else None,
+            "bom_gap": p - bm, "cogs_gap": p - cg,
+        })
+    return {"granularity": granularity, "series": series}

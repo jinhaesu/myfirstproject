@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie, Legend, ComposedChart } from 'recharts';
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -84,36 +84,42 @@ const presets = () => {
 // 실적 대시보드
 // ─────────────────────────────────────────────
 function DashTab() {
-  const [range, setRange] = useState(thisMonth());
-  const [gran, setGran] = useState<'day' | 'week' | 'month'>('day');
-  const [vendor, setVendor] = useState('');
-  const [mclass, setMclass] = useState('');
-  const [q, setQ] = useState('');
+  const [gran, setGran] = useState<'day' | 'week' | 'month'>('month');
+  // 입력(draft)과 적용(applied) 분리 — 조회 버튼으로만 반영
+  const [dr, setDr] = useState({ ...thisMonth(), vendor: '', mclass: '', q: '' });
+  const [ap, setAp] = useState({ ...thisMonth(), vendor: '', mclass: '', q: '' });
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [d, setD] = useState<any>(null);
   const [ratio, setRatio] = useState<any>(null);
   const [heat, setHeat] = useState<any>(null);
+  const [gapT, setGapT] = useState<any>(null);
   const P = presets();
-  const qs = () => { const p = new URLSearchParams({ start: range.start, end: range.end }); if (vendor) p.set('vendor', vendor); if (mclass) p.set('mclass', mclass); if (q) p.set('q', q); return p.toString(); };
+  const applyDraft = () => setAp(dr);
+  const applyPreset = (v: { start: string; end: string }) => { const nx = { ...dr, ...v }; setDr(nx); setAp(nx); };
+  const qs = () => { const p = new URLSearchParams({ start: ap.start, end: ap.end }); if (ap.vendor) p.set('vendor', ap.vendor); if (ap.mclass) p.set('mclass', ap.mclass); if (ap.q) p.set('q', ap.q); return p.toString(); };
   useEffect(() => { getJSON<{ vendors: Vendor[] }>('/purchase/vendors', { vendors: [] }).then((r) => setVendors(r.vendors)); }, []);
-  useEffect(() => { getJSON<any>(`/purchase/records/dashboard?${qs()}`, null).then(setD); }, [range, vendor, mclass, q]);
-  useEffect(() => { getJSON<any>(`/purchase/records/sales-ratio?start=${range.start}&end=${range.end}&granularity=${gran}`, null).then(setRatio); }, [range, gran]);
-  useEffect(() => { getJSON<any>(`/purchase/records/req-vs-actual?start=${range.start}&end=${range.end}&top=30`, null).then(setHeat); }, [range]);
+  useEffect(() => { getJSON<any>(`/purchase/records/dashboard?${qs()}`, null).then(setD); }, [ap]);
+  useEffect(() => { getJSON<any>(`/purchase/records/sales-ratio?start=${ap.start}&end=${ap.end}&granularity=${gran}`, null).then(setRatio); }, [ap, gran]);
+  useEffect(() => { getJSON<any>(`/purchase/records/req-vs-actual?start=${ap.start}&end=${ap.end}&top=30`, null).then(setHeat); }, [ap]);
+  useEffect(() => { getJSON<any>(`/purchase/records/gap-trend?start=${ap.start}&end=${ap.end}&granularity=${gran}`, null).then(setGapT); }, [ap, gran]);
+  const dirty = dr.start !== ap.start || dr.end !== ap.end || dr.vendor !== ap.vendor || dr.mclass !== ap.mclass || dr.q !== ap.q;
   const classData = (d?.by_class || []).map((x: any) => ({ name: x.mclass, value: x.supply }));
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
-        {Object.keys(P).map((k) => { const on = range.start === P[k].start && range.end === P[k].end; return <button key={k} onClick={() => setRange(P[k])} className={`${C.btn} ${on ? C.btnPrimary : C.btnGhost}`}>{k}</button>; })}
-        <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
+        {Object.keys(P).map((k) => { const on = ap.start === P[k].start && ap.end === P[k].end; return <button key={k} onClick={() => applyPreset(P[k])} className={`${C.btn} ${on ? C.btnPrimary : C.btnGhost}`}>{k}</button>; })}
+        <input type="date" value={dr.start} onChange={(e) => setDr({ ...dr, start: e.target.value })} className={C.input} />
         <span className="text-[#62666D]">~</span>
-        <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
+        <input type="date" value={dr.end} onChange={(e) => setDr({ ...dr, end: e.target.value })} className={C.input} />
+        <button onClick={applyDraft} className={`${C.btn} ${C.btnPrimary} ${dirty ? 'ring-2 ring-[#5E6AD2]/50' : ''}`}>조회</button>
+        <div className="flex gap-1 ml-auto"><span className="text-xs text-[#62666D] self-center mr-1">추이 단위</span>{(['day', 'week', 'month'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} ${gran === g ? C.btnPrimary : C.btnGhost}`}>{g === 'day' ? '일' : g === 'week' ? '주' : '월'}</button>)}</div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <select value={vendor} onChange={(e) => setVendor(e.target.value)} className={C.input}><option value="">전체 거래처</option>{vendors.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}</select>
-        <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목명 검색" className={`${C.input} w-40`} />
-        {(vendor || mclass || q) && <button onClick={() => { setVendor(''); setMclass(''); setQ(''); }} className={`${C.btn} ${C.btnGhost}`}>필터 해제</button>}
-        <div className="flex gap-1 ml-auto"><span className="text-xs text-[#62666D] self-center mr-1">비율 단위</span>{(['day', 'week', 'month'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} ${gran === g ? C.btnPrimary : C.btnGhost}`}>{g === 'day' ? '일' : g === 'week' ? '주' : '월'}</button>)}</div>
+        <select value={dr.vendor} onChange={(e) => setDr({ ...dr, vendor: e.target.value })} className={C.input}><option value="">전체 거래처</option>{vendors.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}</select>
+        <select value={dr.mclass} onChange={(e) => setDr({ ...dr, mclass: e.target.value })} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
+        <input value={dr.q} onChange={(e) => setDr({ ...dr, q: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') applyDraft(); }} placeholder="품목명 검색" className={`${C.input} w-40`} />
+        {(dr.vendor || dr.mclass || dr.q) && <button onClick={() => { const nx = { ...dr, vendor: '', mclass: '', q: '' }; setDr(nx); setAp(nx); }} className={`${C.btn} ${C.btnGhost}`}>필터 해제</button>}
+        {dirty && <span className="text-xs text-[#F0BF00]">변경됨 — 조회를 누르세요</span>}
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard label="구매액(공급가)" value={wonShort(d?.total_supply || 0)} tone="text-[#F0BF00]" sub={`${fmt(d?.line_count || 0)}건`} />
@@ -144,6 +150,24 @@ function DashTab() {
         {ratio?.series?.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}><LineChart data={ratio.series}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="bucket" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><YAxis yAxisId="r" orientation="right" tick={{ fill: '#A855F7', fontSize: 10 }} tickFormatter={(v) => `${v}%`} /><Tooltip contentStyle={TT} formatter={(v: any, n: any) => n.includes('비율') ? `${v}%` : won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Line yAxisId="l" type="monotone" dataKey="purchase" name="구매액" stroke="#F0BF00" strokeWidth={2} dot={false} /><Line yAxisId="l" type="monotone" dataKey="sales" name="매출액" stroke="#27A644" strokeWidth={2} dot={false} /><Line yAxisId="r" type="monotone" dataKey="cum_ratio" name="누적 구매/매출 비율" stroke="#A855F7" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer>
         ) : <Empty />}
+      </div>
+
+      {/* 월별 BOM소요 vs 실구매 / 원가추정 vs 실구매 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className={`${C.card} p-4`}>
+          <div className="text-sm font-semibold text-[#F7F8F8] mb-1">BOM 이론소요 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}</div>
+          <p className="text-xs text-[#62666D] mb-3">생산량×BOM개당원가(이론소요) 대비 실제 매입. gap=재고 증감.</p>
+          {gapT?.series?.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}><ComposedChart data={gapT.series}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="bucket" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="bom_req" name="BOM이론소요" fill="#A855F7" radius={[3, 3, 0, 0]} /><Bar dataKey="purchase" name="실제구매" fill="#4DA3FF" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
+          ) : <Empty />}
+        </div>
+        <div className={`${C.card} p-4`}>
+          <div className="text-sm font-semibold text-[#F7F8F8] mb-1">매출기반 원가추정 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}</div>
+          <p className="text-xs text-[#62666D] mb-3">판매수량×BOM원가(매출원가) 대비 실제 매입. gap=재고 빌드업/소진.</p>
+          {gapT?.series?.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}><ComposedChart data={gapT.series}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="bucket" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="cogs_est" name="매출원가추정" fill="#F0BF00" radius={[3, 3, 0, 0]} /><Bar dataKey="purchase" name="실제구매" fill="#4DA3FF" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
+          ) : <Empty />}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
