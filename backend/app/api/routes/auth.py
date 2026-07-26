@@ -161,6 +161,49 @@ def _record_login(email: str, name: str):
         pass
 
 
+def _sync_menu_permissions(email: str, payload: dict):
+    """허브 SSO 토큰의 권한을 이 앱의 메뉴 조회 권한(UserMenuPermission)으로 동기화.
+
+    - payload["super"] == True  → 이 앱의 모든 scm 메뉴 부여(오너 상당).
+    - 그 외                     → payload["perms"]의 키 목록을 그대로 저장.
+      (perms 비어있으면 메뉴 없음. 저장값은 admin._menus_for가 유효 키만 필터링.)
+
+    프론트(Navigation.tsx → /api/admin/my-menus → _menus_for)가 읽는 형태와 동일한
+    콤마조인 문자열로 upsert 한다. 실패해도 로그인 흐름을 막지 않는다(OTP/비번 경로 불변).
+    """
+    try:
+        from app.database import SessionLocal
+        from app.db_models import UserMenuPermission
+        if not SessionLocal:
+            return
+        # 이 앱이 실제로 표시할 수 있는 정식 메뉴 키(단일 소스).
+        try:
+            from app.api.routes.admin import MENUS as _MENUS
+            all_keys = [m["key"] for m in _MENUS]
+        except Exception:
+            all_keys = ["sales", "scm", "logistics", "mapping", "purchase", "management", "cs"]
+
+        if payload.get("super"):
+            keys = list(all_keys)
+        else:
+            perms = payload.get("perms") or {}
+            keys = list(perms.keys()) if isinstance(perms, dict) else []
+
+        db = SessionLocal()
+        try:
+            p = db.get(UserMenuPermission, email)
+            if not p:
+                p = UserMenuPermission(email=email)
+                db.add(p)
+            p.menu_keys = ",".join(keys)
+            p.updated_by = "hub-sso"
+            db.commit()
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: dict = Depends(get_current_user)):
     """현재 로그인한 사용자 정보"""
@@ -271,6 +314,9 @@ async def sso_login(
             detail="SSO 토큰에 이메일 정보가 없습니다",
         )
     name = payload.get("name") or email.rsplit("@", 1)[0]
+
+    # 허브 super/perms → 이 앱의 메뉴 조회 권한 동기화(중앙 관리자 콘솔 반영).
+    _sync_menu_permissions(email, payload)
 
     # 이 앱은 실제 user 테이블이 없다(OTP verify 경로와 동일하게 처리).
     access_token = auth_service.create_access_token(
