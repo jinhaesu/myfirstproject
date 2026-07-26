@@ -200,6 +200,28 @@ export default function LoginPage() {
                   </>
                 )}
               </button>
+
+              {/* 회사 계정 SSO — 기존 OTP 로그인과 별개의 추가 경로 */}
+              <div className="flex items-center gap-3 py-1">
+                <div className="flex-1 h-px bg-[#23252A]" />
+                <span className="text-xs text-[#62666D]">또는</span>
+                <div className="flex-1 h-px bg-[#23252A]" />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href =
+                    'https://auth.nuldam.com/authorize?app=scm&return=' +
+                    encodeURIComponent('https://scm.nuldam.com/sso');
+                }}
+                className="w-full py-3 bg-[#0F1011] border border-[#23252A] text-[#F7F8F8] rounded-xl font-semibold hover:bg-[#1C1C1F] hover:border-[#5E6AD2] transition-all flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                회사 계정으로 로그인
+              </button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOTP} className="space-y-6">

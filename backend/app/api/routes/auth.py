@@ -1,5 +1,6 @@
 import os
 
+import jwt
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
@@ -10,6 +11,17 @@ from app.services.otp_service import OTPService
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 security = HTTPBearer()
+
+
+# ── 회사 계정 SSO (중앙 auth.nuldam.com 허브 발급 RS256 토큰 검증) ──────────
+# 기존 OTP/비밀번호 로그인과 완전히 독립적인 추가 경로. 기존 흐름을 건드리지 않는다.
+SSO_ISSUER = "https://auth.nuldam.com"
+SSO_AUDIENCE = "scm"
+SSO_JWKS_URL = "https://auth-api.nuldam.com/.well-known/jwks.json"
+
+# 모듈 로드 시 클라이언트를 캐싱(생성자는 네트워크 호출 없음 — 실제 fetch는
+# get_signing_key_from_jwt 호출 시점에 지연 수행되고 내부적으로 키를 캐싱한다).
+_sso_jwks_client = jwt.PyJWKClient(SSO_JWKS_URL)
 
 
 # Synthetic user returned when the request authenticates with the
@@ -29,6 +41,10 @@ class SendOTPRequest(BaseModel):
 class VerifyOTPRequest(BaseModel):
     email: EmailStr
     otp: str
+
+
+class SSORequest(BaseModel):
+    token: str
 
 
 class LoginResponse(BaseModel):
@@ -218,4 +234,51 @@ async def verify_otp_login(
     return LoginResponse(
         access_token=access_token,
         user={"email": user["email"], "name": user["name"]}
+    )
+
+
+@router.post("/sso", response_model=LoginResponse)
+async def sso_login(
+    request: SSORequest,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """회사 계정 SSO 로그인.
+
+    중앙 auth.nuldam.com 허브가 발급한 RS256 토큰을 JWKS로 검증한 뒤,
+    이 앱의 자체 access 토큰(OTP 로그인과 동일한 형태)을 발급한다.
+    기존 로그인 경로를 대체하지 않는 완전 추가 경로.
+    """
+    try:
+        signing_key = _sso_jwks_client.get_signing_key_from_jwt(request.token)
+        payload = jwt.decode(
+            request.token,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=SSO_AUDIENCE,
+            issuer=SSO_ISSUER,
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="유효하지 않은 SSO 토큰입니다",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    email = payload.get("email") or payload.get("sub")
+    if not email:
+        raise HTTPException(
+            status_code=401,
+            detail="SSO 토큰에 이메일 정보가 없습니다",
+        )
+    name = payload.get("name") or email.rsplit("@", 1)[0]
+
+    # 이 앱은 실제 user 테이블이 없다(OTP verify 경로와 동일하게 처리).
+    access_token = auth_service.create_access_token(
+        data={"sub": email}
+    )
+    _record_login(email, name)
+
+    return LoginResponse(
+        access_token=access_token,
+        user={"email": email, "name": name}
     )
