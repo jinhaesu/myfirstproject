@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import NuldamSystemBar from '@/components/NuldamSystemBar';
 
 interface NavItem {
   href: string;
@@ -242,6 +243,8 @@ export function Navigation() {
   };
 
   return (
+    <>
+    <NuldamSystemBar current="scm" />
     <header className="bg-[#0F1011]/80 backdrop-blur-md shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border-b border-[#23252A] sticky top-0 z-50">
       <div className="max-w-[1400px] mx-auto px-4 py-2.5">
         <div className="flex items-center justify-between">
@@ -406,5 +409,6 @@ export function Navigation() {
         )}
       </div>
     </header>
+    </>
   );
 }
