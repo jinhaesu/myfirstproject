@@ -315,6 +315,18 @@ async def sso_login(
         )
     name = payload.get("name") or email.rsplit("@", 1)[0]
 
+    # ── 접근 게이트 ──────────────────────────────────────────────────────
+    # 중앙 허브가 이 scm 시스템 접근을 허용한 사용자만 로그인 허용.
+    # super-admin 이거나, scm 메뉴 권한(perms)이 하나라도 있어야 한다.
+    # 권한이 없으면 토큰을 발급하지 않고 메뉴 동기화도 하지 않는다.
+    super = payload.get("super") is True
+    perms = payload.get("perms")
+    if not (super or (isinstance(perms, dict) and len(perms) > 0)):
+        raise HTTPException(
+            status_code=403,
+            detail="이 시스템에 대한 접근 권한이 없습니다. 관리자에게 문의하세요.",
+        )
+
     # 허브 super/perms → 이 앱의 메뉴 조회 권한 동기화(중앙 관리자 콘솔 반영).
     _sync_menu_permissions(email, payload)
 
