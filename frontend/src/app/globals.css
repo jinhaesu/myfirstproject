@@ -22,6 +22,8 @@
 
 html {
   color-scheme: dark;
+  /* 전체 UI 한 단계 축소 — Tailwind는 rem 기반이라 기준 폰트를 줄이면 폰트·간격·크기가 비례 축소됨 */
+  font-size: 85%;
 }
 
 body {
