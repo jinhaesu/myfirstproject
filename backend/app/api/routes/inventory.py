@@ -624,6 +624,7 @@ async def upload_production(
 def list_production(
     start: Optional[str] = None, end: Optional[str] = None,
     category: Optional[str] = None, worker: Optional[str] = None,
+    location: Optional[str] = None, shift: Optional[str] = None,
     limit: int = 300, db: Session = Depends(get_db),
 ):
     q = db.query(InventoryProduction)
@@ -636,6 +637,14 @@ def list_production(
         q = q.filter(InventoryProduction.category == category)
     if worker:
         q = q.filter(InventoryProduction.worker == worker)
+    if location:
+        q = q.filter(InventoryProduction.location == location)
+    if shift:
+        # 주간/야간 필터 (grade에 '야' 포함 여부)
+        if shift == "야간":
+            q = q.filter(InventoryProduction.grade.ilike("%야%"))
+        elif shift == "주간":
+            q = q.filter(~InventoryProduction.grade.ilike("%야%"))
     total = q.count()
     q = q.order_by(InventoryProduction.prod_date.desc(), InventoryProduction.id.desc()).limit(limit)
     products = inv.load_products(db)
@@ -657,8 +666,8 @@ def list_production(
 
 @router.get("/production/dashboard")
 def production_dashboard(start: Optional[str] = None, end: Optional[str] = None,
-                         db: Session = Depends(get_db)):
-    return inv.production_dashboard(db, start=_parse_date(start), end=_parse_date(end))
+                         location: Optional[str] = None, db: Session = Depends(get_db)):
+    return inv.production_dashboard(db, start=_parse_date(start), end=_parse_date(end), location=location)
 
 
 @router.delete("/production/batch/{batch_id}")
@@ -696,10 +705,10 @@ def production_categories(db: Session = Depends(get_db)):
 @router.get("/production/timeseries")
 def production_timeseries(granularity: str = "month", start: Optional[str] = None,
                           end: Optional[str] = None, category: Optional[str] = None,
-                          db: Session = Depends(get_db)):
+                          location: Optional[str] = None, db: Session = Depends(get_db)):
     gran = granularity if granularity in ("day", "week", "month") else "month"
     return inv.production_timeseries(db, granularity=gran, start=_parse_date(start),
-                                     end=_parse_date(end), category=category)
+                                     end=_parse_date(end), category=category, location=location)
 
 
 class ProductionManualIn(BaseModel):

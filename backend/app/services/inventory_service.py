@@ -892,14 +892,19 @@ def apply_production(db: Session, rows: list[dict], warehouse_id: int,
 
 
 def production_dashboard(db: Session, start: Optional[date] = None,
-                         end: Optional[date] = None) -> dict:
-    """생산 대시보드: 총생산량·생산액·원가 + 일별/품목류별/담당자별/등급별 집계."""
+                         end: Optional[date] = None, location: Optional[str] = None) -> dict:
+    """생산 대시보드: 총생산량·생산액·원가 + 일별/품목류별/담당자별/등급별/층별 집계.
+    location 지정 시 해당 생산위치(층)만 필터."""
     q = db.query(InventoryProduction)
     if start:
         q = q.filter(InventoryProduction.prod_date >= start)
     if end:
         q = q.filter(InventoryProduction.prod_date <= end)
+    if location:
+        q = q.filter(InventoryProduction.location == location)
     recs = q.all()
+    # 층×주야 평균 일 근무시간: (일자 집합, 총시간) → 평균 일 근무시간 = 총시간/작업일수
+    loc_shift: dict[tuple, dict] = {}
     tot_qty = tot_amt = tot_cost = tot_hours = tot_labor = 0.0
     by_cat: dict[str, dict] = {}
     by_worker: dict[str, dict] = {}
@@ -927,6 +932,12 @@ def production_dashboard(db: Session, start: Optional[date] = None,
         loc = r.location or "미상"
         by_location.setdefault(loc, {"qty": 0.0, "hours": 0.0, "labor": 0.0})
         by_location[loc]["qty"] += r.qty or 0; by_location[loc]["hours"] += r.hours or 0; by_location[loc]["labor"] += labor
+        # 층×주야: 작업일 집합·총시간 누적
+        shift = "야간" if _is_night(r.grade) else "주간"
+        ls = loc_shift.setdefault((loc, shift), {"hours": 0.0, "qty": 0.0, "labor": 0.0, "days": set()})
+        ls["hours"] += r.hours or 0; ls["qty"] += r.qty or 0; ls["labor"] += labor
+        if r.prod_date:
+            ls["days"].add(r.prod_date)
 
     def _cat_row(k, v):
         return {"category": k, "qty": round(v["qty"]), "amount": round(v["amount"]),
@@ -958,6 +969,14 @@ def production_dashboard(db: Session, start: Optional[date] = None,
                          "labor": round(v["labor"]),
                          "hourly_qty": round(v["qty"] / v["hours"], 1) if v["hours"] else 0}
                         for k, v in sorted(by_location.items(), key=lambda x: -x[1]["qty"])],
+        "by_location_shift": [{
+            "location": loc, "shift": sh,
+            "hours": round(v["hours"], 1), "qty": round(v["qty"]), "labor": round(v["labor"]),
+            "days": len(v["days"]),
+            "avg_daily_hours": round(v["hours"] / len(v["days"]), 1) if v["days"] else 0,
+            "hourly_qty": round(v["qty"] / v["hours"], 1) if v["hours"] else 0,
+        } for (loc, sh), v in sorted(loc_shift.items(), key=lambda x: (x[0][0], x[0][1]))],
+        "locations": sorted(by_location.keys()),
     }
 
 
@@ -1143,8 +1162,8 @@ def production_catalog(db: Session, category: Optional[str] = None) -> list[dict
 
 def production_timeseries(db: Session, granularity: str = "month",
                           start: Optional[date] = None, end: Optional[date] = None,
-                          category: Optional[str] = None) -> dict:
-    """일/월 생산 시계열 — 생산성(시간당생산량)·채산성(생산액/노무비)·주야 포함. 품목류 필터."""
+                          category: Optional[str] = None, location: Optional[str] = None) -> dict:
+    """일/월 생산 시계열 — 생산성(시간당생산량)·채산성(생산액/노무비)·주야 포함. 품목류·층 필터."""
     q = db.query(InventoryProduction)
     if start:
         q = q.filter(InventoryProduction.prod_date >= start)
@@ -1152,6 +1171,8 @@ def production_timeseries(db: Session, granularity: str = "month",
         q = q.filter(InventoryProduction.prod_date <= end)
     if category:
         q = q.filter(InventoryProduction.category == category)
+    if location:
+        q = q.filter(InventoryProduction.location == location)
     buckets: dict[str, dict] = {}
     for r in q.all():
         if granularity == "day":

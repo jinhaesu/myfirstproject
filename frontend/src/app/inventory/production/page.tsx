@@ -41,6 +41,8 @@ interface ProdDash {
   by_month: { month: string; qty: number; amount: number; cost: number; labor: number }[];
   by_grade: { grade: string; qty: number }[];
   by_location: { location: string; qty: number; hours: number; labor: number; hourly_qty: number }[];
+  by_location_shift?: { location: string; shift: string; hours: number; qty: number; labor: number; days: number; avg_daily_hours: number; hourly_qty: number }[];
+  locations?: string[];
 }
 
 // ── UI atoms ──
@@ -149,6 +151,8 @@ export default function ProductionPage() {
 function DashTab() {
   const [range, setRange] = useState(presetRange('thisMonth'));
   const [cat, setCat] = useState('');
+  const [loc, setLoc] = useState('');
+  const [allLocs, setAllLocs] = useState<string[]>([]);
   const [gran, setGran] = useState<'month' | 'week' | 'day'>('day');
   const [d, setD] = useState<ProdDash | null>(null);
   const [ts, setTs] = useState<TSPoint[]>([]);
@@ -165,12 +169,15 @@ function DashTab() {
   const load = useCallback(async () => {
     setLoading(true);
     const catq = cat ? `&category=${encodeURIComponent(cat)}` : '';
+    const locq = loc ? `&location=${encodeURIComponent(loc)}` : '';
     const [dd, tt] = await Promise.all([
-      getJSON<ProdDash | null>(`/inventory/production/dashboard?start=${range.start}&end=${range.end}`, null),
-      getJSON<{ series: TSPoint[] }>(`/inventory/production/timeseries?granularity=${gran}&start=${range.start}&end=${range.end}${catq}`, { series: [] }),
+      getJSON<ProdDash | null>(`/inventory/production/dashboard?start=${range.start}&end=${range.end}${locq}`, null),
+      getJSON<{ series: TSPoint[] }>(`/inventory/production/timeseries?granularity=${gran}&start=${range.start}&end=${range.end}${catq}${locq}`, { series: [] }),
     ]);
-    setD(dd); setTs(tt.series); setLoading(false);
-  }, [range, cat, gran]);
+    setD(dd); setTs(tt.series);
+    if (!loc && dd?.locations?.length) setAllLocs(dd.locations);
+    setLoading(false);
+  }, [range, cat, loc, gran]);
   useEffect(() => { load(); }, [load]);
 
   const PIE = d?.by_category.slice(0, 10).map((c, i) => ({ name: c.category, value: c.qty, fill: COLORS[i % COLORS.length] })) || [];
@@ -183,6 +190,10 @@ function DashTab() {
         <select value={cat} onChange={(e) => setCat(e.target.value)} className={C.input}>
           <option value="">전체 품목류</option>
           {cats.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={loc} onChange={(e) => setLoc(e.target.value)} className={C.input}>
+          <option value="">전체 층</option>
+          {allLocs.map((l) => <option key={l} value={l}>{l}</option>)}
         </select>
         <div className="flex bg-[#0F1011] border border-[#23252A] rounded-lg p-0.5">
           <button onClick={() => setGran('month')} className={`${C.btn} px-2.5 py-1 ${gran === 'month' ? C.btnPrimary : 'text-[#8A8F98]'}`}>월</button>
@@ -376,6 +387,36 @@ function DashTab() {
           </div>
           </div>
 
+          {/* 생산위치(층)별 주야 · 평균 일 투여시간 */}
+          {d.by_location_shift && d.by_location_shift.length > 0 && (
+            <div className={`${C.card} p-4`}>
+              <div className="text-sm font-semibold text-[#F7F8F8] mb-1">생산위치(층)별 주야 · 평균 일 투여시간</div>
+              <p className="text-xs text-[#62666D] mb-3">작업일수 대비 총 투여시간(man-hour) 기준 일평균. 층×주야 근무 강도·생산성 비교.</p>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead><tr>
+                    <th className={C.th}>생산위치</th><th className={C.th}>주야</th><th className={C.th}>작업일수</th>
+                    <th className={C.th}>총 투여시간</th><th className={C.th}>일평균 투여시간</th>
+                    <th className={C.th}>생산량</th><th className={C.th}>시간당 생산량</th>
+                  </tr></thead>
+                  <tbody>
+                    {d.by_location_shift.filter((x) => x.location && x.location !== '미상').map((x, i) => (
+                      <tr key={`${x.location}-${x.shift}`} className="border-b border-[#1A1B1E]">
+                        <td className={`${C.td} font-medium text-[#F7F8F8]`}>{x.location}</td>
+                        <td className={C.td}><span className={x.shift === '야간' ? 'text-[#A855F7]' : 'text-[#F0BF00]'}>{x.shift}</span></td>
+                        <td className={C.td}>{fmt(x.days)}일</td>
+                        <td className={C.td}>{fmt(x.hours)}h</td>
+                        <td className={`${C.td} font-semibold text-[#00B8CC]`}>{fmt(x.avg_daily_hours)}h/일</td>
+                        <td className={C.td}>{fmt(x.qty)}</td>
+                        <td className={C.td}>{fmt(x.hourly_qty)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className={`${C.card} p-4`}>
             <div className="text-sm font-semibold text-[#F7F8F8] mb-3">품목류별 원가·노무비·생산성</div>
             <div className="overflow-x-auto max-h-[360px]">
@@ -427,15 +468,19 @@ function RecordsTab() {
   const [range, setRange] = useState({ start: '2025-01-01', end: todayISO() });
   const [cat, setCat] = useState('');
   const [worker, setWorker] = useState('');
+  const [loc, setLoc] = useState('');
+  const [shift, setShift] = useState('');
   const [loading, setLoading] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     const qs = new URLSearchParams({ start: range.start, end: range.end, limit: '500' });
     if (cat) qs.set('category', cat);
     if (worker) qs.set('worker', worker);
+    if (loc) qs.set('location', loc);
+    if (shift) qs.set('shift', shift);
     const r = await getJSON<{ rows: ProdRow[]; total: number }>(`/inventory/production?${qs}`, { rows: [], total: 0 });
     setRows(r.rows); setTotal(r.total); setLoading(false);
-  }, [range, cat, worker]);
+  }, [range, cat, worker, loc, shift]);
   useEffect(() => { load(); }, [load]);
 
   return (
@@ -444,6 +489,8 @@ function RecordsTab() {
         <PeriodBar range={range} setRange={setRange} />
         <input value={cat} onChange={(e) => setCat(e.target.value)} placeholder="품목류" className={`${C.input} w-28`} />
         <input value={worker} onChange={(e) => setWorker(e.target.value)} placeholder="담당자" className={`${C.input} w-28`} />
+        <select value={loc} onChange={(e) => setLoc(e.target.value)} className={C.input}><option value="">전체 층</option><option value="2층">2층</option><option value="3층">3층</option></select>
+        <select value={shift} onChange={(e) => setShift(e.target.value)} className={C.input}><option value="">전체 주야</option><option value="주간">주간</option><option value="야간">야간</option></select>
         <span className="text-xs text-[#8A8F98] ml-auto">{loading ? '불러오는 중…' : `${fmt(rows.length)} / 총 ${fmt(total)}건`}</span>
       </div>
       <div className={`${C.card} overflow-x-auto max-h-[70vh]`}>
