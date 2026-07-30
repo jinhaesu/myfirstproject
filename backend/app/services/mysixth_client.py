@@ -66,14 +66,37 @@ def _month_bounds(ym: str):
     return s.isoformat(), e.isoformat()
 
 
+# 휴게시간 차감 사용 여부(기본 on). 근태 clock span에는 휴게가 포함돼 있어
+# 실근무시간 비교 시 부풀려지므로 근로기준법 최소휴게를 차감한다.
+_DEDUCT_BREAK = os.getenv("MYSIXTH_DEDUCT_BREAK", "1") not in ("0", "false", "False", "")
+
+
+def _break_hours(span: float) -> float:
+    """근로기준법 최소 휴게시간(시간). 4h이상 30분, 8h이상 1h, 12h이상 1.5h, 16h이상 2h."""
+    if span >= 16:
+        return 2.0
+    if span >= 12:
+        return 1.5
+    if span >= 8:
+        return 1.0
+    if span >= 4:
+        return 0.5
+    return 0.0
+
+
 def _clock_hours(ci, co):
+    """출근~퇴근 실근무시간(휴게 차감). 근태 API는 clock span만 주므로 여기서 휴게를 뺀다."""
     if not (ci and co):
         return 0.0
     try:
         t1 = datetime.fromisoformat(ci.replace("Z", "+00:00"))
         t2 = datetime.fromisoformat(co.replace("Z", "+00:00"))
         h = (t2 - t1).total_seconds() / 3600
-        return h if 0 < h < 20 else 0.0
+        if not (0 < h < 20):
+            return 0.0
+        if _DEDUCT_BREAK:
+            h = max(0.0, h - _break_hours(h))
+        return h
     except Exception:
         return 0.0
 

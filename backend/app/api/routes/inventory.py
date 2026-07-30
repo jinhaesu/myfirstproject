@@ -711,6 +711,24 @@ def production_timeseries(granularity: str = "month", start: Optional[str] = Non
                                      end=_parse_date(end), category=category, location=location)
 
 
+@router.get("/production/monthly-matrix")
+def production_monthly_matrix(start: str, end: str, location: Optional[str] = None,
+                              db: Session = Depends(get_db)):
+    s, e = _parse_date(start), _parse_date(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return inv.production_monthly_matrix(db, s, e, location=location)
+
+
+@router.get("/stock-net-matrix")
+def stock_net_matrix(start: str, end: str, warehouse_id: Optional[int] = None,
+                     db: Session = Depends(get_db)):
+    s, e = _parse_date(start), _parse_date(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return inv.stock_net_matrix(db, s, e, warehouse_id=warehouse_id)
+
+
 class ProductionManualIn(BaseModel):
     prod_date: str
     worker: Optional[str] = None
@@ -849,6 +867,15 @@ def logistics_timeseries(granularity: str = "day", start: Optional[str] = None, 
                          work_type: Optional[str] = None, db: Session = Depends(get_db)):
     gran = granularity if granularity in ("day", "week", "month") else "day"
     return logi.logistics_timeseries(db, granularity=gran, start=_parse_date(start), end=_parse_date(end), work_type=work_type)
+
+
+@router.get("/logistics/monthly-matrix")
+def logistics_monthly_matrix(start: str, end: str, by: str = "work_type",
+                             db: Session = Depends(get_db)):
+    s, e = _parse_date(start), _parse_date(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return logi.logistics_monthly_matrix(db, s, e, by=by)
 
 
 @router.get("/logistics/categories")

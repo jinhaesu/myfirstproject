@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { MatrixTable } from '@/components/MatrixTable';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line, PieChart, Pie, Legend, ComposedChart,
@@ -123,17 +124,19 @@ function DashTab() {
   const [ts, setTs] = useState<TS[]>([]);
   const [types, setTypes] = useState<string[]>([]);
   const [labor, setLabor] = useState<LaborCmp | null>(null);
+  const [matrix, setMatrix] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => { getJSON<{ categories: string[] }>('/inventory/logistics/categories', { categories: [] }).then((r) => setTypes(r.categories)); }, []);
   const load = useCallback(async () => {
     setLoading(true);
     const tq = wtype ? `&work_type=${encodeURIComponent(wtype)}` : '';
-    const [dd, tt, lb] = await Promise.all([
+    const [dd, tt, lb, mx] = await Promise.all([
       getJSON<Dash | null>(`/inventory/logistics/dashboard?start=${range.start}&end=${range.end}`, null),
       getJSON<{ series: TS[] }>(`/inventory/logistics/timeseries?granularity=${gran}&start=${range.start}&end=${range.end}${tq}`, { series: [] }),
       getJSON<LaborCmp | null>(`/inventory/logistics-labor-compare?start=${range.start}&end=${range.end}&granularity=${gran}`, null),
+      getJSON<any>(`/inventory/logistics/monthly-matrix?start=${range.start}&end=${range.end}&by=work_type`, null),
     ]);
-    setD(dd); setTs(tt.series); setLabor(lb); setLoading(false);
+    setD(dd); setTs(tt.series); setLabor(lb); setMatrix(mx); setLoading(false);
   }, [range, wtype, gran]);
   useEffect(() => { load(); }, [load]);
   const PIE = d?.by_type.slice(0, 8).map((t, i) => ({ name: t.work_type, value: t.qty, fill: COLORS[i % COLORS.length] })) || [];
@@ -251,6 +254,13 @@ function DashTab() {
               <div className="overflow-x-auto max-h-[240px]"><table className="w-full"><thead className="sticky top-0 bg-[#0F1011]"><tr><th className={C.th}>조</th><th className={C.th}>작업량</th><th className={C.th}>시간</th><th className={C.th}>시간당</th></tr></thead><tbody>{d.by_team.map((t) => (<tr key={t.team}><td className={`${C.td} text-[#F7F8F8]`}>{t.team}</td><td className={C.td}>{fmt(t.qty)}</td><td className={C.td}>{fmt(t.hours)}h</td><td className={C.td}>{fmt(t.hourly_qty)}/h</td></tr>))}</tbody></table></div>
             </div>
           </div>
+
+          <MatrixTable
+            title="작업종류별 월별 작업량 합계"
+            subtitle="작업종류×월 작업량. 맨 아래 총 합계 · 엑셀 다운로드 가능."
+            firstCol="작업종류"
+            data={matrix}
+          />
         </>
       )}
     </div>

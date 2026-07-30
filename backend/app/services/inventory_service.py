@@ -1443,3 +1443,114 @@ def labor_compare(db: Session, start: date, end: date, granularity: str = "day")
         "total_regular_pay": round(tot_reg_pay),
         "note": "근태 노무시간 = 생산팀만(정규직 생산부서 실근태 clock in/out + 파견/알바 생산사업장). 물류·카페 제외. 노무비 = 정규직 실지급 + 파견/알바 환산(시간×15,000). 비율(생산일보÷근태) 1에 근접할수록 정합.",
     }
+
+
+# ──────────────────────────────────────────────
+# 대시보드 월별 매트릭스 (생산 / 재고 순증감)
+# ──────────────────────────────────────────────
+
+def _month_range_list(start: date, end: date) -> list[str]:
+    out, y, m = [], start.year, start.month
+    while (y, m) <= (end.year, end.month):
+        out.append(f"{y}-{m:02d}")
+        m += 1
+        if m > 12:
+            m = 1; y += 1
+    return out
+
+
+def production_monthly_matrix(db: Session, start: date, end: date,
+                              location: Optional[str] = None) -> dict:
+    """품목(품목명)×월 생산량 매트릭스 + 행/열 합계."""
+    q = db.query(
+        InventoryProduction.product_name, InventoryProduction.category,
+        InventoryProduction.prod_date, InventoryProduction.qty,
+    ).filter(InventoryProduction.prod_date >= start, InventoryProduction.prod_date <= end)
+    if location:
+        q = q.filter(InventoryProduction.location == location)
+    months = _month_range_list(start, end)
+    cell: dict = {}
+    cat_of: dict = {}
+    for name, cat, pd, qty in q.all():
+        if not pd:
+            continue
+        nm = name or "(미지정)"
+        cat_of.setdefault(nm, cat or "")
+        mk = f"{pd.year}-{pd.month:02d}"
+        cell.setdefault(nm, {}).setdefault(mk, 0.0)
+        cell[nm][mk] += float(qty or 0)
+    rows = []
+    col_tot = {m: 0.0 for m in months}
+    for nm in sorted(cell.keys(), key=lambda x: (cat_of.get(x, ""), x)):
+        vals = [round(cell[nm].get(m, 0.0)) for m in months]
+        tot = sum(vals)
+        for i, m in enumerate(months):
+            col_tot[m] += vals[i]
+        rows.append({"name": nm, "category": cat_of.get(nm, ""), "values": vals, "total": tot})
+    return {
+        "start": start.isoformat(), "end": end.isoformat(), "location": location,
+        "months": months, "rows": rows,
+        "col_totals": [round(col_tot[m]) for m in months],
+        "grand_total": round(sum(col_tot.values())),
+    }
+
+
+def _net_delta_range(db: Session, s: date, e: date, warehouse_id: Optional[int] = None) -> dict:
+    """기간 [s,e] 품목별 재고 순증감 = 원장Δ(전체유형) + 생산입고 − 판매출고."""
+    from sqlalchemy import and_
+    lq = db.query(
+        InventoryStockLedger.product_id,
+        func.coalesce(func.sum(InventoryStockLedger.qty_delta), 0.0),
+    ).filter(InventoryStockLedger.movement_date >= s, InventoryStockLedger.movement_date <= e)
+    if warehouse_id is not None:
+        lq = lq.filter(InventoryStockLedger.warehouse_id == warehouse_id)
+    lq = lq.group_by(InventoryStockLedger.product_id)
+    net: dict = {pid: float(v or 0) for pid, v in lq.all()}
+    for (_w, pid), v in _production_sums(db, start=s, as_of=e, warehouse_id=warehouse_id).items():
+        net[pid] = net.get(pid, 0.0) + v
+    for (_w, pid), v in _sales_sums(db, start=s, as_of=e, warehouse_id=warehouse_id).items():
+        net[pid] = net.get(pid, 0.0) - v
+    return net
+
+
+def stock_net_matrix(db: Session, start: date, end: date,
+                     warehouse_id: Optional[int] = None) -> dict:
+    """재고 순증감(+/-): ① 품목별 기간 누계  ② 품목×월 매트릭스."""
+    products = load_products(db)
+    months = _month_range_list(start, end)
+    # 월별 net
+    per_month: dict = {}  # pid -> {ym: delta}
+    for ym in months:
+        y, m = int(ym[:4]), int(ym[5:7])
+        ms = date(y, m, 1)
+        me = date(y + (m // 12), (m % 12) + 1, 1) - __import__("datetime").timedelta(days=1)
+        me = min(me, end); ms = max(ms, start)
+        for pid, v in _net_delta_range(db, ms, me, warehouse_id).items():
+            per_month.setdefault(pid, {})[ym] = per_month.get(pid, {}).get(ym, 0.0) + v
+    rows = []
+    period_rows = []
+    col_tot = {m: 0.0 for m in months}
+    for pid, mv in per_month.items():
+        prod = products.get(pid)
+        if not prod:
+            continue
+        vals = [round(mv.get(m, 0.0), 1) for m in months]
+        tot = round(sum(vals), 1)
+        if abs(tot) < 1e-9 and not any(abs(v) > 1e-9 for v in vals):
+            continue
+        for i, m in enumerate(months):
+            col_tot[m] += vals[i]
+        rows.append({"product": prod["name"], "category": prod["category"],
+                     "code": prod["code"], "values": vals, "total": tot})
+        period_rows.append({"product": prod["name"], "category": prod["category"],
+                            "code": prod["code"], "net": tot})
+    rows.sort(key=lambda r: (r["category"], r["product"]))
+    period_rows.sort(key=lambda r: r["net"])
+    return {
+        "start": start.isoformat(), "end": end.isoformat(), "warehouse_id": warehouse_id,
+        "months": months,
+        "period_rows": period_rows,   # 품목별 기간 순증감 누계
+        "matrix_rows": rows,          # 품목×월 순증감
+        "col_totals": [round(col_tot[m], 1) for m in months],
+        "grand_total": round(sum(col_tot.values()), 1),
+    }

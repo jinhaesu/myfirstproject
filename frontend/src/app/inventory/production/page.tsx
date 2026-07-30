@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { MatrixTable } from '@/components/MatrixTable';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
@@ -156,6 +157,7 @@ function DashTab() {
   const [gran, setGran] = useState<'month' | 'week' | 'day'>('day');
   const [d, setD] = useState<ProdDash | null>(null);
   const [ts, setTs] = useState<TSPoint[]>([]);
+  const [matrix, setMatrix] = useState<any>(null);
   const [cats, setCats] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [labor, setLabor] = useState<LaborCmp | null>(null);
@@ -170,11 +172,12 @@ function DashTab() {
     setLoading(true);
     const catq = cat ? `&category=${encodeURIComponent(cat)}` : '';
     const locq = loc ? `&location=${encodeURIComponent(loc)}` : '';
-    const [dd, tt] = await Promise.all([
+    const [dd, tt, mx] = await Promise.all([
       getJSON<ProdDash | null>(`/inventory/production/dashboard?start=${range.start}&end=${range.end}${locq}`, null),
       getJSON<{ series: TSPoint[] }>(`/inventory/production/timeseries?granularity=${gran}&start=${range.start}&end=${range.end}${catq}${locq}`, { series: [] }),
+      getJSON<any>(`/inventory/production/monthly-matrix?start=${range.start}&end=${range.end}${locq}`, null),
     ]);
-    setD(dd); setTs(tt.series);
+    setD(dd); setTs(tt.series); setMatrix(mx);
     if (!loc && dd?.locations?.length) setAllLocs(dd.locations);
     setLoading(false);
   }, [range, cat, loc, gran]);
@@ -456,6 +459,14 @@ function DashTab() {
             </div>
           </div>
           <p className="text-xs text-[#62666D]">노무비 = 시급 {fmt(d.hourly_wage)}원 × 생산투여시간 · 개당 노무비 = 노무비 ÷ 생산량 · {range.start} ~ {range.end}</p>
+
+          <MatrixTable
+            title="품목별 월별 생산 합계"
+            subtitle="품목(품목명)×월 생산량. 맨 아래 총 합계 · 엑셀 다운로드 가능."
+            firstCol="품목"
+            data={matrix}
+            showCategory
+          />
         </>
       )}
     </div>

@@ -346,3 +346,40 @@ def logistics_compare(db: Session, start: date, end: date, granularity: str = "d
         "total_regular_pay": round(tot_reg_pay),
         "note": "근태 노무시간 = 물류팀만(정규직 물류부서 실근태 + 파견/알바 물류사업장). 노무비 = 정규직 실지급 + 파견 환산(시간×15,000).",
     }
+
+
+def logistics_monthly_matrix(db: Session, start: date, end: date,
+                             by: str = "work_type") -> dict:
+    """물류 작업 월별 매트릭스 — 작업종류(또는 작업명)×월 작업량 합계 + 행/열 합계."""
+    col = InventoryLogisticsWork.work_name if by == "work_name" else InventoryLogisticsWork.work_type
+    rows_q = db.query(col, InventoryLogisticsWork.work_date, InventoryLogisticsWork.qty).filter(
+        InventoryLogisticsWork.work_date >= start, InventoryLogisticsWork.work_date <= end)
+    # 월 목록
+    months, y, m = [], start.year, start.month
+    while (y, m) <= (end.year, end.month):
+        months.append(f"{y}-{m:02d}")
+        m += 1
+        if m > 12:
+            m = 1; y += 1
+    cell: dict = {}
+    for name, wd, qty in rows_q.all():
+        if not wd:
+            continue
+        nm = name or "(미지정)"
+        mk = f"{wd.year}-{wd.month:02d}"
+        cell.setdefault(nm, {}).setdefault(mk, 0.0)
+        cell[nm][mk] += float(qty or 0)
+    out_rows = []
+    col_tot = {mm: 0.0 for mm in months}
+    for nm in sorted(cell.keys()):
+        vals = [round(cell[nm].get(mm, 0.0)) for mm in months]
+        tot = sum(vals)
+        for i, mm in enumerate(months):
+            col_tot[mm] += vals[i]
+        out_rows.append({"name": nm, "values": vals, "total": tot})
+    return {
+        "start": start.isoformat(), "end": end.isoformat(), "by": by,
+        "months": months, "rows": out_rows,
+        "col_totals": [round(col_tot[mm]) for mm in months],
+        "grand_total": round(sum(col_tot.values())),
+    }

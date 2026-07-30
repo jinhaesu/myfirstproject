@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { MatrixTable } from '@/components/MatrixTable';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   ComposedChart, Line, Legend, PieChart, Pie,
@@ -187,6 +188,7 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [heat, setHeat] = useState<{ months: string[]; rows: HeatRow[] }>({ months: [], rows: [] });
   const [logi, setLogi] = useState<any>(null);
+  const [netMx, setNetMx] = useState<any>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -195,6 +197,10 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
   }, [range.end]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { getJSON<any>(`/inventory/logistics/dashboard?start=${range.start}&end=${range.end}`, null).then(setLogi); }, [range]);
+  useEffect(() => {
+    const whq = whId ? `&warehouse_id=${whId}` : '';
+    getJSON<any>(`/inventory/stock-net-matrix?start=${range.start}&end=${range.end}${whq}`, null).then(setNetMx);
+  }, [range, whId]);
 
   const loadTrend = useCallback(async () => {
     const whq = whId ? `&warehouse_id=${whId}` : '';
@@ -458,6 +464,56 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
             )}
           </div>
           <p className="text-xs text-[#62666D]">기준일 {d.as_of} · 판매 데이터 연동 실시간 계산</p>
+
+          {/* 품목별 기간 재고 순증감 누계 */}
+          <div className="bg-[#0F1011] border border-[#23252A] rounded-xl p-4">
+            <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+              <div>
+                <div className="text-sm font-semibold text-[#F7F8F8]">품목별 재고 +/- 누계 (기간)</div>
+                <p className="text-xs text-[#62666D] mt-0.5">{range.start} ~ {range.end} 기간 순증감(입고−판매출고±조정). 감소 큰 순.</p>
+              </div>
+              <button
+                onClick={() => {
+                  if (!netMx?.period_rows?.length) return;
+                  const BOM = '﻿';
+                  const lines = ['"품목류","품목","순증감"'];
+                  netMx.period_rows.forEach((r: any) => lines.push([`"${r.category || ''}"`, `"${r.product}"`, `"${r.net}"`].join(',')));
+                  const blob = new Blob([BOM + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+                  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                  a.download = `품목별_재고순증감_${range.start}_${range.end}.csv`; a.click();
+                }}
+                disabled={!netMx?.period_rows?.length}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1A1B1E] border border-[#23252A] text-[#D0D6E0] hover:bg-[#23252A] disabled:opacity-40"
+              >⬇ 엑셀 다운로드</button>
+            </div>
+            <div className="overflow-x-auto max-h-[360px] overflow-y-auto mt-2">
+              <table className="w-full">
+                <thead className="sticky top-0 bg-[#0F1011]"><tr>
+                  <th className={`${C.th} text-left`}>품목류</th><th className={`${C.th} text-left`}>품목</th><th className={`${C.th} text-right`}>재고 순증감</th>
+                </tr></thead>
+                <tbody>
+                  {!netMx?.period_rows?.length ? (
+                    <tr><td colSpan={3} className="px-3 py-8 text-center text-sm text-[#62666D]">데이터 없음</td></tr>
+                  ) : netMx.period_rows.map((r: any, i: number) => (
+                    <tr key={i} className="hover:bg-white/5">
+                      <td className={`${C.td} text-[#8A8F98]`}>{r.category}</td>
+                      <td className={`${C.td} text-[#F7F8F8]`}>{r.product}</td>
+                      <td className={`${C.td} text-right font-semibold ${r.net < 0 ? 'text-[#EB5757]' : 'text-[#3FBE5B]'}`}>{r.net > 0 ? '+' : ''}{fmt(r.net)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 품목별 월별 재고 순증감 매트릭스 */}
+          <MatrixTable
+            title="품목별 월별 재고 +/- 누계"
+            subtitle="품목×월 재고 순증감(입고−판매출고±조정). 감소는 빨강 · 엑셀 다운로드 가능."
+            firstCol="품목"
+            showCategory
+            data={netMx ? { months: netMx.months, rows: (netMx.matrix_rows || []).map((r: any) => ({ name: r.product, category: r.category, values: r.values, total: r.total })), col_totals: netMx.col_totals, grand_total: netMx.grand_total } : null}
+          />
         </>
       )}
     </div>
