@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import { MatrixTable } from '@/components/MatrixTable';
+import { LoadingOverlay } from '@/components/LoadingOverlay';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line, PieChart, Pie, Legend, ComposedChart,
@@ -141,7 +142,8 @@ function DashTab() {
   const gl = gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별';
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 relative">
+      <LoadingOverlay show={loading} />
       <div className="flex flex-wrap items-center gap-2">
         <PeriodBar range={range} setRange={setRange} />
         <select value={wtype} onChange={(e) => setWtype(e.target.value)} className={C.input}><option value="">전체 작업종류</option>{types.map((t) => <option key={t} value={t}>{t}</option>)}</select>

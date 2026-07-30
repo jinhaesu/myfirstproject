@@ -208,8 +208,10 @@ function Content() {
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   // Filters
-  const [periodStart, setPeriodStart] = useState(isoDate(firstOfMonth));
+  const [periodStart, setPeriodStart] = useState(isoDate(firstOfMonth));   // 적용된(조회된) 기간
   const [periodEnd, setPeriodEnd] = useState(isoDate(today));
+  const [draftStart, setDraftStart] = useState(isoDate(firstOfMonth));     // 입력 중(미적용)
+  const [draftEnd, setDraftEnd] = useState(isoDate(today));
   const [granularity, setGranularity] = useState<Granularity>('day');
   const [selChannels, setSelChannels] = useState<string[]>([]);
   const [selProducts, setSelProducts] = useState<number[]>([]);
@@ -410,6 +412,12 @@ function Content() {
             periodEnd={periodEnd}
             setPeriodStart={setPeriodStart}
             setPeriodEnd={setPeriodEnd}
+            draftStart={draftStart}
+            draftEnd={draftEnd}
+            setDraftStart={setDraftStart}
+            setDraftEnd={setDraftEnd}
+            onApplyDates={() => { setPeriodStart(draftStart); setPeriodEnd(draftEnd); }}
+            applyPreset={(s: string, e: string) => { setDraftStart(s); setDraftEnd(e); setPeriodStart(s); setPeriodEnd(e); }}
             granularity={granularity}
             setGranularity={setGranularity}
             selChannels={selChannels}
@@ -745,6 +753,7 @@ function MatrixSection({ title, by, authHeaders, categoryToggle = false }: {
 const DashboardTab = memo(function DashboardTab({
   data, compareData, loading, channels, products, employees,
   periodStart, periodEnd, setPeriodStart, setPeriodEnd,
+  draftStart, draftEnd, setDraftStart, setDraftEnd, onApplyDates, applyPreset,
   granularity, setGranularity,
   selChannels, setSelChannels, selProducts, setSelProducts,
   selEmployees, setSelEmployees,
@@ -854,8 +863,19 @@ const DashboardTab = memo(function DashboardTab({
       {/* Filter bar */}
       <div className={`${PANEL} p-3`}>
         <div className="flex flex-wrap gap-2 items-end">
-          <DateInput label="시작" value={periodStart} onChange={setPeriodStart} />
-          <DateInput label="종료" value={periodEnd} onChange={setPeriodEnd} />
+          <DateInput label="시작" value={draftStart} onChange={setDraftStart} />
+          <DateInput label="종료" value={draftEnd} onChange={setDraftEnd} />
+          <button
+            onClick={onApplyDates}
+            className={`h-[38px] self-end px-4 rounded-lg text-sm font-semibold transition-colors ${
+              (draftStart !== periodStart || draftEnd !== periodEnd)
+                ? 'bg-[#5E6AD2] text-white ring-2 ring-[#5E6AD2]/40 hover:bg-[#4d58bd]'
+                : 'bg-[#5E6AD2] text-white hover:bg-[#4d58bd]'
+            }`}
+          >조회</button>
+          {(draftStart !== periodStart || draftEnd !== periodEnd) && (
+            <span className="self-end pb-2.5 text-[11px] text-[#F0BF00]">기간 변경됨 — 조회를 누르세요</span>
+          )}
           <Segment
             label="단위"
             options={[
@@ -909,7 +929,7 @@ const DashboardTab = memo(function DashboardTab({
             return (
               <button
                 key={p.label}
-                onClick={() => { setPeriodStart(r.start); setPeriodEnd(r.end); }}
+                onClick={() => applyPreset(r.start, r.end)}
                 className={`text-[11px] px-2.5 py-1 rounded border transition-colors ${
                   active
                     ? 'border-[#828FFF] text-[#A8B3FF] bg-[#1B1D2A]'

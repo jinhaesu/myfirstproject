@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie, Legend, ComposedChart } from 'recharts';
 
 const getAuthHeaders = (): Record<string, string> => {
@@ -93,19 +94,21 @@ function DashTab() {
   const [ratio, setRatio] = useState<any>(null);
   const [heat, setHeat] = useState<any>(null);
   const [gapT, setGapT] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const P = presets();
   const applyDraft = () => setAp(dr);
   const applyPreset = (v: { start: string; end: string }) => { const nx = { ...dr, ...v }; setDr(nx); setAp(nx); };
   const qs = () => { const p = new URLSearchParams({ start: ap.start, end: ap.end }); if (ap.vendor) p.set('vendor', ap.vendor); if (ap.mclass) p.set('mclass', ap.mclass); if (ap.q) p.set('q', ap.q); return p.toString(); };
   useEffect(() => { getJSON<{ vendors: Vendor[] }>('/purchase/vendors', { vendors: [] }).then((r) => setVendors(r.vendors)); }, []);
-  useEffect(() => { getJSON<any>(`/purchase/records/dashboard?${qs()}`, null).then(setD); }, [ap]);
+  useEffect(() => { setLoading(true); getJSON<any>(`/purchase/records/dashboard?${qs()}`, null).then((r) => { setD(r); setLoading(false); }); }, [ap]);
   useEffect(() => { getJSON<any>(`/purchase/records/sales-ratio?start=${ap.start}&end=${ap.end}&granularity=${gran}`, null).then(setRatio); }, [ap, gran]);
   useEffect(() => { getJSON<any>(`/purchase/records/req-vs-actual?start=${ap.start}&end=${ap.end}&top=30`, null).then(setHeat); }, [ap]);
   useEffect(() => { getJSON<any>(`/purchase/records/gap-trend?start=${ap.start}&end=${ap.end}&granularity=${gran}`, null).then(setGapT); }, [ap, gran]);
   const dirty = dr.start !== ap.start || dr.end !== ap.end || dr.vendor !== ap.vendor || dr.mclass !== ap.mclass || dr.q !== ap.q;
   const classData = (d?.by_class || []).map((x: any) => ({ name: x.mclass, value: x.supply }));
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 relative">
+      <LoadingOverlay show={loading} />
       <div className="flex flex-wrap items-center gap-2">
         {Object.keys(P).map((k) => { const on = ap.start === P[k].start && ap.end === P[k].end; return <button key={k} onClick={() => applyPreset(P[k])} className={`${C.btn} ${on ? C.btnPrimary : C.btnGhost}`}>{k}</button>; })}
         <input type="date" value={dr.start} onChange={(e) => setDr({ ...dr, start: e.target.value })} className={C.input} />

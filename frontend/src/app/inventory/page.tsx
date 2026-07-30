@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import { MatrixTable } from '@/components/MatrixTable';
+import { LoadingOverlay } from '@/components/LoadingOverlay';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   ComposedChart, Line, Legend, PieChart, Pie,
@@ -220,7 +221,8 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 relative">
+      <LoadingOverlay show={loading} />
       <div className={`${C.card} p-3 flex flex-wrap items-center gap-2 sticky top-[52px] z-10`}>
         <span className="text-sm font-semibold text-[#F7F8F8]">기간</span>
         <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />

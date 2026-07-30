@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { MatrixTable } from '@/components/MatrixTable';
+import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
@@ -185,7 +186,8 @@ function DashTab() {
   const granLabel = gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별';
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 relative">
+      <LoadingOverlay show={loading} />
       <div className="flex flex-wrap items-center gap-2">
         <PeriodBar range={range} setRange={setRange} />
         <select value={cat} onChange={(e) => setCat(e.target.value)} className={C.input}>

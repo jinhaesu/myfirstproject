@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ComposedChart, Line, Legend } from 'recharts';
 
 const getAuthHeaders = (): Record<string, string> => {
@@ -64,7 +65,8 @@ export default function ManagementPage() {
   return (
     <div className="min-h-screen bg-[#08090A]">
       <Navigation />
-      <main className="max-w-[1400px] mx-auto px-4 py-6">
+      <main className="max-w-[1400px] mx-auto px-4 py-6 relative">
+        <LoadingOverlay show={loading} />
         <div className="mb-4"><h1 className="text-xl font-bold text-[#F7F8F8]">경영관리 · 교차분석</h1><p className="text-sm text-[#8A8F98] mt-0.5">영업·구매·생산·물류·재고 데이터를 대조해 경영 관점의 gap·이상치를 요약합니다.</p></div>
         <div className="flex flex-wrap items-center gap-2 mb-1">
           {Object.entries(presets()).map(([k, v]) => { const on = range.start === v.start && range.end === v.end; return <button key={k} onClick={() => apply(v)} className={`${C.btn} ${on ? 'bg-[#5E6AD2] text-white' : C.btnGhost}`}>{k}</button>; })}
