@@ -506,13 +506,18 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
             </div>
           </div>
 
-          {/* 품목별 월별 재고 순증감 매트릭스 */}
+          {/* 품목별 월별 재고 순증감 매트릭스 (연도별 1~12월, 상단 기간필터와 독립) */}
           <MatrixTable
             title="품목별 월별 재고 +/- 누계"
-            subtitle="품목×월 재고 순증감(입고−판매출고±조정). 감소는 빨강 · 엑셀 다운로드 가능."
+            subtitle="품목×월 재고 순증감(입고−판매출고±조정). 상단 기간필터와 무관하게 연도별 1~12월. 감소는 빨강 · 엑셀."
             firstCol="품목"
             showCategory
-            data={netMx ? { months: netMx.months, rows: (netMx.matrix_rows || []).map((r: any) => ({ name: r.product, category: r.category, values: r.values, total: r.total })), col_totals: netMx.col_totals, grand_total: netMx.grand_total } : null}
+            loader={async (s, e) => {
+              const whq = whId ? `&warehouse_id=${whId}` : '';
+              const r = await getJSON<any>(`/inventory/stock-net-matrix?start=${s}&end=${e}${whq}`, null);
+              if (!r) return null;
+              return { months: r.months, rows: (r.matrix_rows || []).map((x: any) => ({ name: x.product, category: x.category, values: x.values, total: x.total })), col_totals: r.col_totals, grand_total: r.grand_total };
+            }}
           />
         </>
       )}

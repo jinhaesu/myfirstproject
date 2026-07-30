@@ -145,7 +145,11 @@ def _labor_daily(start_iso: str, end_iso: str, tag: str, dept_fn, wp_fn) -> dict
                     d = (str(r.get("date") or ""))[:10]
                     if not (start_iso <= d <= end_iso):
                         continue
-                    daily[d]["dispatch"] += float(r.get("total_hours") or 0)
+                    # 파견/알바 total_hours는 gross(regular+overtime+break)라 휴게 차감(break_time 제외).
+                    th = float(r.get("total_hours") or 0)
+                    if _DEDUCT_BREAK:
+                        th = max(0.0, th - float(r.get("break_time") or 0))
+                    daily[d]["dispatch"] += th
                 pg = res.get("pagination", {}) or {}
                 if page >= int(pg.get("totalPages") or 1):
                     break

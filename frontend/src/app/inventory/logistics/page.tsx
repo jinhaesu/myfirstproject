@@ -124,19 +124,17 @@ function DashTab() {
   const [ts, setTs] = useState<TS[]>([]);
   const [types, setTypes] = useState<string[]>([]);
   const [labor, setLabor] = useState<LaborCmp | null>(null);
-  const [matrix, setMatrix] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => { getJSON<{ categories: string[] }>('/inventory/logistics/categories', { categories: [] }).then((r) => setTypes(r.categories)); }, []);
   const load = useCallback(async () => {
     setLoading(true);
     const tq = wtype ? `&work_type=${encodeURIComponent(wtype)}` : '';
-    const [dd, tt, lb, mx] = await Promise.all([
+    const [dd, tt, lb] = await Promise.all([
       getJSON<Dash | null>(`/inventory/logistics/dashboard?start=${range.start}&end=${range.end}`, null),
       getJSON<{ series: TS[] }>(`/inventory/logistics/timeseries?granularity=${gran}&start=${range.start}&end=${range.end}${tq}`, { series: [] }),
       getJSON<LaborCmp | null>(`/inventory/logistics-labor-compare?start=${range.start}&end=${range.end}&granularity=${gran}`, null),
-      getJSON<any>(`/inventory/logistics/monthly-matrix?start=${range.start}&end=${range.end}&by=work_type`, null),
     ]);
-    setD(dd); setTs(tt.series); setLabor(lb); setMatrix(mx); setLoading(false);
+    setD(dd); setTs(tt.series); setLabor(lb); setLoading(false);
   }, [range, wtype, gran]);
   useEffect(() => { load(); }, [load]);
   const PIE = d?.by_type.slice(0, 8).map((t, i) => ({ name: t.work_type, value: t.qty, fill: COLORS[i % COLORS.length] })) || [];
@@ -257,9 +255,9 @@ function DashTab() {
 
           <MatrixTable
             title="작업종류별 월별 작업량 합계"
-            subtitle="작업종류×월 작업량. 맨 아래 총 합계 · 엑셀 다운로드 가능."
+            subtitle="작업종류×월 작업량. 상단 기간필터와 무관하게 연도별 1~12월. 맨 아래 총 합계 · 엑셀."
             firstCol="작업종류"
-            data={matrix}
+            loader={(s, e) => getJSON<any>(`/inventory/logistics/monthly-matrix?start=${s}&end=${e}&by=work_type`, null)}
           />
         </>
       )}

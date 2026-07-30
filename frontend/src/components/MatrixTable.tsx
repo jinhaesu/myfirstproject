@@ -1,6 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 // 월별 매트릭스 테이블 + 엑셀(CSV) 다운로드 공용 컴포넌트.
+// 자체 연도 필터(2025~현재)로 1~12월 전체를 조회 — 상단 기간필터와 독립.
 // rows: [{ name, category?, values:number[], total:number }]
 
 export interface MatrixRow {
@@ -18,6 +21,15 @@ interface MatrixData {
 }
 
 const fmt = (n: number) => Number(n || 0).toLocaleString('ko-KR');
+const CUR_YEAR = 2026; // 데이터 시작연도 2025 ~ 이후 연도 버튼 생성 기준(빌드 고정 회피)
+
+function yearList(): number[] {
+  const now = new Date().getFullYear();
+  const end = Math.max(now, 2026);
+  const out: number[] = [];
+  for (let y = 2025; y <= end; y++) out.push(y);
+  return out;
+}
 
 export function downloadMatrixCSV(
   filename: string,
@@ -55,30 +67,50 @@ export function downloadMatrixCSV(
 }
 
 export function MatrixTable({
-  title, subtitle, firstCol, data, showCategory,
+  title, subtitle, firstCol, loader, showCategory,
 }: {
   title: string;
   subtitle?: string;
   firstCol: string;
-  data: MatrixData | null;
+  // (startISO, endISO) => Promise<MatrixData|null>. 연도 선택 시 1/1~12/31로 호출.
+  loader: (startISO: string, endISO: string) => Promise<MatrixData | null>;
   showCategory?: boolean;
 }) {
+  const years = yearList();
+  const [year, setYear] = useState<number>(years[years.length - 1] || CUR_YEAR);
+  const [data, setData] = useState<MatrixData | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    loader(`${year}-01-01`, `${year}-12-31`).then((d) => { if (alive) { setData(d); setLoading(false); } });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year]);
+
   const th = 'text-xs font-semibold text-[#8A8F98] px-3 py-2 border-b border-[#23252A] whitespace-nowrap';
   const td = 'px-3 py-1.5 text-sm text-[#D0D6E0] border-b border-[#1A1B1E] whitespace-nowrap tabular-nums';
   return (
     <div className="bg-[#0F1011] border border-[#23252A] rounded-xl p-4">
       <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
         <div>
-          <div className="text-sm font-semibold text-[#F7F8F8]">{title}</div>
+          <div className="text-sm font-semibold text-[#F7F8F8]">{title} <span className="text-[#62666D] font-normal">· {year}년 1~12월</span></div>
           {subtitle && <p className="text-xs text-[#62666D] mt-0.5">{subtitle}</p>}
         </div>
-        <button
-          onClick={() => data && downloadMatrixCSV(title.replace(/\s+/g, '_'), firstCol, data, { category: showCategory })}
-          disabled={!data || data.rows.length === 0}
-          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1A1B1E] border border-[#23252A] text-[#D0D6E0] hover:bg-[#23252A] disabled:opacity-40"
-        >
-          ⬇ 엑셀 다운로드
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {years.map((y) => (
+              <button key={y} onClick={() => setYear(y)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${year === y ? 'bg-[#5E6AD2] text-white border-[#5E6AD2]' : 'bg-[#08090A] text-[#8A8F98] border-[#23252A] hover:text-[#D0D6E0]'}`}>{y}년</button>
+            ))}
+          </div>
+          <button
+            onClick={() => data && downloadMatrixCSV(`${title.replace(/\s+/g, '_')}_${year}`, firstCol, data, { category: showCategory })}
+            disabled={!data || data.rows.length === 0}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1A1B1E] border border-[#23252A] text-[#D0D6E0] hover:bg-[#23252A] disabled:opacity-40"
+          >⬇ 엑셀</button>
+        </div>
       </div>
       <div className="overflow-x-auto max-h-[460px] overflow-y-auto mt-2">
         <table className="w-full">
@@ -86,13 +118,15 @@ export function MatrixTable({
             <tr>
               {showCategory && <th className={`${th} text-left`}>품목류</th>}
               <th className={`${th} text-left`}>{firstCol}</th>
-              {data?.months.map((m) => <th key={m} className={`${th} text-right`}>{m}</th>)}
+              {data?.months.map((m) => <th key={m} className={`${th} text-right`}>{m.slice(5)}월</th>)}
               <th className={`${th} text-right`}>합계</th>
             </tr>
           </thead>
           <tbody>
-            {!data || data.rows.length === 0 ? (
-              <tr><td colSpan={(data?.months.length || 0) + (showCategory ? 3 : 2)} className="px-3 py-8 text-center text-sm text-[#62666D]">데이터 없음</td></tr>
+            {loading ? (
+              <tr><td colSpan={(data?.months.length || 12) + (showCategory ? 3 : 2)} className="px-3 py-8 text-center text-sm text-[#62666D]">불러오는 중…</td></tr>
+            ) : !data || data.rows.length === 0 ? (
+              <tr><td colSpan={(data?.months.length || 12) + (showCategory ? 3 : 2)} className="px-3 py-8 text-center text-sm text-[#62666D]">{year}년 데이터 없음</td></tr>
             ) : (
               <>
                 {data.rows.map((r, i) => (
