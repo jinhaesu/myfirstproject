@@ -933,7 +933,7 @@ const DashboardTab = memo(function DashboardTab({
                 className={`text-[11px] px-2.5 py-1 rounded border transition-colors ${
                   active
                     ? 'border-accent text-brand-light bg-[#1B1D2A]'
-                    : 'border-border-primary text-text-dim hover:text-text-primary hover:bg-[#1F2127]'
+                    : 'border-border-primary text-text-dim hover:text-text-primary hover:bg-bg-2'
                 }`}
               >
                 {p.label}
@@ -1900,7 +1900,7 @@ function UploadTab({
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={deleteChannelData} disabled={delBusy}
-              className="px-4 py-1.5 bg-danger hover:bg-[#D14545] text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-4 py-1.5 bg-danger hover:brightness-90 text-white rounded text-xs font-medium disabled:opacity-50"
             >{delBusy ? '삭제 중…' : '데이터 삭제'}</button>
             {delError && <span className="text-[11px] text-danger">{delError}</span>}
           </div>
@@ -2157,7 +2157,7 @@ function MappingTab({
           <button
             onClick={() => setSelected(new Set())}
             disabled={bulkBusy}
-            className="px-2 py-1 bg-border-primary hover:bg-[#2A2D33] text-text-tertiary rounded text-xs"
+            className="px-2 py-1 bg-border-primary hover:bg-bg-quaternary text-text-tertiary rounded text-xs"
           >해제</button>
         </div>
       )}
@@ -2573,7 +2573,7 @@ function CostTab({
               onClick={() => runSync(true)}
               disabled={syncing}
               title="SCM BOM에서 산출된 제품별 개당 재료원가와 개당 노무비를 원가·노무비 변동비 규칙으로 자동 반영합니다."
-              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-brand text-white hover:bg-[#4F5ABF] disabled:opacity-50 transition-colors"
+              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-brand text-white hover:bg-brand-hover disabled:opacity-50 transition-colors"
             >
               {syncing ? '동기화 중…' : 'SCM BOM 원가·노무비 동기화'}
             </button>
@@ -3673,7 +3673,7 @@ function AdminTab({
             <button
               onClick={() => runAdmin('migrate-partitions', '파티션 마이그레이션')}
               disabled={adminBusy !== null}
-              className="px-3 py-1.5 bg-warning hover:bg-[#D9A800] text-bg-0 rounded text-xs font-medium"
+              className="px-3 py-1.5 bg-warning hover:brightness-90 text-bg-0 rounded text-xs font-medium"
             >{adminBusy === '파티션 마이그레이션' ? '실행 중…' : '파티션 전환'}</button>
             <button
               onClick={() => runAdmin('run-retention-now', '즉시 실행')}

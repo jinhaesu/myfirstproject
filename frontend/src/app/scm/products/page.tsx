@@ -747,7 +747,7 @@ export default function ProductsPage() {
                               <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => handleDelete(product.id)}
-                                  className="px-2 py-1 text-xs rounded bg-danger text-white hover:bg-[#F07070] transition"
+                                  className="px-2 py-1 text-xs rounded bg-danger text-white hover:brightness-90 transition"
                                 >
                                   확인
                                 </button>

@@ -767,7 +767,7 @@ function SliderWithHelp({
           {help && (
             <button
               onClick={() => setOpen(!open)}
-              className="w-3.5 h-3.5 rounded-full border border-border-secondary text-[9px] text-text-tertiary hover:bg-brand hover:text-white hover:border-brand transition-colors flex items-center justify-center font-mono"
+              className="w-3.5 h-3.5 rounded-full border border-border-secondary text-[9px] text-text-tertiary hover:bg-brand hover:text-bg-0 hover:border-brand transition-colors flex items-center justify-center font-mono"
               aria-label="설명"
             >
               ?
@@ -904,7 +904,7 @@ function NumberInput({
           {help && (
             <button
               onClick={() => setOpen(!open)}
-              className="w-3.5 h-3.5 rounded-full border border-border-secondary text-[9px] text-text-tertiary hover:bg-brand hover:text-white hover:border-brand transition-colors flex items-center justify-center font-mono"
+              className="w-3.5 h-3.5 rounded-full border border-border-secondary text-[9px] text-text-tertiary hover:bg-brand hover:text-bg-0 hover:border-brand transition-colors flex items-center justify-center font-mono"
               aria-label="설명"
             >
               ?
