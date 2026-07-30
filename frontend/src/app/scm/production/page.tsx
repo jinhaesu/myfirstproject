@@ -277,7 +277,7 @@ const generateSampleAlerts = (): AlertItem[] => [
 // SVG Icons (inline for zero-dependency)
 // ─────────────────────────────────────────────────────────────────────────────
 const SparkleIcon = () => (
-  <svg className="w-4 h-4 text-[#7070FF]" fill="currentColor" viewBox="0 0 24 24">
+  <svg className="w-4 h-4 text-link" fill="currentColor" viewBox="0 0 24 24">
     <path d="M12 2L13.09 8.26L18 6L15.74 10.91L22 12L15.74 13.09L18 18L13.09 15.74L12 22L10.91 15.74L6 18L8.26 13.09L2 12L8.26 10.91L6 6L10.91 8.26L12 2Z" />
   </svg>
 );
@@ -353,9 +353,9 @@ function ToastContainer({ toasts, onRemove }: { toasts: ToastMessage[]; onRemove
         <div
           key={t.id}
           className={`flex items-center gap-3 px-5 py-3 rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm font-medium transition-all animate-slide-up
-            ${t.type === 'success' ? 'bg-[#27A644] text-white' : ''}
-            ${t.type === 'info' ? 'bg-[#5E6AD2] text-white' : ''}
-            ${t.type === 'error' ? 'bg-[#EB5757] text-white' : ''}
+            ${t.type === 'success' ? 'bg-success text-white' : ''}
+            ${t.type === 'info' ? 'bg-brand text-white' : ''}
+            ${t.type === 'error' ? 'bg-danger text-white' : ''}
           `}
         >
           <span>{t.text}</span>
@@ -815,7 +815,7 @@ export default function ProductionPlanPage() {
       return (
         <td
           key={field}
-          className={`px-2 py-1.5 border border-[#23252A] bg-[#08090A] text-right text-sm tabular-nums select-none`}
+          className={`px-2 py-1.5 border border-border-primary bg-bg-0 text-right text-sm tabular-nums select-none`}
         >
           {displayValue}
         </td>
@@ -826,7 +826,7 @@ export default function ProductionPlanPage() {
       // shift_type uses a select
       if (field === 'shift_type') {
         return (
-          <td key={field} className="px-1 py-0.5 border border-[#5E6AD2]/50 bg-[#5E6AD2]/10">
+          <td key={field} className="px-1 py-0.5 border border-brand/50 bg-brand/10">
             <select
               autoFocus
               className="w-full bg-transparent text-sm outline-none"
@@ -846,7 +846,7 @@ export default function ProductionPlanPage() {
 
       if (field === 'date') {
         return (
-          <td key={field} className="px-1 py-0.5 border border-[#5E6AD2]/50 bg-[#5E6AD2]/10">
+          <td key={field} className="px-1 py-0.5 border border-brand/50 bg-brand/10">
             <input
               type="date"
               autoFocus
@@ -866,7 +866,7 @@ export default function ProductionPlanPage() {
       // Special case: product_name with autocomplete
       if (field === 'product_name') {
         return (
-          <td key={field} className="px-1 py-0.5 border border-[#5E6AD2]/50 bg-[#5E6AD2]/10 relative">
+          <td key={field} className="px-1 py-0.5 border border-brand/50 bg-brand/10 relative">
             <input
               type="text"
               autoFocus
@@ -920,28 +920,28 @@ export default function ProductionPlanPage() {
             {productAutocomplete.visible && productAutocomplete.planId === plan.id && filteredProducts.length > 0 && (
               <div
                 ref={autocompleteRef}
-                className="absolute top-full left-0 z-50 w-[360px] mt-1 bg-[#0F1011] border border-[#23252A] rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] max-h-[240px] overflow-y-auto"
+                className="absolute top-full left-0 z-50 w-[360px] mt-1 bg-bg-1 border border-border-primary rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] max-h-[240px] overflow-y-auto"
               >
                 {filteredProducts.map(product => (
                   <button
                     key={product.id}
                     type="button"
-                    className="w-full text-left px-3 py-2 hover:bg-[#5E6AD2]/10 transition-colors border-b border-[#23252A] last:border-b-0"
+                    className="w-full text-left px-3 py-2 hover:bg-brand/10 transition-colors border-b border-border-primary last:border-b-0"
                     onMouseDown={e => {
                       e.preventDefault();
                       handleProductSelect(plan.id, product);
                     }}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-[#F7F8F8] truncate">{product.product_name}</span>
-                      <span className="text-xs text-[#62666D] ml-2 shrink-0">{product.product_code}</span>
+                      <span className="text-sm font-medium text-text-primary truncate">{product.product_name}</span>
+                      <span className="text-xs text-text-quaternary ml-2 shrink-0">{product.product_code}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-xs text-[#8A8F98]">{product.product_category}</span>
-                      <span className="text-xs text-[#62666D]">|</span>
-                      <span className="text-xs text-[#8A8F98]">{product.avg_hourly_rate}개/시</span>
-                      <span className="text-xs text-[#62666D]">|</span>
-                      <span className="text-xs text-[#8A8F98]">단가 {fmtNum(product.default_unit_price)}원</span>
+                      <span className="text-xs text-text-tertiary">{product.product_category}</span>
+                      <span className="text-xs text-text-quaternary">|</span>
+                      <span className="text-xs text-text-tertiary">{product.avg_hourly_rate}개/시</span>
+                      <span className="text-xs text-text-quaternary">|</span>
+                      <span className="text-xs text-text-tertiary">단가 {fmtNum(product.default_unit_price)}원</span>
                     </div>
                   </button>
                 ))}
@@ -952,7 +952,7 @@ export default function ProductionPlanPage() {
       }
 
       return (
-        <td key={field} className="px-1 py-0.5 border border-[#5E6AD2]/50 bg-[#5E6AD2]/10">
+        <td key={field} className="px-1 py-0.5 border border-brand/50 bg-brand/10">
           <input
             type={isNumber ? 'number' : 'text'}
             autoFocus
@@ -1000,17 +1000,17 @@ export default function ProductionPlanPage() {
     return (
       <td
         key={field}
-        className={`px-2 py-1.5 border border-[#23252A] text-sm cursor-pointer hover:bg-[#5E6AD2]/10 transition-colors truncate max-w-[200px]
+        className={`px-2 py-1.5 border border-border-primary text-sm cursor-pointer hover:bg-brand/10 transition-colors truncate max-w-[200px]
           ${isRightAlign ? 'text-right tabular-nums' : ''}
-          ${plan._dirty ? 'bg-[#F0BF00]/10/40' : ''}
+          ${plan._dirty ? 'bg-warning/10' : ''}
         `}
         title={String(displayValue)}
         onClick={() => setEditingCell({ id: plan.id, field })}
       >
         <span className="flex items-center gap-1">
-          {displayValue || <span className="text-[#62666D]">-</span>}
+          {displayValue || <span className="text-text-quaternary">-</span>}
           {field === 'product_name' && autoFilledPlans.has(plan.id) && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#27A644]/15 text-[#27A644] shrink-0" title="품목 관리에서 자동 입력됨">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-success/15 text-success shrink-0" title="품목 관리에서 자동 입력됨">
               자동
             </span>
           )}
@@ -1022,7 +1022,7 @@ export default function ProductionPlanPage() {
   // ── Auth guard ─────────────────────────────────────────────────────────────
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#08090A]">
+      <div className="min-h-screen flex items-center justify-center bg-bg-0">
         <LoadingSpinner size="w-8 h-8" />
       </div>
     );
@@ -1033,7 +1033,7 @@ export default function ProductionPlanPage() {
   const warningAlerts = alerts.filter(a => a.level === 'warning');
 
   return (
-    <div className="min-h-screen bg-[#08090A]">
+    <div className="min-h-screen bg-bg-0">
       <Navigation />
 
       {/* Toast notifications */}
@@ -1043,15 +1043,15 @@ export default function ProductionPlanPage() {
         {/* ── Page Header ─────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#F7F8F8]">생산 계획</h1>
-            <p className="text-sm text-[#8A8F98] mt-1">생산일보 RAW-DATA 기반 생산 계획 관리</p>
+            <h1 className="text-2xl font-bold text-text-primary">생산 계획</h1>
+            <p className="text-sm text-text-tertiary mt-1">생산일보 RAW-DATA 기반 생산 계획 관리</p>
           </div>
           <div className="flex items-center gap-2">
             {/* AI 일괄 추천 */}
             <button
               onClick={bulkAiRecommend}
               disabled={bulkAiLoading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:from-[#5E6AD2] hover:to-[#828FFF] disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-brand to-brand text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:from-brand hover:to-accent disabled:opacity-60 disabled:cursor-not-allowed transition-all"
             >
               {bulkAiLoading ? (
                 <>
@@ -1070,7 +1070,7 @@ export default function ProductionPlanPage() {
             <button
               onClick={saveDirtyPlans}
               disabled={savingBulk || dirtyCount === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#5E6AD2] text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:bg-[#828FFF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {savingBulk ? <LoadingSpinner /> : <SaveIcon />}
               <span>저장{dirtyCount > 0 ? ` (${dirtyCount})` : ''}</span>
@@ -1079,7 +1079,7 @@ export default function ProductionPlanPage() {
             {/* 계획 추가 */}
             <button
               onClick={addNewPlan}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#27A644] text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:bg-[#1E8A3A] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-success text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:bg-success-hover transition-colors"
             >
               <PlusIcon />
               <span>계획 추가</span>
@@ -1088,7 +1088,7 @@ export default function ProductionPlanPage() {
             {/* Export CSV */}
             <button
               onClick={exportCsv}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#23252A] bg-[#0F1011] text-[#D0D6E0] text-sm font-medium hover:bg-white/5/5 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border-primary bg-bg-1 text-text-secondary text-sm font-medium hover:bg-white/5 transition-colors"
             >
               <DownloadIcon />
               <span>CSV</span>
@@ -1097,7 +1097,7 @@ export default function ProductionPlanPage() {
             {/* 공유 */}
             <button
               onClick={() => setShowShareModal(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#23252A] bg-[#0F1011] text-[#D0D6E0] text-sm font-medium hover:bg-white/5/5 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border-primary bg-bg-1 text-text-secondary text-sm font-medium hover:bg-white/5 transition-colors"
             >
               <ShareIcon />
               <span>공유</span>
@@ -1110,7 +1110,7 @@ export default function ProductionPlanPage() {
           <div className="mb-4">
             <button
               onClick={() => setAlertsExpanded(!alertsExpanded)}
-              className="flex items-center gap-2 text-sm font-medium text-[#D0D6E0] mb-2 hover:text-[#F7F8F8]"
+              className="flex items-center gap-2 text-sm font-medium text-text-secondary mb-2 hover:text-text-primary"
             >
               <ExclamationIcon />
               <span>알림 ({urgentAlerts.length + warningAlerts.length}건)</span>
@@ -1125,22 +1125,22 @@ export default function ProductionPlanPage() {
                     key={alert.id}
                     className={`flex items-start gap-3 p-3 rounded-lg border ${
                       alert.level === 'urgent'
-                        ? 'bg-[#EB5757]/10 border-[#EB5757]/30'
-                        : 'bg-[#F0BF00]/10 border-[#F0BF00]/30'
+                        ? 'bg-danger/10 border-danger/30'
+                        : 'bg-warning/10 border-warning/30'
                     }`}
                   >
-                    <div className={`mt-0.5 ${alert.level === 'urgent' ? 'text-[#EB5757]' : 'text-[#F0BF00]'}`}>
+                    <div className={`mt-0.5 ${alert.level === 'urgent' ? 'text-danger' : 'text-warning'}`}>
                       <ExclamationIcon />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold ${alert.level === 'urgent' ? 'text-[#EB5757]' : 'text-[#F0BF00]'}`}>
+                      <p className={`text-sm font-semibold ${alert.level === 'urgent' ? 'text-danger' : 'text-warning'}`}>
                         {alert.title}
                       </p>
-                      <p className={`text-xs mt-0.5 ${alert.level === 'urgent' ? 'text-[#EB5757]' : 'text-[#F0BF00]'}`}>
+                      <p className={`text-xs mt-0.5 ${alert.level === 'urgent' ? 'text-danger' : 'text-warning'}`}>
                         {alert.description}
                       </p>
                       {alert.due_date && (
-                        <p className="text-xs text-[#8A8F98] mt-1">납기: {alert.due_date}</p>
+                        <p className="text-xs text-text-tertiary mt-1">납기: {alert.due_date}</p>
                       )}
                     </div>
                   </div>
@@ -1152,35 +1152,35 @@ export default function ProductionPlanPage() {
 
         {/* ── Summary Cards ───────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-            <p className="text-xs text-[#8A8F98] font-medium uppercase tracking-wide">총 생산량</p>
-            <p className="text-2xl font-bold text-[#F7F8F8] mt-1">{fmtNum(summary.totalQty)}</p>
-            <p className="text-xs text-[#62666D] mt-1">{plans.length}개 품목</p>
+          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <p className="text-xs text-text-tertiary font-medium uppercase tracking-wide">총 생산량</p>
+            <p className="text-2xl font-bold text-text-primary mt-1">{fmtNum(summary.totalQty)}</p>
+            <p className="text-xs text-text-quaternary mt-1">{plans.length}개 품목</p>
           </div>
-          <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-            <p className="text-xs text-[#8A8F98] font-medium uppercase tracking-wide">총 생산액</p>
-            <p className="text-2xl font-bold text-[#7070FF] mt-1">{fmtNum(summary.totalValue)}</p>
-            <p className="text-xs text-[#62666D] mt-1">원</p>
+          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <p className="text-xs text-text-tertiary font-medium uppercase tracking-wide">총 생산액</p>
+            <p className="text-2xl font-bold text-link mt-1">{fmtNum(summary.totalValue)}</p>
+            <p className="text-xs text-text-quaternary mt-1">원</p>
           </div>
-          <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-            <p className="text-xs text-[#8A8F98] font-medium uppercase tracking-wide">총 투여 시간</p>
-            <p className="text-2xl font-bold text-[#27A644] mt-1">{fmtNumDec(summary.totalHours)}</p>
-            <p className="text-xs text-[#62666D] mt-1">시간</p>
+          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <p className="text-xs text-text-tertiary font-medium uppercase tracking-wide">총 투여 시간</p>
+            <p className="text-2xl font-bold text-success mt-1">{fmtNumDec(summary.totalHours)}</p>
+            <p className="text-xs text-text-quaternary mt-1">시간</p>
           </div>
-          <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-            <p className="text-xs text-[#8A8F98] font-medium uppercase tracking-wide">AI 추천 대기</p>
-            <p className="text-2xl font-bold text-[#7070FF] mt-1">{summary.aiPending}</p>
-            <p className="text-xs text-[#62666D] mt-1">품목</p>
+          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <p className="text-xs text-text-tertiary font-medium uppercase tracking-wide">AI 추천 대기</p>
+            <p className="text-2xl font-bold text-link mt-1">{summary.aiPending}</p>
+            <p className="text-xs text-text-quaternary mt-1">품목</p>
           </div>
         </div>
 
         {/* ── Date Selector ───────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-4 bg-[#0F1011] rounded-xl border border-[#23252A] px-4 py-3 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+        <div className="flex items-center justify-between mb-4 bg-bg-1 rounded-xl border border-border-primary px-4 py-3 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
           <div className="flex items-center gap-3">
             <CalendarIcon />
             <button
               onClick={() => navigateDate(-1)}
-              className="p-1 rounded hover:bg-white/5/5 text-[#8A8F98]"
+              className="p-1 rounded hover:bg-white/5 text-text-tertiary"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1191,34 +1191,34 @@ export default function ProductionPlanPage() {
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="text-sm border border-[#23252A] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2] outline-none"
+                className="text-sm border border-border-primary rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-brand focus:border-brand outline-none"
               />
               {viewMode === 'weekly' && (
                 <>
-                  <span className="text-[#62666D]">~</span>
+                  <span className="text-text-quaternary">~</span>
                   <input
                     type="date"
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
-                    className="text-sm border border-[#23252A] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2] outline-none"
+                    className="text-sm border border-border-primary rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-brand focus:border-brand outline-none"
                   />
                 </>
               )}
             </div>
             <button
               onClick={() => navigateDate(1)}
-              className="p-1 rounded hover:bg-white/5/5 text-[#8A8F98]"
+              className="p-1 rounded hover:bg-white/5 text-text-tertiary"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
           </div>
-          <div className="flex items-center gap-1 bg-[#141516] rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-bg-2 rounded-lg p-1">
             <button
               onClick={() => setViewMode('daily')}
               className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
-                viewMode === 'daily' ? 'bg-[#0F1011] text-[#F7F8F8] shadow-[0px_1px_3px_rgba(0,0,0,0.2)]' : 'text-[#8A8F98] hover:text-[#D0D6E0]'
+                viewMode === 'daily' ? 'bg-bg-1 text-text-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]' : 'text-text-tertiary hover:text-text-secondary'
               }`}
             >
               일간
@@ -1226,7 +1226,7 @@ export default function ProductionPlanPage() {
             <button
               onClick={() => setViewMode('weekly')}
               className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
-                viewMode === 'weekly' ? 'bg-[#0F1011] text-[#F7F8F8] shadow-[0px_1px_3px_rgba(0,0,0,0.2)]' : 'text-[#8A8F98] hover:text-[#D0D6E0]'
+                viewMode === 'weekly' ? 'bg-bg-1 text-text-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]' : 'text-text-tertiary hover:text-text-secondary'
               }`}
             >
               주간
@@ -1235,13 +1235,13 @@ export default function ProductionPlanPage() {
         </div>
 
         {/* ── Clipboard hint ──────────────────────────────────────────────── */}
-        <div className="flex items-center gap-2 mb-2 text-xs text-[#62666D]">
+        <div className="flex items-center gap-2 mb-2 text-xs text-text-quaternary">
           <span>Ctrl+V: 엑셀에서 붙여넣기</span>
-          <span className="text-[#62666D]">|</span>
+          <span className="text-text-quaternary">|</span>
           <span>Ctrl+C: 선택 행 복사</span>
-          <span className="text-[#62666D]">|</span>
+          <span className="text-text-quaternary">|</span>
           <span>셀 클릭: 편집</span>
-          <span className="text-[#62666D]">|</span>
+          <span className="text-text-quaternary">|</span>
           <span>Tab: 다음 셀</span>
         </div>
 
@@ -1249,20 +1249,20 @@ export default function ProductionPlanPage() {
         <div
           ref={tableContainerRef}
           tabIndex={0}
-          className="bg-[#0F1011] rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-auto focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/50"
+          className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-auto focus:outline-none focus:ring-2 focus:ring-brand/50"
           style={{ maxHeight: 'calc(100vh - 420px)' }}
         >
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <LoadingSpinner size="w-8 h-8" />
-              <span className="ml-3 text-[#8A8F98]">데이터를 불러오는 중...</span>
+              <span className="ml-3 text-text-tertiary">데이터를 불러오는 중...</span>
             </div>
           ) : (
             <table className="w-full border-collapse text-sm">
               {/* Sticky header */}
               <thead className="sticky top-0 z-10">
-                <tr className="bg-[#141516] border-b-2 border-[#23252A]">
-                  <th className="px-2 py-2.5 border border-[#23252A] text-center text-xs font-semibold text-[#8A8F98] w-8 bg-[#141516]">
+                <tr className="bg-bg-2 border-b-2 border-border-primary">
+                  <th className="px-2 py-2.5 border border-border-primary text-center text-xs font-semibold text-text-tertiary w-8 bg-bg-2">
                     <input
                       type="checkbox"
                       checked={selectedRows.size === plans.length && plans.length > 0}
@@ -1273,23 +1273,23 @@ export default function ProductionPlanPage() {
                           setSelectedRows(new Set());
                         }
                       }}
-                      className="rounded border-[#23252A]"
+                      className="rounded border-border-primary"
                     />
                   </th>
-                  <th className="px-2 py-2.5 border border-[#23252A] text-center text-xs font-semibold text-[#8A8F98] w-10 bg-[#141516]">
+                  <th className="px-2 py-2.5 border border-border-primary text-center text-xs font-semibold text-text-tertiary w-10 bg-bg-2">
                     No
                   </th>
                   {COLUMN_HEADERS.map((header, i) => (
                     <th
                       key={i}
-                      className={`px-2 py-2.5 border border-[#23252A] text-xs font-semibold text-[#8A8F98] whitespace-nowrap bg-[#141516] ${
+                      className={`px-2 py-2.5 border border-border-primary text-xs font-semibold text-text-tertiary whitespace-nowrap bg-bg-2 ${
                         NUMBER_FIELDS.has(COLUMN_KEYS[i]) ? 'text-right' : 'text-center'
                       }`}
                     >
                       {header}
                     </th>
                   ))}
-                  <th className="px-2 py-2.5 border border-[#23252A] text-center text-xs font-semibold text-[#8A8F98] w-16 bg-[#141516]">
+                  <th className="px-2 py-2.5 border border-border-primary text-center text-xs font-semibold text-text-tertiary w-16 bg-bg-2">
                     삭제
                   </th>
                 </tr>
@@ -1297,7 +1297,7 @@ export default function ProductionPlanPage() {
               <tbody>
                 {plans.length === 0 ? (
                   <tr>
-                    <td colSpan={COLUMN_KEYS.length + 3} className="text-center py-16 text-[#62666D]">
+                    <td colSpan={COLUMN_KEYS.length + 3} className="text-center py-16 text-text-quaternary">
                       <p className="text-lg mb-2">데이터가 없습니다</p>
                       <p className="text-sm">위의 &quot;계획 추가&quot; 버튼을 클릭하거나 엑셀에서 Ctrl+V로 붙여넣으세요</p>
                     </td>
@@ -1307,12 +1307,12 @@ export default function ProductionPlanPage() {
                     {plans.map((plan, rowIdx) => (
                       <tr
                         key={plan.id}
-                        className={`hover:bg-[#5E6AD2]/10/40 transition-colors ${
-                          plan._dirty ? 'bg-[#F0BF00]/10/20' : rowIdx % 2 === 0 ? 'bg-[#0F1011]' : 'bg-[#08090A]/50'
-                        } ${selectedRows.has(plan.id) ? '!bg-[#5E6AD2]/10' : ''}`}
+                        className={`hover:bg-brand/10 transition-colors ${
+                          plan._dirty ? 'bg-warning/10' : rowIdx % 2 === 0 ? 'bg-bg-1' : 'bg-bg-0/50'
+                        } ${selectedRows.has(plan.id) ? '!bg-brand/10' : ''}`}
                       >
                         {/* Checkbox */}
-                        <td className="px-2 py-1.5 border border-[#23252A] text-center">
+                        <td className="px-2 py-1.5 border border-border-primary text-center">
                           <input
                             type="checkbox"
                             checked={selectedRows.has(plan.id)}
@@ -1324,28 +1324,28 @@ export default function ProductionPlanPage() {
                                 return next;
                               });
                             }}
-                            className="rounded border-[#23252A]"
+                            className="rounded border-border-primary"
                           />
                         </td>
                         {/* Row number */}
-                        <td className="px-2 py-1.5 border border-[#23252A] text-center text-xs text-[#62666D] tabular-nums">
+                        <td className="px-2 py-1.5 border border-border-primary text-center text-xs text-text-quaternary tabular-nums">
                           {rowIdx + 1}
                         </td>
                         {/* Data cells */}
                         {COLUMN_KEYS.map(field => renderEditableCell(plan, field, rowIdx))}
                         {/* Delete button */}
-                        <td className="px-2 py-1.5 border border-[#23252A] text-center">
+                        <td className="px-2 py-1.5 border border-border-primary text-center">
                           {deleteConfirm === plan.id ? (
                             <div className="flex items-center gap-1 justify-center">
                               <button
                                 onClick={() => deletePlan(plan.id)}
-                                className="text-[#EB5757] hover:text-[#EB5757] text-xs font-medium"
+                                className="text-danger hover:text-danger text-xs font-medium"
                               >
                                 확인
                               </button>
                               <button
                                 onClick={() => setDeleteConfirm(null)}
-                                className="text-[#62666D] hover:text-[#D0D6E0] text-xs"
+                                className="text-text-quaternary hover:text-text-secondary text-xs"
                               >
                                 취소
                               </button>
@@ -1353,7 +1353,7 @@ export default function ProductionPlanPage() {
                           ) : (
                             <button
                               onClick={() => setDeleteConfirm(plan.id)}
-                              className="text-[#62666D] hover:text-[#EB5757] transition-colors p-1 rounded hover:bg-[#EB5757]/10"
+                              className="text-text-quaternary hover:text-danger transition-colors p-1 rounded hover:bg-danger/10"
                             >
                               <TrashIcon />
                             </button>
@@ -1363,47 +1363,47 @@ export default function ProductionPlanPage() {
                     ))}
 
                     {/* ── Totals Row ──────────────────────────────────────── */}
-                    <tr className="bg-[#141516] border-t-2 border-[#23252A] font-semibold sticky bottom-0">
-                      <td className="px-2 py-2 border border-[#23252A]"></td>
-                      <td className="px-2 py-2 border border-[#23252A]"></td>
+                    <tr className="bg-bg-2 border-t-2 border-border-primary font-semibold sticky bottom-0">
+                      <td className="px-2 py-2 border border-border-primary"></td>
+                      <td className="px-2 py-2 border border-border-primary"></td>
                       {/* date */}
-                      <td className="px-2 py-2 border border-[#23252A] text-center text-xs text-[#8A8F98]">합계</td>
+                      <td className="px-2 py-2 border border-border-primary text-center text-xs text-text-tertiary">합계</td>
                       {/* manager */}
-                      <td className="px-2 py-2 border border-[#23252A]"></td>
+                      <td className="px-2 py-2 border border-border-primary"></td>
                       {/* location */}
-                      <td className="px-2 py-2 border border-[#23252A]"></td>
+                      <td className="px-2 py-2 border border-border-primary"></td>
                       {/* category */}
-                      <td className="px-2 py-2 border border-[#23252A]"></td>
+                      <td className="px-2 py-2 border border-border-primary"></td>
                       {/* product_name */}
-                      <td className="px-2 py-2 border border-[#23252A] text-xs text-[#8A8F98] text-center">{plans.length}개 품목</td>
+                      <td className="px-2 py-2 border border-border-primary text-xs text-text-tertiary text-center">{plans.length}개 품목</td>
                       {/* quantity */}
-                      <td className="px-2 py-2 border border-[#23252A] text-right text-xs text-[#F7F8F8] tabular-nums">
+                      <td className="px-2 py-2 border border-border-primary text-right text-xs text-text-primary tabular-nums">
                         {fmtNum(totals.quantity)}
                       </td>
                       {/* total_hours */}
-                      <td className="px-2 py-2 border border-[#23252A] text-right text-xs text-[#F7F8F8] tabular-nums">
+                      <td className="px-2 py-2 border border-border-primary text-right text-xs text-text-primary tabular-nums">
                         {fmtNumDec(totals.total_hours)}
                       </td>
                       {/* unit_price */}
-                      <td className="px-2 py-2 border border-[#23252A]"></td>
+                      <td className="px-2 py-2 border border-border-primary"></td>
                       {/* total_value */}
-                      <td className="px-2 py-2 border border-[#23252A] text-right text-xs text-[#F7F8F8] tabular-nums">
+                      <td className="px-2 py-2 border border-border-primary text-right text-xs text-text-primary tabular-nums">
                         {fmtNum(totals.total_value)}
                       </td>
                       {/* deduction */}
-                      <td className="px-2 py-2 border border-[#23252A] text-right text-xs text-[#F7F8F8] tabular-nums">
+                      <td className="px-2 py-2 border border-border-primary text-right text-xs text-text-primary tabular-nums">
                         {fmtNum(totals.deduction)}
                       </td>
                       {/* cost */}
-                      <td className="px-2 py-2 border border-[#23252A]"></td>
+                      <td className="px-2 py-2 border border-border-primary"></td>
                       {/* total_cost */}
-                      <td className="px-2 py-2 border border-[#23252A] text-right text-xs text-[#F7F8F8] tabular-nums">
+                      <td className="px-2 py-2 border border-border-primary text-right text-xs text-text-primary tabular-nums">
                         {fmtNum(totals.total_cost)}
                       </td>
                       {/* shift_type */}
-                      <td className="px-2 py-2 border border-[#23252A]"></td>
+                      <td className="px-2 py-2 border border-border-primary"></td>
                       {/* delete */}
-                      <td className="px-2 py-2 border border-[#23252A]"></td>
+                      <td className="px-2 py-2 border border-border-primary"></td>
                     </tr>
                   </>
                 )}
@@ -1413,39 +1413,39 @@ export default function ProductionPlanPage() {
         </div>
 
         {/* ── Bottom bar ──────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mt-3 text-xs text-[#8A8F98]">
+        <div className="flex items-center justify-between mt-3 text-xs text-text-tertiary">
           <span>{plans.length}행 {dirtyCount > 0 && `(${dirtyCount}개 변경됨)`}</span>
           <span>{startDate} ~ {endDate}</span>
         </div>
 
         {/* ── AI Recommendation Explanations ─────────────────────────────── */}
         {aiRecommendations.length > 0 && (
-          <div className="mt-4 bg-[#0F1011] rounded-xl border border-[#5E6AD2]/30 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden">
+          <div className="mt-4 bg-bg-1 rounded-xl border border-brand/30 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden">
             <button
               onClick={() => setAiExplanationsExpanded(!aiExplanationsExpanded)}
-              className="w-full flex items-center justify-between px-5 py-3 bg-gradient-to-r from-[#5E6AD2]/10 to-[#5E6AD2]/10 hover:from-[#5E6AD2]/15 hover:to-[#5E6AD2]/15 transition-colors"
+              className="w-full flex items-center justify-between px-5 py-3 bg-gradient-to-r from-brand/10 to-brand/10 hover:from-brand/15 hover:to-brand/15 transition-colors"
             >
               <div className="flex items-center gap-2">
                 <SparkleIcon />
-                <span className="text-sm font-semibold text-[#828FFF]">AI 추천 분석 결과</span>
-                <span className="text-xs text-[#7070FF] bg-[#5E6AD2]/15 px-2 py-0.5 rounded-full">{aiRecommendations.length}건</span>
+                <span className="text-sm font-semibold text-accent">AI 추천 분석 결과</span>
+                <span className="text-xs text-link bg-brand/15 px-2 py-0.5 rounded-full">{aiRecommendations.length}건</span>
               </div>
-              <svg className={`w-4 h-4 text-[#7070FF] transition-transform ${aiExplanationsExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-4 h-4 text-link transition-transform ${aiExplanationsExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
             {aiExplanationsExpanded && (
-              <div className="divide-y divide-[#23252A] max-h-[400px] overflow-y-auto">
+              <div className="divide-y divide-border-primary max-h-[400px] overflow-y-auto">
                 {aiRecommendations.map((rec, idx) => (
-                  <div key={rec.plan_id} className="px-5 py-3 hover:bg-white/5/5/50 transition-colors">
+                  <div key={rec.plan_id} className="px-5 py-3 hover:bg-white/5 transition-colors">
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-[#62666D]">{idx + 1}.</span>
-                        <span className="text-sm font-semibold text-[#F7F8F8]">{rec.product_name}</span>
+                        <span className="text-xs font-mono text-text-quaternary">{idx + 1}.</span>
+                        <span className="text-sm font-semibold text-text-primary">{rec.product_name}</span>
                       </div>
-                      <span className="text-sm font-bold text-[#7070FF]">추천: {fmtNum(rec.recommended_qty)}개</span>
+                      <span className="text-sm font-bold text-link">추천: {fmtNum(rec.recommended_qty)}개</span>
                     </div>
-                    <pre className="text-xs text-[#8A8F98] whitespace-pre-wrap bg-[#08090A] rounded-lg p-3 font-mono leading-relaxed border border-[#23252A]">
+                    <pre className="text-xs text-text-tertiary whitespace-pre-wrap bg-bg-0 rounded-lg p-3 font-mono leading-relaxed border border-border-primary">
                       {rec.explanation}
                     </pre>
                   </div>
@@ -1459,27 +1459,27 @@ export default function ProductionPlanPage() {
       {/* ── Share Modal ──────────────────────────────────────────────────── */}
       {showShareModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-md mx-4 p-6">
+          <div className="bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-[#F7F8F8]">생산 계획 공유</h3>
-              <button onClick={() => { setShowShareModal(false); setShareSuccess(false); setShareEmail(''); }} className="text-[#62666D] hover:text-[#D0D6E0]">
+              <h3 className="text-lg font-semibold text-text-primary">생산 계획 공유</h3>
+              <button onClick={() => { setShowShareModal(false); setShareSuccess(false); setShareEmail(''); }} className="text-text-quaternary hover:text-text-secondary">
                 <XIcon />
               </button>
             </div>
 
             {shareSuccess ? (
               <div className="text-center py-8">
-                <div className="w-12 h-12 bg-[#27A644]/15 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-[#27A644]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 bg-success/15 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </div>
-                <p className="text-[#D0D6E0] font-medium">공유가 완료되었습니다</p>
+                <p className="text-text-secondary font-medium">공유가 완료되었습니다</p>
               </div>
             ) : (
               <>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-[#D0D6E0] mb-1.5">공유 방법</label>
+                  <label className="block text-sm font-medium text-text-secondary mb-1.5">공유 방법</label>
                   <div className="flex gap-2">
                     {(['email', 'sms', 'kakao'] as const).map(method => (
                       <button
@@ -1487,8 +1487,8 @@ export default function ProductionPlanPage() {
                         onClick={() => setShareMethod(method)}
                         className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
                           shareMethod === method
-                            ? 'border-[#5E6AD2] bg-[#5E6AD2]/10 text-[#828FFF]'
-                            : 'border-[#23252A] text-[#8A8F98] hover:bg-white/5/5'
+                            ? 'border-brand bg-brand/10 text-accent'
+                            : 'border-border-primary text-text-tertiary hover:bg-white/5'
                         }`}
                       >
                         {method === 'email' ? '이메일' : method === 'sms' ? 'SMS' : '카카오톡'}
@@ -1497,7 +1497,7 @@ export default function ProductionPlanPage() {
                   </div>
                 </div>
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-[#D0D6E0] mb-1.5">
+                  <label className="block text-sm font-medium text-text-secondary mb-1.5">
                     {shareMethod === 'email' ? '이메일 주소' : shareMethod === 'sms' ? '전화번호' : '카카오톡 ID'}
                   </label>
                   <input
@@ -1505,13 +1505,13 @@ export default function ProductionPlanPage() {
                     value={shareEmail}
                     onChange={e => setShareEmail(e.target.value)}
                     placeholder={shareMethod === 'email' ? 'example@company.com' : shareMethod === 'sms' ? '010-1234-5678' : '카카오톡 ID'}
-                    className="w-full border border-[#23252A] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#5E6AD2] focus:border-[#5E6AD2] outline-none"
+                    className="w-full border border-border-primary rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:border-brand outline-none"
                   />
                 </div>
                 <button
                   onClick={handleShare}
                   disabled={!shareEmail || shareSending}
-                  className="w-full py-2.5 rounded-lg bg-[#5E6AD2] text-white text-sm font-medium hover:bg-[#828FFF] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+                  className="w-full py-2.5 rounded-lg bg-brand text-white text-sm font-medium hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
                 >
                   {shareSending ? <LoadingSpinner /> : <ShareIcon />}
                   <span>{shareSending ? '전송 중...' : '공유하기'}</span>

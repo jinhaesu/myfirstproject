@@ -27,7 +27,7 @@ export function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-[#23252A] bg-[#0F1011] p-4">
+    <form onSubmit={handleSubmit} className="border-t border-border-primary bg-bg-1 p-4">
       <div className="flex gap-3 items-end">
         <div className="flex-1 relative">
           <textarea
@@ -37,13 +37,13 @@ export function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
             placeholder={placeholder || '데이터에 대해 질문하세요...'}
             disabled={disabled}
             rows={2}
-            className="w-full p-4 pr-12 border border-[#23252A] rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent disabled:bg-[#08090A] disabled:text-[#62666D] transition-all shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+            className="w-full p-4 pr-12 border border-border-primary rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent disabled:bg-bg-0 disabled:text-text-quaternary transition-all shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
           />
         </div>
         <button
           type="submit"
           disabled={disabled || !input.trim()}
-          className="px-6 py-4 bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] text-white rounded-xl font-semibold hover:from-[#5E6AD2] hover:to-[#4B55A5] disabled:from-[#1C1C1F] disabled:to-[#232326] disabled:cursor-not-allowed transition-all shadow-[0px_3px_12px_rgba(0,0,0,0.2)] hover:shadow-[0px_7px_32px_rgba(0,0,0,0.35)] disabled:shadow-none flex items-center gap-2"
+          className="px-6 py-4 bg-gradient-to-r from-brand to-brand text-white rounded-xl font-semibold hover:from-brand hover:to-[#4B55A5] disabled:from-bg-secondary disabled:to-bg-tertiary disabled:cursor-not-allowed transition-all shadow-[0px_3px_12px_rgba(0,0,0,0.2)] hover:shadow-[0px_7px_32px_rgba(0,0,0,0.35)] disabled:shadow-none flex items-center gap-2"
         >
           {disabled ? (
             <>
@@ -60,15 +60,15 @@ export function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
           )}
         </button>
       </div>
-      <p className="text-xs text-[#62666D] mt-2 flex items-center gap-4">
+      <p className="text-xs text-text-quaternary mt-2 flex items-center gap-4">
         <span className="flex items-center gap-1">
-          <kbd className="px-1.5 py-0.5 bg-[#141516] rounded text-[#8A8F98] font-mono text-xs">Enter</kbd>
+          <kbd className="px-1.5 py-0.5 bg-bg-2 rounded text-text-tertiary font-mono text-xs">Enter</kbd>
           전송
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="px-1.5 py-0.5 bg-[#141516] rounded text-[#8A8F98] font-mono text-xs">Shift</kbd>
+          <kbd className="px-1.5 py-0.5 bg-bg-2 rounded text-text-tertiary font-mono text-xs">Shift</kbd>
           +
-          <kbd className="px-1.5 py-0.5 bg-[#141516] rounded text-[#8A8F98] font-mono text-xs">Enter</kbd>
+          <kbd className="px-1.5 py-0.5 bg-bg-2 rounded text-text-tertiary font-mono text-xs">Enter</kbd>
           줄바꿈
         </span>
       </p>

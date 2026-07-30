@@ -467,20 +467,20 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
   };
 
   const renderRate = (rate: number | null, isPositiveGood: boolean = true) => {
-    if (rate === null) return <span className="text-[#62666D]">-</span>;
+    if (rate === null) return <span className="text-text-quaternary">-</span>;
     const isGood = isPositiveGood ? rate >= 100 : rate <= 100;
     return (
-      <span className={isGood ? 'text-[#27A644]' : 'text-[#EB5757]'}>
+      <span className={isGood ? 'text-success' : 'text-danger'}>
         {rate.toFixed(1)}%
       </span>
     );
   };
 
   const renderChange = (change: number | null) => {
-    if (change === null) return <span className="text-[#62666D]">-</span>;
+    if (change === null) return <span className="text-text-quaternary">-</span>;
     const isPositive = change >= 0;
     return (
-      <span className={isPositive ? 'text-[#27A644]' : 'text-[#EB5757]'}>
+      <span className={isPositive ? 'text-success' : 'text-danger'}>
         {isPositive ? '+' : ''}{change.toFixed(1)}%
       </span>
     );
@@ -518,16 +518,16 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
 
   return (
     <section className="mb-8">
-      <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
+      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
         {/* 헤더 */}
-        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[#F7F8F8]">매출 현황 및 실시간</h2>
+        <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text-primary">매출 현황 및 실시간</h2>
           <button
             onClick={() => {
               setEditingSale(null);
               setIsModalOpen(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-[#27A644] transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-success text-white rounded-lg hover:bg-success transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -537,14 +537,14 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
         </div>
 
         {/* 년도/월 선택 & 합계 */}
-        <div className="px-6 py-4 bg-[#08090A] border-b border-[#23252A]">
+        <div className="px-6 py-4 bg-bg-0 border-b border-border-primary">
           <div className="flex flex-wrap items-center gap-4 mb-4">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-[#8A8F98]">기준 년도:</label>
+              <label className="text-sm font-medium text-text-tertiary">기준 년도:</label>
               <select
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value))}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
+                className="px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-success"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}년</option>
@@ -552,11 +552,11 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               </select>
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-[#8A8F98]">월:</label>
+              <label className="text-sm font-medium text-text-tertiary">월:</label>
               <select
                 value={month}
                 onChange={(e) => setMonth(Number(e.target.value))}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
+                className="px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-success"
               >
                 {months.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
@@ -564,11 +564,11 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               </select>
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-[#8A8F98]">책임자:</label>
+              <label className="text-sm font-medium text-text-tertiary">책임자:</label>
               <select
                 value={selectedManager}
                 onChange={(e) => setSelectedManager(e.target.value)}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#27A644]"
+                className="px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-success"
               >
                 <option value="all">전체</option>
                 {managers.map((m) => (
@@ -583,97 +583,97 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
             <>
               {/* 현재 합계 */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                  <p className="text-sm text-[#8A8F98] mb-1">
-                    매출 합계 <span className="text-xs text-[#62666D]">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+                <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                  <p className="text-sm text-text-tertiary mb-1">
+                    매출 합계 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                   </p>
-                  <p className="text-xl font-bold text-[#7070FF]">
+                  <p className="text-xl font-bold text-link">
                     {comparison.current.total_sales > 0 ? `${formatNumber(comparison.current.total_sales)}원` : '없음'}
                   </p>
                 </div>
-                <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                  <p className="text-sm text-[#8A8F98] mb-1">판매수량 합계</p>
-                  <p className="text-xl font-bold text-[#27A644]">
+                <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                  <p className="text-sm text-text-tertiary mb-1">판매수량 합계</p>
+                  <p className="text-xl font-bold text-success">
                     {comparison.current.total_quantity > 0 ? formatNumberRaw(comparison.current.total_quantity) : '없음'}
                   </p>
                 </div>
-                <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                  <p className="text-sm text-[#8A8F98] mb-1">
-                    마케팅비 <span className="text-xs text-[#62666D]">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+                <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                  <p className="text-sm text-text-tertiary mb-1">
+                    마케팅비 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                   </p>
-                  <p className="text-xl font-bold text-[#FC7840]">
+                  <p className="text-xl font-bold text-orange">
                     {comparison.current.total_marketing > 0 ? `${formatNumber(comparison.current.total_marketing)}원` : '없음'}
                   </p>
                 </div>
-                <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                  <p className="text-sm text-[#8A8F98] mb-1">
-                    공헌이익 합계 <span className="text-xs text-[#62666D]">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+                <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                  <p className="text-sm text-text-tertiary mb-1">
+                    공헌이익 합계 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                   </p>
-                  <p className="text-xl font-bold text-[#7070FF]">
+                  <p className="text-xl font-bold text-link">
                     {comparison.current.total_contribution > 0 ? `${formatNumber(comparison.current.total_contribution)}원` : '없음'}
                   </p>
                 </div>
               </div>
-              <p className="text-xs text-[#62666D] mt-2">
+              <p className="text-xs text-text-quaternary mt-2">
                 * 해당 매출 합계는 책임자들이 해당 월에 날짜 무관 기입한 모든 매출 데이터의 합계입니다 (미리 기입한 매출도 합산 표시)
               </p>
 
               {/* 목표 대비 & 전월 대비 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                  <h4 className="text-sm font-semibold text-[#D0D6E0] mb-3">
+                <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                  <h4 className="text-sm font-semibold text-text-secondary mb-3">
                     월간 목표 대비 달성률
                     {selectedManager !== 'all' && (
-                      <span className="text-xs text-[#7070FF] ml-2">({selectedManager} 기준)</span>
+                      <span className="text-xs text-link ml-2">({selectedManager} 기준)</span>
                     )}
                   </h4>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-xs text-[#8A8F98]">매출</p>
+                      <p className="text-xs text-text-tertiary">매출</p>
                       <p className="text-lg font-bold">{renderRate(comparison.vs_target.sales_rate)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-[#8A8F98]">판매량</p>
+                      <p className="text-xs text-text-tertiary">판매량</p>
                       <p className="text-lg font-bold">{renderRate(comparison.vs_target.quantity_rate)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-[#8A8F98]">공헌이익</p>
+                      <p className="text-xs text-text-tertiary">공헌이익</p>
                       <p className="text-lg font-bold">{renderRate(comparison.vs_target.contribution_rate)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-[#8A8F98]">마케팅비</p>
+                      <p className="text-xs text-text-tertiary">마케팅비</p>
                       <p className="text-lg font-bold">{renderRate(comparison.vs_target.marketing_rate, false)}</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                  <h4 className="text-sm font-semibold text-[#D0D6E0] mb-3">
+                <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                  <h4 className="text-sm font-semibold text-text-secondary mb-3">
                     전월 대비 변화
-                    <span className="font-normal text-[#62666D] ml-1">
+                    <span className="font-normal text-text-quaternary ml-1">
                       ({month === 1 ? year - 1 : year}년 {month === 1 ? 12 : month - 1}월 대비)
                     </span>
                   </h4>
                   {comparison.vs_previous.has_data ? (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <p className="text-xs text-[#8A8F98]">매출</p>
+                        <p className="text-xs text-text-tertiary">매출</p>
                         <p className="text-lg font-bold">{renderChange(comparison.vs_previous.sales_change)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-[#8A8F98]">판매량</p>
+                        <p className="text-xs text-text-tertiary">판매량</p>
                         <p className="text-lg font-bold">{renderChange(comparison.vs_previous.quantity_change)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-[#8A8F98]">공헌이익</p>
+                        <p className="text-xs text-text-tertiary">공헌이익</p>
                         <p className="text-lg font-bold">{renderChange(comparison.vs_previous.contribution_change)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-[#8A8F98]">마케팅비</p>
+                        <p className="text-xs text-text-tertiary">마케팅비</p>
                         <p className="text-lg font-bold">{renderChange(comparison.vs_previous.marketing_change)}</p>
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center py-4 text-[#8A8F98] text-sm">
+                    <div className="text-center py-4 text-text-tertiary text-sm">
                       전월 데이터 입력 필요
                     </div>
                   )}
@@ -681,24 +681,24 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               </div>
 
               {/* 차트 토글 체크박스 */}
-              <div className="flex items-center gap-6 mt-4 pt-4 border-t border-[#23252A]">
+              <div className="flex items-center gap-6 mt-4 pt-4 border-t border-border-primary">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={showManagerChart}
                     onChange={(e) => setShowManagerChart(e.target.checked)}
-                    className="w-4 h-4 text-[#27A644] rounded border-[#23252A] focus:ring-[#27A644]"
+                    className="w-4 h-4 text-success rounded border-border-primary focus:ring-success"
                   />
-                  <span className="text-sm font-medium text-[#D0D6E0]">책임자별 현황 지표</span>
+                  <span className="text-sm font-medium text-text-secondary">책임자별 현황 지표</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={showCriteriaChart}
                     onChange={(e) => setShowCriteriaChart(e.target.checked)}
-                    className="w-4 h-4 text-[#27A644] rounded border-[#23252A] focus:ring-[#27A644]"
+                    className="w-4 h-4 text-success rounded border-border-primary focus:ring-success"
                   />
-                  <span className="text-sm font-medium text-[#D0D6E0]">기준별 현황 지표</span>
+                  <span className="text-sm font-medium text-text-secondary">기준별 현황 지표</span>
                 </label>
               </div>
             </>
@@ -707,16 +707,16 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
 
         {/* 책임자별/기준별 차트 영역 */}
         {(showManagerChart || showCriteriaChart) && (
-          <div className="px-6 py-4 border-b border-[#23252A]">
+          <div className="px-6 py-4 border-b border-border-primary">
             <div className={`grid gap-6 ${showManagerChart && showCriteriaChart ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
               {/* 책임자별 차트 */}
               {showManagerChart && managerChartData.length > 0 && (
-                <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
+                <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-[#D0D6E0]">
+                    <h3 className="text-sm font-semibold text-text-secondary">
                       책임자별 현황 vs 목표 지표
                       {managerChartMeta && (
-                        <span className="text-xs font-normal text-[#8A8F98] ml-2">
+                        <span className="text-xs font-normal text-text-tertiary ml-2">
                           ({managerChartMeta.max_day}일/{managerChartMeta.days_in_month}일 기준)
                         </span>
                       )}
@@ -733,10 +733,10 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       }} />
                       <Tooltip formatter={(value: number, name: string) => [new Intl.NumberFormat('ko-KR').format(applyVat(value)), name]} />
                       <Legend wrapperStyle={{ fontSize: '11px' }} />
-                      <Bar dataKey="현황_매출" fill="#5E6AD2" name="현황 매출" />
-                      <Bar dataKey="목표_매출" fill="#5E6AD2" name="목표 매출" />
-                      <Bar dataKey="현황_판매량" fill="#27A644" name="현황 판매량" />
-                      <Bar dataKey="목표_판매량" fill="#27A644" name="목표 판매량" />
+                      <Bar dataKey="현황_매출" fill="var(--color-brand-bg)" name="현황 매출" />
+                      <Bar dataKey="목표_매출" fill="var(--color-brand-bg)" name="목표 매출" />
+                      <Bar dataKey="현황_판매량" fill="var(--color-success)" name="현황 판매량" />
+                      <Bar dataKey="목표_판매량" fill="var(--color-success)" name="목표 판매량" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -744,12 +744,12 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
 
               {/* 기준별 차트 */}
               {showCriteriaChart && criteriaChartData.length > 0 && (
-                <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
+                <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-[#D0D6E0]">
+                    <h3 className="text-sm font-semibold text-text-secondary">
                       기준별 현황 vs 목표 지표
                       {criteriaChartMeta && (
-                        <span className="text-xs font-normal text-[#8A8F98] ml-2">
+                        <span className="text-xs font-normal text-text-tertiary ml-2">
                           ({criteriaChartMeta.max_day}일/{criteriaChartMeta.days_in_month}일 기준)
                         </span>
                       )}
@@ -766,10 +766,10 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       }} />
                       <Tooltip formatter={(value: number, name: string) => [new Intl.NumberFormat('ko-KR').format(applyVat(value)), name]} />
                       <Legend wrapperStyle={{ fontSize: '11px' }} />
-                      <Bar dataKey="현황_매출" fill="#5E6AD2" name="현황 매출" />
-                      <Bar dataKey="목표_매출" fill="#5E6AD2" name="목표 매출" />
-                      <Bar dataKey="현황_판매량" fill="#27A644" name="현황 판매량" />
-                      <Bar dataKey="목표_판매량" fill="#27A644" name="목표 판매량" />
+                      <Bar dataKey="현황_매출" fill="var(--color-brand-bg)" name="현황 매출" />
+                      <Bar dataKey="목표_매출" fill="var(--color-brand-bg)" name="목표 매출" />
+                      <Bar dataKey="현황_판매량" fill="var(--color-success)" name="현황 판매량" />
+                      <Bar dataKey="목표_판매량" fill="var(--color-success)" name="목표 판매량" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -780,26 +780,26 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
 
         {/* 실시간 지표 섹션 */}
         {realtime && (
-          <div className="px-6 py-4 bg-gradient-to-r from-[#08090A] to-[#5E6AD2]/10 border-b border-[#23252A]">
+          <div className="px-6 py-4 bg-gradient-to-r from-bg-0 to-brand/10 border-b border-border-primary">
             <div className="flex items-center justify-between mb-4">
               <div className="flex flex-col">
-                <h3 className="text-md font-semibold text-[#F7F8F8] flex items-center gap-2">
-                  <span className="w-2 h-2 bg-[#27A644] rounded-full animate-pulse"></span>
+                <h3 className="text-md font-semibold text-text-primary flex items-center gap-2">
+                  <span className="w-2 h-2 bg-success rounded-full animate-pulse"></span>
                   실시간 지표
-                  <span className="text-xs font-normal text-[#8A8F98]">
+                  <span className="text-xs font-normal text-text-tertiary">
                     ({realtime.target_day}일/{realtime.days_in_month}일 기준)
                   </span>
                   {selectedManager !== 'all' && (
-                    <span className="text-xs text-[#7070FF]">({selectedManager})</span>
+                    <span className="text-xs text-link">({selectedManager})</span>
                   )}
                 </h3>
-                <p className="text-xs text-[#62666D] mt-1 ml-4">
+                <p className="text-xs text-text-quaternary mt-1 ml-4">
                   * 당일(오늘)의 하루 전날을 기준으로 합산된 목표 값이 표시됩니다.
                 </p>
               </div>
               <button
                 onClick={() => setShowRealtimeChart(!showRealtimeChart)}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[#0F1011] border border-[#23252A] rounded-lg hover:bg-white/5/5 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-1 border border-border-primary rounded-lg hover:bg-white/5 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -810,48 +810,48 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
 
             {/* 당일 기준 목표 대비 달성률 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#5E6AD2]/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-                <p className="text-sm text-[#8A8F98] mb-1">
-                  당일 기준 매출 목표 <span className="text-xs text-[#62666D]">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+                <p className="text-sm text-text-tertiary mb-1">
+                  당일 기준 매출 목표 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                 </p>
-                <p className="text-lg font-bold text-[#D0D6E0]">
+                <p className="text-lg font-bold text-text-secondary">
                   {formatNumber(realtime.daily_target.total_sales)}원
                 </p>
-                <p className="text-xs text-[#62666D] mt-1">
+                <p className="text-xs text-text-quaternary mt-1">
                   실적: {formatNumber(realtime.current.total_sales)}원
                 </p>
               </div>
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#5E6AD2]/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-                <p className="text-sm text-[#8A8F98] mb-1">당일 기준 매출 달성률</p>
+              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+                <p className="text-sm text-text-tertiary mb-1">당일 기준 매출 달성률</p>
                 <p className="text-2xl font-bold">{renderRate(realtime.achievement_rate.sales_rate)}</p>
               </div>
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#5E6AD2]/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-                <p className="text-sm text-[#8A8F98] mb-1">당일 기준 판매량 목표</p>
-                <p className="text-lg font-bold text-[#D0D6E0]">
+              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+                <p className="text-sm text-text-tertiary mb-1">당일 기준 판매량 목표</p>
+                <p className="text-lg font-bold text-text-secondary">
                   {formatNumberRaw(realtime.daily_target.total_quantity)}
                 </p>
-                <p className="text-xs text-[#62666D] mt-1">
+                <p className="text-xs text-text-quaternary mt-1">
                   실적: {formatNumberRaw(realtime.current.total_quantity)}
                 </p>
               </div>
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#5E6AD2]/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-                <p className="text-sm text-[#8A8F98] mb-1">당일 기준 판매량 달성률</p>
+              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+                <p className="text-sm text-text-tertiary mb-1">당일 기준 판매량 달성률</p>
                 <p className="text-2xl font-bold">{renderRate(realtime.achievement_rate.quantity_rate)}</p>
               </div>
             </div>
 
             {/* 실시간 그래프 */}
             {showRealtimeChart && dailyChart && (
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
+              <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold text-[#D0D6E0]">일별 매출 추이</h4>
+                  <h4 className="text-sm font-semibold text-text-secondary">일별 매출 추이</h4>
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setChartMode('daily')}
                       className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                         chartMode === 'daily'
-                          ? 'bg-[#5E6AD2] text-white'
-                          : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
+                          ? 'bg-brand text-white'
+                          : 'bg-bg-2 text-text-secondary hover:bg-white/5'
                       }`}
                     >
                       일계
@@ -860,35 +860,35 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       onClick={() => setChartMode('cumulative')}
                       className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                         chartMode === 'cumulative'
-                          ? 'bg-[#5E6AD2] text-white'
-                          : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
+                          ? 'bg-brand text-white'
+                          : 'bg-bg-2 text-text-secondary hover:bg-white/5'
                       }`}
                     >
                       누계
                     </button>
-                    <label className="flex items-center gap-1.5 cursor-pointer ml-2 pl-2 border-l border-[#23252A]">
+                    <label className="flex items-center gap-1.5 cursor-pointer ml-2 pl-2 border-l border-border-primary">
                       <input
                         type="checkbox"
                         checked={showTargetLine}
                         onChange={(e) => setShowTargetLine(e.target.checked)}
-                        className="w-4 h-4 text-[#FC7840] rounded border-[#23252A] focus:ring-[#FC7840]"
+                        className="w-4 h-4 text-orange rounded border-border-primary focus:ring-orange"
                       />
-                      <span className="text-sm text-[#8A8F98]">목표 값 표시</span>
+                      <span className="text-sm text-text-tertiary">목표 값 표시</span>
                     </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer ml-2 pl-2 border-l border-[#23252A]">
+                    <label className="flex items-center gap-1.5 cursor-pointer ml-2 pl-2 border-l border-border-primary">
                       <input
                         type="checkbox"
                         checked={showPreviousMonth}
                         onChange={(e) => setShowPreviousMonth(e.target.checked)}
-                        className="w-4 h-4 text-[#27A644] rounded border-[#23252A] focus:ring-[#27A644]"
+                        className="w-4 h-4 text-success rounded border-border-primary focus:ring-success"
                       />
-                      <span className="text-sm text-[#8A8F98]">전월 비교</span>
+                      <span className="text-sm text-text-tertiary">전월 비교</span>
                     </label>
                   </div>
                 </div>
                 {/* 전월 비교 안내 */}
                 {showPreviousMonth && (
-                  <p className="text-xs text-[#8A8F98] mb-2">
+                  <p className="text-xs text-text-tertiary mb-2">
                     * 전월 ({previousMonthLabel}) 매출 데이터와 비교
                     {!previousMonthChart && ' - 전월 데이터가 없습니다'}
                   </p>
@@ -906,12 +906,12 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                         formatter={(value: number, name: string) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, name]}
                       />
                       <Legend />
-                      <Line type="monotone" dataKey="매출" stroke="#5E6AD2" strokeWidth={2} dot={false} name={`${year}년 ${month}월`} />
+                      <Line type="monotone" dataKey="매출" stroke="var(--color-brand-bg)" strokeWidth={2} dot={false} name={`${year}년 ${month}월`} />
                       {showTargetLine && (
-                        <Line type="monotone" dataKey="목표" stroke="#FC7840" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                        <Line type="monotone" dataKey="목표" stroke="var(--color-orange)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                       )}
                       {showPreviousMonth && previousMonthChart && (
-                        <Line type="monotone" dataKey="전월" stroke="#27A644" strokeWidth={2} strokeDasharray="3 3" dot={false} name={previousMonthLabel} />
+                        <Line type="monotone" dataKey="전월" stroke="var(--color-success)" strokeWidth={2} strokeDasharray="3 3" dot={false} name={previousMonthLabel} />
                       )}
                     </LineChart>
                   ) : (
@@ -926,12 +926,12 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                         formatter={(value: number, name: string) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, name]}
                       />
                       <Legend />
-                      <Bar dataKey="매출" fill="#5E6AD2" name={`${year}년 ${month}월`} />
+                      <Bar dataKey="매출" fill="var(--color-brand-bg)" name={`${year}년 ${month}월`} />
                       {showTargetLine && (
-                        <Bar dataKey="목표" fill="#FC7840" />
+                        <Bar dataKey="목표" fill="var(--color-orange)" />
                       )}
                       {showPreviousMonth && previousMonthChart && (
-                        <Bar dataKey="전월" fill="#27A644" name={previousMonthLabel} />
+                        <Bar dataKey="전월" fill="var(--color-success)" name={previousMonthLabel} />
                       )}
                     </BarChart>
                   )}
@@ -942,28 +942,28 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
         )}
 
         {/* 리스트 */}
-        <div className="divide-y divide-[#23252A]">
+        <div className="divide-y divide-border-primary">
           {isLoading ? (
-            <div className="px-6 py-8 text-center text-[#8A8F98]">
-              <div className="w-8 h-8 border-4 border-[#27A644] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            <div className="px-6 py-8 text-center text-text-tertiary">
+              <div className="w-8 h-8 border-4 border-success border-t-transparent rounded-full animate-spin mx-auto mb-2" />
               로딩 중...
             </div>
           ) : sales.length === 0 ? (
-            <div className="px-6 py-8 text-center text-[#8A8F98]">
+            <div className="px-6 py-8 text-center text-text-tertiary">
               등록된 매출 현황 데이터가 없습니다.
             </div>
           ) : (
             sales.map((sale) => (
-              <div key={sale.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5/5">
+              <div key={sale.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="px-2 py-0.5 bg-[#27A644]/15 text-[#27A644] text-xs font-medium rounded">
+                    <span className="px-2 py-0.5 bg-success/15 text-success text-xs font-medium rounded">
                       {sale.kpi_type}
                     </span>
-                    <span className="text-sm text-[#8A8F98]">{sale.year}년 {sale.month}월</span>
+                    <span className="text-sm text-text-tertiary">{sale.year}년 {sale.month}월</span>
                   </div>
-                  <h3 className="font-medium text-[#F7F8F8]">{sale.title}</h3>
-                  <p className="text-sm text-[#8A8F98]">담당: {sale.manager}</p>
+                  <h3 className="font-medium text-text-primary">{sale.title}</h3>
+                  <p className="text-sm text-text-tertiary">담당: {sale.manager}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <DataItemActions

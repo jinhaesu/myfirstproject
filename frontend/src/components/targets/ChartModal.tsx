@@ -396,7 +396,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
         }
         if (showTargetComparison && targetData && type === 'sales') {
           elements.push(
-            <Bar key="target" dataKey={targetLabel} fill="#FC7840" name={targetLabel} />
+            <Bar key="target" dataKey={targetLabel} fill="var(--color-orange)" name={targetLabel} />
           );
         }
       } else if (chartType === 'line') {
@@ -410,7 +410,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
         }
         if (showTargetComparison && targetData && type === 'sales') {
           elements.push(
-            <Line key="target" type="monotone" dataKey={targetLabel} stroke="#FC7840" strokeWidth={2} strokeDasharray="3 3" name={targetLabel} />
+            <Line key="target" type="monotone" dataKey={targetLabel} stroke="var(--color-orange)" strokeWidth={2} strokeDasharray="3 3" name={targetLabel} />
           );
         }
       } else {
@@ -424,7 +424,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
         }
         if (showTargetComparison && targetData && type === 'sales') {
           elements.push(
-            <Area key="target" type="monotone" dataKey={targetLabel} stroke="#FC7840" fill="#FC7840" fillOpacity={0.15} name={targetLabel} />
+            <Area key="target" type="monotone" dataKey={targetLabel} stroke="var(--color-orange)" fill="var(--color-orange)" fillOpacity={0.15} name={targetLabel} />
           );
         }
       }
@@ -453,15 +453,15 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* 헤더 */}
-        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[#F7F8F8]">
+        <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text-primary">
             {data.title} - 그래프
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-[#62666D] hover:text-[#D0D6E0] transition-colors"
+            className="p-2 text-text-quaternary hover:text-text-secondary transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -474,7 +474,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
           {/* 차트 타입 선택 & 비교 옵션 */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-[#8A8F98]">차트 유형:</span>
+              <span className="text-sm font-medium text-text-tertiary">차트 유형:</span>
               <div className="flex gap-2">
                 {[
                   { value: 'bar', label: '막대' },
@@ -487,8 +487,8 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                     onClick={() => setChartType(option.value as 'bar' | 'line' | 'area')}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                       chartType === option.value
-                        ? 'bg-[#5E6AD2] text-white'
-                        : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
+                        ? 'bg-brand text-white'
+                        : 'bg-bg-2 text-text-secondary hover:bg-white/5'
                     }`}
                   >
                     {option.label}
@@ -505,9 +505,9 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                   type="checkbox"
                   checked={showCumulative}
                   onChange={(e) => setShowCumulative(e.target.checked)}
-                  className="w-4 h-4 text-[#FC7840] rounded border-[#23252A] focus:ring-[#FC7840]"
+                  className="w-4 h-4 text-orange rounded border-border-primary focus:ring-orange"
                 />
-                <span className="text-sm font-medium text-[#8A8F98]">누계</span>
+                <span className="text-sm font-medium text-text-tertiary">누계</span>
               </label>
 
               {/* 그래프 비교하기 체크박스 */}
@@ -516,13 +516,13 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                   type="checkbox"
                   checked={showComparison}
                   onChange={(e) => setShowComparison(e.target.checked)}
-                  className="w-4 h-4 text-[#7070FF] rounded border-[#23252A] focus:ring-[#5E6AD2]"
+                  className="w-4 h-4 text-link rounded border-border-primary focus:ring-brand"
                 />
-                <span className="text-sm font-medium text-[#8A8F98]">
+                <span className="text-sm font-medium text-text-tertiary">
                   {type === 'target' ? '전년도 비교' : '전월 비교'}
                 </span>
                 {loadingPrevious && (
-                  <svg className="w-4 h-4 animate-spin text-[#7070FF]" fill="none" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 animate-spin text-link" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
@@ -536,11 +536,11 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                     type="checkbox"
                     checked={showTargetComparison}
                     onChange={(e) => setShowTargetComparison(e.target.checked)}
-                    className="w-4 h-4 text-[#FC7840] rounded border-[#23252A] focus:ring-[#FC7840]"
+                    className="w-4 h-4 text-orange rounded border-border-primary focus:ring-orange"
                   />
-                  <span className="text-sm font-medium text-[#8A8F98]">목표 값 보기</span>
+                  <span className="text-sm font-medium text-text-tertiary">목표 값 보기</span>
                   {loadingTarget && (
-                    <svg className="w-4 h-4 animate-spin text-[#FC7840]" fill="none" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 animate-spin text-orange" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
@@ -554,8 +554,8 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
           {showComparison && !loadingPrevious && (
             <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${
               previousData
-                ? 'bg-[#27A644]/10 text-[#27A644]'
-                : 'bg-[#F0BF00]/10 text-[#F0BF00]'
+                ? 'bg-success/10 text-success'
+                : 'bg-warning/10 text-warning'
             }`}>
               {previousData ? (
                 <>
@@ -574,8 +574,8 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
           {showTargetComparison && type === 'sales' && !loadingTarget && (
             <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${
               targetData
-                ? 'bg-[#FC7840]/10 text-[#FC7840]'
-                : 'bg-[#F0BF00]/10 text-[#F0BF00]'
+                ? 'bg-orange/10 text-orange'
+                : 'bg-warning/10 text-warning'
             }`}>
               {targetData ? (
                 <>
@@ -593,22 +593,22 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
           {/* 항목 선택 */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-[#8A8F98]">
+              <span className="text-sm font-medium text-text-tertiary">
                 표시할 항목 선택 (여러 개 선택 시 합계로 표시):
               </span>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={selectAll}
-                  className="text-xs text-[#7070FF] hover:text-[#828FFF]"
+                  className="text-xs text-link hover:text-accent"
                 >
                   전체 선택
                 </button>
-                <span className="text-[#62666D]">|</span>
+                <span className="text-text-quaternary">|</span>
                 <button
                   type="button"
                   onClick={clearAll}
-                  className="text-xs text-[#8A8F98] hover:text-[#D0D6E0]"
+                  className="text-xs text-text-tertiary hover:text-text-secondary"
                 >
                   선택 해제
                 </button>
@@ -622,8 +622,8 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                   onClick={() => toggleRow(row.index)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     selectedRows.includes(row.index)
-                      ? 'bg-[#5E6AD2] text-white'
-                      : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
+                      ? 'bg-brand text-white'
+                      : 'bg-bg-2 text-text-secondary hover:bg-white/5'
                   }`}
                 >
                   {row.name}
@@ -631,18 +631,18 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
               ))}
             </div>
             {selectedRows.length > 1 && (
-              <p className="mt-2 text-xs text-[#8A8F98]">
+              <p className="mt-2 text-xs text-text-tertiary">
                 선택된 항목: {selectedNames}
               </p>
             )}
           </div>
 
           {/* 차트 */}
-          <div className="bg-[#08090A] rounded-xl p-4">
+          <div className="bg-bg-0 rounded-xl p-4">
             {selectedRows.length > 0 ? (
               renderChart()
             ) : (
-              <div className="h-[400px] flex items-center justify-center text-[#8A8F98]">
+              <div className="h-[400px] flex items-center justify-center text-text-tertiary">
                 표시할 항목을 선택해주세요
               </div>
             )}
@@ -650,7 +650,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
 
           {/* 범례 설명 */}
           {(showComparison && previousData) || showCumulative || (showTargetComparison && targetData) ? (
-            <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-[#8A8F98]">
+            <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-text-tertiary">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[0] }} />
                 <span>{showCumulative ? `${currentLabel} 누계` : currentLabel} (현재)</span>
@@ -663,7 +663,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
               )}
               {showTargetComparison && targetData && type === 'sales' && (
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FC7840' }} />
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: 'var(--color-orange)' }} />
                   <span>{showCumulative ? '목표 누계' : '목표'}</span>
                 </div>
               )}

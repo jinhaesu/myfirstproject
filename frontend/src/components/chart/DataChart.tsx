@@ -47,16 +47,16 @@ const GRADIENT_PAIRS = [
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1C1C1F] border border-[#34343A] rounded-xl px-4 py-3 shadow-[0px_7px_32px_rgba(0,0,0,0.5)]">
-      <p className="text-[#8A8F98] text-xs mb-2 font-medium">{label}</p>
+    <div className="bg-bg-secondary border border-border-secondary rounded-xl px-4 py-3 shadow-[0px_7px_32px_rgba(0,0,0,0.5)]">
+      <p className="text-text-tertiary text-xs mb-2 font-medium">{label}</p>
       {payload.map((entry: any, i: number) => (
         <div key={i} className="flex items-center gap-2 py-0.5">
           <div
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-[#D0D6E0] text-sm">{entry.name}:</span>
-          <span className="text-[#F7F8F8] text-sm font-semibold">
+          <span className="text-text-secondary text-sm">{entry.name}:</span>
+          <span className="text-text-primary text-sm font-semibold">
             {typeof entry.value === 'number'
               ? entry.value.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
               : entry.value}
@@ -78,7 +78,7 @@ const CustomLegend = ({ payload }: any) => {
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-[#8A8F98] text-xs font-medium">{entry.value}</span>
+          <span className="text-text-tertiary text-xs font-medium">{entry.value}</span>
         </div>
       ))}
     </div>
@@ -88,9 +88,9 @@ const CustomLegend = ({ payload }: any) => {
 // Summary stats card
 function StatCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="bg-[#141516] border border-[#23252A] rounded-xl px-4 py-3 flex-1 min-w-[120px]">
-      <p className="text-[#62666D] text-[11px] font-medium uppercase tracking-wider">{label}</p>
-      <p className="text-[#F7F8F8] text-lg font-semibold mt-0.5" style={{ color }}>{value}</p>
+    <div className="bg-bg-2 border border-border-primary rounded-xl px-4 py-3 flex-1 min-w-[120px]">
+      <p className="text-text-quaternary text-[11px] font-medium uppercase tracking-wider">{label}</p>
+      <p className="text-text-primary text-lg font-semibold mt-0.5" style={{ color }}>{value}</p>
     </div>
   );
 }
@@ -167,8 +167,8 @@ export function DataChart({ columns, rows }: DataChartProps) {
 
   if (rows.length === 0 || numericColumns.length === 0) {
     return (
-      <div className="text-center text-[#8A8F98] py-12 bg-[#0F1011] rounded-2xl border border-[#23252A]">
-        <svg className="w-12 h-12 mx-auto mb-3 text-[#34343A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="text-center text-text-tertiary py-12 bg-bg-1 rounded-2xl border border-border-primary">
+        <svg className="w-12 h-12 mx-auto mb-3 text-border-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
         <p className="text-sm">
@@ -187,14 +187,14 @@ export function DataChart({ columns, rows }: DataChartProps) {
   ];
 
   const commonAxisProps = {
-    tick: { fontSize: 11, fill: '#8A8F98' },
-    axisLine: { stroke: '#23252A' },
-    tickLine: { stroke: '#23252A' },
+    tick: { fontSize: 11, fill: 'var(--color-text-tertiary)' },
+    axisLine: { stroke: 'var(--color-border-primary)' },
+    tickLine: { stroke: 'var(--color-border-primary)' },
   };
 
   const gridProps = {
     strokeDasharray: '3 3',
-    stroke: '#1C1C1F',
+    stroke: 'var(--color-bg-secondary)',
     vertical: false,
   };
 
@@ -203,25 +203,25 @@ export function DataChart({ columns, rows }: DataChartProps) {
       {/* Stats Summary */}
       {showStats && stats && (
         <div className="flex gap-3 flex-wrap">
-          <StatCard label="합계" value={stats.sum.toLocaleString('ko-KR', { maximumFractionDigits: 0 })} color="#5E6AD2" />
-          <StatCard label="평균" value={stats.avg.toLocaleString('ko-KR', { maximumFractionDigits: 1 })} color="#4EA7FC" />
-          <StatCard label="최대" value={stats.max.toLocaleString('ko-KR', { maximumFractionDigits: 1 })} color="#27A644" />
-          <StatCard label="최소" value={stats.min.toLocaleString('ko-KR', { maximumFractionDigits: 1 })} color="#FC7840" />
+          <StatCard label="합계" value={stats.sum.toLocaleString('ko-KR', { maximumFractionDigits: 0 })} color="var(--color-brand-bg)" />
+          <StatCard label="평균" value={stats.avg.toLocaleString('ko-KR', { maximumFractionDigits: 1 })} color="var(--color-info)" />
+          <StatCard label="최대" value={stats.max.toLocaleString('ko-KR', { maximumFractionDigits: 1 })} color="var(--color-success)" />
+          <StatCard label="최소" value={stats.min.toLocaleString('ko-KR', { maximumFractionDigits: 1 })} color="var(--color-orange)" />
         </div>
       )}
 
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Chart type */}
-        <div className="flex gap-0.5 bg-[#141516] border border-[#23252A] p-1 rounded-xl">
+        <div className="flex gap-0.5 bg-bg-2 border border-border-primary p-1 rounded-xl">
           {chartTypes.map(({ type, label, icon }) => (
             <button
               key={type}
               onClick={() => setChartType(type)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
                 chartType === type
-                  ? 'bg-[#5E6AD2] text-white shadow-[0px_1px_3px_rgba(0,0,0,0.3)]'
-                  : 'text-[#8A8F98] hover:text-[#F7F8F8] hover:bg-white/5/5'
+                  ? 'bg-brand text-white shadow-[0px_1px_3px_rgba(0,0,0,0.3)]'
+                  : 'text-text-tertiary hover:text-text-primary hover:bg-white/5'
               }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -234,11 +234,11 @@ export function DataChart({ columns, rows }: DataChartProps) {
 
         {/* X axis */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-[#62666D] font-medium uppercase">X</span>
+          <span className="text-[11px] text-text-quaternary font-medium uppercase">X</span>
           <select
             value={selectedXAxis}
             onChange={(e) => setSelectedXAxis(e.target.value)}
-            className="text-xs bg-[#141516] border border-[#23252A] text-[#D0D6E0] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#5E6AD2]"
+            className="text-xs bg-bg-2 border border-border-primary text-text-secondary rounded-lg px-2 py-1.5 focus:outline-none focus:border-brand"
           >
             {columns.map(col => <option key={col} value={col}>{col}</option>)}
           </select>
@@ -246,7 +246,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
 
         {/* Y axes (multi-select) */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] text-[#62666D] font-medium uppercase">Y</span>
+          <span className="text-[11px] text-text-quaternary font-medium uppercase">Y</span>
           {numericColumns.map((col, i) => (
             <button
               key={col}
@@ -254,7 +254,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
               className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
                 selectedYAxes.includes(col)
                   ? 'border-transparent text-white font-medium'
-                  : 'border-[#23252A] text-[#62666D] hover:text-[#8A8F98] hover:border-[#34343A]'
+                  : 'border-border-primary text-text-quaternary hover:text-text-tertiary hover:border-border-secondary'
               }`}
               style={selectedYAxes.includes(col) ? { backgroundColor: COLORS[selectedYAxes.indexOf(col) % COLORS.length] } : {}}
             >
@@ -267,7 +267,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
         <button
           onClick={() => setShowStats(!showStats)}
           className={`text-xs px-2 py-1 rounded-lg transition-colors ${
-            showStats ? 'text-[#7070FF] bg-[#5E6AD2]/10' : 'text-[#62666D] hover:text-[#8A8F98]'
+            showStats ? 'text-link bg-brand/10' : 'text-text-quaternary hover:text-text-tertiary'
           }`}
         >
           통계
@@ -275,7 +275,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
       </div>
 
       {/* Chart */}
-      <div className="bg-[#0F1011] border border-[#23252A] rounded-2xl p-4">
+      <div className="bg-bg-1 border border-border-primary rounded-2xl p-4">
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             {chartType === 'bar' ? (
@@ -293,11 +293,11 @@ export function DataChart({ columns, rows }: DataChartProps) {
                 <YAxis {...commonAxisProps} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
                 <Legend content={<CustomLegend />} />
-                {selectedYAxes.length === 1 && <ReferenceLine y={avgValue} stroke="#5E6AD2" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: `평균 ${avgValue.toFixed(0)}`, position: 'right', fill: '#5E6AD2', fontSize: 10 }} />}
+                {selectedYAxes.length === 1 && <ReferenceLine y={avgValue} stroke="var(--color-brand-bg)" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: `평균 ${avgValue.toFixed(0)}`, position: 'right', fill: 'var(--color-brand-bg)', fontSize: 10 }} />}
                 {selectedYAxes.map((col, i) => (
                   <Bar key={col} dataKey={col} fill={`url(#barGrad${i})`} radius={[6, 6, 0, 0]} animationDuration={800} />
                 ))}
-                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} stroke="#23252A" fill="#0F1011" travellerWidth={8} />}
+                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} stroke="var(--color-border-primary)" fill="var(--color-bg-level-1)" travellerWidth={8} />}
               </BarChart>
             ) : chartType === 'line' ? (
               <LineChart data={chartData}>
@@ -306,14 +306,14 @@ export function DataChart({ columns, rows }: DataChartProps) {
                 <YAxis {...commonAxisProps} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend content={<CustomLegend />} />
-                {selectedYAxes.length === 1 && <ReferenceLine y={avgValue} stroke="#5E6AD2" strokeDasharray="4 4" strokeOpacity={0.5} />}
+                {selectedYAxes.length === 1 && <ReferenceLine y={avgValue} stroke="var(--color-brand-bg)" strokeDasharray="4 4" strokeOpacity={0.5} />}
                 {selectedYAxes.map((col, i) => (
                   <Line key={col} type="monotone" dataKey={col} stroke={COLORS[i % COLORS.length]} strokeWidth={2.5}
-                    dot={{ fill: '#0F1011', stroke: COLORS[i % COLORS.length], strokeWidth: 2, r: 3 }}
-                    activeDot={{ r: 6, fill: COLORS[i % COLORS.length], stroke: '#0F1011', strokeWidth: 2 }}
+                    dot={{ fill: 'var(--color-bg-level-1)', stroke: COLORS[i % COLORS.length], strokeWidth: 2, r: 3 }}
+                    activeDot={{ r: 6, fill: COLORS[i % COLORS.length], stroke: 'var(--color-bg-level-1)', strokeWidth: 2 }}
                     animationDuration={1000} />
                 ))}
-                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} stroke="#23252A" fill="#0F1011" />}
+                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} stroke="var(--color-border-primary)" fill="var(--color-bg-level-1)" />}
               </LineChart>
             ) : chartType === 'area' ? (
               <AreaChart data={chartData}>
@@ -334,7 +334,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
                   <Area key={col} type="monotone" dataKey={col} stroke={COLORS[i % COLORS.length]} strokeWidth={2}
                     fill={`url(#areaGrad${i})`} animationDuration={1000} />
                 ))}
-                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} stroke="#23252A" fill="#0F1011" />}
+                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} stroke="var(--color-border-primary)" fill="var(--color-bg-level-1)" />}
               </AreaChart>
             ) : chartType === 'composed' ? (
               <ComposedChart data={chartData}>
@@ -345,7 +345,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
                 <Legend content={<CustomLegend />} />
                 {selectedYAxes.map((col, i) => {
                   if (i === 0) return <Bar key={col} dataKey={col} fill={COLORS[i]} radius={[4, 4, 0, 0]} opacity={0.8} animationDuration={800} />;
-                  if (i === 1) return <Line key={col} type="monotone" dataKey={col} stroke={COLORS[i]} strokeWidth={2.5} dot={{ fill: '#0F1011', stroke: COLORS[i], strokeWidth: 2, r: 3 }} />;
+                  if (i === 1) return <Line key={col} type="monotone" dataKey={col} stroke={COLORS[i]} strokeWidth={2.5} dot={{ fill: 'var(--color-bg-level-1)', stroke: COLORS[i], strokeWidth: 2, r: 3 }} />;
                   return <Scatter key={col} dataKey={col} fill={COLORS[i]} />;
                 })}
               </ComposedChart>
@@ -372,7 +372,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
                   animationDuration={800}
                 >
                   {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={`url(#pieGrad${index})`} stroke="#0F1011" strokeWidth={2} />
+                    <Cell key={`cell-${index}`} fill={`url(#pieGrad${index})`} stroke="var(--color-bg-level-1)" strokeWidth={2} />
                   ))}
                 </Pie>
                 <Tooltip content={<CustomTooltip />} />
@@ -384,7 +384,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
       </div>
 
       {rows.length > (chartType === 'pie' ? 12 : 50) && (
-        <p className="text-[11px] text-[#62666D] text-center">
+        <p className="text-[11px] text-text-quaternary text-center">
           * 차트는 처음 {chartType === 'pie' ? 12 : 50}개 행을 표시합니다. 스크롤 브러시로 탐색하세요.
         </p>
       )}

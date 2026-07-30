@@ -66,11 +66,11 @@ export default function SSOPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center">
         {error ? (
-          <div className="bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] p-8 border border-[#23252A]">
-            <div className="p-4 bg-[#EB5757]/10 border border-[#EB5757]/30 rounded-xl text-[#EB5757] text-sm flex items-center justify-center gap-2 mb-6">
+          <div className="bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] p-8 border border-border-primary">
+            <div className="p-4 bg-danger/10 border border-danger/30 rounded-xl text-danger text-sm flex items-center justify-center gap-2 mb-6">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -78,14 +78,14 @@ export default function SSOPage() {
             </div>
             <a
               href="/login"
-              className="text-sm text-[#7070FF] hover:text-[#828FFF]"
+              className="text-sm text-link hover:text-accent"
             >
               로그인 페이지로 돌아가기
             </a>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-4 text-[#8A8F98]">
-            <div className="w-8 h-8 border-2 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
+          <div className="flex flex-col items-center gap-4 text-text-tertiary">
+            <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
             <p>회사 계정으로 로그인 중...</p>
           </div>
         )}

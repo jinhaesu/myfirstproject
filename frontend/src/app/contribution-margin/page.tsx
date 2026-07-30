@@ -17,8 +17,8 @@ interface ChannelRow {
   returnRate: number;
 }
 
-const PANEL = 'bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A]';
-const SUBPANEL = 'bg-[#08090A] rounded-lg border border-[#23252A]';
+const PANEL = 'bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary';
+const SUBPANEL = 'bg-bg-0 rounded-lg border border-border-primary';
 
 export default function ContributionMarginPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -157,10 +157,10 @@ export default function ContributionMarginPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[#8A8F98]">로딩 중...</p>
+          <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+          <p className="text-text-tertiary">로딩 중...</p>
         </div>
       </div>
     );
@@ -168,29 +168,29 @@ export default function ContributionMarginPage() {
   if (!user) return null;
 
   const tooltipStyle = {
-    background: '#0F1011',
-    border: '1px solid #23252A',
+    background: 'var(--color-bg-level-1)',
+    border: '1px solid var(--color-border-primary)',
     borderRadius: 8,
     fontSize: 12,
-    color: '#D0D6E0',
+    color: 'var(--color-text-secondary)',
   } as const;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] text-[#F7F8F8]">
+    <main className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 text-text-primary">
       <Navigation />
 
       <div className="max-w-[1400px] mx-auto px-4 py-6">
         {/* 헤더 */}
         <div className={`${PANEL} px-6 py-5 mb-6 flex items-baseline justify-between`}>
           <div>
-            <div className="text-[11px] tracking-[0.2em] text-[#62666D] uppercase mb-1.5 font-mono">
+            <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase mb-1.5 font-mono">
               E-Commerce Economics Dashboard
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-[#F7F8F8]">
+            <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
               공헌이익 시뮬레이션
             </h1>
           </div>
-          <div className="text-right text-[11px] text-[#62666D] font-mono space-y-0.5">
+          <div className="text-right text-[11px] text-text-quaternary font-mono space-y-0.5">
             <div>조인앤조인 · 널담</div>
             <div>v1.2 / 2026</div>
           </div>
@@ -222,7 +222,7 @@ export default function ContributionMarginPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* 좌측 컨트롤 */}
           <aside className={`${PANEL} p-5 lg:col-span-3 space-y-6 h-fit`}>
-            <div className="text-[11px] tracking-[0.2em] text-[#62666D] uppercase font-mono">
+            <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase font-mono">
               기본 변수
             </div>
 
@@ -279,8 +279,8 @@ export default function ContributionMarginPage() {
               suffix="%"
             />
 
-            <div className="border-t border-[#23252A] pt-5 space-y-3">
-              <div className="text-[11px] tracking-[0.2em] text-[#62666D] uppercase font-mono">
+            <div className="border-t border-border-primary pt-5 space-y-3">
+              <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase font-mono">
                 계산 결과
               </div>
               <ResultRow label="광고 BE ROAS" value={`${fmt(metrics.adOnlyBeRoas)}%`} />
@@ -302,16 +302,16 @@ export default function ContributionMarginPage() {
             </div>
 
             {tab === 'channel' && (
-              <div className="border-t border-[#23252A] pt-5 space-y-4">
-                <div className="text-[11px] tracking-[0.2em] text-[#62666D] uppercase font-mono">
+              <div className="border-t border-border-primary pt-5 space-y-4">
+                <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase font-mono">
                   채널별 설정
                 </div>
                 {channels.map((ch, idx) => (
-                  <div key={idx} className="border-l-2 border-[#5E6AD2] pl-3 space-y-2.5">
+                  <div key={idx} className="border-l-2 border-brand pl-3 space-y-2.5">
                     <input
                       value={ch.name}
                       onChange={(e) => updateChannel(idx, 'name', e.target.value)}
-                      className="text-sm font-semibold bg-transparent border-b border-[#23252A] w-full focus:outline-none focus:border-[#5E6AD2] text-[#F7F8F8] pb-1 transition-colors"
+                      className="text-sm font-semibold bg-transparent border-b border-border-primary w-full focus:outline-none focus:border-brand text-text-primary pb-1 transition-colors"
                     />
                     <MiniSlider
                       label="수수료"
@@ -337,8 +337,8 @@ export default function ContributionMarginPage() {
             )}
 
             {tab === 'ltv' && (
-              <div className="border-t border-[#23252A] pt-5 space-y-4">
-                <div className="text-[11px] tracking-[0.2em] text-[#62666D] uppercase font-mono">
+              <div className="border-t border-border-primary pt-5 space-y-4">
+                <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase font-mono">
                   LTV 입력
                 </div>
                 <NumberInput
@@ -387,8 +387,8 @@ export default function ContributionMarginPage() {
                   onClick={() => setTab(t.id)}
                   className={`font-mono text-xs tracking-wider px-4 py-2.5 rounded-lg transition-colors ${
                     tab === t.id
-                      ? 'bg-[#5E6AD2]/15 text-[#828FFF]'
-                      : 'text-[#8A8F98] hover:bg-white/[0.03] hover:text-[#F7F8F8]'
+                      ? 'bg-brand/15 text-accent'
+                      : 'text-text-tertiary hover:bg-white/[0.03] hover:text-text-primary'
                   }`}
                 >
                   {t.label}
@@ -415,56 +415,56 @@ export default function ContributionMarginPage() {
                     }}
                     onMouseLeave={() => setRoasHover(null)}
                   >
-                    <CartesianGrid strokeDasharray="2 4" stroke="#23252A" />
+                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" />
                     <XAxis
                       dataKey="roas"
-                      stroke="#62666D"
-                      tick={{ fontSize: 11, fill: '#8A8F98' }}
+                      stroke="var(--color-text-quaternary)"
+                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
                       tickFormatter={(v: number) => `${v}%`}
-                      label={{ value: '광고 ROAS (%)', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#8A8F98' }}
+                      label={{ value: '광고 ROAS (%)', position: 'insideBottom', offset: -10, fontSize: 11, fill: 'var(--color-text-tertiary)' }}
                     />
                     <YAxis
-                      stroke="#62666D"
-                      tick={{ fontSize: 11, fill: '#8A8F98' }}
+                      stroke="var(--color-text-quaternary)"
+                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
                       tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-                      label={{ value: '최종 공헌이익율 (%)', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#8A8F98' }}
+                      label={{ value: '최종 공헌이익율 (%)', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'var(--color-text-tertiary)' }}
                     />
                     <Legend
                       verticalAlign="top"
                       align="right"
                       height={36}
                       iconType="plainline"
-                      wrapperStyle={{ fontSize: 11, color: '#D0D6E0', paddingBottom: 12 }}
+                      wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)', paddingBottom: 12 }}
                     />
                     <Tooltip
-                      cursor={{ stroke: '#D0D6E0', strokeDasharray: '3 3', strokeOpacity: 0.7 }}
+                      cursor={{ stroke: 'var(--color-text-secondary)', strokeDasharray: '3 3', strokeOpacity: 0.7 }}
                       content={<RoasTooltip />}
                     />
-                    <ReferenceLine y={0} stroke="#62666D" strokeWidth={1} />
+                    <ReferenceLine y={0} stroke="var(--color-text-quaternary)" strokeWidth={1} />
                     <ReferenceLine
                       y={targetMargin}
-                      stroke="#EB5757"
+                      stroke="var(--color-danger)"
                       strokeDasharray="4 4"
-                      label={{ value: `목표 ${targetMargin}%`, fontSize: 10, fill: '#EB5757' }}
+                      label={{ value: `목표 ${targetMargin}%`, fontSize: 10, fill: 'var(--color-danger)' }}
                     />
                     <ReferenceLine
                       x={roas}
-                      stroke="#828FFF"
+                      stroke="var(--color-accent-hover)"
                       strokeDasharray="6 4"
-                      label={{ value: `현재 ROAS ${roas}%`, fontSize: 10, fill: '#828FFF', position: 'top' }}
+                      label={{ value: `현재 ROAS ${roas}%`, fontSize: 10, fill: 'var(--color-accent-hover)', position: 'top' }}
                     />
                     {roasHover && (
                       <ReferenceLine
                         y={roasHover.y}
-                        stroke="#D0D6E0"
+                        stroke="var(--color-text-secondary)"
                         strokeDasharray="3 3"
                         strokeOpacity={0.7}
                         ifOverflow="visible"
                       />
                     )}
-                    <Line type="monotone" dataKey="cmLow" stroke="#62666D" strokeWidth={1.5} dot={false} name={`1차 공헌이익율 ${cm1 - 10}%`} />
-                    <Line type="monotone" dataKey="cmMid" stroke="#828FFF" strokeWidth={2.5} dot={false} name={`1차 공헌이익율 ${cm1}% (기준)`} />
-                    <Line type="monotone" dataKey="cmHigh" stroke="#27A644" strokeWidth={1.5} dot={false} name={`1차 공헌이익율 ${cm1 + 10}%`} />
+                    <Line type="monotone" dataKey="cmLow" stroke="var(--color-text-quaternary)" strokeWidth={1.5} dot={false} name={`1차 공헌이익율 ${cm1 - 10}%`} />
+                    <Line type="monotone" dataKey="cmMid" stroke="var(--color-accent-hover)" strokeWidth={2.5} dot={false} name={`1차 공헌이익율 ${cm1}% (기준)`} />
+                    <Line type="monotone" dataKey="cmHigh" stroke="var(--color-success)" strokeWidth={1.5} dot={false} name={`1차 공헌이익율 ${cm1 + 10}%`} />
                   </LineChart>
                 </ResponsiveContainer>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
@@ -485,26 +485,26 @@ export default function ContributionMarginPage() {
                   <AreaChart data={budgetSensitivity} margin={{ top: 20, right: 30, left: 10, bottom: 40 }}>
                     <defs>
                       <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#5E6AD2" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#5E6AD2" stopOpacity={0} />
+                        <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="gCm" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#828FFF" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#828FFF" stopOpacity={0} />
+                        <stop offset="0%" stopColor="var(--color-accent-hover)" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="var(--color-accent-hover)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="2 4" stroke="#23252A" />
+                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" />
                     <XAxis
                       dataKey="budget"
                       tickFormatter={fmtC}
-                      stroke="#62666D"
-                      tick={{ fontSize: 11, fill: '#8A8F98' }}
-                      label={{ value: '광고예산 (원)', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#8A8F98' }}
+                      stroke="var(--color-text-quaternary)"
+                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                      label={{ value: '광고예산 (원)', position: 'insideBottom', offset: -10, fontSize: 11, fill: 'var(--color-text-tertiary)' }}
                     />
                     <YAxis
                       tickFormatter={fmtC}
-                      stroke="#62666D"
-                      tick={{ fontSize: 11, fill: '#8A8F98' }}
+                      stroke="var(--color-text-quaternary)"
+                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
                       width={70}
                     />
                     <Legend
@@ -512,22 +512,22 @@ export default function ContributionMarginPage() {
                       align="right"
                       height={36}
                       iconType="plainline"
-                      wrapperStyle={{ fontSize: 11, color: '#D0D6E0', paddingBottom: 12 }}
+                      wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)', paddingBottom: 12 }}
                     />
                     <Tooltip
                       contentStyle={tooltipStyle}
                       formatter={(v: number) => `₩${fmtC(v)}`}
                       labelFormatter={(v: number) => `예산 ₩${fmtC(v)}`}
                     />
-                    <ReferenceLine y={0} stroke="#62666D" />
+                    <ReferenceLine y={0} stroke="var(--color-text-quaternary)" />
                     <ReferenceLine
                       x={adBudget}
-                      stroke="#828FFF"
+                      stroke="var(--color-accent-hover)"
                       strokeDasharray="6 4"
-                      label={{ value: `현재 예산 ₩${fmtC(adBudget)}`, fontSize: 10, fill: '#828FFF', position: 'top' }}
+                      label={{ value: `현재 예산 ₩${fmtC(adBudget)}`, fontSize: 10, fill: 'var(--color-accent-hover)', position: 'top' }}
                     />
-                    <Area type="monotone" dataKey="revenue" stroke="#5E6AD2" strokeWidth={1.5} fill="url(#gRev)" name="총매출 (자연+광고)" />
-                    <Area type="monotone" dataKey="finalCm" stroke="#828FFF" strokeWidth={2} fill="url(#gCm)" name="최종 공헌이익" />
+                    <Area type="monotone" dataKey="revenue" stroke="var(--color-brand-bg)" strokeWidth={1.5} fill="url(#gRev)" name="총매출 (자연+광고)" />
+                    <Area type="monotone" dataKey="finalCm" stroke="var(--color-accent-hover)" strokeWidth={2} fill="url(#gCm)" name="최종 공헌이익" />
                   </AreaChart>
                 </ResponsiveContainer>
               </Panel>
@@ -541,19 +541,19 @@ export default function ContributionMarginPage() {
               >
                 <ResponsiveContainer width="100%" height={420}>
                   <BarChart data={channelData} margin={{ top: 20, right: 30, left: 0, bottom: 40 }} layout="vertical">
-                    <CartesianGrid strokeDasharray="2 4" stroke="#23252A" horizontal={false} />
+                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" horizontal={false} />
                     <XAxis
                       type="number"
-                      stroke="#62666D"
-                      tick={{ fontSize: 11, fill: '#8A8F98' }}
+                      stroke="var(--color-text-quaternary)"
+                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
                       tickFormatter={(v: number) => `${v}%`}
-                      label={{ value: '% of 매출', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#8A8F98' }}
+                      label={{ value: '% of 매출', position: 'insideBottom', offset: -10, fontSize: 11, fill: 'var(--color-text-tertiary)' }}
                     />
                     <YAxis
                       dataKey="name"
                       type="category"
-                      stroke="#62666D"
-                      tick={{ fontSize: 12, fill: '#D0D6E0' }}
+                      stroke="var(--color-text-quaternary)"
+                      tick={{ fontSize: 12, fill: 'var(--color-text-secondary)' }}
                       width={80}
                     />
                     <Legend
@@ -561,28 +561,28 @@ export default function ContributionMarginPage() {
                       align="right"
                       height={36}
                       iconType="square"
-                      wrapperStyle={{ fontSize: 11, color: '#D0D6E0', paddingBottom: 12 }}
+                      wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)', paddingBottom: 12 }}
                     />
                     <Tooltip
                       contentStyle={tooltipStyle}
                       formatter={(v: number) => `${v}%`}
                       cursor={{ fill: 'rgba(130, 143, 255, 0.05)' }}
                     />
-                    <Bar dataKey="수수료" stackId="a" fill="#34343A" />
-                    <Bar dataKey="반품손실" stackId="a" fill="#62666D" />
-                    <Bar dataKey="실공헌이익율" stackId="a" fill="#5E6AD2" />
+                    <Bar dataKey="수수료" stackId="a" fill="var(--color-border-secondary)" />
+                    <Bar dataKey="반품손실" stackId="a" fill="var(--color-text-quaternary)" />
+                    <Bar dataKey="실공헌이익율" stackId="a" fill="var(--color-brand-bg)" />
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
                   {channelData.map((ch, i) => (
-                    <div key={i} className="border-l-2 border-[#5E6AD2] pl-3">
-                      <div className="text-sm font-semibold text-[#F7F8F8]">{ch.name}</div>
-                      <div className="font-mono text-[11px] text-[#62666D] mt-1">
+                    <div key={i} className="border-l-2 border-brand pl-3">
+                      <div className="text-sm font-semibold text-text-primary">{ch.name}</div>
+                      <div className="font-mono text-[11px] text-text-quaternary mt-1">
                         수수료 {ch['수수료']}% · 반품 {ch['반품손실']}%
                       </div>
                       <div
                         className={`font-mono text-lg font-semibold mt-1 ${
-                          ch['실공헌이익율'] > 0 ? 'text-[#828FFF]' : 'text-[#EB5757]'
+                          ch['실공헌이익율'] > 0 ? 'text-accent' : 'text-danger'
                         }`}
                       >
                         {ch['실공헌이익율'] > 0 ? `${ch['실공헌이익율']}%` : '적자'}
@@ -607,20 +607,20 @@ export default function ContributionMarginPage() {
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-xs">
                   <div className={`${SUBPANEL} p-4`}>
-                    <div className="font-mono text-[10px] tracking-wider text-[#62666D] uppercase mb-1.5">
+                    <div className="font-mono text-[10px] tracking-wider text-text-quaternary uppercase mb-1.5">
                       AOV — Average Order Value
                     </div>
-                    <div className="text-[#D0D6E0] leading-relaxed">
-                      주문 1건당 평균 결제금액. <span className="font-mono text-[#828FFF]">총매출 ÷ 총주문수</span>로 계산.
+                    <div className="text-text-secondary leading-relaxed">
+                      주문 1건당 평균 결제금액. <span className="font-mono text-accent">총매출 ÷ 총주문수</span>로 계산.
                       번들 구성, 크로스셀, 무료배송 최소금액 설정 등으로 AOV를 올리면 광고 효율이 그대로 개선됩니다.
                     </div>
                   </div>
                   <div className={`${SUBPANEL} p-4`}>
-                    <div className="font-mono text-[10px] tracking-wider text-[#62666D] uppercase mb-1.5">
+                    <div className="font-mono text-[10px] tracking-wider text-text-quaternary uppercase mb-1.5">
                       CAC — Customer Acquisition Cost
                     </div>
-                    <div className="text-[#D0D6E0] leading-relaxed">
-                      신규 고객 1명을 확보하는 데 든 비용. <span className="font-mono text-[#828FFF]">광고비 ÷ 신규고객수</span>로 계산.
+                    <div className="text-text-secondary leading-relaxed">
+                      신규 고객 1명을 확보하는 데 든 비용. <span className="font-mono text-accent">광고비 ÷ 신규고객수</span>로 계산.
                       CAC가 LTV의 1/3 이하여야 건강한 구조로 봅니다 (LTV/CAC ≥ 3).
                     </div>
                   </div>
@@ -638,24 +638,24 @@ export default function ContributionMarginPage() {
                 </div>
 
                 <div className={`${SUBPANEL} p-4 mb-6 text-xs`}>
-                  <div className="font-mono text-[10px] tracking-wider text-[#62666D] uppercase mb-1.5">
+                  <div className="font-mono text-[10px] tracking-wider text-text-quaternary uppercase mb-1.5">
                     PAYBACK — 월 공헌이익 누적 방식
                   </div>
-                  <div className="font-mono text-[11px] text-[#828FFF] bg-[#0F1011] border border-[#23252A] inline-block px-2.5 py-1 rounded mb-2">
+                  <div className="font-mono text-[11px] text-accent bg-bg-1 border border-border-primary inline-block px-2.5 py-1 rounded mb-2">
                     월 공헌이익 = AOV × 1차 공헌이익율 × (재구매 ÷ 12)
                   </div>
-                  <div className="text-[#D0D6E0] leading-relaxed">
-                    연간 재구매 횟수를 <span className="font-mono text-[#828FFF]">12개월</span>로 분산해 매달 회수되는 공헌이익을 구합니다.
-                    M0 시점에 <span className="font-mono text-[#EB5757]">−CAC</span>에서 출발해 매월 월 공헌이익을 누적하며,
-                    이 누적값이 <span className="font-mono text-[#828FFF]">0선(Break-even)</span>을 넘는 지점이 <strong className="text-[#F7F8F8]">Payback Period</strong>입니다.
-                    현재 입력값 기준 월 공헌이익은 <span className="font-mono text-[#F7F8F8] font-semibold">₩{fmtC((aov * (cm1 / 100) * repurchase) / 12)}</span>,
-                    CAC <span className="font-mono text-[#F7F8F8] font-semibold">₩{fmtC(cac)}</span> 회수에{' '}
+                  <div className="text-text-secondary leading-relaxed">
+                    연간 재구매 횟수를 <span className="font-mono text-accent">12개월</span>로 분산해 매달 회수되는 공헌이익을 구합니다.
+                    M0 시점에 <span className="font-mono text-danger">−CAC</span>에서 출발해 매월 월 공헌이익을 누적하며,
+                    이 누적값이 <span className="font-mono text-accent">0선(Break-even)</span>을 넘는 지점이 <strong className="text-text-primary">Payback Period</strong>입니다.
+                    현재 입력값 기준 월 공헌이익은 <span className="font-mono text-text-primary font-semibold">₩{fmtC((aov * (cm1 / 100) * repurchase) / 12)}</span>,
+                    CAC <span className="font-mono text-text-primary font-semibold">₩{fmtC(cac)}</span> 회수에{' '}
                     {(() => {
                       const monthly = (aov * (cm1 / 100) * repurchase) / 12;
-                      if (monthly <= 0) return <span className="font-mono text-[#EB5757] font-semibold">계산 불가</span>;
+                      if (monthly <= 0) return <span className="font-mono text-danger font-semibold">계산 불가</span>;
                       const months = cac / monthly;
                       return (
-                        <span className="font-mono text-[#F7F8F8] font-semibold">
+                        <span className="font-mono text-text-primary font-semibold">
                           약 {months.toFixed(1)}개월
                         </span>
                       );
@@ -667,20 +667,20 @@ export default function ContributionMarginPage() {
                   <AreaChart data={paybackData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
                     <defs>
                       <linearGradient id="gPay" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#5E6AD2" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="#5E6AD2" stopOpacity={0} />
+                        <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="2 4" stroke="#23252A" />
+                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" />
                     <XAxis
                       dataKey="month"
-                      stroke="#62666D"
-                      tick={{ fontSize: 11, fill: '#8A8F98' }}
+                      stroke="var(--color-text-quaternary)"
+                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
                     />
                     <YAxis
                       tickFormatter={fmtC}
-                      stroke="#62666D"
-                      tick={{ fontSize: 11, fill: '#8A8F98' }}
+                      stroke="var(--color-text-quaternary)"
+                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
                       width={60}
                     />
                     <Tooltip
@@ -689,11 +689,11 @@ export default function ContributionMarginPage() {
                     />
                     <ReferenceLine
                       y={0}
-                      stroke="#D0D6E0"
+                      stroke="var(--color-text-secondary)"
                       strokeWidth={1.5}
-                      label={{ value: 'Break-even', fontSize: 10, fill: '#D0D6E0', position: 'right' }}
+                      label={{ value: 'Break-even', fontSize: 10, fill: 'var(--color-text-secondary)', position: 'right' }}
                     />
-                    <Area type="monotone" dataKey="cumulative" stroke="#5E6AD2" strokeWidth={2} fill="url(#gPay)" name="누적 공헌이익" />
+                    <Area type="monotone" dataKey="cumulative" stroke="var(--color-brand-bg)" strokeWidth={2} fill="url(#gPay)" name="누적 공헌이익" />
                   </AreaChart>
                 </ResponsiveContainer>
               </Panel>
@@ -702,7 +702,7 @@ export default function ContributionMarginPage() {
         </div>
 
         {/* 푸터 */}
-        <div className={`${PANEL} mt-6 px-6 py-4 flex justify-between text-[11px] font-mono text-[#62666D]`}>
+        <div className={`${PANEL} mt-6 px-6 py-4 flex justify-between text-[11px] font-mono text-text-quaternary`}>
           <span>모든 수치는 입력 변수 기반 시뮬레이션입니다</span>
           <span>조인앤조인 CEO Dashboard</span>
         </div>
@@ -725,14 +725,14 @@ function Kpi({
   tone?: 'pos' | 'neg';
 }) {
   const toneColor =
-    tone === 'pos' ? 'text-[#27A644]' : tone === 'neg' ? 'text-[#EB5757]' : 'text-[#F7F8F8]';
+    tone === 'pos' ? 'text-success' : tone === 'neg' ? 'text-danger' : 'text-text-primary';
   return (
     <div>
-      <div className="text-[11px] tracking-[0.2em] text-[#62666D] uppercase mb-2 font-mono">
+      <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase mb-2 font-mono">
         {label}
       </div>
       <div className={`text-2xl font-semibold tracking-tight ${toneColor}`}>{value}</div>
-      {sub && <div className="text-[11px] text-[#8A8F98] mt-1 font-mono">{sub}</div>}
+      {sub && <div className="text-[11px] text-text-tertiary mt-1 font-mono">{sub}</div>}
     </div>
   );
 }
@@ -763,18 +763,18 @@ function SliderWithHelp({
     <div>
       <div className="flex justify-between items-baseline mb-2">
         <div className="flex items-center gap-1.5">
-          <label className="text-xs text-[#D0D6E0]">{label}</label>
+          <label className="text-xs text-text-secondary">{label}</label>
           {help && (
             <button
               onClick={() => setOpen(!open)}
-              className="w-3.5 h-3.5 rounded-full border border-[#34343A] text-[9px] text-[#8A8F98] hover:bg-[#5E6AD2] hover:text-white hover:border-[#5E6AD2] transition-colors flex items-center justify-center font-mono"
+              className="w-3.5 h-3.5 rounded-full border border-border-secondary text-[9px] text-text-tertiary hover:bg-brand hover:text-white hover:border-brand transition-colors flex items-center justify-center font-mono"
               aria-label="설명"
             >
               ?
             </button>
           )}
         </div>
-        <span className="font-mono text-sm font-semibold text-[#F7F8F8]">
+        <span className="font-mono text-sm font-semibold text-text-primary">
           {prefix}
           {typeof value === 'number' && value % 1 !== 0
             ? value.toFixed(1)
@@ -783,7 +783,7 @@ function SliderWithHelp({
         </span>
       </div>
       {open && help && (
-        <div className="text-[11px] text-[#D0D6E0] bg-[#08090A] border-l-2 border-[#5E6AD2] rounded-r px-3 py-2 mb-2 leading-relaxed">
+        <div className="text-[11px] text-text-secondary bg-bg-0 border-l-2 border-brand rounded-r px-3 py-2 mb-2 leading-relaxed">
           {help}
         </div>
       )}
@@ -794,9 +794,9 @@ function SliderWithHelp({
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-[#5E6AD2]"
+        className="w-full accent-brand"
       />
-      <div className="flex justify-between font-mono text-[10px] text-[#62666D] mt-1">
+      <div className="flex justify-between font-mono text-[10px] text-text-quaternary mt-1">
         <span>
           {prefix}
           {new Intl.NumberFormat('ko-KR').format(min)}
@@ -834,8 +834,8 @@ function MiniSlider({
   return (
     <div>
       <div className="flex justify-between items-baseline mb-1">
-        <label className="text-[11px] text-[#8A8F98]">{label}</label>
-        <span className="font-mono text-xs font-semibold text-[#F7F8F8]">
+        <label className="text-[11px] text-text-tertiary">{label}</label>
+        <span className="font-mono text-xs font-semibold text-text-primary">
           {prefix}
           {typeof value === 'number' && value % 1 !== 0 ? value.toFixed(1) : value}
           {suffix}
@@ -848,7 +848,7 @@ function MiniSlider({
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-[#5E6AD2]"
+        className="w-full accent-brand"
       />
     </div>
   );
@@ -900,26 +900,26 @@ function NumberInput({
     <div>
       <div className="flex justify-between items-baseline mb-2">
         <div className="flex items-center gap-1.5">
-          <label className="text-xs text-[#D0D6E0]">{label}</label>
+          <label className="text-xs text-text-secondary">{label}</label>
           {help && (
             <button
               onClick={() => setOpen(!open)}
-              className="w-3.5 h-3.5 rounded-full border border-[#34343A] text-[9px] text-[#8A8F98] hover:bg-[#5E6AD2] hover:text-white hover:border-[#5E6AD2] transition-colors flex items-center justify-center font-mono"
+              className="w-3.5 h-3.5 rounded-full border border-border-secondary text-[9px] text-text-tertiary hover:bg-brand hover:text-white hover:border-brand transition-colors flex items-center justify-center font-mono"
               aria-label="설명"
             >
               ?
             </button>
           )}
         </div>
-        <span className="font-mono text-[10px] text-[#8A8F98]">{fmtCompact(value || 0)}</span>
+        <span className="font-mono text-[10px] text-text-tertiary">{fmtCompact(value || 0)}</span>
       </div>
       {open && help && (
-        <div className="text-[11px] text-[#D0D6E0] bg-[#08090A] border-l-2 border-[#5E6AD2] rounded-r px-3 py-2 mb-2 leading-relaxed">
+        <div className="text-[11px] text-text-secondary bg-bg-0 border-l-2 border-brand rounded-r px-3 py-2 mb-2 leading-relaxed">
           {help}
         </div>
       )}
-      <div className="flex items-center border border-[#23252A] bg-[#08090A] rounded-lg focus-within:border-[#5E6AD2] focus-within:shadow-[0_0_0_1px_#5E6AD2] transition-all">
-        <span className="text-[#62666D] text-sm px-2.5">₩</span>
+      <div className="flex items-center border border-border-primary bg-bg-0 rounded-lg focus-within:border-brand focus-within:shadow-[0_0_0_1px_var(--color-brand-bg)] transition-all">
+        <span className="text-text-quaternary text-sm px-2.5">₩</span>
         <input
           type="text"
           inputMode="numeric"
@@ -930,7 +930,7 @@ function NumberInput({
           onKeyDown={(e) => {
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
           }}
-          className="font-mono text-sm font-semibold text-[#F7F8F8] w-full py-2 pr-2.5 focus:outline-none bg-transparent text-right"
+          className="font-mono text-sm font-semibold text-text-primary w-full py-2 pr-2.5 focus:outline-none bg-transparent text-right"
         />
       </div>
       {presets.length > 0 && (
@@ -941,8 +941,8 @@ function NumberInput({
               onClick={() => onChange(p.v)}
               className={`font-mono text-[10px] px-2 py-1 rounded border transition-colors ${
                 value === p.v
-                  ? 'border-[#5E6AD2] bg-[#5E6AD2]/15 text-[#828FFF]'
-                  : 'border-[#23252A] text-[#8A8F98] hover:border-[#5E6AD2] hover:text-[#F7F8F8]'
+                  ? 'border-brand bg-brand/15 text-accent'
+                  : 'border-border-primary text-text-tertiary hover:border-brand hover:text-text-primary'
               }`}
             >
               {p.label}
@@ -965,12 +965,12 @@ function ResultRow({
   sub?: string;
   tone?: 'neg';
 }) {
-  const toneColor = tone === 'neg' ? 'text-[#EB5757]' : 'text-[#F7F8F8]';
+  const toneColor = tone === 'neg' ? 'text-danger' : 'text-text-primary';
   return (
     <div className="flex justify-between items-baseline">
       <div>
-        <div className="text-xs text-[#D0D6E0]">{label}</div>
-        {sub && <div className="text-[10px] text-[#62666D] font-mono">{sub}</div>}
+        <div className="text-xs text-text-secondary">{label}</div>
+        {sub && <div className="text-[10px] text-text-quaternary font-mono">{sub}</div>}
       </div>
       <span className={`font-mono text-sm font-semibold ${toneColor}`}>{value}</span>
     </div>
@@ -991,11 +991,11 @@ function Panel({
   return (
     <div>
       <div className="mb-5">
-        <h2 className="text-xl font-semibold tracking-tight text-[#F7F8F8] mb-2.5">{title}</h2>
-        <div className="font-mono text-[11px] bg-[#08090A] border border-[#23252A] text-[#828FFF] inline-block px-3 py-1.5 rounded-md mb-3 leading-relaxed">
+        <h2 className="text-xl font-semibold tracking-tight text-text-primary mb-2.5">{title}</h2>
+        <div className="font-mono text-[11px] bg-bg-0 border border-border-primary text-accent inline-block px-3 py-1.5 rounded-md mb-3 leading-relaxed">
           {formula}
         </div>
-        <p className="text-sm text-[#8A8F98] leading-relaxed max-w-3xl">{description}</p>
+        <p className="text-sm text-text-tertiary leading-relaxed max-w-3xl">{description}</p>
       </div>
       <div className={`${PANEL} p-6`}>{children}</div>
     </div>
@@ -1015,15 +1015,15 @@ function MiniStat({
 }) {
   const toneColor =
     tone === 'pos'
-      ? 'text-[#27A644] border-[#27A644]'
+      ? 'text-success border-success'
       : tone === 'neg'
-      ? 'text-[#EB5757] border-[#EB5757]'
+      ? 'text-danger border-danger'
       : tone === 'mid'
-      ? 'text-[#F0BF00] border-[#F0BF00]'
-      : 'text-[#F7F8F8] border-[#5E6AD2]';
+      ? 'text-warning border-warning'
+      : 'text-text-primary border-brand';
   return (
     <div className={`border-l-2 pl-4 ${toneColor}`}>
-      <div className="text-[11px] tracking-[0.15em] text-[#62666D] uppercase mb-1 font-mono">
+      <div className="text-[11px] tracking-[0.15em] text-text-quaternary uppercase mb-1 font-mono">
         {label}
       </div>
       <div className="text-2xl font-semibold">{value}</div>
@@ -1043,11 +1043,11 @@ function RoasTooltip({
 }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div className="bg-[#0F1011] border border-[#23252A] rounded-lg px-3 py-2.5 shadow-[0px_7px_32px_rgba(0,0,0,0.35)]">
-      <div className="text-[11px] text-[#8A8F98] font-mono mb-2">
-        광고 ROAS <span className="text-[#F7F8F8] font-semibold">{label}%</span>
+    <div className="bg-bg-1 border border-border-primary rounded-lg px-3 py-2.5 shadow-[0px_7px_32px_rgba(0,0,0,0.35)]">
+      <div className="text-[11px] text-text-tertiary font-mono mb-2">
+        광고 ROAS <span className="text-text-primary font-semibold">{label}%</span>
       </div>
-      <div className="text-[10px] tracking-[0.12em] text-[#62666D] uppercase font-mono mb-1.5">
+      <div className="text-[10px] tracking-[0.12em] text-text-quaternary uppercase font-mono mb-1.5">
         최종 공헌이익율
       </div>
       <div className="space-y-1">
@@ -1058,7 +1058,7 @@ function RoasTooltip({
                 className="inline-block w-2.5 h-0.5"
                 style={{ background: p.color }}
               />
-              <span className="text-[#D0D6E0]">{p.name}</span>
+              <span className="text-text-secondary">{p.name}</span>
             </div>
             <span className="font-semibold" style={{ color: p.color }}>
               {p.value.toFixed(1)}%
@@ -1072,11 +1072,11 @@ function RoasTooltip({
 
 function Tip({ title, body }: { title: string; body: string }) {
   return (
-    <div className="border-t-2 border-[#5E6AD2] pt-3">
-      <div className="font-mono text-[10px] tracking-wider text-[#62666D] uppercase mb-1">
+    <div className="border-t-2 border-brand pt-3">
+      <div className="font-mono text-[10px] tracking-wider text-text-quaternary uppercase mb-1">
         {title}
       </div>
-      <div className="text-xs text-[#D0D6E0] leading-relaxed">{body}</div>
+      <div className="text-xs text-text-secondary leading-relaxed">{body}</div>
     </div>
   );
 }

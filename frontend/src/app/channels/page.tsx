@@ -12,30 +12,30 @@ import {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Linear 다크 팔레트 (contribution-margin 페이지와 통일)
-const PANEL = 'bg-[#0F1011] rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A]';
-const SUBPANEL = 'bg-[#08090A] rounded-lg border border-[#23252A]';
-const TEXT_PRIMARY = '#F7F8F8';
-const TEXT_DIM = '#A3A9B3';     // 8A8F98보다 밝게 — 가시성 개선
-const TEXT_MUTED = '#7A7F8A';   // 62666D보다 밝게
-const ROW_HOVER = 'hover:bg-[#1A1C22]'; // 0A0B0D는 너무 어두워 hover 효과 약함 → 더 밝게
+const PANEL = 'bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary';
+const SUBPANEL = 'bg-bg-0 rounded-lg border border-border-primary';
+const TEXT_PRIMARY = 'var(--color-text-primary)';
+const TEXT_DIM = 'var(--color-text-dim)';     // 8A8F98보다 밝게 — 가시성 개선
+const TEXT_MUTED = 'var(--color-text-muted)';   // 62666D보다 밝게
+const ROW_HOVER = 'hover:bg-bg-inset'; // 0A0B0D는 너무 어두워 hover 효과 약함 → 더 밝게
 
 // recharts Tooltip 공통 스타일 (다크 배경 + 큰 글씨)
 const TOOLTIP_STYLE: React.CSSProperties = {
-  background: '#13141A',
-  border: '1px solid #2E3138',
+  background: 'var(--color-bg-inset)',
+  border: '1px solid var(--color-border-subtle)',
   borderRadius: 8,
-  color: '#F7F8F8',
+  color: 'var(--color-text-primary)',
   fontSize: 12,
   padding: '8px 12px',
   boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
 };
-const TOOLTIP_LABEL_STYLE: React.CSSProperties = { color: '#A3A9B3', fontWeight: 500, marginBottom: 4 };
-const TOOLTIP_ITEM_STYLE: React.CSSProperties = { color: '#F7F8F8' };
+const TOOLTIP_LABEL_STYLE: React.CSSProperties = { color: 'var(--color-text-dim)', fontWeight: 500, marginBottom: 4 };
+const TOOLTIP_ITEM_STYLE: React.CSSProperties = { color: 'var(--color-text-primary)' };
 
 // 차트 공통 props
-const CHART_GRID = { stroke: '#23252A', strokeDasharray: '3 3' };
-const AXIS_TICK = { fill: '#A3A9B3', fontSize: 11 };
-const LEGEND_STYLE = { fontSize: 11, color: '#D0D6E0' };
+const CHART_GRID = { stroke: 'var(--color-border-primary)', strokeDasharray: '3 3' };
+const AXIS_TICK = { fill: 'var(--color-text-dim)', fontSize: 11 };
+const LEGEND_STYLE = { fontSize: 11, color: 'var(--color-text-secondary)' };
 
 const PALETTE = [
   '#828FFF', '#27A644', '#F0BF00', '#EB5757', '#06B6D4',
@@ -162,7 +162,7 @@ const downloadCsv = (filename: string, headers: string[], rows: (string | number
   URL.revokeObjectURL(url);
 };
 
-const DL_BTN = 'px-2.5 py-1 rounded-md text-[11px] bg-[#1A1C22] border border-[#2C2F36] text-[#A3A9B3] hover:text-[#F7F8F8] hover:border-[#4C5EF7] transition-colors';
+const DL_BTN = 'px-2.5 py-1 rounded-md text-[11px] bg-bg-inset border border-border-subtle text-text-dim hover:text-text-primary hover:border-[#4C5EF7] transition-colors';
 
 const today = new Date();
 const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -184,8 +184,8 @@ type Tab = 'dashboard' | 'pnl' | 'upload' | 'mapping' | 'cost' | 'plan' | 'produ
 export default function ChannelsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#08090A] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-[#828FFF] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-bg-0 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <Content />
@@ -383,14 +383,14 @@ function Content() {
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-[#08090A] flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-[#828FFF] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-bg-0 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#08090A] text-[#F7F8F8]">
+    <div className="min-h-screen bg-bg-0 text-text-primary">
       <Navigation />
       <div className="md:ml-64 p-6 md:p-8 max-w-[1600px]">
         <Header
@@ -517,26 +517,26 @@ function Header({
       <div className="flex items-baseline justify-between mb-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">채널별 매출 취합·분석</h1>
-          <p className="text-sm text-[#8A8F98] mt-1">
+          <p className="text-sm text-text-tertiary mt-1">
             채널 엑셀 업로드 → 자동 정규화 → 실시간 공헌이익 분석.
-            {' '}<span className="text-[#62666D]">파서 준비 채널 {parsersReady}/{channels.length}</span>
+            {' '}<span className="text-text-quaternary">파서 준비 채널 {parsersReady}/{channels.length}</span>
           </p>
         </div>
       </div>
-      <div className="flex gap-1 border-b border-[#23252A]">
+      <div className="flex gap-1 border-b border-border-primary">
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5 ${
               activeTab === t.key
-                ? 'text-[#F7F8F8] border-[#828FFF]'
-                : 'text-[#8A8F98] border-transparent hover:text-[#D0D6E0]'
+                ? 'text-text-primary border-accent'
+                : 'text-text-tertiary border-transparent hover:text-text-secondary'
             }`}
           >
             {t.label}
             {t.badge !== undefined && t.badge > 0 && (
-              <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-[#F0BF00] text-[#08090A]">
+              <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-warning text-bg-0">
                 {t.badge}
               </span>
             )}
@@ -671,27 +671,27 @@ function MatrixSection({ title, by, authHeaders, categoryToggle = false }: {
   return (
     <div className={`${PANEL} p-5 mt-5`}>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h2 className="text-sm font-semibold text-[#F7F8F8]">
+        <h2 className="text-sm font-semibold text-text-primary">
           {title}
-          <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">{year}년 · {metricLabel}</span>
+          <span className="text-[10px] text-text-muted ml-2 font-normal">{year}년 · {metricLabel}</span>
         </h2>
         <div className="flex items-center gap-2">
           <select
             value={year} onChange={e => setYear(Number(e.target.value))}
-            className="bg-[#1A1C22] border border-[#2C2F36] rounded-md px-2 py-1 text-[11px] text-[#D0D6E0]"
+            className="bg-bg-inset border border-border-subtle rounded-md px-2 py-1 text-[11px] text-text-secondary"
           >
             {yearOpts.map(y => <option key={y} value={y}>{y}년</option>)}
           </select>
           <select
             value={metric} onChange={e => setMetric(e.target.value)}
-            className="bg-[#1A1C22] border border-[#2C2F36] rounded-md px-2 py-1 text-[11px] text-[#D0D6E0]"
+            className="bg-bg-inset border border-border-subtle rounded-md px-2 py-1 text-[11px] text-text-secondary"
           >
             {MATRIX_METRICS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
           </select>
           {categoryToggle && (
             <button
               onClick={() => setByCategory(v => !v)}
-              className={`${DL_BTN} ${byCategory ? 'text-[#828FFF] border-[#4C5EF7]' : ''}`}
+              className={`${DL_BTN} ${byCategory ? 'text-accent border-[#4C5EF7]' : ''}`}
             >
               {byCategory ? '카테고리별' : '품목별'}
             </button>
@@ -702,43 +702,43 @@ function MatrixSection({ title, by, authHeaders, categoryToggle = false }: {
       <div className="overflow-x-auto">
         <table className="w-full text-[12px] whitespace-nowrap">
           <thead>
-            <tr className="border-b border-[#23252A] text-[10px] uppercase tracking-wider text-[#62666D]">
-              <th className="text-left py-2 px-2 sticky left-0 bg-[#0F1011]">{rowLabel}</th>
+            <tr className="border-b border-border-primary text-[10px] uppercase tracking-wider text-text-quaternary">
+              <th className="text-left py-2 px-2 sticky left-0 bg-bg-1">{rowLabel}</th>
               {months.map(m => <th key={m} className="text-right py-2 px-2">{m}월</th>)}
-              <th className="text-right py-2 px-2 text-[#A3A9B3]">합계</th>
+              <th className="text-right py-2 px-2 text-text-dim">합계</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={14} className="py-8 text-center text-[#62666D]">불러오는 중…</td></tr>
+              <tr><td colSpan={14} className="py-8 text-center text-text-quaternary">불러오는 중…</td></tr>
             ) : displayRows.length ? (
               displayRows.map((r: any) => (
-                <tr key={r.id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                  <td className="py-1.5 px-2 text-[#F7F8F8] sticky left-0 bg-[#0F1011]">{r.name}</td>
+                <tr key={r.id} className="border-b border-bg-inset hover:bg-bg-inset">
+                  <td className="py-1.5 px-2 text-text-primary sticky left-0 bg-bg-1">{r.name}</td>
                   {months.map(m => (
-                    <td key={m} className="py-1.5 px-2 text-right font-mono text-[#D0D6E0]">
+                    <td key={m} className="py-1.5 px-2 text-right font-mono text-text-secondary">
                       {fmtMatrixCell(matrixCellValue(r.monthly?.[String(m)], metric), metric)}
                     </td>
                   ))}
-                  <td className="py-1.5 px-2 text-right font-mono text-[#F7F8F8] font-semibold">
+                  <td className="py-1.5 px-2 text-right font-mono text-text-primary font-semibold">
                     {fmtMatrixCell(matrixCellValue(r.total, metric), metric)}
                   </td>
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={14} className="py-8 text-center text-[#62666D]">{year}년 데이터가 없습니다.</td></tr>
+              <tr><td colSpan={14} className="py-8 text-center text-text-quaternary">{year}년 데이터가 없습니다.</td></tr>
             )}
           </tbody>
           {displayRows.length ? (
             <tfoot>
-              <tr className="border-t-2 border-[#2C2F36] font-semibold bg-[#15171A]">
-                <td className="py-2 px-2 text-[#F7F8F8] sticky left-0 bg-[#15171A]">합계</td>
+              <tr className="border-t-2 border-border-subtle font-semibold bg-bg-inset">
+                <td className="py-2 px-2 text-text-primary sticky left-0 bg-bg-inset">합계</td>
                 {months.map(m => (
-                  <td key={m} className="py-2 px-2 text-right font-mono text-[#F7F8F8]">
+                  <td key={m} className="py-2 px-2 text-right font-mono text-text-primary">
                     {fmtMatrixCell(matrixCellValue(colTotals[String(m)], metric), metric)}
                   </td>
                 ))}
-                <td className="py-2 px-2 text-right font-mono text-[#828FFF]">
+                <td className="py-2 px-2 text-right font-mono text-accent">
                   {fmtMatrixCell(matrixCellValue(colTotals.total, metric), metric)}
                 </td>
               </tr>
@@ -847,9 +847,9 @@ const DashboardTab = memo(function DashboardTab({
     <div className="relative space-y-4">
       {/* 기간/필터 변경으로 재조회 중일 때 — 기존 데이터는 유지한 채 살짝 딤 처리만 */}
       {loading && data && (
-        <div className="absolute inset-0 z-20 bg-[#08090A]/55 backdrop-blur-[1px] flex items-start justify-center pt-24 pointer-events-none rounded-xl">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#13141A] border border-[#2C2F36] shadow-lg text-xs text-[#D0D6E0]">
-            <span className="w-3.5 h-3.5 border-2 border-[#828FFF] border-t-transparent rounded-full animate-spin" />
+        <div className="absolute inset-0 z-20 bg-bg-0/55 backdrop-blur-[1px] flex items-start justify-center pt-24 pointer-events-none rounded-xl">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-bg-inset border border-border-subtle shadow-lg text-xs text-text-secondary">
+            <span className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             데이터 불러오는 중…
           </div>
         </div>
@@ -869,12 +869,12 @@ const DashboardTab = memo(function DashboardTab({
             onClick={onApplyDates}
             className={`h-[38px] self-end px-4 rounded-lg text-sm font-semibold transition-colors ${
               (draftStart !== periodStart || draftEnd !== periodEnd)
-                ? 'bg-[#5E6AD2] text-white ring-2 ring-[#5E6AD2]/40 hover:bg-[#4d58bd]'
-                : 'bg-[#5E6AD2] text-white hover:bg-[#4d58bd]'
+                ? 'bg-brand text-white ring-2 ring-brand/40 hover:bg-brand-hover'
+                : 'bg-brand text-white hover:bg-brand-hover'
             }`}
           >조회</button>
           {(draftStart !== periodStart || draftEnd !== periodEnd) && (
-            <span className="self-end pb-2.5 text-[11px] text-[#F0BF00]">기간 변경됨 — 조회를 누르세요</span>
+            <span className="self-end pb-2.5 text-[11px] text-warning">기간 변경됨 — 조회를 누르세요</span>
           )}
           <Segment
             label="단위"
@@ -914,7 +914,7 @@ const DashboardTab = memo(function DashboardTab({
             {(selChannels.length > 0 || selProducts.length > 0 || selEmployees.length > 0) && (
               <button
                 onClick={() => { setSelChannels([]); setSelProducts([]); setSelEmployees([]); }}
-                className="text-xs text-[#A3A9B3] hover:text-[#F7F8F8] px-3 py-2"
+                className="text-xs text-text-dim hover:text-text-primary px-3 py-2"
               >
                 필터 초기화
               </button>
@@ -922,7 +922,7 @@ const DashboardTab = memo(function DashboardTab({
           </div>
         </div>
         {/* 기간 빠른 선택 */}
-        <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-[#1A1B1F]">
+        <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-bg-inset">
           {DATE_PRESETS.map((p) => {
             const r = p.range();
             const active = periodStart === r.start && periodEnd === r.end;
@@ -932,8 +932,8 @@ const DashboardTab = memo(function DashboardTab({
                 onClick={() => applyPreset(r.start, r.end)}
                 className={`text-[11px] px-2.5 py-1 rounded border transition-colors ${
                   active
-                    ? 'border-[#828FFF] text-[#A8B3FF] bg-[#1B1D2A]'
-                    : 'border-[#23252A] text-[#A3A9B3] hover:text-[#F7F8F8] hover:bg-[#1F2127]'
+                    ? 'border-accent text-brand-light bg-[#1B1D2A]'
+                    : 'border-border-primary text-text-dim hover:text-text-primary hover:bg-[#1F2127]'
                 }`}
               >
                 {p.label}
@@ -948,28 +948,28 @@ const DashboardTab = memo(function DashboardTab({
         <div className="flex items-center justify-between flex-wrap gap-2">
           <button
             onClick={() => setCompareOpen((v: boolean) => !v)}
-            className="text-xs font-medium text-[#828FFF] hover:text-[#A8B3FF] flex items-center gap-1.5"
+            className="text-xs font-medium text-accent hover:text-brand-light flex items-center gap-1.5"
           >
             <span className={`inline-block transition-transform ${compareOpen ? 'rotate-90' : ''}`}>▶</span>
             기간 비교 {compareOpen ? '닫기' : '열기'}
           </button>
           {compareOpen && (
             <div className="flex items-end gap-2 flex-wrap">
-              <span className="text-[11px] text-[#A3A9B3] pb-1.5">
-                기준 기간({periodDays}일)의 <span className="text-[#F7F8F8] font-medium">직전 동일 길이</span>와 자동 비교됩니다.
-                {compareManual && <span className="ml-1 text-[#F0BF00]">(수동 조정됨)</span>}
+              <span className="text-[11px] text-text-dim pb-1.5">
+                기준 기간({periodDays}일)의 <span className="text-text-primary font-medium">직전 동일 길이</span>와 자동 비교됩니다.
+                {compareManual && <span className="ml-1 text-warning">(수동 조정됨)</span>}
               </span>
               <DateInput label="직전 시작" value={compareStart} onChange={(v: string) => { setCompareStart(v); setCompareManual(true); }} />
               <DateInput label="직전 종료" value={compareEnd} onChange={(v: string) => { setCompareEnd(v); setCompareManual(true); }} />
               {compareManual && (
                 <button
                   onClick={() => setCompareManual(false)}
-                  className="text-[10px] text-[#A3A9B3] hover:text-[#F7F8F8] px-2 py-1.5 border border-[#23252A] rounded"
+                  className="text-[10px] text-text-dim hover:text-text-primary px-2 py-1.5 border border-border-primary rounded"
                   title="기준 기간 직전 동일 길이로 재설정"
                 >자동으로 복귀</button>
               )}
               {hasCompare && (
-                <span className="text-[10px] text-[#7A7F8A] ml-2">
+                <span className="text-[10px] text-text-muted ml-2">
                   비교: 매출 ₩{fmtKR(compareData.summary.revenue)} · 공헌이익 ₩{fmtKR(compareData.summary.contribution_margin)}
                 </span>
               )}
@@ -983,7 +983,7 @@ const DashboardTab = memo(function DashboardTab({
         <CompactKpi label="매출(VAT-)"
           value={data ? `₩${fmtKR(data.summary.revenue)}` : '—'}
           hint={data ? `${fmtNum(data.summary.orders)} 주문${data.summary.cancelled_count ? ` · 취소/환불 ${fmtNum(data.summary.cancelled_count)}건` : ''}${data.summary.revenue_deduction ? ` · 월정액수수료 ₩${fmtKR(data.summary.revenue_deduction)} 차감 후` : ''}` : ''}
-          accent="#828FFF"
+          accent="var(--color-accent-hover)"
           spark={sparkKey('revenue')}
           compareValue={hasCompare ? compareData.summary.revenue : undefined}
           currentValue={data?.summary.revenue}
@@ -991,7 +991,7 @@ const DashboardTab = memo(function DashboardTab({
         <CompactKpi label="낱개수량"
           value={data ? fmtNum(Math.round(data.summary.pcs)) : '—'}
           hint="입수 환산"
-          accent="#7070FF"
+          accent="var(--color-link-primary)"
           spark={sparkKey('pcs')}
           compareValue={hasCompare ? compareData.summary.pcs : undefined}
           currentValue={data?.summary.pcs}
@@ -999,7 +999,7 @@ const DashboardTab = memo(function DashboardTab({
         <CompactKpi label="공헌이익"
           value={data ? `₩${fmtKR(data.summary.contribution_margin)}` : '—'}
           hint={data ? `변동비 ₩${fmtKR(data.summary.variable_cost)}` : ''}
-          accent="#27A644"
+          accent="var(--color-success)"
           spark={sparkKey('cm')}
           compareValue={hasCompare ? compareData.summary.contribution_margin : undefined}
           currentValue={data?.summary.contribution_margin}
@@ -1007,7 +1007,7 @@ const DashboardTab = memo(function DashboardTab({
         <CompactKpi label="공헌이익률"
           value={data ? fmtPct(data.summary.cm_rate) : '—'}
           hint=""
-          accent={data?.summary.cm_rate >= 30 ? '#27A644' : '#F0BF00'}
+          accent={data?.summary.cm_rate >= 30 ? 'var(--color-success)' : 'var(--color-warning)'}
           compareValue={hasCompare ? compareData.summary.cm_rate : undefined}
           currentValue={data?.summary.cm_rate}
           deltaFormat="pp"
@@ -1015,14 +1015,14 @@ const DashboardTab = memo(function DashboardTab({
         <CompactKpi label="낱개당 객단가"
           value={data ? `₩${fmtKR(data.summary.avg_price_per_pcs || 0)}` : '—'}
           hint=""
-          accent="#06B6D4"
+          accent="var(--color-cyan)"
           compareValue={hasCompare ? compareData.summary.avg_price_per_pcs : undefined}
           currentValue={data?.summary.avg_price_per_pcs}
         />
         <CompactKpi label="주문당 객단가"
           value={data ? `₩${fmtKR(data.summary.avg_price_per_order || 0)}` : '—'}
           hint=""
-          accent="#A855F7"
+          accent="var(--color-purple)"
           compareValue={hasCompare ? compareData.summary.avg_price_per_order : undefined}
           currentValue={data?.summary.avg_price_per_order}
         />
@@ -1034,7 +1034,7 @@ const DashboardTab = memo(function DashboardTab({
           title="구분별 매출 비중"
           subtitle="온라인(위탁)·온라인(사입)·오프라인"
           data={groupsData.map((g: any) => ({ name: g.group, value: g.revenue }))}
-          colors={['#828FFF', '#27A644', '#F0BF00']}
+          colors={['var(--color-accent-hover)', 'var(--color-success)', 'var(--color-warning)']}
         />
         <DonutCard
           title="채널별 매출 비중"
@@ -1052,8 +1052,8 @@ const DashboardTab = memo(function DashboardTab({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className={`${PANEL} p-4 lg:col-span-2`}>
           <div className="flex items-baseline justify-between mb-2">
-            <h3 className="text-sm font-semibold text-[#F7F8F8]">매출 & 공헌이익 추이</h3>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3]">
+            <h3 className="text-sm font-semibold text-text-primary">매출 & 공헌이익 추이</h3>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-text-dim">
               {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
             </span>
           </div>
@@ -1062,21 +1062,21 @@ const DashboardTab = memo(function DashboardTab({
               <ComposedChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#A8B3FF" stopOpacity={0.95} />
+                    <stop offset="0%" stopColor="var(--color-brand-light)" stopOpacity={0.95} />
                     <stop offset="100%" stopColor="#5560C8" stopOpacity={0.55} />
                   </linearGradient>
                   <linearGradient id="gradRevenueCmp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#7A7F8A" stopOpacity={0.55} />
+                    <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.55} />
                     <stop offset="100%" stopColor="#3A3D45" stopOpacity={0.25} />
                   </linearGradient>
                   <linearGradient id="gradCmArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#27A644" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#27A644" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid {...CHART_GRID} />
-                <XAxis dataKey="period" tick={AXIS_TICK} stroke="#62666D" />
-                <YAxis tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
+                <XAxis dataKey="period" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" />
+                <YAxis tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                   formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
@@ -1092,15 +1092,15 @@ const DashboardTab = memo(function DashboardTab({
                 )}
                 <Bar dataKey="revenue" name="매출(VAT-)" fill="url(#gradRevenue)" radius={[6, 6, 0, 0]} />
                 {hasCompare && (
-                  <Line type="monotone" dataKey="compare_cm" name="비교 공헌이익" stroke="#A3A9B3" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
+                  <Line type="monotone" dataKey="compare_cm" name="비교 공헌이익" stroke="var(--color-text-dim)" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
                 )}
-                <Area type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="#27A644" strokeWidth={2.5} fill="url(#gradCmArea)" dot={{ r: 3, stroke: '#27A644', strokeWidth: 2, fill: '#0F1011' }} activeDot={{ r: 5 }} />
+                <Area type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="var(--color-success)" strokeWidth={2.5} fill="url(#gradCmArea)" dot={{ r: 3, stroke: 'var(--color-success)', strokeWidth: 2, fill: 'var(--color-bg-level-1)' }} activeDot={{ r: 5 }} />
               </ComposedChart>
             </ResponsiveContainer>
           ) : <Empty h={240} />}
         </div>
         <div className={`${PANEL} p-4`}>
-          <h3 className="text-sm font-semibold text-[#F7F8F8] mb-2">변동비 분해</h3>
+          <h3 className="text-sm font-semibold text-text-primary mb-2">변동비 분해</h3>
           {costBreakdown.length ? (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={costBreakdown} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
@@ -1111,8 +1111,8 @@ const DashboardTab = memo(function DashboardTab({
                   </linearGradient>
                 </defs>
                 <CartesianGrid {...CHART_GRID} />
-                <XAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} />
-                <YAxis type="category" dataKey="name" tick={AXIS_TICK} stroke="#62666D" width={70} />
+                <XAxis type="number" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} />
+                <YAxis type="category" dataKey="name" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" width={70} />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                   formatter={(v: number) => `₩${fmtKR(v)}`}
@@ -1121,9 +1121,9 @@ const DashboardTab = memo(function DashboardTab({
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[240px] flex flex-col items-center justify-center text-xs text-[#A3A9B3] gap-1">
+            <div className="h-[240px] flex flex-col items-center justify-center text-xs text-text-dim gap-1">
               <span>변동비 규칙이 설정되지 않았습니다</span>
-              <span className="text-[10px] text-[#7A7F8A]">변동비 설정 탭에서 입력해 주세요</span>
+              <span className="text-[10px] text-text-muted">변동비 설정 탭에서 입력해 주세요</span>
             </div>
           )}
         </div>
@@ -1132,15 +1132,15 @@ const DashboardTab = memo(function DashboardTab({
       {/* 기간별 판매수량 추이 (낱개) */}
       <div className={`${PANEL} p-4`}>
         <div className="flex items-baseline justify-between mb-2">
-          <h3 className="text-sm font-semibold text-[#F7F8F8]">
+          <h3 className="text-sm font-semibold text-text-primary">
             판매수량 추이
             {selProducts.length > 0 && (
-              <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">
+              <span className="text-[10px] text-text-muted ml-2 font-normal">
                 ({selProducts.length}개 품목 선택)
               </span>
             )}
           </h3>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3]">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-text-dim">
             {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
           </span>
         </div>
@@ -1149,13 +1149,13 @@ const DashboardTab = memo(function DashboardTab({
             <LineChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradPcsLine" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#A8B3FF" stopOpacity={1} />
+                  <stop offset="0%" stopColor="var(--color-brand-light)" stopOpacity={1} />
                   <stop offset="100%" stopColor="#5560C8" stopOpacity={1} />
                 </linearGradient>
               </defs>
               <CartesianGrid {...CHART_GRID} />
-              <XAxis dataKey="period" tick={AXIS_TICK} stroke="#62666D" />
-              <YAxis tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtNum} />
+              <XAxis dataKey="period" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" />
+              <YAxis tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtNum} />
               <Tooltip
                 contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                 formatter={(v: number, n: string) => [`${fmtNum(Math.round(v))}개`, n]}
@@ -1167,18 +1167,18 @@ const DashboardTab = memo(function DashboardTab({
               />
               <Legend wrapperStyle={LEGEND_STYLE} />
               {hasCompare && (
-                <Line type="monotone" dataKey="compare_pcs" name="비교 판매수량" stroke="#7A7F8A" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
+                <Line type="monotone" dataKey="compare_pcs" name="비교 판매수량" stroke="var(--color-text-muted)" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
               )}
-              <Line type="monotone" dataKey="pcs" name="판매수량 (낱개)" stroke="url(#gradPcsLine)" strokeWidth={2.5} dot={{ r: 3, stroke: '#A8B3FF', strokeWidth: 2, fill: '#0F1011' }} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="pcs" name="판매수량 (낱개)" stroke="url(#gradPcsLine)" strokeWidth={2.5} dot={{ r: 3, stroke: 'var(--color-brand-light)', strokeWidth: 2, fill: 'var(--color-bg-level-1)' }} activeDot={{ r: 5 }} />
             </LineChart>
           </ResponsiveContainer>
         ) : <Empty h={220} />}
         {/* 담당자 × 날짜 매출 히트맵 */}
         {data?.heatmap && data.heatmap.employees.length > 0 && (
-          <div className="mt-5 pt-4 border-t border-[#23252A]">
+          <div className="mt-5 pt-4 border-t border-border-primary">
             <div className="flex items-baseline justify-between mb-2">
-              <h3 className="text-sm font-semibold text-[#F7F8F8]">담당자별 매출 히트맵</h3>
-              <span className="text-[10px] text-[#7A7F8A]">셀 호버 시 매출·수량 표시 · 색이 진할수록 매출↑</span>
+              <h3 className="text-sm font-semibold text-text-primary">담당자별 매출 히트맵</h3>
+              <span className="text-[10px] text-text-muted">셀 호버 시 매출·수량 표시 · 색이 진할수록 매출↑</span>
             </div>
             <SalesHeatmap hm={data.heatmap} granularity={granularity} />
           </div>
@@ -1189,7 +1189,7 @@ const DashboardTab = memo(function DashboardTab({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className={`${PANEL} p-4`}>
           <div className="flex items-baseline justify-between mb-2">
-            <h3 className="text-sm font-semibold text-[#F7F8F8]">채널별 매출/공헌이익 Top 10</h3>
+            <h3 className="text-sm font-semibold text-text-primary">채널별 매출/공헌이익 Top 10</h3>
           </div>
           {data && data.channels.length ? (
             <ResponsiveContainer width="100%" height={320}>
@@ -1197,11 +1197,11 @@ const DashboardTab = memo(function DashboardTab({
                 <defs>
                   <linearGradient id="gradTopRev" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#5560C8" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="#A8B3FF" stopOpacity={1} />
+                    <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
                   </linearGradient>
                   <linearGradient id="gradTopRevCmp" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="#7A7F8A" stopOpacity={0.7} />
+                    <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.7} />
                   </linearGradient>
                   <linearGradient id="gradTopCm" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#1F7A38" stopOpacity={0.8} />
@@ -1213,9 +1213,9 @@ const DashboardTab = memo(function DashboardTab({
                   </linearGradient>
                 </defs>
                 <CartesianGrid {...CHART_GRID} />
-                <XAxis type="category" dataKey="channel_name" tick={{ fill: '#8A8F98', fontSize: 10 }} stroke="#62666D"
+                <XAxis type="category" dataKey="channel_name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} stroke="var(--color-text-quaternary)"
                   interval={0} angle={-40} textAnchor="end" height={78} />
-                <YAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} width={48} />
+                <YAxis type="number" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} width={48} />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                   formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
@@ -1230,18 +1230,18 @@ const DashboardTab = memo(function DashboardTab({
           ) : <Empty h={220} />}
         </div>
         <div className={`${PANEL} p-4`}>
-          <h3 className="text-sm font-semibold text-[#F7F8F8] mb-2">품목별 매출/공헌이익 Top 12</h3>
+          <h3 className="text-sm font-semibold text-text-primary mb-2">품목별 매출/공헌이익 Top 12</h3>
           {data && data.products.length ? (
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={productsWithCmp.slice(0, 12)} margin={{ left: 8, right: 12, top: 5, bottom: 78 }} barCategoryGap="20%">
                 <defs>
                   <linearGradient id="gradTopRev2" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#5560C8" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="#A8B3FF" stopOpacity={1} />
+                    <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
                   </linearGradient>
                   <linearGradient id="gradTopRev2Cmp" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="#7A7F8A" stopOpacity={0.7} />
+                    <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.7} />
                   </linearGradient>
                   <linearGradient id="gradTopCm2" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#1F7A38" stopOpacity={0.8} />
@@ -1253,9 +1253,9 @@ const DashboardTab = memo(function DashboardTab({
                   </linearGradient>
                 </defs>
                 <CartesianGrid {...CHART_GRID} />
-                <XAxis type="category" dataKey="product_name" tick={{ fill: '#8A8F98', fontSize: 10 }} stroke="#62666D"
+                <XAxis type="category" dataKey="product_name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} stroke="var(--color-text-quaternary)"
                   interval={0} angle={-40} textAnchor="end" height={78} />
-                <YAxis type="number" tick={AXIS_TICK} stroke="#62666D" tickFormatter={fmtKR} width={48} />
+                <YAxis type="number" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} width={48} />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                   formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
@@ -1274,8 +1274,8 @@ const DashboardTab = memo(function DashboardTab({
       {/* 품목 테이블 */}
       <div className={`${PANEL} p-5 mb-5`}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-[#F7F8F8]">
-            품목별 상세{hasCompare && <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+          <h2 className="text-sm font-semibold text-text-primary">
+            품목별 상세{hasCompare && <span className="text-[10px] text-text-muted ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
           </h2>
           <button
             className={DL_BTN}
@@ -1297,7 +1297,7 @@ const DashboardTab = memo(function DashboardTab({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+              <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
                 <th className="text-left py-2.5 px-2">품목</th>
                 <th className="text-right py-2.5 px-2">낱개수량</th>
                 <th className="text-right py-2.5 px-2">주문건수</th>
@@ -1313,41 +1313,41 @@ const DashboardTab = memo(function DashboardTab({
                   const revDelta = hasCompare ? fmtDelta(p.revenue, p.compare_revenue) : null;
                   const cmDelta = hasCompare ? fmtDelta(p.contribution_margin, p.compare_cm) : null;
                   return (
-                    <tr key={p.product_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                      <td className="py-2 px-2 text-[#F7F8F8]">{p.product_name}</td>
-                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(p.pcs))}</td>
-                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(p.orders)}</td>
-                      <td className="py-2 px-2 text-right font-mono text-[#F7F8F8]">
+                    <tr key={p.product_id} className="border-b border-bg-inset hover:bg-bg-inset">
+                      <td className="py-2 px-2 text-text-primary">{p.product_name}</td>
+                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(p.pcs))}</td>
+                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(p.orders)}</td>
+                      <td className="py-2 px-2 text-right font-mono text-text-primary">
                         ₩{fmtKR(p.revenue)}
                         {revDelta && <DeltaBadge delta={revDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-[#A3A9B3]">
+                      <td className="py-2 px-2 text-right font-mono text-text-dim">
                         {p.pcs ? `₩${fmtNum(Math.round(p.revenue / p.pcs))}` : '-'}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-[#27A644]">
+                      <td className="py-2 px-2 text-right font-mono text-success">
                         ₩{fmtKR(p.contribution_margin)}
                         {cmDelta && <DeltaBadge delta={cmDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(p.cm_rate)}</td>
+                      <td className="py-2 px-2 text-right font-mono text-accent">{fmtPct(p.cm_rate)}</td>
                     </tr>
                   );
                 })
               ) : (
-                <tr><td colSpan={7} className="py-8 text-center text-[#62666D]">데이터가 없습니다. 엑셀을 업로드해보세요.</td></tr>
+                <tr><td colSpan={7} className="py-8 text-center text-text-quaternary">데이터가 없습니다. 엑셀을 업로드해보세요.</td></tr>
               )}
             </tbody>
             {data && data.products.length ? (() => {
               const t = productsTotal;
               return (
                 <tfoot>
-                  <tr className="border-t-2 border-[#2C2F36] font-semibold bg-[#15171A]">
-                    <td className="py-2.5 px-2 text-[#F7F8F8]">합계</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">{fmtNum(Math.round(t.pcs))}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">{fmtNum(t.orders)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(t.revenue)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#A3A9B3]">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#27A644]">₩{fmtKR(t.cm)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#828FFF]">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
+                  <tr className="border-t-2 border-border-subtle font-semibold bg-bg-inset">
+                    <td className="py-2.5 px-2 text-text-primary">합계</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(Math.round(t.pcs))}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(t.orders)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(t.revenue)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-text-dim">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-success">₩{fmtKR(t.cm)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-accent">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
                   </tr>
                 </tfoot>
               );
@@ -1359,8 +1359,8 @@ const DashboardTab = memo(function DashboardTab({
       {/* 채널 테이블 */}
       <div className={`${PANEL} p-5`}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-[#F7F8F8]">
-            채널별 상세{hasCompare && <span className="text-[10px] text-[#7A7F8A] ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+          <h2 className="text-sm font-semibold text-text-primary">
+            채널별 상세{hasCompare && <span className="text-[10px] text-text-muted ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
           </h2>
           <button
             className={DL_BTN}
@@ -1382,7 +1382,7 @@ const DashboardTab = memo(function DashboardTab({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+              <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
                 <th className="text-left py-2.5 px-2">채널</th>
                 <th className="text-left py-2.5 px-2">카테고리</th>
                 <th className="text-left py-2.5 px-2">담당자</th>
@@ -1400,39 +1400,39 @@ const DashboardTab = memo(function DashboardTab({
                   const revDelta = hasCompare ? fmtDelta(c.revenue, c.compare_revenue) : null;
                   const cmDelta = hasCompare ? fmtDelta(c.contribution_margin, c.compare_cm) : null;
                   return (
-                    <tr key={c.channel_id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                      <td className="py-2 px-2 text-[#F7F8F8]">{c.channel_name}</td>
-                      <td className="py-2 px-2 text-[#8A8F98]">{c.channel_category || '-'}</td>
+                    <tr key={c.channel_id} className="border-b border-bg-inset hover:bg-bg-inset">
+                      <td className="py-2 px-2 text-text-primary">{c.channel_name}</td>
+                      <td className="py-2 px-2 text-text-tertiary">{c.channel_category || '-'}</td>
                       <td className="py-2 px-2">
                         {c.owner ? (
-                          <span className="text-[#8A8F98]">{c.owner}</span>
+                          <span className="text-text-tertiary">{c.owner}</span>
                         ) : (
                           <span className="text-[11px] font-semibold text-[#F59E0B] bg-[#F59E0B]/10 rounded px-1.5 py-0.5" title="담당자가 배정되지 않은 채널입니다 — 직원 관리 탭에서 배정하세요">미배정</span>
                         )}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(c.pcs))}</td>
-                      <td className="py-2 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(c.orders)}</td>
+                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(c.pcs))}</td>
+                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(c.orders)}</td>
                       <td
-                        className="py-2 px-2 text-right font-mono text-[#F7F8F8]"
+                        className="py-2 px-2 text-right font-mono text-text-primary"
                         title={c.revenue_deduction ? `총매출 ₩${fmtNum(Math.round(c.revenue + c.revenue_deduction))} − 월정액수수료 ₩${fmtNum(Math.round(c.revenue_deduction))} = 순매출 ₩${fmtNum(Math.round(c.revenue))}` : undefined}
                       >
                         ₩{fmtKR(c.revenue)}
                         {c.revenue_deduction ? <span className="ml-1 text-[9px] text-[#C084FC]" title="월정액수수료 매출차감 적용 채널">차감후</span> : null}
                         {revDelta && <DeltaBadge delta={revDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-[#A3A9B3]">
+                      <td className="py-2 px-2 text-right font-mono text-text-dim">
                         {c.pcs ? `₩${fmtNum(Math.round(c.revenue / c.pcs))}` : '-'}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-[#27A644]">
+                      <td className="py-2 px-2 text-right font-mono text-success">
                         ₩{fmtKR(c.contribution_margin)}
                         {cmDelta && <DeltaBadge delta={cmDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-[#828FFF]">{fmtPct(c.cm_rate)}</td>
+                      <td className="py-2 px-2 text-right font-mono text-accent">{fmtPct(c.cm_rate)}</td>
                     </tr>
                   );
                 })
               ) : (
-                <tr><td colSpan={9} className="py-8 text-center text-[#62666D]">데이터가 없습니다.</td></tr>
+                <tr><td colSpan={9} className="py-8 text-center text-text-quaternary">데이터가 없습니다.</td></tr>
               )}
             </tbody>
             {data && data.channels.length ? (() => {
@@ -1440,18 +1440,18 @@ const DashboardTab = memo(function DashboardTab({
               const unassigned = channelsWithCmp.filter((c: any) => !c.owner).length;
               return (
                 <tfoot>
-                  <tr className="border-t-2 border-[#2C2F36] font-semibold bg-[#15171A]">
-                    <td className="py-2.5 px-2 text-[#F7F8F8]">합계</td>
-                    <td className="py-2.5 px-2 text-[#8A8F98]">-</td>
+                  <tr className="border-t-2 border-border-subtle font-semibold bg-bg-inset">
+                    <td className="py-2.5 px-2 text-text-primary">합계</td>
+                    <td className="py-2.5 px-2 text-text-tertiary">-</td>
                     <td className="py-2.5 px-2 text-[11px]">
-                      {unassigned ? <span className="text-[#F59E0B]">미배정 {unassigned}개</span> : <span className="text-[#27A644]">전부 배정됨</span>}
+                      {unassigned ? <span className="text-[#F59E0B]">미배정 {unassigned}개</span> : <span className="text-success">전부 배정됨</span>}
                     </td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">{fmtNum(Math.round(t.pcs))}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">{fmtNum(t.orders)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(t.revenue)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#A3A9B3]">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#27A644]">₩{fmtKR(t.cm)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-[#828FFF]">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(Math.round(t.pcs))}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(t.orders)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(t.revenue)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-text-dim">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-success">₩{fmtKR(t.cm)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono text-accent">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
                   </tr>
                 </tfoot>
               );
@@ -1700,7 +1700,7 @@ function UploadTab({
         <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
           {Object.entries(categories).map(([cat, list]) => (
             <div key={cat}>
-              <div className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1.5">{cat}</div>
+              <div className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1.5">{cat}</div>
               <div className="grid grid-cols-2 gap-1.5">
                 {list.map(c => (
                   <button
@@ -1709,16 +1709,16 @@ function UploadTab({
                     disabled={!c.has_parser}
                     className={`text-left text-xs px-3 py-2 rounded border transition-colors ${
                       selChannel?.id === c.id
-                        ? 'bg-[#828FFF] border-[#828FFF] text-white'
+                        ? 'bg-accent border-accent text-white'
                         : c.has_parser
-                          ? 'bg-[#08090A] border-[#23252A] text-[#D0D6E0] hover:border-[#828FFF]'
-                          : 'bg-[#08090A] border-[#1A1B1F] text-[#62666D] cursor-not-allowed'
+                          ? 'bg-bg-0 border-border-primary text-text-secondary hover:border-accent'
+                          : 'bg-bg-0 border-bg-inset text-text-quaternary cursor-not-allowed'
                     }`}
                   >
                     <div className="font-medium flex items-center justify-between">
                       <span>{c.name}</span>
                       {!c.has_parser && (
-                        <span className="text-[9px] text-[#62666D]">미지원</span>
+                        <span className="text-[9px] text-text-quaternary">미지원</span>
                       )}
                     </div>
                   </button>
@@ -1734,9 +1734,9 @@ function UploadTab({
         {selChannel ? (
           <>
             <div className={`${SUBPANEL} p-4 mb-4`}>
-              <div className="text-xs text-[#8A8F98] mb-1">선택된 채널</div>
-              <div className="text-lg font-semibold text-[#F7F8F8]">{selChannel.name}</div>
-              <div className="text-[11px] text-[#62666D] mt-1">{selChannel.category} · 파서: {selChannel.has_parser ? '준비 완료' : '미지원'}</div>
+              <div className="text-xs text-text-tertiary mb-1">선택된 채널</div>
+              <div className="text-lg font-semibold text-text-primary">{selChannel.name}</div>
+              <div className="text-[11px] text-text-quaternary mt-1">{selChannel.category} · 파서: {selChannel.has_parser ? '준비 완료' : '미지원'}</div>
             </div>
             <input
               ref={fileRef}
@@ -1744,17 +1744,17 @@ function UploadTab({
               accept=".xlsx,.xls,.csv,.pdf"
               onChange={(e) => e.target.files && e.target.files[0] && upload(e.target.files[0])}
               disabled={uploading || !selChannel.has_parser}
-              className="w-full text-sm text-[#D0D6E0] file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-[#828FFF] file:text-white file:cursor-pointer hover:file:bg-[#7070FF] disabled:opacity-50"
+              className="w-full text-sm text-text-secondary file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-accent file:text-white file:cursor-pointer hover:file:bg-link disabled:opacity-50"
             />
-            <div className="text-[11px] text-[#62666D] mt-2 leading-relaxed">
+            <div className="text-[11px] text-text-quaternary mt-2 leading-relaxed">
               · 동일 파일을 다시 올리면 자동 감지하여 중복 적재하지 않습니다.<br/>
               · (주문번호 + 라인 + 일자 + 상품 + 수량 + 금액)으로 dedup 키 생성.<br/>
-              · 표준 품목명 매칭 실패 행은 <span className="text-[#F0BF00]">매핑 대기</span> 큐로 자동 이동.
+              · 표준 품목명 매칭 실패 행은 <span className="text-warning">매핑 대기</span> 큐로 자동 이동.
             </div>
 
             {uploading && (
-              <div className="mt-4 text-sm text-[#828FFF] flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-[#828FFF] border-t-transparent rounded-full animate-spin" />
+              <div className="mt-4 text-sm text-accent flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                 {result?.status === 'queued' ? '업로드 완료 — 적재 처리 중...' : '업로드 및 파싱 중...'}
               </div>
             )}
@@ -1762,175 +1762,175 @@ function UploadTab({
             {result && !result.error && (
               <div className={`${SUBPANEL} p-3 mt-4 text-xs`}>
                 {result.duplicate_file ? (
-                  <div className="text-[#F0BF00] mb-1">⚠ 이미 업로드된 파일입니다.</div>
+                  <div className="text-warning mb-1">⚠ 이미 업로드된 파일입니다.</div>
                 ) : result.status === 'failed' ? (
-                  <div className="text-[#EB5757] mb-1">❌ 처리 실패{result.error_message ? `: ${result.error_message}` : ''}</div>
+                  <div className="text-danger mb-1">❌ 처리 실패{result.error_message ? `: ${result.error_message}` : ''}</div>
                 ) : result.processing ? (
-                  <div className="text-[#828FFF] mb-1 flex items-center gap-1.5">
-                    <div className="w-3 h-3 border-2 border-[#828FFF] border-t-transparent rounded-full animate-spin" />
+                  <div className="text-accent mb-1 flex items-center gap-1.5">
+                    <div className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                     적재 처리 중... (대용량은 수십 초 걸릴 수 있어요)
                   </div>
                 ) : (
-                  <div className="text-[#27A644] mb-1">✓ 업로드 성공</div>
+                  <div className="text-success mb-1">✓ 업로드 성공</div>
                 )}
-                <div className="grid grid-cols-5 gap-2 text-[#D0D6E0] font-mono">
-                  <div><span className="text-[#62666D]">총행: </span>{result.row_total ?? '–'}</div>
-                  <div><span className="text-[#62666D]">신규: </span>{result.row_inserted ?? '–'}</div>
-                  <div><span className="text-[#62666D]">중복: </span>{result.row_duplicate ?? '–'}</div>
-                  <div><span className="text-[#62666D]">미매핑: </span>{result.row_unmatched ?? '–'}</div>
-                  <div><span className="text-[#62666D]">취소/환불: </span><span className={result.row_cancelled ? 'text-[#EB9F57]' : ''}>{result.row_cancelled ?? 0}</span></div>
+                <div className="grid grid-cols-5 gap-2 text-text-secondary font-mono">
+                  <div><span className="text-text-quaternary">총행: </span>{result.row_total ?? '–'}</div>
+                  <div><span className="text-text-quaternary">신규: </span>{result.row_inserted ?? '–'}</div>
+                  <div><span className="text-text-quaternary">중복: </span>{result.row_duplicate ?? '–'}</div>
+                  <div><span className="text-text-quaternary">미매핑: </span>{result.row_unmatched ?? '–'}</div>
+                  <div><span className="text-text-quaternary">취소/환불: </span><span className={result.row_cancelled ? 'text-[#EB9F57]' : ''}>{result.row_cancelled ?? 0}</span></div>
                 </div>
                 {result.period_start && (
-                  <div className="text-[10px] text-[#62666D] mt-1.5 font-mono">기간: {result.period_start} ~ {result.period_end}</div>
+                  <div className="text-[10px] text-text-quaternary mt-1.5 font-mono">기간: {result.period_start} ~ {result.period_end}</div>
                 )}
               </div>
             )}
             {result?.error && (
-              <div className="mt-4 text-sm text-[#EB5757]">❌ {result.error}</div>
+              <div className="mt-4 text-sm text-danger">❌ {result.error}</div>
             )}
           </>
         ) : (
-          <div className="text-sm text-[#62666D] py-12 text-center">먼저 좌측에서 채널을 선택하세요.</div>
+          <div className="text-sm text-text-quaternary py-12 text-center">먼저 좌측에서 채널을 선택하세요.</div>
         )}
 
-        <div className="mt-6 pt-4 border-t border-[#23252A]">
+        <div className="mt-6 pt-4 border-t border-border-primary">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#62666D]">최근 업로드 이력</h3>
-            <button onClick={() => refreshBatches()} className="text-[10px] text-[#828FFF] hover:underline">새로고침</button>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-quaternary">최근 업로드 이력</h3>
+            <button onClick={() => refreshBatches()} className="text-[10px] text-accent hover:underline">새로고침</button>
           </div>
           <div className="space-y-1.5 max-h-[260px] overflow-y-auto">
             {liveBatches.length === 0 ? (
-              <div className="text-xs text-[#62666D]">업로드 이력이 없습니다.</div>
+              <div className="text-xs text-text-quaternary">업로드 이력이 없습니다.</div>
             ) : liveBatches.map(b => (
               <div key={b.id} className={`${SUBPANEL} p-2.5 text-xs flex items-center justify-between`}>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[#F7F8F8] truncate">{b.channel_name} · <span className="text-[#8A8F98]">{b.file_name}</span></div>
-                  <div className="text-[10px] text-[#62666D] font-mono mt-0.5">
+                  <div className="text-text-primary truncate">{b.channel_name} · <span className="text-text-tertiary">{b.file_name}</span></div>
+                  <div className="text-[10px] text-text-quaternary font-mono mt-0.5">
                     {b.period_start ? `${b.period_start} ~ ${b.period_end} · ` : ''}신규 {b.row_inserted} · 중복 {b.row_duplicate} · 미매핑 {b.row_unmatched}{b.row_cancelled ? ` · 취소/환불 ${b.row_cancelled}` : ''}
                   </div>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-                  b.status === 'done' ? 'bg-[#27A644]/15 text-[#27A644]'
-                  : b.status === 'failed' ? 'bg-[#EB5757]/15 text-[#EB5757]'
-                  : 'bg-[#F0BF00]/15 text-[#F0BF00]'
+                  b.status === 'done' ? 'bg-success/15 text-success'
+                  : b.status === 'failed' ? 'bg-danger/15 text-danger'
+                  : 'bg-warning/15 text-warning'
                 }`}>{b.status === 'parsing' || b.status === 'queued' ? '처리중' : b.status}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-[#23252A]">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#62666D] mb-1">원본 양식 다운로드</h3>
-          <div className="text-[11px] text-[#62666D] mb-3 leading-relaxed">
-            채널 + 기간을 지정하면 업로드했던 <span className="text-[#D0D6E0]">원본 엑셀 양식 그대로</span> 해당 기간 행만 모아 내려받습니다.
+        <div className="mt-6 pt-4 border-t border-border-primary">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-quaternary mb-1">원본 양식 다운로드</h3>
+          <div className="text-[11px] text-text-quaternary mb-3 leading-relaxed">
+            채널 + 기간을 지정하면 업로드했던 <span className="text-text-secondary">원본 엑셀 양식 그대로</span> 해당 기간 행만 모아 내려받습니다.
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
             <div className="sm:col-span-2">
-              <label className="block text-[10px] text-[#7A7F8A] mb-1">채널</label>
+              <label className="block text-[10px] text-text-muted mb-1">채널</label>
               <select
                 value={dlChannelId}
                 onChange={(e) => setDlChannelId(e.target.value)}
-                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary"
               >
                 <option value="">채널 선택</option>
                 {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[10px] text-[#7A7F8A] mb-1">시작일</label>
+              <label className="block text-[10px] text-text-muted mb-1">시작일</label>
               <input
                 type="date" value={dlStart}
                 onChange={(e) => setDlStart(e.target.value)}
-                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary"
               />
             </div>
             <div>
-              <label className="block text-[10px] text-[#7A7F8A] mb-1">종료일</label>
+              <label className="block text-[10px] text-text-muted mb-1">종료일</label>
               <input
                 type="date" value={dlEnd}
                 onChange={(e) => setDlEnd(e.target.value)}
-                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary"
               />
             </div>
           </div>
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={downloadExcel} disabled={dlBusy}
-              className="px-4 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-4 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50"
             >{dlBusy ? '준비 중…' : '다운로드'}</button>
-            {dlError && <span className="text-[11px] text-[#EB5757]">{dlError}</span>}
+            {dlError && <span className="text-[11px] text-danger">{dlError}</span>}
           </div>
         </div>
 
         <div className="mt-6 pt-4 border-t border-[#3A2326]">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#EB5757] mb-1">데이터 삭제</h3>
-          <div className="text-[11px] text-[#62666D] mb-3 leading-relaxed">
-            잘못/중복 업로드한 데이터를 정리할 때 사용합니다. 채널을 선택하고 <span className="text-[#D0D6E0]">기간을 비우면 그 채널의 전체 데이터</span>,
-            기간을 지정하면 해당 기간 데이터만 삭제합니다. <span className="text-[#EB5757]">삭제 후 되돌릴 수 없습니다.</span>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-danger mb-1">데이터 삭제</h3>
+          <div className="text-[11px] text-text-quaternary mb-3 leading-relaxed">
+            잘못/중복 업로드한 데이터를 정리할 때 사용합니다. 채널을 선택하고 <span className="text-text-secondary">기간을 비우면 그 채널의 전체 데이터</span>,
+            기간을 지정하면 해당 기간 데이터만 삭제합니다. <span className="text-danger">삭제 후 되돌릴 수 없습니다.</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
             <div className="sm:col-span-2">
-              <label className="block text-[10px] text-[#7A7F8A] mb-1">채널</label>
+              <label className="block text-[10px] text-text-muted mb-1">채널</label>
               <select
                 value={delChannelId}
                 onChange={(e) => setDelChannelId(e.target.value)}
-                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary"
               >
                 <option value="">채널 선택</option>
                 {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[10px] text-[#7A7F8A] mb-1">시작일 (선택)</label>
+              <label className="block text-[10px] text-text-muted mb-1">시작일 (선택)</label>
               <input
                 type="date" value={delStart}
                 onChange={(e) => setDelStart(e.target.value)}
-                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary"
               />
             </div>
             <div>
-              <label className="block text-[10px] text-[#7A7F8A] mb-1">종료일 (선택)</label>
+              <label className="block text-[10px] text-text-muted mb-1">종료일 (선택)</label>
               <input
                 type="date" value={delEnd}
                 onChange={(e) => setDelEnd(e.target.value)}
-                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary"
               />
             </div>
           </div>
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={deleteChannelData} disabled={delBusy}
-              className="px-4 py-1.5 bg-[#EB5757] hover:bg-[#D14545] text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-4 py-1.5 bg-danger hover:bg-[#D14545] text-white rounded text-xs font-medium disabled:opacity-50"
             >{delBusy ? '삭제 중…' : '데이터 삭제'}</button>
-            {delError && <span className="text-[11px] text-[#EB5757]">{delError}</span>}
+            {delError && <span className="text-[11px] text-danger">{delError}</span>}
           </div>
           {delResult && (
-            <div className={`${SUBPANEL} p-3 mt-3 text-xs text-[#D0D6E0]`}>
-              <div className="text-[#27A644] mb-1.5">✓ 삭제 완료 — {delResult.channel_name}{delResult.scoped ? ` (${delResult.period_start} ~ ${delResult.period_end})` : ' (전체)'}</div>
+            <div className={`${SUBPANEL} p-3 mt-3 text-xs text-text-secondary`}>
+              <div className="text-success mb-1.5">✓ 삭제 완료 — {delResult.channel_name}{delResult.scoped ? ` (${delResult.period_start} ~ ${delResult.period_end})` : ' (전체)'}</div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono">
-                <div><span className="text-[#62666D]">원본행: </span>{delResult.raw_lines_deleted}</div>
-                <div><span className="text-[#62666D]">집계행: </span>{delResult.daily_rows_deleted}</div>
-                <div><span className="text-[#62666D]">배치: </span>{delResult.batches_deleted}</div>
-                <div><span className="text-[#62666D]">원본파일: </span>{delResult.files_deleted}</div>
-                <div><span className="text-[#62666D]">미매핑큐: </span>{delResult.unmatched_queue_deleted}</div>
+                <div><span className="text-text-quaternary">원본행: </span>{delResult.raw_lines_deleted}</div>
+                <div><span className="text-text-quaternary">집계행: </span>{delResult.daily_rows_deleted}</div>
+                <div><span className="text-text-quaternary">배치: </span>{delResult.batches_deleted}</div>
+                <div><span className="text-text-quaternary">원본파일: </span>{delResult.files_deleted}</div>
+                <div><span className="text-text-quaternary">미매핑큐: </span>{delResult.unmatched_queue_deleted}</div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="mt-6 pt-4 border-t border-[#23252A]">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#828FFF] mb-1">최신 파서로 재처리</h3>
-          <div className="text-[11px] text-[#62666D] mb-3 leading-relaxed">
-            파서 로직이 바뀌었을 때, <span className="text-[#D0D6E0]">재업로드 없이</span> DB에 보관된 원본 엑셀을 최신 파서로 다시 파싱·집계합니다.
+        <div className="mt-6 pt-4 border-t border-border-primary">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-accent mb-1">최신 파서로 재처리</h3>
+          <div className="text-[11px] text-text-quaternary mb-3 leading-relaxed">
+            파서 로직이 바뀌었을 때, <span className="text-text-secondary">재업로드 없이</span> DB에 보관된 원본 엑셀을 최신 파서로 다시 파싱·집계합니다.
             보관 원본은 그대로 유지되며, 집계 데이터만 새로 만들어집니다. (보관 원본이 없는 채널은 한 번 재업로드가 필요합니다.)
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
             <div className="sm:col-span-2">
-              <label className="block text-[10px] text-[#7A7F8A] mb-1">채널</label>
+              <label className="block text-[10px] text-text-muted mb-1">채널</label>
               <select
                 value={reproChannelId}
                 onChange={(e) => setReproChannelId(e.target.value)}
-                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary"
               >
                 <option value="">채널 선택</option>
                 {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -1940,14 +1940,14 @@ function UploadTab({
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={reprocessChannel} disabled={reproBusy}
-              className="px-4 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-4 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50"
             >{reproBusy ? '재처리 요청 중…' : '최신 파서로 재처리'}</button>
-            {reproError && <span className="text-[11px] text-[#EB5757]">{reproError}</span>}
+            {reproError && <span className="text-[11px] text-danger">{reproError}</span>}
           </div>
           {reproResult && (
-            <div className={`${SUBPANEL} p-3 mt-3 text-xs text-[#D0D6E0]`}>
-              <div className="text-[#27A644] mb-1.5">✓ 재처리를 큐에 넣었습니다 — {reproResult.channel_name}</div>
-              <div className="text-[11px] text-[#62666D]">
+            <div className={`${SUBPANEL} p-3 mt-3 text-xs text-text-secondary`}>
+              <div className="text-success mb-1.5">✓ 재처리를 큐에 넣었습니다 — {reproResult.channel_name}</div>
+              <div className="text-[11px] text-text-quaternary">
                 보관 원본 {reproResult.file_count}개를 최신 파서로 다시 집계합니다. 위 업로드 이력 목록에서 진행 상황을 확인하세요.
               </div>
             </div>
@@ -2102,13 +2102,13 @@ function MappingTab({
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div>
           <h2 className="text-sm font-semibold">매핑 대기 큐 ({filtered.length.toLocaleString()}건{filtered.length !== unmatched.length && ` / 전체 ${unmatched.length.toLocaleString()}`})</h2>
-          <p className="text-[11px] text-[#62666D] mt-0.5">한 번 매핑하면 동일 (채널·상품명·옵션) 조합은 다음 업로드부터 자동 매핑됩니다.</p>
+          <p className="text-[11px] text-text-quaternary mt-0.5">한 번 매핑하면 동일 (채널·상품명·옵션) 조합은 다음 업로드부터 자동 매핑됩니다.</p>
         </div>
         <div className="flex items-center gap-2">
           <select
             value={filterChannel}
             onChange={(e) => { setFilterChannel(e.target.value); setPage(1); }}
-            className="bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-xs text-[#F7F8F8] max-w-[160px]"
+            className="bg-bg-1 border border-border-primary rounded px-2 py-1 text-xs text-text-primary max-w-[160px]"
           >
             <option value="">전체 채널</option>
             {channelOpts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -2118,20 +2118,20 @@ function MappingTab({
             placeholder="상품명/옵션 검색"
             value={filterText}
             onChange={(e) => { setFilterText(e.target.value); setPage(1); }}
-            className="bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-xs text-[#F7F8F8] w-40"
+            className="bg-bg-1 border border-border-primary rounded px-2 py-1 text-xs text-text-primary w-40"
           />
         </div>
       </div>
 
       {/* 일괄 처리 바 */}
       {selected.size > 0 && (
-        <div className={`${SUBPANEL} p-2 mb-2 flex items-center gap-2 text-xs border-[#828FFF]/40`}>
-          <span className="text-[#828FFF] font-medium whitespace-nowrap">선택 {selected.size}건</span>
+        <div className={`${SUBPANEL} p-2 mb-2 flex items-center gap-2 text-xs border-accent/40`}>
+          <span className="text-accent font-medium whitespace-nowrap">선택 {selected.size}건</span>
           <select
             value={bulkProductId}
             onChange={(e) => setBulkProductId(e.target.value ? parseInt(e.target.value) : '')}
             disabled={bulkExcluded}
-            className="flex-1 bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-[#F7F8F8] disabled:opacity-40"
+            className="flex-1 bg-bg-1 border border-border-primary rounded px-2 py-1 text-text-primary disabled:opacity-40"
           >
             <option value="">품목 선택…</option>
             {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -2141,36 +2141,36 @@ function MappingTab({
             onChange={(e) => setBulkUnitPerSet(parseInt(e.target.value) || 1)}
             disabled={bulkExcluded}
             title="1세트당 낱개 수(입수)"
-            className="w-14 bg-[#0F1011] border border-[#23252A] rounded px-2 py-1 text-[#F7F8F8] font-mono text-right disabled:opacity-40"
+            className="w-14 bg-bg-1 border border-border-primary rounded px-2 py-1 text-text-primary font-mono text-right disabled:opacity-40"
           />
-          <label className="flex items-center gap-1 text-[#8A8F98] cursor-pointer whitespace-nowrap">
-            <input type="checkbox" checked={bulkExcluded} onChange={(e) => setBulkExcluded(e.target.checked)} className="accent-[#EB5757]" />
+          <label className="flex items-center gap-1 text-text-tertiary cursor-pointer whitespace-nowrap">
+            <input type="checkbox" checked={bulkExcluded} onChange={(e) => setBulkExcluded(e.target.checked)} className="accent-danger" />
             제외
           </label>
           <button
             onClick={applyBulk}
             disabled={bulkBusy || (!bulkExcluded && !bulkProductId)}
-            className="px-3 py-1 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-xs font-medium whitespace-nowrap"
+            className="px-3 py-1 bg-accent hover:bg-link disabled:opacity-40 text-white rounded text-xs font-medium whitespace-nowrap"
           >
             {bulkBusy ? '적용 중…' : `${selected.size}건 적용`}
           </button>
           <button
             onClick={() => setSelected(new Set())}
             disabled={bulkBusy}
-            className="px-2 py-1 bg-[#23252A] hover:bg-[#2A2D33] text-[#8A8F98] rounded text-xs"
+            className="px-2 py-1 bg-border-primary hover:bg-[#2A2D33] text-text-tertiary rounded text-xs"
           >해제</button>
         </div>
       )}
 
       {/* 헤더 (sticky) */}
       {pageItems.length > 0 && (
-        <div className="sticky top-0 z-10 bg-[#0F1011] border-b border-[#23252A] flex items-center gap-2 px-2 py-1.5 text-[9px] uppercase tracking-wider text-[#62666D]">
+        <div className="sticky top-0 z-10 bg-bg-1 border-b border-border-primary flex items-center gap-2 px-2 py-1.5 text-[9px] uppercase tracking-wider text-text-quaternary">
           <input
             type="checkbox"
             checked={allChecked}
             ref={el => { if (el) el.indeterminate = someChecked; }}
             onChange={toggleAllInPage}
-            className="accent-[#828FFF]"
+            className="accent-accent"
           />
           <span className="w-20">채널</span>
           <span className="flex-1">원본 상품 / 옵션</span>
@@ -2183,9 +2183,9 @@ function MappingTab({
       )}
 
       {filtered.length === 0 ? (
-        <div className="text-center py-10 text-[#62666D] text-sm">매핑 대기 항목이 없습니다.</div>
+        <div className="text-center py-10 text-text-quaternary text-sm">매핑 대기 항목이 없습니다.</div>
       ) : (
-        <div className="divide-y divide-[#1A1C22]">
+        <div className="divide-y divide-bg-inset">
           {pageItems.map(it => (
             <UnmatchedRow
               key={it.id}
@@ -2220,32 +2220,32 @@ function MappingTab({
 
       {/* 페이지네이션 */}
       {filtered.length > PAGE_SIZE && (
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#23252A] text-xs">
-          <span className="text-[#7A7F8A]">
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border-primary text-xs">
+          <span className="text-text-muted">
             {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} / {filtered.length.toLocaleString()}건
           </span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setPage(1)} disabled={safePage === 1}
-              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+              className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
             >« 처음</button>
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
-              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+              className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
             >‹ 이전</button>
             <input
               type="number" min={1} max={totalPages} value={safePage}
               onChange={(e) => setPage(Math.max(1, Math.min(totalPages, parseInt(e.target.value) || 1)))}
-              className="w-12 px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#F7F8F8] text-center font-mono"
+              className="w-12 px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-primary text-center font-mono"
             />
-            <span className="text-[#7A7F8A]">/ {totalPages}</span>
+            <span className="text-text-muted">/ {totalPages}</span>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+              className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
             >다음 ›</button>
             <button
               onClick={() => setPage(totalPages)} disabled={safePage === totalPages}
-              className="px-2 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[#A3A9B3] hover:text-[#F7F8F8] disabled:opacity-30"
+              className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
             >끝 »</button>
           </div>
         </div>
@@ -2315,28 +2315,28 @@ function UnmatchedRow({
 
   return (
     <>
-      <div className={`flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-[#1A1C22] ${selected ? 'bg-[#828FFF]/5' : ''}`}>
+      <div className={`flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-bg-inset ${selected ? 'bg-accent/5' : ''}`}>
         <input
           type="checkbox"
           checked={selected}
           onChange={onToggle}
-          className="accent-[#828FFF] flex-shrink-0"
+          className="accent-accent flex-shrink-0"
         />
-        <span className="w-20 text-[10px] text-[#62666D] truncate" title={item.channel_name}>{item.channel_name}</span>
+        <span className="w-20 text-[10px] text-text-quaternary truncate" title={item.channel_name}>{item.channel_name}</span>
         <div className="flex-1 min-w-0">
-          <div className="text-[#F7F8F8] truncate" title={item.raw_product_name}>{item.raw_product_name}</div>
+          <div className="text-text-primary truncate" title={item.raw_product_name}>{item.raw_product_name}</div>
           {item.raw_option_name && (
-            <div className="text-[#7A7F8A] text-[10px] truncate" title={item.raw_option_name}>{item.raw_option_name}</div>
+            <div className="text-text-muted text-[10px] truncate" title={item.raw_option_name}>{item.raw_option_name}</div>
           )}
         </div>
-        <div className="w-20 text-right text-[10px] text-[#7A7F8A] font-mono whitespace-nowrap">
+        <div className="w-20 text-right text-[10px] text-text-muted font-mono whitespace-nowrap">
           {item.occurrence_count}회<br/>{fmtNum(Math.round(item.total_qty))}
         </div>
         <select
           value={productId}
           onChange={(e) => setProductId(e.target.value ? parseInt(e.target.value) : '')}
           disabled={excluded || multiOpen}
-          className="w-40 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[11px] text-[#F7F8F8] disabled:opacity-40"
+          className="w-40 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-[11px] text-text-primary disabled:opacity-40"
         >
           <option value="">—</option>
           {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -2345,7 +2345,7 @@ function UnmatchedRow({
           type="number" min={1} value={unitPerSet}
           onChange={(e) => setUnitPerSet(parseInt(e.target.value) || 1)}
           disabled={excluded || multiOpen}
-          className="w-12 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[#F7F8F8] disabled:opacity-40 font-mono text-right text-[11px]"
+          className="w-12 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-text-primary disabled:opacity-40 font-mono text-right text-[11px]"
         />
         <label className="w-10 flex items-center justify-center cursor-pointer">
           <input
@@ -2353,14 +2353,14 @@ function UnmatchedRow({
             checked={excluded}
             onChange={(e) => setExcluded(e.target.checked)}
             disabled={multiOpen}
-            className="accent-[#EB5757] disabled:opacity-40"
+            className="accent-danger disabled:opacity-40"
           />
         </label>
         <div className="w-14 flex items-center gap-1">
           <button
             onClick={() => onResolve(item, excluded ? null : (productId || null) as number | null, unitPerSet, excluded)}
             disabled={busy || multiBusy || multiOpen || (!excluded && !productId)}
-            className="flex-1 px-1.5 py-1 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-[11px] font-medium"
+            className="flex-1 px-1.5 py-1 bg-accent hover:bg-link disabled:opacity-40 text-white rounded text-[11px] font-medium"
           >
             {busy ? '…' : '저장'}
           </button>
@@ -2370,8 +2370,8 @@ function UnmatchedRow({
             title="다중 품목 매핑"
             className={`px-1.5 py-1 border rounded text-[10px] font-medium transition-colors disabled:opacity-40 ${
               multiOpen
-                ? 'bg-[#828FFF]/20 border-[#828FFF] text-[#828FFF]'
-                : 'bg-[#0F1011] border-[#23252A] text-[#7A7F8A] hover:border-[#828FFF] hover:text-[#828FFF]'
+                ? 'bg-accent/20 border-accent text-accent'
+                : 'bg-bg-1 border-border-primary text-text-muted hover:border-accent hover:text-accent'
             }`}
           >
             다중
@@ -2383,19 +2383,19 @@ function UnmatchedRow({
       {multiOpen && (
         <div className={`${SUBPANEL} mx-2 mb-1 p-3`}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-medium text-[#A3A9B3]">다중 품목 매핑</span>
-            <span className="text-[10px] text-[#62666D]">옵션 매출은 각 품목의 낱개수량(입수) 비율로 자동 안분됩니다.</span>
+            <span className="text-[11px] font-medium text-text-dim">다중 품목 매핑</span>
+            <span className="text-[10px] text-text-quaternary">옵션 매출은 각 품목의 낱개수량(입수) 비율로 자동 안분됩니다.</span>
           </div>
 
           {/* 컴포넌트 행 목록 */}
           <div className="flex flex-col gap-1.5 mb-2">
             {multiComponents.map((comp, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="text-[10px] text-[#62666D] w-4 text-right">{idx + 1}</span>
+                <span className="text-[10px] text-text-quaternary w-4 text-right">{idx + 1}</span>
                 <select
                   value={comp.product_id}
                   onChange={(e) => updateComponent(idx, 'product_id', e.target.value ? parseInt(e.target.value) : '')}
-                  className="flex-1 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[11px] text-[#F7F8F8]"
+                  className="flex-1 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-[11px] text-text-primary"
                 >
                   <option value="">품목 선택…</option>
                   {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -2404,13 +2404,13 @@ function UnmatchedRow({
                   type="number" min={1} value={comp.unit_per_set}
                   onChange={(e) => updateComponent(idx, 'unit_per_set', parseInt(e.target.value) || 1)}
                   title="1세트당 낱개 수(입수)"
-                  className="w-14 bg-[#0F1011] border border-[#23252A] rounded px-1.5 py-1 text-[#F7F8F8] font-mono text-right text-[11px]"
+                  className="w-14 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-text-primary font-mono text-right text-[11px]"
                 />
-                <span className="text-[10px] text-[#62666D]">개</span>
+                <span className="text-[10px] text-text-quaternary">개</span>
                 <button
                   onClick={() => removeComponent(idx)}
                   disabled={multiComponents.length <= 1}
-                  className="w-5 h-5 flex items-center justify-center text-[#62666D] hover:text-[#EB5757] disabled:opacity-30 text-xs rounded border border-[#23252A] bg-[#0F1011]"
+                  className="w-5 h-5 flex items-center justify-center text-text-quaternary hover:text-danger disabled:opacity-30 text-xs rounded border border-border-primary bg-bg-1"
                   title="삭제"
                 >
                   ×
@@ -2420,10 +2420,10 @@ function UnmatchedRow({
           </div>
 
           {/* 하단 액션 */}
-          <div className="flex items-center gap-2 pt-1.5 border-t border-[#23252A]">
+          <div className="flex items-center gap-2 pt-1.5 border-t border-border-primary">
             <button
               onClick={addComponent}
-              className="px-2.5 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[11px] text-[#A3A9B3] hover:border-[#828FFF] hover:text-[#828FFF]"
+              className="px-2.5 py-1 bg-bg-1 border border-border-primary rounded text-[11px] text-text-dim hover:border-accent hover:text-accent"
             >
               + 품목 추가
             </button>
@@ -2431,14 +2431,14 @@ function UnmatchedRow({
             <button
               onClick={() => setMultiOpen(false)}
               disabled={multiBusy}
-              className="px-2.5 py-1 bg-[#0F1011] border border-[#23252A] rounded text-[11px] text-[#7A7F8A] hover:text-[#A3A9B3]"
+              className="px-2.5 py-1 bg-bg-1 border border-border-primary rounded text-[11px] text-text-muted hover:text-text-dim"
             >
               취소
             </button>
             <button
               onClick={handleMultiSave}
               disabled={multiBusy || !canSaveMulti}
-              className="px-3 py-1 bg-[#828FFF] hover:bg-[#7070FF] disabled:opacity-40 text-white rounded text-[11px] font-medium"
+              className="px-3 py-1 bg-accent hover:bg-link disabled:opacity-40 text-white rounded text-[11px] font-medium"
             >
               {multiBusy ? '저장 중…' : '다중 매핑 저장'}
             </button>
@@ -2568,12 +2568,12 @@ function CostTab({
         <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <h2 className="text-sm font-semibold">비용 카테고리 — 공헌이익 계산 기준</h2>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-[#A3A9B3]">규칙 변경 시 즉시 daily 집계 재계산</span>
+            <span className="text-[10px] text-text-dim">규칙 변경 시 즉시 daily 집계 재계산</span>
             <button
               onClick={() => runSync(true)}
               disabled={syncing}
               title="SCM BOM에서 산출된 제품별 개당 재료원가와 개당 노무비를 원가·노무비 변동비 규칙으로 자동 반영합니다."
-              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-[#5E6AD2] text-white hover:bg-[#4F5ABF] disabled:opacity-50 transition-colors"
+              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-brand text-white hover:bg-[#4F5ABF] disabled:opacity-50 transition-colors"
             >
               {syncing ? '동기화 중…' : 'SCM BOM 원가·노무비 동기화'}
             </button>
@@ -2582,17 +2582,17 @@ function CostTab({
 
         {/* 동기화 결과 */}
         {syncResult && (
-          <div className="mb-3 rounded-lg border border-[#23252A] bg-[#08090A] p-3 text-[11px]">
+          <div className="mb-3 rounded-lg border border-border-primary bg-bg-0 p-3 text-[11px]">
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-[#27A644] font-semibold">동기화 완료 — {syncResult.synced}개 표준품목 반영</span>
+              <span className="text-success font-semibold">동기화 완료 — {syncResult.synced}개 표준품목 반영</span>
               {syncResult.unmatched_count > 0 && (
-                <span className="text-[#F0BF00]">미매칭 {syncResult.unmatched_count}건 (CSA 표준품목 연결 필요)</span>
+                <span className="text-warning">미매칭 {syncResult.unmatched_count}건 (CSA 표준품목 연결 필요)</span>
               )}
             </div>
             {syncResult.report.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full text-[10px]">
-                  <thead className="text-[#7A7F8A]">
+                  <thead className="text-text-muted">
                     <tr className="text-left">
                       <th className="py-1 pr-3 font-medium">표준품목</th>
                       <th className="py-1 pr-3 font-medium text-right">맛수</th>
@@ -2600,13 +2600,13 @@ function CostTab({
                       <th className="py-1 pr-3 font-medium text-right">개당 노무비</th>
                     </tr>
                   </thead>
-                  <tbody className="text-[#D0D6E0] tabular-nums">
+                  <tbody className="text-text-secondary tabular-nums">
                     {syncResult.report.slice(0, 30).map((r, i) => (
-                      <tr key={i} className="border-t border-[#1A1C22]">
+                      <tr key={i} className="border-t border-bg-inset">
                         <td className="py-1 pr-3">{r.product_name}</td>
-                        <td className="py-1 pr-3 text-right text-[#7A7F8A]">{r.matched_items}</td>
-                        <td className="py-1 pr-3 text-right text-[#EB5757]">₩{r.avg_cogs.toLocaleString()}</td>
-                        <td className="py-1 pr-3 text-right text-[#FC7840]">₩{r.avg_labor.toLocaleString()}</td>
+                        <td className="py-1 pr-3 text-right text-text-muted">{r.matched_items}</td>
+                        <td className="py-1 pr-3 text-right text-danger">₩{r.avg_cogs.toLocaleString()}</td>
+                        <td className="py-1 pr-3 text-right text-orange">₩{r.avg_labor.toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2614,7 +2614,7 @@ function CostTab({
               </div>
             )}
             {syncResult.unmatched.length > 0 && (
-              <div className="mt-2 text-[10px] text-[#7A7F8A]">
+              <div className="mt-2 text-[10px] text-text-muted">
                 미매칭: {syncResult.unmatched.slice(0, 20).map(u => u.name).join(', ')}
                 {syncResult.unmatched.length > 20 ? ` 외 ${syncResult.unmatched.length - 20}건` : ''}
               </div>
@@ -2633,18 +2633,18 @@ function CostTab({
                 key={it.id}
                 onClick={() => setSelectedItem(isSel ? null : it)}
                 className={`text-left p-3 rounded-lg border transition-colors ${
-                  isSel ? 'border-[#828FFF] bg-[#1A1C22]' : 'border-[#23252A] bg-[#08090A] hover:border-[#828FFF]/50'
+                  isSel ? 'border-accent bg-bg-inset' : 'border-border-primary bg-bg-0 hover:border-accent/50'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="w-2.5 h-2.5 rounded-sm" style={{ background: ITEM_COLOR[it.code] || '#828FFF' }} />
-                  <div className="text-sm font-semibold text-[#F7F8F8]">{it.name}</div>
+                  <span className="w-2.5 h-2.5 rounded-sm" style={{ background: ITEM_COLOR[it.code] || 'var(--color-accent-hover)' }} />
+                  <div className="text-sm font-semibold text-text-primary">{it.name}</div>
                 </div>
-                <div className="text-[10px] text-[#A3A9B3]">{BASIS_LABEL[it.basis] || it.basis}</div>
-                <div className="text-[10px] text-[#7A7F8A] mt-1.5">
-                  규칙 <span className="text-[#D0D6E0] font-mono">{ruleCount}</span>
+                <div className="text-[10px] text-text-dim">{BASIS_LABEL[it.basis] || it.basis}</div>
+                <div className="text-[10px] text-text-muted mt-1.5">
+                  규칙 <span className="text-text-secondary font-mono">{ruleCount}</span>
                   {it.basis === 'channel_monthly_fixed' && (
-                    <> · 월입력 <span className="text-[#D0D6E0] font-mono">{monthlyCount}</span></>
+                    <> · 월입력 <span className="text-text-secondary font-mono">{monthlyCount}</span></>
                   )}
                 </div>
               </button>
@@ -2669,24 +2669,24 @@ function CostTab({
 
       {/* 도움말 */}
       {!selectedItem && (
-        <div className={`${PANEL} p-4 text-xs text-[#A3A9B3] leading-relaxed`}>
-          <div className="font-semibold text-[#F7F8F8] mb-2">공헌이익 계산식</div>
-          <div className="font-mono text-[11px] bg-[#08090A] border border-[#23252A] rounded p-2.5 text-[#D0D6E0]">
+        <div className={`${PANEL} p-4 text-xs text-text-dim leading-relaxed`}>
+          <div className="font-semibold text-text-primary mb-2">공헌이익 계산식</div>
+          <div className="font-mono text-[11px] bg-bg-0 border border-border-primary rounded p-2.5 text-text-secondary">
             공헌이익 = 매출(VAT-)
-            <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-[#EB5757]">원가</span>)
-            <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-[#FC7840]">노무비</span>)
-            <br />&nbsp;&nbsp;− (매출 × <span className="text-[#F0BF00]">제조간접비율</span>)
-            <br />&nbsp;&nbsp;− (매출 × <span className="text-[#06B6D4]">물류작업비율</span> + 매출 × <span className="text-[#00B8CC]">물류간접비율</span>)
-            <br />&nbsp;&nbsp;− <span className="text-[#A855F7]">광고비</span> (채널 월정액 → 일별 매출 비례 분배)
-            <br />&nbsp;&nbsp;− (매출 × <span className="text-[#828FFF]">정률 수수료</span> + 주문건수 × <span className="text-[#7070FF]">정액 수수료</span>)
-            <br />&nbsp;&nbsp;− (주문건수 × <span className="text-[#27A644]">운반비</span> + 주문건수 × <span className="text-[#68CC58]">포장비</span>)
+            <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-danger">원가</span>)
+            <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-orange">노무비</span>)
+            <br />&nbsp;&nbsp;− (매출 × <span className="text-warning">제조간접비율</span>)
+            <br />&nbsp;&nbsp;− (매출 × <span className="text-cyan">물류작업비율</span> + 매출 × <span className="text-cyan">물류간접비율</span>)
+            <br />&nbsp;&nbsp;− <span className="text-purple">광고비</span> (채널 월정액 → 일별 매출 비례 분배)
+            <br />&nbsp;&nbsp;− (매출 × <span className="text-accent">정률 수수료</span> + 주문건수 × <span className="text-link">정액 수수료</span>)
+            <br />&nbsp;&nbsp;− (주문건수 × <span className="text-success">운반비</span> + 주문건수 × <span className="text-success-light">포장비</span>)
           </div>
           <div className="mt-2 text-[11px] text-[#C084FC]">
             ⓘ 월정액 항목에 <span className="font-semibold">매출차감</span>을 체크하면 (예: 쿠팡 로켓프레시 월정액 수수료)
             해당 금액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다 — 대시보드 매출은 차감 후 실수령 기준으로 표시되고, 공헌이익 금액은 동일합니다.
           </div>
           <div className="mt-3 text-[11px]">
-            우선순위: <span className="font-mono text-[#828FFF]">채널×품목 → 채널 → 품목 → 전역</span> (구체적인 규칙이 우선)
+            우선순위: <span className="font-mono text-accent">채널×품목 → 채널 → 품목 → 전역</span> (구체적인 규칙이 우선)
           </div>
         </div>
       )}
@@ -2774,12 +2774,12 @@ function CostRuleEditor({
       <div className="flex items-baseline justify-between mb-3">
         <h3 className="text-sm font-semibold">
           {item.name} — 규칙 편집
-          <span className="ml-2 text-[10px] text-[#A3A9B3] font-mono">{BASIS_LABEL[item.basis]}</span>
+          <span className="ml-2 text-[10px] text-text-dim font-mono">{BASIS_LABEL[item.basis]}</span>
         </h3>
-        <button onClick={onClose} className="text-[#A3A9B3] hover:text-[#F7F8F8] text-xs">✕ 닫기</button>
+        <button onClick={onClose} className="text-text-dim hover:text-text-primary text-xs">✕ 닫기</button>
       </div>
 
-      {item.description && <p className="text-xs text-[#A3A9B3] mb-3">{item.description}</p>}
+      {item.description && <p className="text-xs text-text-dim mb-3">{item.description}</p>}
 
       {/* 월정액 입력 (광고비) */}
       {item.basis === 'channel_monthly_fixed' && (
@@ -2795,25 +2795,25 @@ function CostRuleEditor({
       {/* 규칙 추가 (정률·정액) */}
       {item.basis !== 'channel_monthly_fixed' && (
         <div className={`${SUBPANEL} p-3 mb-3`}>
-          <div className="text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-2">+ 새 규칙 추가</div>
+          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-2">+ 새 규칙 추가</div>
           <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
             <div className="md:col-span-2">
-              <label className="block text-[10px] text-[#7A7F8A] mb-1">채널 (선택 시 그 채널만)</label>
+              <label className="block text-[10px] text-text-muted mb-1">채널 (선택 시 그 채널만)</label>
               <select
                 value={newRule.channel_id || ''}
                 onChange={(e) => setNewRule({ ...newRule, channel_id: e.target.value || null })}
-                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary"
               >
                 <option value="">전체 채널</option>
                 {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-[10px] text-[#7A7F8A] mb-1">품목 (선택 시 그 품목만)</label>
+              <label className="block text-[10px] text-text-muted mb-1">품목 (선택 시 그 품목만)</label>
               <select
                 value={newRule.product_id || ''}
                 onChange={(e) => setNewRule({ ...newRule, product_id: e.target.value ? parseInt(e.target.value) : null })}
-                className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary"
               >
                 <option value="">전체 품목</option>
                 {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -2821,77 +2821,77 @@ function CostRuleEditor({
             </div>
             {showRate && (
               <div>
-                <label className="block text-[10px] text-[#7A7F8A] mb-1">정률 (%)</label>
+                <label className="block text-[10px] text-text-muted mb-1">정률 (%)</label>
                 <input
                   type="number" step="0.1"
                   value={newRule.rate != null ? newRule.rate * 100 : ''}
                   onChange={(e) => setNewRule({ ...newRule, rate: e.target.value ? parseFloat(e.target.value) / 100 : null })}
                   placeholder="5.0"
-                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
                 />
               </div>
             )}
             {showPcs && (
               <div>
-                <label className="block text-[10px] text-[#7A7F8A] mb-1">₩/낱개</label>
+                <label className="block text-[10px] text-text-muted mb-1">₩/낱개</label>
                 <input
                   type="number"
                   value={newRule.amount_per_pcs || ''}
                   onChange={(e) => setNewRule({ ...newRule, amount_per_pcs: e.target.value ? parseFloat(e.target.value) : null })}
-                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
                 />
               </div>
             )}
             {showOrder && (
               <div>
-                <label className="block text-[10px] text-[#7A7F8A] mb-1">₩/주문</label>
+                <label className="block text-[10px] text-text-muted mb-1">₩/주문</label>
                 <input
                   type="number"
                   value={newRule.amount_per_order || ''}
                   onChange={(e) => setNewRule({ ...newRule, amount_per_order: e.target.value ? parseFloat(e.target.value) : null })}
-                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
                 />
               </div>
             )}
             {showShippingBoth && !showRate && (
               <div>
-                <label className="block text-[10px] text-[#7A7F8A] mb-1">또는 정률 (%)</label>
+                <label className="block text-[10px] text-text-muted mb-1">또는 정률 (%)</label>
                 <input
                   type="number" step="0.1"
                   value={newRule.rate != null ? newRule.rate * 100 : ''}
                   onChange={(e) => setNewRule({ ...newRule, rate: e.target.value ? parseFloat(e.target.value) / 100 : null })}
-                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
                 />
               </div>
             )}
             <button
               onClick={saveRule} disabled={busy}
-              className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50"
             >{busy ? '저장…' : '+ 추가'}</button>
           </div>
           {/* 유효 기간 (시즌·행사 적용) */}
           {showPeriod && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 pt-3 border-t border-[#23252A]">
-              <div className="md:col-span-2 text-[10px] text-[#A3A9B3] flex items-center">
-                <span className="font-mono text-[#828FFF]">시즌·기간 적용</span>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 pt-3 border-t border-border-primary">
+              <div className="md:col-span-2 text-[10px] text-text-dim flex items-center">
+                <span className="font-mono text-accent">시즌·기간 적용</span>
                 <span className="ml-2">— 비워두면 상시 적용</span>
               </div>
               <div>
-                <label className="block text-[10px] text-[#7A7F8A] mb-1">시작일</label>
+                <label className="block text-[10px] text-text-muted mb-1">시작일</label>
                 <input
                   type="date"
                   value={newRule.valid_from || ''}
                   onChange={(e) => setNewRule({ ...newRule, valid_from: e.target.value || null })}
-                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary"
                 />
               </div>
               <div>
-                <label className="block text-[10px] text-[#7A7F8A] mb-1">종료일</label>
+                <label className="block text-[10px] text-text-muted mb-1">종료일</label>
                 <input
                   type="date"
                   value={newRule.valid_to || ''}
                   onChange={(e) => setNewRule({ ...newRule, valid_to: e.target.value || null })}
-                  className="w-full bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary"
                 />
               </div>
             </div>
@@ -2902,29 +2902,29 @@ function CostRuleEditor({
       {/* 기존 규칙 리스트 */}
       {item.basis !== 'channel_monthly_fixed' && (
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-2">기존 규칙 ({rules.length})</div>
+          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-2">기존 규칙 ({rules.length})</div>
           {rules.length === 0 ? (
-            <div className="text-xs text-[#7A7F8A] py-3">설정된 규칙이 없습니다. 위에서 추가하세요.</div>
+            <div className="text-xs text-text-muted py-3">설정된 규칙이 없습니다. 위에서 추가하세요.</div>
           ) : (
             <div className="space-y-1.5">
               {rules.map(r => (
                 <div key={r.id} className={`${SUBPANEL} p-2.5 flex items-center gap-3 text-xs`}>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[#F7F8F8] truncate">
-                      <span className="text-[#A3A9B3]">대상:</span> {channelName(r.channel_id)} <span className="text-[#7A7F8A]">×</span> {productName(r.product_id)}
+                    <div className="text-text-primary truncate">
+                      <span className="text-text-dim">대상:</span> {channelName(r.channel_id)} <span className="text-text-muted">×</span> {productName(r.product_id)}
                     </div>
-                    <div className="text-[10px] text-[#A3A9B3] font-mono mt-0.5">
+                    <div className="text-[10px] text-text-dim font-mono mt-0.5">
                       {r.rate != null && <span>정률 {(r.rate * 100).toFixed(2)}%</span>}
                       {r.amount_per_pcs != null && <span> · ₩{fmtNum(r.amount_per_pcs)}/낱개</span>}
                       {r.amount_per_order != null && <span> · ₩{fmtNum(r.amount_per_order)}/주문</span>}
                       {(r.valid_from || r.valid_to) && (
-                        <span className="ml-2 text-[#828FFF]">
+                        <span className="ml-2 text-accent">
                           [{r.valid_from || '시작 무제한'} ~ {r.valid_to || '종료 무제한'}]
                         </span>
                       )}
                     </div>
                   </div>
-                  <button onClick={() => deleteRule(r.id)} className="text-[#EB5757] hover:underline text-xs">삭제</button>
+                  <button onClick={() => deleteRule(r.id)} className="text-danger hover:underline text-xs">삭제</button>
                 </div>
               ))}
             </div>
@@ -3006,12 +3006,12 @@ function MonthlyCostEditor({
         (정산금에서 공제되는 유형 — 예: 쿠팡 로켓프레시 월정액 수수료). 대시보드 매출은 차감 후 실수령 기준으로 표시되며 공헌이익 금액은 동일합니다.
       </div>
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-[10px] uppercase tracking-wider text-[#A3A9B3]">기간:</span>
+        <span className="text-[10px] uppercase tracking-wider text-text-dim">기간:</span>
         <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
-          className="w-20 bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1 text-xs text-[#F7F8F8] font-mono text-center" />
-        <span className="text-[#A3A9B3] text-xs">년</span>
+          className="w-20 bg-bg-1 border border-border-subtle rounded px-2 py-1 text-xs text-text-primary font-mono text-center" />
+        <span className="text-text-dim text-xs">년</span>
         <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))}
-          className="bg-[#0F1011] border border-[#2E3138] rounded px-2 py-1 text-xs text-[#F7F8F8]">
+          className="bg-bg-1 border border-border-subtle rounded px-2 py-1 text-xs text-text-primary">
           {Array.from({ length: 12 }).map((_, i) => <option key={i} value={i + 1}>{i + 1}월</option>)}
         </select>
       </div>
@@ -3022,10 +3022,10 @@ function MonthlyCostEditor({
           const dirty = isDirty(c.id);
           const deduct = deductFor(c.id);
           return (
-            <div key={c.id} className="flex items-center gap-2 bg-[#0F1011] border border-[#23252A] rounded p-2 text-xs">
-              <div className="flex-1 min-w-0 truncate text-[#F7F8F8]">{c.name}</div>
+            <div key={c.id} className="flex items-center gap-2 bg-bg-1 border border-border-primary rounded p-2 text-xs">
+              <div className="flex-1 min-w-0 truncate text-text-primary">{c.name}</div>
               <label
-                className={`flex items-center gap-1 text-[9px] cursor-pointer select-none ${deduct ? 'text-[#C084FC]' : 'text-[#7A7F8A]'}`}
+                className={`flex items-center gap-1 text-[9px] cursor-pointer select-none ${deduct ? 'text-[#C084FC]' : 'text-text-muted'}`}
                 title="체크 시 변동비가 아니라 매출에서 차감 (정산차감형 — 예: 쿠팡 로켓프레시)"
               >
                 <input
@@ -3036,18 +3036,18 @@ function MonthlyCostEditor({
                 />
                 매출차감
               </label>
-              <span className="text-[10px] text-[#7A7F8A]">₩</span>
+              <span className="text-[10px] text-text-muted">₩</span>
               <input
                 type="number"
                 value={v || ''}
                 onChange={(e) => setDraft(d => ({ ...d, [c.id]: parseFloat(e.target.value) || 0 }))}
-                className="w-24 bg-[#08090A] border border-[#2E3138] rounded px-1.5 py-1 text-[#F7F8F8] font-mono text-right"
+                className="w-24 bg-bg-0 border border-border-subtle rounded px-1.5 py-1 text-text-primary font-mono text-right"
               />
               <button
                 onClick={() => save(c)}
                 disabled={savingChannel === c.id || !dirty}
                 className={`px-2 py-1 rounded text-[10px] font-medium ${
-                  dirty ? 'bg-[#828FFF] text-white hover:bg-[#7070FF]' : 'bg-[#1A1B1F] text-[#7A7F8A]'
+                  dirty ? 'bg-accent text-white hover:bg-link' : 'bg-bg-inset text-text-muted'
                 } disabled:opacity-50`}
               >{savingChannel === c.id ? '…' : dirty ? '저장' : '✓'}</button>
             </div>
@@ -3153,16 +3153,16 @@ function PlanTab({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <div>
             <h2 className="text-sm font-semibold mb-2">사업계획 엑셀 업로드</h2>
-            <p className="text-xs text-[#62666D] mb-3 leading-relaxed">
-              4개 시트 자동 인식: <span className="font-mono text-[#828FFF]">채널별 매출 대시보드 · 채널별 판매수량 · 판매수량 대시보드 · 대시보드(그룹 요약)</span>. 담당자·구분(위탁/사입/오프라인)·직원-채널 매핑이 자동 생성됩니다.
+            <p className="text-xs text-text-quaternary mb-3 leading-relaxed">
+              4개 시트 자동 인식: <span className="font-mono text-accent">채널별 매출 대시보드 · 채널별 판매수량 · 판매수량 대시보드 · 대시보드(그룹 요약)</span>. 담당자·구분(위탁/사입/오프라인)·직원-채널 매핑이 자동 생성됩니다.
             </p>
             <div className="flex items-end gap-2">
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">연도</label>
+                <label className="text-[10px] uppercase tracking-wider text-text-quaternary block mb-1">연도</label>
                 <input
                   type="number" value={year}
                   onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
-                  className="w-24 bg-[#08090A] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8] font-mono"
+                  className="w-24 bg-bg-0 border border-border-primary rounded px-2 py-1.5 text-sm text-text-primary font-mono"
                 />
               </div>
               <input
@@ -3170,11 +3170,11 @@ function PlanTab({
                 type="file" accept=".xlsx,.xls,.csv,.pdf"
                 onChange={(e) => e.target.files && e.target.files[0] && upload(e.target.files[0])}
                 disabled={busy}
-                className="flex-1 text-sm text-[#D0D6E0] file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-[#828FFF] file:text-white file:cursor-pointer hover:file:bg-[#7070FF] disabled:opacity-50"
+                className="flex-1 text-sm text-text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-accent file:text-white file:cursor-pointer hover:file:bg-link disabled:opacity-50"
               />
             </div>
             {uploadMsg && (
-              <div className="mt-3 text-xs font-mono text-[#D0D6E0] bg-[#08090A] border border-[#23252A] rounded p-2">{uploadMsg}</div>
+              <div className="mt-3 text-xs font-mono text-text-secondary bg-bg-0 border border-border-primary rounded p-2">{uploadMsg}</div>
             )}
           </div>
 
@@ -3182,12 +3182,12 @@ function PlanTab({
             <h2 className="text-sm font-semibold mb-2">비교 필터</h2>
             <div className="flex flex-wrap gap-2 items-end">
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">월</label>
+                <label className="text-[10px] uppercase tracking-wider text-text-quaternary block mb-1">월</label>
                 <select
                   value={month}
                   disabled={upToToday}
                   onChange={(e) => setMonth(e.target.value === '' ? '' : parseInt(e.target.value))}
-                  className="bg-[#08090A] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8] disabled:opacity-40"
+                  className="bg-bg-0 border border-border-primary rounded px-2 py-1.5 text-sm text-text-primary disabled:opacity-40"
                 >
                   <option value="">전체(연간)</option>
                   {Array.from({ length: 12 }).map((_, i) => (
@@ -3205,8 +3205,8 @@ function PlanTab({
                 }}
                 className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
                   upToToday
-                    ? 'bg-[#828FFF] border-[#828FFF] text-white'
-                    : 'bg-[#08090A] border-[#23252A] text-[#A3A9B3] hover:border-[#828FFF] hover:text-[#F7F8F8]'
+                    ? 'bg-accent border-accent text-white'
+                    : 'bg-bg-0 border-border-primary text-text-dim hover:border-accent hover:text-text-primary'
                 }`}
                 title="1월 1일부터 오늘까지 누계 분석 (계획은 오늘 기준 일자 비율로 안분)"
               >
@@ -3225,7 +3225,7 @@ function PlanTab({
               />
             </div>
             {upToToday && (
-              <p className="text-[11px] text-[#828FFF] mt-2">
+              <p className="text-[11px] text-accent mt-2">
                 1/1 ~ {new Date().toISOString().slice(0,10)} 누계 분석. 계획은 마지막 월(이번 달)을 오늘 일자 비율로 안분.
               </p>
             )}
@@ -3236,9 +3236,9 @@ function PlanTab({
       {/* 사업계획 요약 KPI */}
       {planSummary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <KpiCard label={`${year}년 연간 목표 매출`} value={`₩${fmtKR(planSummary.total_revenue_target)}`} hint={`낱개 목표 ${fmtNum(Math.round(planSummary.total_pcs_target))}개`} accent="#828FFF" />
-          <KpiCard label="실적 매출 (선택 기준)" value={`₩${fmtKR(totalActual)}`} hint={`목표 대비 ${fmtPct(totalAchRev)}`} accent={totalAchRev >= 100 ? '#27A644' : '#F0BF00'} />
-          <KpiCard label="달성률" value={fmtPct(totalAchRev)} hint={`목표 ₩${fmtKR(totalTarget)} / 실적 ₩${fmtKR(totalActual)}`} accent={totalAchRev >= 100 ? '#27A644' : '#EB5757'} />
+          <KpiCard label={`${year}년 연간 목표 매출`} value={`₩${fmtKR(planSummary.total_revenue_target)}`} hint={`낱개 목표 ${fmtNum(Math.round(planSummary.total_pcs_target))}개`} accent="var(--color-accent-hover)" />
+          <KpiCard label="실적 매출 (선택 기준)" value={`₩${fmtKR(totalActual)}`} hint={`목표 대비 ${fmtPct(totalAchRev)}`} accent={totalAchRev >= 100 ? 'var(--color-success)' : 'var(--color-warning)'} />
+          <KpiCard label="달성률" value={fmtPct(totalAchRev)} hint={`목표 ₩${fmtKR(totalTarget)} / 실적 ₩${fmtKR(totalActual)}`} accent={totalAchRev >= 100 ? 'var(--color-success)' : 'var(--color-danger)'} />
         </div>
       )}
 
@@ -3264,7 +3264,7 @@ function PlanTab({
                     contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                     formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
                   />
-                  <Legend wrapperStyle={{ fontSize: 10, color: '#8A8F98' }} />
+                  <Legend wrapperStyle={{ fontSize: 10, color: 'var(--color-text-tertiary)' }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : <Empty />}
@@ -3275,14 +3275,14 @@ function PlanTab({
             {planSummary.by_employee.length ? (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={planSummary.by_employee} layout="vertical" margin={{ left: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
-                  <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 11 }} tickFormatter={fmtKR} stroke="#62666D" />
-                  <YAxis type="category" dataKey="employee" tick={{ fill: '#8A8F98', fontSize: 11 }} stroke="#62666D" width={70} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-primary)" />
+                  <XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} tickFormatter={fmtKR} stroke="var(--color-text-quaternary)" />
+                  <YAxis type="category" dataKey="employee" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} stroke="var(--color-text-quaternary)" width={70} />
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                     formatter={(v: number) => `₩${fmtKR(v)}`}
                   />
-                  <Bar dataKey="target_revenue" fill="#828FFF" />
+                  <Bar dataKey="target_revenue" fill="var(--color-accent-hover)" />
                 </BarChart>
               </ResponsiveContainer>
             ) : <Empty />}
@@ -3296,7 +3296,7 @@ function PlanTab({
           <h3 className="text-sm font-semibold">
             {by === 'channel' ? '채널' : by === 'product' ? '품목' : by === 'group' ? '구분' : '담당자'}별 — 사업계획 vs 실적
           </h3>
-          <span className="text-[10px] text-[#7A7F8A]">Top 15 · 매출 기준</span>
+          <span className="text-[10px] text-text-muted">Top 15 · 매출 기준</span>
         </div>
         {busy ? <Skeleton h={260} /> : items.length ? (
           (() => {
@@ -3310,16 +3310,16 @@ function PlanTab({
                   <defs>
                     <linearGradient id="gradPlanTarget" x1="0" y1="0" x2="1" y2="0">
                       <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.6} />
-                      <stop offset="100%" stopColor="#7A7F8A" stopOpacity={0.85} />
+                      <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.85} />
                     </linearGradient>
                     <linearGradient id="gradPlanActual" x1="0" y1="0" x2="1" y2="0">
                       <stop offset="0%" stopColor="#5560C8" stopOpacity={0.85} />
-                      <stop offset="100%" stopColor="#A8B3FF" stopOpacity={1} />
+                      <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#23252A" />
-                  <XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={fmtKR} stroke="#62666D" />
-                  <YAxis type="category" dataKey="label" tick={{ fill: '#A3A9B3', fontSize: 10 }} stroke="#62666D" width={120} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-primary)" />
+                  <XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={fmtKR} stroke="var(--color-text-quaternary)" />
+                  <YAxis type="category" dataKey="label" tick={{ fill: 'var(--color-text-dim)', fontSize: 10 }} stroke="var(--color-text-quaternary)" width={120} />
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
                     formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
@@ -3340,7 +3340,7 @@ function PlanTab({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+              <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
                 <th className="text-left py-2 px-2">대상</th>
                 <th className="text-right py-2 px-2">계획 매출</th>
                 <th className="text-right py-2 px-2">실적 매출</th>
@@ -3354,22 +3354,22 @@ function PlanTab({
             </thead>
             <tbody>
               {items.length === 0 ? (
-                <tr><td colSpan={9} className="py-6 text-center text-[#62666D]">사업계획 또는 실적 데이터가 없습니다.</td></tr>
+                <tr><td colSpan={9} className="py-6 text-center text-text-quaternary">사업계획 또는 실적 데이터가 없습니다.</td></tr>
               ) : items.map((it: any, idx: number) => (
-                <tr key={`${it.key}-${idx}`} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                  <td className="py-1.5 px-2 text-[#F7F8F8]">{it.label}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-[#8A8F98]">₩{fmtKR(it.target_revenue)}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(it.actual_revenue)}</td>
-                  <td className={`py-1.5 px-2 text-right font-mono ${it.rev_ach == null ? 'text-[#62666D]' : it.rev_ach >= 100 ? 'text-[#27A644]' : it.rev_ach >= 80 ? 'text-[#F0BF00]' : 'text-[#EB5757]'}`}>
+                <tr key={`${it.key}-${idx}`} className="border-b border-bg-inset hover:bg-bg-inset">
+                  <td className="py-1.5 px-2 text-text-primary">{it.label}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-text-tertiary">₩{fmtKR(it.target_revenue)}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(it.actual_revenue)}</td>
+                  <td className={`py-1.5 px-2 text-right font-mono ${it.rev_ach == null ? 'text-text-quaternary' : it.rev_ach >= 100 ? 'text-success' : it.rev_ach >= 80 ? 'text-warning' : 'text-danger'}`}>
                     {it.rev_ach == null ? '—' : fmtPct(it.rev_ach)}
                   </td>
-                  <td className="py-1.5 px-2 text-right font-mono text-[#8A8F98]">{fmtNum(Math.round(it.target_pcs))}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(it.actual_pcs))}</td>
-                  <td className={`py-1.5 px-2 text-right font-mono ${it.pcs_ach == null ? 'text-[#62666D]' : it.pcs_ach >= 100 ? 'text-[#27A644]' : it.pcs_ach >= 80 ? 'text-[#F0BF00]' : 'text-[#EB5757]'}`}>
+                  <td className="py-1.5 px-2 text-right font-mono text-text-tertiary">{fmtNum(Math.round(it.target_pcs))}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(it.actual_pcs))}</td>
+                  <td className={`py-1.5 px-2 text-right font-mono ${it.pcs_ach == null ? 'text-text-quaternary' : it.pcs_ach >= 100 ? 'text-success' : it.pcs_ach >= 80 ? 'text-warning' : 'text-danger'}`}>
                     {it.pcs_ach == null ? '—' : fmtPct(it.pcs_ach)}
                   </td>
-                  <td className="py-1.5 px-2 text-right font-mono text-[#8A8F98]">{it.target_avg_price ? `₩${fmtKR(it.target_avg_price)}` : '—'}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-[#828FFF]">{it.actual_avg_price ? `₩${fmtKR(it.actual_avg_price)}` : '—'}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-text-tertiary">{it.target_avg_price ? `₩${fmtKR(it.target_avg_price)}` : '—'}</td>
+                  <td className="py-1.5 px-2 text-right font-mono text-accent">{it.actual_avg_price ? `₩${fmtKR(it.actual_avg_price)}` : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -3384,7 +3384,7 @@ function PlanTab({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+                <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
                   <th className="text-left py-2 px-2">채널 × 품목</th>
                   <th className="text-right py-2 px-2">매출(VAT-)</th>
                   <th className="text-right py-2 px-2">낱개수량</th>
@@ -3395,13 +3395,13 @@ function PlanTab({
               </thead>
               <tbody>
                 {avgPrice.items.slice(0, 20).map((it: any, i: number) => (
-                  <tr key={i} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                    <td className="py-1.5 px-2 text-[#F7F8F8]">{it.label}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-[#F7F8F8]">₩{fmtKR(it.revenue)}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(Math.round(it.pcs))}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-[#D0D6E0]">{fmtNum(it.orders)}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-[#828FFF]">₩{fmtKR(it.avg_price_per_pcs)}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-[#828FFF]">₩{fmtKR(it.avg_price_per_order)}</td>
+                  <tr key={i} className="border-b border-bg-inset hover:bg-bg-inset">
+                    <td className="py-1.5 px-2 text-text-primary">{it.label}</td>
+                    <td className="py-1.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(it.revenue)}</td>
+                    <td className="py-1.5 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(it.pcs))}</td>
+                    <td className="py-1.5 px-2 text-right font-mono text-text-secondary">{fmtNum(it.orders)}</td>
+                    <td className="py-1.5 px-2 text-right font-mono text-accent">₩{fmtKR(it.avg_price_per_pcs)}</td>
+                    <td className="py-1.5 px-2 text-right font-mono text-accent">₩{fmtKR(it.avg_price_per_order)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -3584,7 +3584,7 @@ function AdminTab({
   const SUPABASE_LIMIT_BYTES = 8 * 1024 * 1024 * 1024;
   const dbBytes = storage?.db_size?.bytes || 0;
   const dbPct = (dbBytes / SUPABASE_LIMIT_BYTES) * 100;
-  const dbBarColor = dbPct < 60 ? '#27A644' : dbPct < 85 ? '#F0BF00' : '#EB5757';
+  const dbBarColor = dbPct < 60 ? 'var(--color-success)' : dbPct < 85 ? 'var(--color-warning)' : 'var(--color-danger)';
 
   // P&L 비밀번호 상태
   const [pwStatus, setPwStatus] = useState<{ is_set: boolean; owner_email: string } | null>(null);
@@ -3624,35 +3624,35 @@ function AdminTab({
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-semibold">월별 P&L 차트 수정 비밀번호</h2>
           <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-            pwStatus?.is_set ? 'bg-[#27A644]/15 text-[#27A644]' : 'bg-[#F0BF00]/15 text-[#F0BF00]'
+            pwStatus?.is_set ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
           }`}>{pwStatus?.is_set ? '설정 완료' : '미설정'}</span>
         </div>
-        <p className="text-xs text-[#A3A9B3] mb-3">
-          P&L 차트의 셀 값을 수정하려면 비밀번호가 필요합니다. 비밀번호는 <span className="font-mono text-[#828FFF]">{pwStatus?.owner_email || 'lion9080@joinandjoin.com'}</span> 계정으로만 설정·변경할 수 있습니다.
+        <p className="text-xs text-text-dim mb-3">
+          P&L 차트의 셀 값을 수정하려면 비밀번호가 필요합니다. 비밀번호는 <span className="font-mono text-accent">{pwStatus?.owner_email || 'lion9080@joinandjoin.com'}</span> 계정으로만 설정·변경할 수 있습니다.
         </p>
         {isOwner ? (
           <div className="flex items-end gap-2">
             <div className="flex-1">
-              <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">새 비밀번호</label>
+              <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">새 비밀번호</label>
               <input
                 type="password" value={newPw}
                 onChange={(e) => setNewPw(e.target.value)}
                 placeholder="4자 이상"
-                className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8]"
+                className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary"
               />
             </div>
             <button
               onClick={savePw}
-              className="px-4 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium"
+              className="px-4 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
             >저장</button>
           </div>
         ) : (
-          <div className="text-xs text-[#A3A9B3] bg-[#08090A] border border-[#23252A] rounded p-3">
-            현재 로그인: <span className="font-mono text-[#D0D6E0]">{userEmail || '로그인 정보 없음'}</span><br/>
+          <div className="text-xs text-text-dim bg-bg-0 border border-border-primary rounded p-3">
+            현재 로그인: <span className="font-mono text-text-secondary">{userEmail || '로그인 정보 없음'}</span><br/>
             비밀번호 설정 권한이 없습니다. {pwStatus?.owner_email}로 로그인해 주세요.
           </div>
         )}
-        {pwMsg && <div className="mt-2 text-[11px] text-[#D0D6E0]">{pwMsg}</div>}
+        {pwMsg && <div className="mt-2 text-[11px] text-text-secondary">{pwMsg}</div>}
       </div>
 
       {/* 저장소 관리 */}
@@ -3660,7 +3660,7 @@ function AdminTab({
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-sm font-semibold">저장소 관리 — 보존 정책 + 월 파티션</h2>
-            <p className="text-xs text-[#62666D] mt-1">
+            <p className="text-xs text-text-quaternary mt-1">
               30일 후 원본 JSON 비우기 · 24개월 hot + 5년 cold 압축 · resolved 매핑 6개월 후 삭제 · 매일 02:00 KST 자동 실행.
             </p>
           </div>
@@ -3668,17 +3668,17 @@ function AdminTab({
             <button
               onClick={() => runAdmin('setup-retention', 'retention 등록')}
               disabled={adminBusy !== null}
-              className="px-3 py-1.5 bg-[#1A1B1F] hover:bg-[#23252A] text-[#D0D6E0] rounded text-xs"
+              className="px-3 py-1.5 bg-bg-inset hover:bg-border-primary text-text-secondary rounded text-xs"
             >{adminBusy === 'retention 등록' ? '실행 중…' : 'retention 재등록'}</button>
             <button
               onClick={() => runAdmin('migrate-partitions', '파티션 마이그레이션')}
               disabled={adminBusy !== null}
-              className="px-3 py-1.5 bg-[#F0BF00] hover:bg-[#D9A800] text-[#08090A] rounded text-xs font-medium"
+              className="px-3 py-1.5 bg-warning hover:bg-[#D9A800] text-bg-0 rounded text-xs font-medium"
             >{adminBusy === '파티션 마이그레이션' ? '실행 중…' : '파티션 전환'}</button>
             <button
               onClick={() => runAdmin('run-retention-now', '즉시 실행')}
               disabled={adminBusy !== null}
-              className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium"
+              className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
             >{adminBusy === '즉시 실행' ? '실행 중…' : '지금 실행'}</button>
           </div>
         </div>
@@ -3688,12 +3688,12 @@ function AdminTab({
             {/* DB 사용량 게이지 */}
             <div className={`${SUBPANEL} p-4 mb-3`}>
               <div className="flex items-baseline justify-between mb-2">
-                <span className="text-xs font-mono uppercase tracking-wider text-[#62666D]">SUPABASE DB 사용량</span>
-                <span className="text-sm font-mono text-[#F7F8F8]">
-                  {storage.db_size?.s || '?'} <span className="text-[#62666D]">/ 8 GB ({dbPct.toFixed(1)}%)</span>
+                <span className="text-xs font-mono uppercase tracking-wider text-text-quaternary">SUPABASE DB 사용량</span>
+                <span className="text-sm font-mono text-text-primary">
+                  {storage.db_size?.s || '?'} <span className="text-text-quaternary">/ 8 GB ({dbPct.toFixed(1)}%)</span>
                 </span>
               </div>
-              <div className="h-2 bg-[#0F1011] rounded-full overflow-hidden">
+              <div className="h-2 bg-bg-1 rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, dbPct)}%`, background: dbBarColor }} />
               </div>
             </div>
@@ -3701,25 +3701,25 @@ function AdminTab({
             {/* 상태 카드 */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
               <div className={`${SUBPANEL} p-3`}>
-                <div className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">월 파티션</div>
-                <div className="text-base font-mono text-[#F7F8F8]">
+                <div className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">월 파티션</div>
+                <div className="text-base font-mono text-text-primary">
                   {storage.is_partitioned ? `✓ 활성 (${storage.partitions?.length || 0}개월)` : '단일 테이블 (전환 가능)'}
                 </div>
               </div>
               <div className={`${SUBPANEL} p-3`}>
-                <div className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">pg_cron 스케줄</div>
-                <div className="text-base font-mono text-[#F7F8F8]">
+                <div className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">pg_cron 스케줄</div>
+                <div className="text-base font-mono text-text-primary">
                   {(storage.cron_jobs?.length || 0)}개 등록
                 </div>
                 {storage.cron_jobs?.map((j: any, i: number) => (
-                  <div key={i} className="text-[10px] text-[#62666D] mt-0.5">
+                  <div key={i} className="text-[10px] text-text-quaternary mt-0.5">
                     {j.jobname} · {j.schedule} {j.active ? '✓' : '✗'}
                   </div>
                 ))}
               </div>
               <div className={`${SUBPANEL} p-3`}>
-                <div className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">최근 retention 실행</div>
-                <div className="text-base font-mono text-[#F7F8F8]">
+                <div className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">최근 retention 실행</div>
+                <div className="text-base font-mono text-text-primary">
                   {storage.recent_runs?.[0]?.ran_at ? new Date(storage.recent_runs[0].ran_at).toLocaleString('ko-KR') : '없음'}
                 </div>
               </div>
@@ -3728,11 +3728,11 @@ function AdminTab({
             {/* 테이블별 용량 */}
             {storage.tables?.length > 0 && (
               <details className={`${SUBPANEL} p-3 mb-2`}>
-                <summary className="text-xs cursor-pointer text-[#D0D6E0]">CSA 테이블별 용량 ({storage.tables.length}개)</summary>
+                <summary className="text-xs cursor-pointer text-text-secondary">CSA 테이블별 용량 ({storage.tables.length}개)</summary>
                 <div className="mt-2 overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-[#23252A] text-[10px] uppercase tracking-wider text-[#62666D]">
+                      <tr className="border-b border-border-primary text-[10px] uppercase tracking-wider text-text-quaternary">
                         <th className="text-left py-1.5 px-2">테이블</th>
                         <th className="text-right py-1.5 px-2">용량</th>
                         <th className="text-right py-1.5 px-2">행 수 (추정)</th>
@@ -3740,10 +3740,10 @@ function AdminTab({
                     </thead>
                     <tbody>
                       {storage.tables.map((t: any) => (
-                        <tr key={t.table_name} className="border-b border-[#1A1B1F]">
-                          <td className="py-1 px-2 font-mono text-[#D0D6E0]">{t.table_name}</td>
-                          <td className="py-1 px-2 text-right font-mono text-[#F7F8F8]">{t.pretty_size}</td>
-                          <td className="py-1 px-2 text-right font-mono text-[#8A8F98]">{(t.est_rows || 0).toLocaleString()}</td>
+                        <tr key={t.table_name} className="border-b border-bg-inset">
+                          <td className="py-1 px-2 font-mono text-text-secondary">{t.table_name}</td>
+                          <td className="py-1 px-2 text-right font-mono text-text-primary">{t.pretty_size}</td>
+                          <td className="py-1 px-2 text-right font-mono text-text-tertiary">{(t.est_rows || 0).toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -3755,12 +3755,12 @@ function AdminTab({
             {/* 파티션 리스트 */}
             {storage.is_partitioned && storage.partitions?.length > 0 && (
               <details className={`${SUBPANEL} p-3 mb-2`}>
-                <summary className="text-xs cursor-pointer text-[#D0D6E0]">월 파티션 ({storage.partitions.length}개)</summary>
+                <summary className="text-xs cursor-pointer text-text-secondary">월 파티션 ({storage.partitions.length}개)</summary>
                 <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-1.5">
                   {storage.partitions.map((p: any) => (
-                    <div key={p.partition_name} className="text-[10px] font-mono text-[#D0D6E0] bg-[#0F1011] border border-[#23252A] rounded px-2 py-1">
+                    <div key={p.partition_name} className="text-[10px] font-mono text-text-secondary bg-bg-1 border border-border-primary rounded px-2 py-1">
                       {p.partition_name.replace('csa_sales_raw_lines_', '')}
-                      <span className="text-[#62666D] ml-1">· {p.pretty_size}</span>
+                      <span className="text-text-quaternary ml-1">· {p.pretty_size}</span>
                     </div>
                   ))}
                 </div>
@@ -3770,11 +3770,11 @@ function AdminTab({
             {/* 최근 실행 로그 */}
             {storage.recent_runs?.length > 0 && (
               <details className={`${SUBPANEL} p-3`}>
-                <summary className="text-xs cursor-pointer text-[#D0D6E0]">최근 retention 실행 로그 ({storage.recent_runs.length}건)</summary>
+                <summary className="text-xs cursor-pointer text-text-secondary">최근 retention 실행 로그 ({storage.recent_runs.length}건)</summary>
                 <div className="mt-2 space-y-1 text-[10px] font-mono">
                   {storage.recent_runs.map((r: any, i: number) => (
-                    <div key={i} className="text-[#8A8F98]">
-                      <span className="text-[#D0D6E0]">{new Date(r.ran_at).toLocaleString('ko-KR')}</span> ·
+                    <div key={i} className="text-text-tertiary">
+                      <span className="text-text-secondary">{new Date(r.ran_at).toLocaleString('ko-KR')}</span> ·
                       raw_clear {r.result?.cleared_raw_row ?? 0} · archive {r.result?.archived_lines ?? 0}행/{r.result?.archived_months ?? 0}개월 ·
                       5y삭제 {r.result?.purged_archive_5y ?? 0} · 매핑정리 {r.result?.purged_unmatched_6m ?? 0}
                     </div>
@@ -3786,7 +3786,7 @@ function AdminTab({
         )}
 
         {adminMsg && (
-          <div className="mt-3 text-[11px] font-mono text-[#D0D6E0] bg-[#08090A] border border-[#23252A] rounded p-2 break-all">{adminMsg}</div>
+          <div className="mt-3 text-[11px] font-mono text-text-secondary bg-bg-0 border border-border-primary rounded p-2 break-all">{adminMsg}</div>
         )}
       </div>
 
@@ -3795,11 +3795,11 @@ function AdminTab({
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-sm font-semibold">직원 관리</h2>
-            <p className="text-xs text-[#62666D] mt-1">직원 이메일(로그인용)·이름·역할 등록. 사업계획 업로드 시 직원이 자동 생성되며, 이메일을 실제 로그인 이메일로 수정해 주세요.</p>
+            <p className="text-xs text-text-quaternary mt-1">직원 이메일(로그인용)·이름·역할 등록. 사업계획 업로드 시 직원이 자동 생성되며, 이메일을 실제 로그인 이메일로 수정해 주세요.</p>
           </div>
           <button
             onClick={() => setEditingEmp({ email: '', name: '', role: 'staff', is_active: true })}
-            className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium"
+            className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
           >
             + 직원 추가
           </button>
@@ -3809,28 +3809,28 @@ function AdminTab({
           <div className={`${SUBPANEL} p-3 mb-4`}>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
               <div className="md:col-span-2">
-                <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">이메일</label>
+                <label className="text-[10px] uppercase tracking-wider text-text-quaternary block mb-1">이메일</label>
                 <input
                   type="email" value={editingEmp.email || ''}
                   onChange={(e) => setEditingEmp({ ...editingEmp, email: e.target.value })}
-                  className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                  className="w-full bg-bg-1 border border-border-primary rounded px-2 py-1.5 text-sm text-text-primary"
                   placeholder="example@joinnjoin.com"
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">이름</label>
+                <label className="text-[10px] uppercase tracking-wider text-text-quaternary block mb-1">이름</label>
                 <input
                   type="text" value={editingEmp.name || ''}
                   onChange={(e) => setEditingEmp({ ...editingEmp, name: e.target.value })}
-                  className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                  className="w-full bg-bg-1 border border-border-primary rounded px-2 py-1.5 text-sm text-text-primary"
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-[#62666D] block mb-1">역할</label>
+                <label className="text-[10px] uppercase tracking-wider text-text-quaternary block mb-1">역할</label>
                 <select
                   value={editingEmp.role || 'staff'}
                   onChange={(e) => setEditingEmp({ ...editingEmp, role: e.target.value })}
-                  className="w-full bg-[#0F1011] border border-[#23252A] rounded px-2 py-1.5 text-sm text-[#F7F8F8]"
+                  className="w-full bg-bg-1 border border-border-primary rounded px-2 py-1.5 text-sm text-text-primary"
                 >
                   <option value="admin">관리자</option>
                   <option value="manager">매니저</option>
@@ -3838,8 +3838,8 @@ function AdminTab({
                 </select>
               </div>
               <div className="flex gap-1.5">
-                <button onClick={saveEmployee} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium">저장</button>
-                <button onClick={() => setEditingEmp(null)} className="px-3 py-1.5 bg-[#1A1B1F] hover:bg-[#23252A] text-[#D0D6E0] rounded text-xs">취소</button>
+                <button onClick={saveEmployee} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">저장</button>
+                <button onClick={() => setEditingEmp(null)} className="px-3 py-1.5 bg-bg-inset hover:bg-border-primary text-text-secondary rounded text-xs">취소</button>
               </div>
             </div>
           </div>
@@ -3848,7 +3848,7 @@ function AdminTab({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+              <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
                 <th className="text-left py-2 px-2">이름</th>
                 <th className="text-left py-2 px-2">이메일</th>
                 <th className="text-left py-2 px-2">역할</th>
@@ -3858,26 +3858,26 @@ function AdminTab({
             </thead>
             <tbody>
               {employees.length === 0 ? (
-                <tr><td colSpan={5} className="py-6 text-center text-[#62666D]">직원이 등록되지 않았습니다. 사업계획 엑셀을 업로드하면 자동 생성됩니다.</td></tr>
+                <tr><td colSpan={5} className="py-6 text-center text-text-quaternary">직원이 등록되지 않았습니다. 사업계획 엑셀을 업로드하면 자동 생성됩니다.</td></tr>
               ) : employees.map(e => (
-                <tr key={e.id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                  <td className="py-2 px-2 text-[#F7F8F8] font-medium">{e.name}</td>
-                  <td className="py-2 px-2 text-[#8A8F98] font-mono text-xs">{e.email}</td>
+                <tr key={e.id} className="border-b border-bg-inset hover:bg-bg-inset">
+                  <td className="py-2 px-2 text-text-primary font-medium">{e.name}</td>
+                  <td className="py-2 px-2 text-text-tertiary font-mono text-xs">{e.email}</td>
                   <td className="py-2 px-2">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                      e.role === 'admin' ? 'bg-[#EB5757]/15 text-[#EB5757]'
-                      : e.role === 'manager' ? 'bg-[#F0BF00]/15 text-[#F0BF00]'
-                      : 'bg-[#828FFF]/15 text-[#828FFF]'
+                      e.role === 'admin' ? 'bg-danger/15 text-danger'
+                      : e.role === 'manager' ? 'bg-warning/15 text-warning'
+                      : 'bg-accent/15 text-accent'
                     }`}>{e.role === 'admin' ? '관리자' : e.role === 'manager' ? '매니저' : '담당자'}</span>
                   </td>
-                  <td className="py-2 px-2 text-[#D0D6E0] text-xs">
-                    {e.channels.length === 0 ? <span className="text-[#62666D]">없음</span>
+                  <td className="py-2 px-2 text-text-secondary text-xs">
+                    {e.channels.length === 0 ? <span className="text-text-quaternary">없음</span>
                       : e.channels.slice(0, 4).map(c => c.channel_name).join(', ') + (e.channels.length > 4 ? ` +${e.channels.length - 4}` : '')}
                   </td>
                   <td className="py-2 px-2 text-right">
-                    <button onClick={() => openAssign(e)} className="text-xs text-[#828FFF] hover:underline mr-2">채널 배정</button>
-                    <button onClick={() => setEditingEmp(e)} className="text-xs text-[#8A8F98] hover:text-[#F7F8F8] mr-2">수정</button>
-                    <button onClick={() => deleteEmployee(e.id)} className="text-xs text-[#EB5757] hover:underline">삭제</button>
+                    <button onClick={() => openAssign(e)} className="text-xs text-accent hover:underline mr-2">채널 배정</button>
+                    <button onClick={() => setEditingEmp(e)} className="text-xs text-text-tertiary hover:text-text-primary mr-2">수정</button>
+                    <button onClick={() => deleteEmployee(e.id)} className="text-xs text-danger hover:underline">삭제</button>
                   </td>
                 </tr>
               ))}
@@ -3889,11 +3889,11 @@ function AdminTab({
       {/* 채널 그룹 매핑 */}
       <div className={`${PANEL} p-5`}>
         <h2 className="text-sm font-semibold mb-3">채널 구분 (위탁 / 사입 / 오프라인)</h2>
-        <p className="text-xs text-[#62666D] mb-4">각 채널이 속한 구분을 지정합니다. 사업계획 업로드 시 자동 매핑되며, 수동으로 변경 가능합니다.</p>
+        <p className="text-xs text-text-quaternary mb-4">각 채널이 속한 구분을 지정합니다. 사업계획 업로드 시 자동 매핑되며, 수동으로 변경 가능합니다.</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#23252A] text-[11px] uppercase tracking-wider text-[#62666D]">
+              <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
                 <th className="text-left py-2 px-2">채널</th>
                 <th className="text-left py-2 px-2">카테고리</th>
                 <th className="text-left py-2 px-2">구분 (사업계획 분류)</th>
@@ -3901,14 +3901,14 @@ function AdminTab({
             </thead>
             <tbody>
               {channels.map(c => (
-                <tr key={c.id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                  <td className="py-2 px-2 text-[#F7F8F8]">{c.name}</td>
-                  <td className="py-2 px-2 text-[#8A8F98] text-xs">{c.category}</td>
+                <tr key={c.id} className="border-b border-bg-inset hover:bg-bg-inset">
+                  <td className="py-2 px-2 text-text-primary">{c.name}</td>
+                  <td className="py-2 px-2 text-text-tertiary text-xs">{c.category}</td>
                   <td className="py-2 px-2">
                     <select
                       value={channelGroupMap[c.id] || ''}
                       onChange={(e) => e.target.value && setChannelGroup(c.id, parseInt(e.target.value))}
-                      className="bg-[#08090A] border border-[#23252A] rounded px-2 py-1 text-xs text-[#F7F8F8]"
+                      className="bg-bg-0 border border-border-primary rounded px-2 py-1 text-xs text-text-primary"
                     >
                       <option value="">— 미지정 —</option>
                       {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -3927,11 +3927,11 @@ function AdminTab({
           <div className={`${PANEL} p-5 max-w-2xl w-full max-h-[80vh] overflow-y-auto`}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">[{assignTarget.name}] 담당 채널 배정</h3>
-              <button onClick={() => setAssignTarget(null)} className="text-[#62666D] hover:text-[#F7F8F8]">✕</button>
+              <button onClick={() => setAssignTarget(null)} className="text-text-quaternary hover:text-text-primary">✕</button>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
               {channels.map(c => (
-                <label key={c.id} className="flex items-center gap-2 text-xs text-[#D0D6E0] cursor-pointer p-2 rounded hover:bg-[#1A1B1F]">
+                <label key={c.id} className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer p-2 rounded hover:bg-bg-inset">
                   <input
                     type="checkbox"
                     checked={pendingChannels.includes(c.id)}
@@ -3939,15 +3939,15 @@ function AdminTab({
                       if (e.target.checked) setPendingChannels([...pendingChannels, c.id]);
                       else setPendingChannels(pendingChannels.filter(x => x !== c.id));
                     }}
-                    className="accent-[#828FFF]"
+                    className="accent-accent"
                   />
                   {c.name}
                 </label>
               ))}
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setAssignTarget(null)} className="px-3 py-1.5 bg-[#1A1B1F] text-[#D0D6E0] rounded text-xs">취소</button>
-              <button onClick={saveAssign} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium">저장 ({pendingChannels.length}개)</button>
+              <button onClick={() => setAssignTarget(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
+              <button onClick={saveAssign} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">저장 ({pendingChannels.length}개)</button>
             </div>
           </div>
         </div>
@@ -3963,9 +3963,9 @@ function AdminTab({
 function KpiCard({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
   return (
     <div className={`${PANEL} p-5`}>
-      <div className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3] mb-2">{label}</div>
+      <div className="text-[10px] font-mono uppercase tracking-wider text-text-dim mb-2">{label}</div>
       <div className="text-2xl font-semibold tracking-tight" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
-      {hint && <div className="text-[11px] text-[#A3A9B3] mt-1.5">{hint}</div>}
+      {hint && <div className="text-[11px] text-text-dim mt-1.5">{hint}</div>}
     </div>
   );
 }
@@ -3976,7 +3976,7 @@ function DeltaBadge({ delta }: { delta: { pct: number; sign: 'up' | 'down' | 'fl
       ? { bg: 'rgba(39,166,68,0.15)', color: '#3DD971', border: 'rgba(39,166,68,0.35)' }
       : delta.sign === 'down'
         ? { bg: 'rgba(235,87,87,0.15)', color: '#FF7A7A', border: 'rgba(235,87,87,0.35)' }
-        : { bg: 'rgba(122,127,138,0.12)', color: '#A3A9B3', border: 'rgba(122,127,138,0.25)' };
+        : { bg: 'rgba(122,127,138,0.12)', color: 'var(--color-text-dim)', border: 'rgba(122,127,138,0.25)' };
   const arrow = delta.sign === 'up' ? '▲' : delta.sign === 'down' ? '▼' : '–';
   return (
     <span
@@ -4009,7 +4009,7 @@ function CompactKpi({
     }
     deltaSign = deltaPct > 0.05 ? 'up' : deltaPct < -0.05 ? 'down' : 'flat';
   }
-  const deltaColor = deltaSign === 'up' ? '#27A644' : deltaSign === 'down' ? '#EB5757' : '#7A7F8A';
+  const deltaColor = deltaSign === 'up' ? 'var(--color-success)' : deltaSign === 'down' ? 'var(--color-danger)' : 'var(--color-text-muted)';
   const arrow = deltaSign === 'up' ? '▲' : deltaSign === 'down' ? '▼' : '–';
 
   const accentColor = accent || TEXT_PRIMARY;
@@ -4019,7 +4019,7 @@ function CompactKpi({
       ? { bg: 'rgba(39,166,68,0.18)', color: '#3DD971', border: 'rgba(39,166,68,0.4)' }
       : deltaSign === 'down'
         ? { bg: 'rgba(235,87,87,0.18)', color: '#FF7A7A', border: 'rgba(235,87,87,0.4)' }
-        : { bg: 'rgba(122,127,138,0.15)', color: '#A3A9B3', border: 'rgba(122,127,138,0.3)' };
+        : { bg: 'rgba(122,127,138,0.15)', color: 'var(--color-text-dim)', border: 'rgba(122,127,138,0.3)' };
 
   return (
     <div className={`${PANEL} p-3 relative overflow-hidden`}>
@@ -4041,7 +4041,7 @@ function CompactKpi({
           </ResponsiveContainer>
         </div>
       )}
-      <div className="text-[10px] font-mono uppercase tracking-wider text-[#A3A9B3] mb-1 pl-1.5">{label}</div>
+      <div className="text-[10px] font-mono uppercase tracking-wider text-text-dim mb-1 pl-1.5">{label}</div>
       <div className="text-lg font-semibold tracking-tight truncate pl-1.5" style={{ color: accentColor }}>{value}</div>
       <div className="flex items-center gap-1.5 mt-1 pl-1.5">
         {deltaPct !== null && (
@@ -4052,7 +4052,7 @@ function CompactKpi({
             {arrow} {Math.abs(deltaPct).toFixed(1)}{deltaFormat === 'pp' ? 'pp' : '%'}
           </span>
         )}
-        {hint && <div className="text-[10px] text-[#7A7F8A] truncate">{hint}</div>}
+        {hint && <div className="text-[10px] text-text-muted truncate">{hint}</div>}
       </div>
     </div>
   );
@@ -4069,8 +4069,8 @@ function DonutCard({
   if (!data || data.length === 0) {
     return (
       <div className={`${PANEL} p-4`}>
-        <h3 className="text-sm font-semibold text-[#F7F8F8] mb-1">{title}</h3>
-        {subtitle && <div className="text-[10px] text-[#A3A9B3] mb-2">{subtitle}</div>}
+        <h3 className="text-sm font-semibold text-text-primary mb-1">{title}</h3>
+        {subtitle && <div className="text-[10px] text-text-dim mb-2">{subtitle}</div>}
         <Empty h={180} />
       </div>
     );
@@ -4080,10 +4080,10 @@ function DonutCard({
   return (
     <div className={`${PANEL} p-4`}>
       <div className="flex items-baseline justify-between mb-1">
-        <h3 className="text-sm font-semibold text-[#F7F8F8]">{title}</h3>
-        <span className="text-[10px] text-[#A3A9B3] font-mono">총 ₩{fmtKR(total)}</span>
+        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+        <span className="text-[10px] text-text-dim font-mono">총 ₩{fmtKR(total)}</span>
       </div>
-      {subtitle && <div className="text-[10px] text-[#7A7F8A] mb-2">{subtitle}</div>}
+      {subtitle && <div className="text-[10px] text-text-muted mb-2">{subtitle}</div>}
       <ResponsiveContainer width="100%" height={200}>
         <PieChart>
           <Pie
@@ -4109,12 +4109,12 @@ function DonutCard({
         {data.slice(0, 8).map((d, i) => (
           <div key={d.name} className="flex items-center gap-1.5 min-w-0">
             <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: palette[i % palette.length] }} />
-            <span className="text-[#D0D6E0] truncate">{d.name}</span>
-            <span className="text-[#7A7F8A] font-mono ml-auto flex-shrink-0">{total ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
+            <span className="text-text-secondary truncate">{d.name}</span>
+            <span className="text-text-muted font-mono ml-auto flex-shrink-0">{total ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
           </div>
         ))}
         {data.length > 8 && (
-          <div className="text-[#7A7F8A] col-span-2 text-center">+ {data.length - 8}개 더</div>
+          <div className="text-text-muted col-span-2 text-center">+ {data.length - 8}개 더</div>
         )}
       </div>
     </div>
@@ -4124,12 +4124,12 @@ function DonutCard({
 function DateInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex flex-col">
-      <label className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">{label}</label>
+      <label className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">{label}</label>
       <input
         type="date"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-[#08090A] border border-[#23252A] rounded-md px-3 py-1.5 text-sm text-[#F7F8F8]"
+        className="bg-bg-0 border border-border-primary rounded-md px-3 py-1.5 text-sm text-text-primary"
       />
     </div>
   );
@@ -4143,14 +4143,14 @@ function Segment<T extends string>({ label, options, value, onChange }: {
 }) {
   return (
     <div className="flex flex-col">
-      <label className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">{label}</label>
-      <div className="flex bg-[#08090A] border border-[#23252A] rounded-md p-0.5">
+      <label className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">{label}</label>
+      <div className="flex bg-bg-0 border border-border-primary rounded-md p-0.5">
         {options.map(o => (
           <button
             key={o.v}
             onClick={() => onChange(o.v)}
             className={`px-2.5 py-1 text-xs rounded transition-colors ${
-              value === o.v ? 'bg-[#828FFF] text-white' : 'text-[#8A8F98] hover:text-[#F7F8F8]'
+              value === o.v ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-primary'
             }`}
           >
             {o.l}
@@ -4194,28 +4194,28 @@ function MultiSelect({ label, options, value, onChange }: {
 
   return (
     <div className="flex flex-col relative" ref={wrapRef}>
-      <label className="text-[10px] uppercase tracking-wider text-[#62666D] mb-1">{label}</label>
+      <label className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">{label}</label>
       <button
         onClick={() => setOpen(o => !o)}
-        className="bg-[#08090A] border border-[#23252A] rounded-md px-3 py-1.5 text-sm text-[#F7F8F8] min-w-[120px] text-left flex items-center justify-between"
+        className="bg-bg-0 border border-border-primary rounded-md px-3 py-1.5 text-sm text-text-primary min-w-[120px] text-left flex items-center justify-between"
       >
         <span>{value.length === 0 ? '전체' : `${value.length}개 선택`}</span>
-        <span className="text-[#62666D] ml-2">▾</span>
+        <span className="text-text-quaternary ml-2">▾</span>
       </button>
       {open && (
-        <div className="absolute z-20 top-full mt-1 left-0 w-72 max-h-[300px] overflow-y-auto bg-[#0F1011] border border-[#23252A] rounded-md shadow-xl p-2">
+        <div className="absolute z-20 top-full mt-1 left-0 w-72 max-h-[300px] overflow-y-auto bg-bg-1 border border-border-primary rounded-md shadow-xl p-2">
           {Object.entries(grouped).map(([g, opts]) => (
             <div key={g} className="mb-1">
-              {g !== '_' && <div className="text-[10px] uppercase tracking-wider text-[#62666D] px-2 py-1">{g}</div>}
+              {g !== '_' && <div className="text-[10px] uppercase tracking-wider text-text-quaternary px-2 py-1">{g}</div>}
               {opts.map(o => (
-                <label key={o.v} className="flex items-center gap-2 px-2 py-1 hover:bg-[#1A1B1F] rounded cursor-pointer text-xs">
+                <label key={o.v} className="flex items-center gap-2 px-2 py-1 hover:bg-bg-inset rounded cursor-pointer text-xs">
                   <input
                     type="checkbox"
                     checked={value.includes(o.v)}
                     onChange={() => toggle(o.v)}
-                    className="accent-[#828FFF]"
+                    className="accent-accent"
                   />
-                  <span className="text-[#D0D6E0]">{o.l}</span>
+                  <span className="text-text-secondary">{o.l}</span>
                 </label>
               ))}
             </div>
@@ -4227,7 +4227,7 @@ function MultiSelect({ label, options, value, onChange }: {
 }
 
 function Skeleton({ h }: { h: number }) {
-  return <div className="animate-pulse bg-[#1A1B1F] rounded" style={{ height: h }} />;
+  return <div className="animate-pulse bg-bg-inset rounded" style={{ height: h }} />;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -4378,7 +4378,7 @@ function ProductsTab({
       <div className={`${PANEL} p-4 flex flex-wrap items-end justify-between gap-3`}>
         <div>
           <h2 className="text-sm font-semibold">품목 관리</h2>
-          <p className="text-xs text-[#A3A9B3] mt-1">
+          <p className="text-xs text-text-dim mt-1">
             표준 품목 {products.length}종 · 채널 {channels.length}개 · 활성 매핑 {mappings.filter(m => m.is_active).length}건
           </p>
         </div>
@@ -4394,7 +4394,7 @@ function ProductsTab({
           />
           <button
             onClick={() => { setEditProd({ name: '', default_unit_size: 1, is_active: true, sort_order: 100 }); setShowProdEditor(true); }}
-            className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium"
+            className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
           >+ 품목 추가</button>
         </div>
       </div>
@@ -4406,28 +4406,28 @@ function ProductsTab({
           {products.map(p => (
             <div key={p.id} className={`${SUBPANEL} p-3 flex items-center gap-2`}>
               <div className="flex-1 min-w-0">
-                <div className="text-sm text-[#F7F8F8] font-medium truncate">{p.name}</div>
-                <div className="text-[10px] text-[#A3A9B3] mt-0.5 flex items-center gap-2">
+                <div className="text-sm text-text-primary font-medium truncate">{p.name}</div>
+                <div className="text-[10px] text-text-dim mt-0.5 flex items-center gap-2">
                   <span>{p.category || '-'}</span>
-                  <span className="text-[#7A7F8A]">·</span>
-                  <span className="text-[#828FFF] font-mono">{productChannelCount[p.id] || 0}채널</span>
+                  <span className="text-text-muted">·</span>
+                  <span className="text-accent font-mono">{productChannelCount[p.id] || 0}채널</span>
                 </div>
                 {costs[p.id] ? (
                   <div className="text-[10px] mt-1 flex items-center gap-2 font-mono">
-                    <span className="text-[#EB5757]">원가 ₩{costs[p.id].unit_cost.toLocaleString()}</span>
-                    <span className="text-[#FC7840]">노무 ₩{costs[p.id].unit_labor.toLocaleString()}</span>
+                    <span className="text-danger">원가 ₩{costs[p.id].unit_cost.toLocaleString()}</span>
+                    <span className="text-orange">노무 ₩{costs[p.id].unit_labor.toLocaleString()}</span>
                   </div>
                 ) : (
-                  <div className="text-[10px] mt-1 text-[#62666D]">원가·노무비 미산출</div>
+                  <div className="text-[10px] mt-1 text-text-quaternary">원가·노무비 미산출</div>
                 )}
               </div>
               <button
                 onClick={() => { setEditProd(p); setShowProdEditor(true); }}
-                className="text-[10px] text-[#8A8F98] hover:text-[#F7F8F8]"
+                className="text-[10px] text-text-tertiary hover:text-text-primary"
               >수정</button>
               <button
                 onClick={() => deactivateProduct(p)}
-                className="text-[10px] text-[#EB5757] hover:underline"
+                className="text-[10px] text-danger hover:underline"
               >비활성</button>
             </div>
           ))}
@@ -4438,7 +4438,7 @@ function ProductsTab({
       {view === 'channel' && (
         <div className={`${PANEL} p-4`}>
           <h3 className="text-sm font-semibold mb-3">채널별 판매 품목 설정</h3>
-          <p className="text-xs text-[#A3A9B3] mb-3">채널을 클릭하면 그 채널에서 판매하는 품목을 체크박스로 선택할 수 있습니다.</p>
+          <p className="text-xs text-text-dim mb-3">채널을 클릭하면 그 채널에서 판매하는 품목을 체크박스로 선택할 수 있습니다.</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5">
             {channels.map(c => {
               const count = (byChannel[c.id] || new Set()).size;
@@ -4446,13 +4446,13 @@ function ProductsTab({
                 <button
                   key={c.id}
                   onClick={() => openChannel(c)}
-                  className={`${SUBPANEL} p-2.5 text-left hover:border-[#828FFF]/50 transition-colors`}
+                  className={`${SUBPANEL} p-2.5 text-left hover:border-accent/50 transition-colors`}
                 >
-                  <div className="text-sm text-[#F7F8F8] font-medium truncate">{c.name}</div>
-                  <div className="text-[10px] text-[#A3A9B3] mt-0.5">{c.category}</div>
+                  <div className="text-sm text-text-primary font-medium truncate">{c.name}</div>
+                  <div className="text-[10px] text-text-dim mt-0.5">{c.category}</div>
                   <div className="text-[11px] mt-1">
-                    <span className="text-[#828FFF] font-mono">{count}</span>
-                    <span className="text-[#7A7F8A]"> / {products.length} 품목</span>
+                    <span className="text-accent font-mono">{count}</span>
+                    <span className="text-text-muted"> / {products.length} 품목</span>
                   </div>
                 </button>
               );
@@ -4466,12 +4466,12 @@ function ProductsTab({
         <div className={`${PANEL} p-0 overflow-x-auto`}>
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="bg-[#0F1011] sticky top-0 z-10">
-                <th className="text-left py-2 px-3 border-b-2 border-[#2E3138] text-[10px] uppercase tracking-wider text-[#A3A9B3] sticky left-0 bg-[#0F1011] min-w-[140px]">
+              <tr className="bg-bg-1 sticky top-0 z-10">
+                <th className="text-left py-2 px-3 border-b-2 border-border-subtle text-[10px] uppercase tracking-wider text-text-dim sticky left-0 bg-bg-1 min-w-[140px]">
                   채널 \ 품목
                 </th>
                 {products.map(p => (
-                  <th key={p.id} className="text-center py-2 px-1 border-b-2 border-[#2E3138] text-[10px] text-[#D0D6E0] min-w-[60px]" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+                  <th key={p.id} className="text-center py-2 px-1 border-b-2 border-border-subtle text-[10px] text-text-secondary min-w-[60px]" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
                     {p.name}
                   </th>
                 ))}
@@ -4479,8 +4479,8 @@ function ProductsTab({
             </thead>
             <tbody>
               {channels.map(c => (
-                <tr key={c.id} className="border-b border-[#1A1B1F] hover:bg-[#1A1C22]">
-                  <td className="py-1.5 px-3 sticky left-0 bg-[#0F1011] z-[1] text-[#F7F8F8] min-w-[140px] border-r border-[#2E3138]">
+                <tr key={c.id} className="border-b border-bg-inset hover:bg-bg-inset">
+                  <td className="py-1.5 px-3 sticky left-0 bg-bg-1 z-[1] text-text-primary min-w-[140px] border-r border-border-subtle">
                     {c.name}
                   </td>
                   {products.map(p => {
@@ -4504,7 +4504,7 @@ function ProductsTab({
                             );
                             fetchMappings();
                           }}
-                          className="accent-[#828FFF] w-3.5 h-3.5"
+                          className="accent-accent w-3.5 h-3.5"
                         />
                       </td>
                     );
@@ -4523,31 +4523,31 @@ function ProductsTab({
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-sm font-semibold">[{selectedChannel.name}] 판매 품목 설정</h3>
-                <p className="text-[11px] text-[#A3A9B3] mt-0.5">{pendingPids.size} / {products.length} 품목 선택</p>
+                <p className="text-[11px] text-text-dim mt-0.5">{pendingPids.size} / {products.length} 품목 선택</p>
               </div>
-              <button onClick={() => setSelectedChannel(null)} className="text-[#A3A9B3] hover:text-[#F7F8F8]">✕</button>
+              <button onClick={() => setSelectedChannel(null)} className="text-text-dim hover:text-text-primary">✕</button>
             </div>
             <div className="flex items-center gap-2 mb-3">
-              <button onClick={() => setPendingPids(new Set(products.map(p => p.id)))} className="text-[11px] px-2 py-1 bg-[#1A1B1F] hover:bg-[#23252A] text-[#D0D6E0] rounded">전체 선택</button>
-              <button onClick={() => setPendingPids(new Set())} className="text-[11px] px-2 py-1 bg-[#1A1B1F] hover:bg-[#23252A] text-[#D0D6E0] rounded">전체 해제</button>
-              <button onClick={() => setPendingPids(new Set(byChannel[selectedChannel.id] || []))} className="text-[11px] px-2 py-1 bg-[#1A1B1F] hover:bg-[#23252A] text-[#D0D6E0] rounded">원래대로</button>
+              <button onClick={() => setPendingPids(new Set(products.map(p => p.id)))} className="text-[11px] px-2 py-1 bg-bg-inset hover:bg-border-primary text-text-secondary rounded">전체 선택</button>
+              <button onClick={() => setPendingPids(new Set())} className="text-[11px] px-2 py-1 bg-bg-inset hover:bg-border-primary text-text-secondary rounded">전체 해제</button>
+              <button onClick={() => setPendingPids(new Set(byChannel[selectedChannel.id] || []))} className="text-[11px] px-2 py-1 bg-bg-inset hover:bg-border-primary text-text-secondary rounded">원래대로</button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 mb-4">
               {products.map(p => (
-                <label key={p.id} className="flex items-center gap-2 p-2 hover:bg-[#1A1C22] rounded cursor-pointer text-xs">
+                <label key={p.id} className="flex items-center gap-2 p-2 hover:bg-bg-inset rounded cursor-pointer text-xs">
                   <input
                     type="checkbox"
                     checked={pendingPids.has(p.id)}
                     onChange={() => togglePid(p.id)}
-                    className="accent-[#828FFF]"
+                    className="accent-accent"
                   />
-                  <span className="text-[#D0D6E0] truncate">{p.name}</span>
+                  <span className="text-text-secondary truncate">{p.name}</span>
                 </label>
               ))}
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setSelectedChannel(null)} className="px-3 py-1.5 bg-[#1A1B1F] text-[#D0D6E0] rounded text-xs">취소</button>
-              <button onClick={saveChannelProducts} disabled={busy} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium disabled:opacity-50">
+              <button onClick={() => setSelectedChannel(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
+              <button onClick={saveChannelProducts} disabled={busy} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50">
                 {busy ? '저장 중…' : `저장 (${pendingPids.size}개)`}
               </button>
             </div>
@@ -4562,65 +4562,65 @@ function ProductsTab({
             <h3 className="text-sm font-semibold mb-3">{editProd.id ? `'${editProd.name}' 수정` : '새 품목 추가'}</h3>
             <div className="space-y-2">
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-1">품목명</label>
+                <label className="block text-[10px] uppercase tracking-wider text-text-dim mb-1">품목명</label>
                 <input
                   type="text"
                   value={editProd.name || ''}
                   onChange={(e) => setEditProd({ ...editProd, name: e.target.value })}
-                  className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8]"
+                  className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary"
                   autoFocus
                   placeholder="예: 마들렌, 비건쿠키"
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-1">코드</label>
+                  <label className="block text-[10px] uppercase tracking-wider text-text-dim mb-1">코드</label>
                   <input
                     type="text"
                     value={editProd.code || ''}
                     onChange={(e) => setEditProd({ ...editProd, code: e.target.value })}
-                    className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8] font-mono"
+                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-1">카테고리</label>
+                  <label className="block text-[10px] uppercase tracking-wider text-text-dim mb-1">카테고리</label>
                   <input
                     type="text"
                     value={editProd.category || ''}
                     onChange={(e) => setEditProd({ ...editProd, category: e.target.value })}
-                    className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8]"
+                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary"
                     placeholder="베이커리/디저트 등"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-1">기본 입수</label>
+                  <label className="block text-[10px] uppercase tracking-wider text-text-dim mb-1">기본 입수</label>
                   <input
                     type="number"
                     min={1}
                     value={editProd.default_unit_size || 1}
                     onChange={(e) => setEditProd({ ...editProd, default_unit_size: parseInt(e.target.value) || 1 })}
-                    className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
+                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary font-mono text-right"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-[#A3A9B3] mb-1">정렬 순서</label>
+                  <label className="block text-[10px] uppercase tracking-wider text-text-dim mb-1">정렬 순서</label>
                   <input
                     type="number"
                     value={editProd.sort_order || 100}
                     onChange={(e) => setEditProd({ ...editProd, sort_order: parseInt(e.target.value) || 100 })}
-                    className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8] font-mono text-right"
+                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary font-mono text-right"
                   />
                 </div>
               </div>
-              <p className="text-[10px] text-[#7A7F8A] mt-2">
+              <p className="text-[10px] text-text-muted mt-2">
                 추가 시 자동으로 모든 활성 채널에 등록됩니다. 채널별로는 위에서 체크박스로 토글하세요.
               </p>
             </div>
             <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => { setShowProdEditor(false); setEditProd({}); }} className="px-3 py-1.5 bg-[#1A1B1F] text-[#D0D6E0] rounded text-xs">취소</button>
-              <button onClick={saveProduct} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium">저장</button>
+              <button onClick={() => { setShowProdEditor(false); setEditProd({}); }} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
+              <button onClick={saveProduct} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">저장</button>
             </div>
           </div>
         </div>
@@ -4666,14 +4666,14 @@ const SECTION_COLOR: Record<string, string> = {
 };
 
 const SECTION_BG: Record<string, string> = {
-  revenue: 'bg-[#828FFF]/10',
-  cogs_var: 'bg-[#EB5757]/8',
-  cogs_fixed: 'bg-[#FC7840]/8',
-  gross_profit: 'bg-[#27A644]/10',
-  sga_var: 'bg-[#A855F7]/8',
-  sga_fixed: 'bg-[#7070FF]/8',
-  op_profit: 'bg-[#06B6D4]/10',
-  cm: 'bg-[#F0BF00]/10',
+  revenue: 'bg-accent/10',
+  cogs_var: 'bg-danger/8',
+  cogs_fixed: 'bg-orange/8',
+  gross_profit: 'bg-success/10',
+  sga_var: 'bg-purple/8',
+  sga_fixed: 'bg-link/8',
+  op_profit: 'bg-cyan/10',
+  cm: 'bg-warning/10',
 };
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -4827,11 +4827,11 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
         <div className="flex flex-wrap gap-3 items-end justify-between">
           <div className="flex items-end gap-3">
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">연도</label>
+              <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">연도</label>
               <input
                 type="number" value={year}
                 onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
-                className="w-24 bg-[#08090A] border border-[#2E3138] rounded px-3 py-1.5 text-sm text-[#F7F8F8] font-mono"
+                className="w-24 bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary font-mono"
               />
             </div>
             <Segment
@@ -4866,20 +4866,20 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
             {(selChannels.length > 0 || selEmployees.length > 0) && (
               <button
                 onClick={() => { setSelChannels([]); setSelEmployees([]); }}
-                className="text-[11px] text-[#EB5757] hover:underline pb-1.5"
+                className="text-[11px] text-danger hover:underline pb-1.5"
               >필터 해제</button>
             )}
           </div>
-          <div className="text-[11px] text-[#A3A9B3] max-w-md text-right">
-            <div>매출·변동비는 <span className="text-[#828FFF]">실제 업로드된 엑셀 + 변동비 규칙</span>에서 자동 산출.</div>
+          <div className="text-[11px] text-text-dim max-w-md text-right">
+            <div>매출·변동비는 <span className="text-accent">실제 업로드된 엑셀 + 변동비 규칙</span>에서 자동 산출.</div>
             <div>원재료·부재료·고정비는 직접 입력. 셀 클릭 시 비밀번호 모달.</div>
             {!pwStatus?.is_set && (
-              <div className="text-[#F0BF00] mt-1">⚠ 수정 비밀번호 미설정 — 직원·채널 관리 탭에서 설정</div>
+              <div className="text-warning mt-1">⚠ 수정 비밀번호 미설정 — 직원·채널 관리 탭에서 설정</div>
             )}
           </div>
         </div>
         {data?.filtered && (
-          <div className="mt-3 text-[11px] text-[#F0BF00] bg-[#F0BF00]/10 border border-[#F0BF00]/30 rounded px-3 py-2">
+          <div className="mt-3 text-[11px] text-warning bg-warning/10 border border-warning/30 rounded px-3 py-2">
             채널·담당자 필터 적용 중 — <span className="font-semibold">매출·변동비·공헌이익</span>만 선택 대상 기준으로 산출됩니다.
             원재료·고정비 등 <span className="font-semibold">수동입력·회사 전체 값은 채널 귀속이 불가</span>해 0으로 표시되며, 매출총이익·영업이익도 이 뷰에선 의미가 없습니다.
           </div>
@@ -4891,27 +4891,27 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
         {loading ? <Skeleton h={500} /> : data ? (
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="bg-[#0F1011] sticky top-0 z-10">
-                <th className="text-left py-2.5 px-3 border-b-2 border-[#2E3138] text-[10px] uppercase tracking-wider text-[#A3A9B3] sticky left-0 bg-[#0F1011] min-w-[200px]">
+              <tr className="bg-bg-1 sticky top-0 z-10">
+                <th className="text-left py-2.5 px-3 border-b-2 border-border-subtle text-[10px] uppercase tracking-wider text-text-dim sticky left-0 bg-bg-1 min-w-[200px]">
                   계정과목
                 </th>
                 {scope !== 'plan' && MONTHS.map(m => (
-                  <th key={`a-${m}`} className="text-right py-2.5 px-2 border-b-2 border-[#2E3138] text-[10px] uppercase tracking-wider text-[#828FFF] min-w-[80px]">
+                  <th key={`a-${m}`} className="text-right py-2.5 px-2 border-b-2 border-border-subtle text-[10px] uppercase tracking-wider text-accent min-w-[80px]">
                     {m}월
                   </th>
                 ))}
-                {scope === 'both' && <th className="border-b-2 border-l border-[#2E3138]" />}
+                {scope === 'both' && <th className="border-b-2 border-l border-border-subtle" />}
                 {scope !== 'actual' && MONTHS.map(m => (
-                  <th key={`p-${m}`} className="text-right py-2.5 px-2 border-b-2 border-[#2E3138] text-[10px] uppercase tracking-wider text-[#A3A9B3] min-w-[80px]">
-                    {m}월{scope === 'both' && <span className="block text-[8px] text-[#7A7F8A]">(계획)</span>}
+                  <th key={`p-${m}`} className="text-right py-2.5 px-2 border-b-2 border-border-subtle text-[10px] uppercase tracking-wider text-text-dim min-w-[80px]">
+                    {m}월{scope === 'both' && <span className="block text-[8px] text-text-muted">(계획)</span>}
                   </th>
                 ))}
               </tr>
               {scope === 'both' && (
                 <tr className="bg-[#0A0B0D]">
-                  <th className="border-b border-[#2E3138] sticky left-0 bg-[#0A0B0D]" />
+                  <th className="border-b border-border-subtle sticky left-0 bg-[#0A0B0D]" />
                   {MONTHS.map(m => (
-                    <th key={`ah-${m}`} className="text-[9px] text-[#828FFF] text-right px-2 py-1 border-b border-[#2E3138]">실적</th>
+                    <th key={`ah-${m}`} className="text-[9px] text-accent text-right px-2 py-1 border-b border-border-subtle">실적</th>
                   ))}
                 </tr>
               )}
@@ -4927,28 +4927,28 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
                 );
                 const isManualSubtotal = row.is_subtotal && (row.code === 'cogs_fixed' || row.code === 'sga_fixed');
                 return (
-                  <tr key={row.id} className={`border-b border-[#1A1B1F] ${isMainSection ? SECTION_BG[row.section] || '' : ''} hover:bg-[#1A1C22]`}>
-                    <td className={`py-2 px-3 sticky left-0 ${isMainSection ? (SECTION_BG[row.section] || 'bg-[#0F1011]') : 'bg-[#0F1011]'} z-[1] min-w-[200px]`}
+                  <tr key={row.id} className={`border-b border-bg-inset ${isMainSection ? SECTION_BG[row.section] || '' : ''} hover:bg-bg-inset`}>
+                    <td className={`py-2 px-3 sticky left-0 ${isMainSection ? (SECTION_BG[row.section] || 'bg-bg-1') : 'bg-bg-1'} z-[1] min-w-[200px]`}
                         style={{ paddingLeft: row.parent_id ? 28 : 12 }}>
                       <div className="flex items-center gap-1.5">
                         {childCount > 0 && (
                           <button
                             onClick={() => toggleCollapse(row.id)}
-                            className="text-[#A3A9B3] hover:text-[#F7F8F8] w-3 text-xs leading-none"
+                            className="text-text-dim hover:text-text-primary w-3 text-xs leading-none"
                           >{isCollapsed ? '▶' : '▼'}</button>
                         )}
-                        <span className="w-1.5 h-3 rounded-sm" style={{ background: SECTION_COLOR[row.section] || '#62666D' }} />
-                        <span className={`${isMainSection ? 'font-semibold text-[#F7F8F8]' : 'text-[#D0D6E0]'} ${formulaRow ? 'text-[#27A644]' : ''}`}>
+                        <span className="w-1.5 h-3 rounded-sm" style={{ background: SECTION_COLOR[row.section] || 'var(--color-text-quaternary)' }} />
+                        <span className={`${isMainSection ? 'font-semibold text-text-primary' : 'text-text-secondary'} ${formulaRow ? 'text-success' : ''}`}>
                           {row.label}
-                          {negative && <span className="text-[#EB5757] ml-1">(−)</span>}
-                          {formulaRow && <span className="text-[9px] text-[#7A7F8A] ml-2">자동</span>}
-                          {row.parent_id && row.is_computed && <span className="text-[9px] text-[#7A7F8A] ml-2">자동</span>}
+                          {negative && <span className="text-danger ml-1">(−)</span>}
+                          {formulaRow && <span className="text-[9px] text-text-muted ml-2">자동</span>}
+                          {row.parent_id && row.is_computed && <span className="text-[9px] text-text-muted ml-2">자동</span>}
                         </span>
                         {/* 행 추가 버튼 (수동 sub-total: cogs_fixed, sga_fixed, cogs_var, sga_var) */}
                         {(row.code === 'cogs_fixed' || row.code === 'sga_fixed' || row.code === 'cogs_var' || row.code === 'sga_var') && (
                           <button
                             onClick={() => setAddRowParent(row)}
-                            className="ml-auto text-[#7A7F8A] hover:text-[#828FFF] text-[10px]"
+                            className="ml-auto text-text-muted hover:text-accent text-[10px]"
                             title="하위 행 추가"
                           >+ 행</button>
                         )}
@@ -4956,7 +4956,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
                         {row.code.startsWith('custom_') && (
                           <button
                             onClick={() => deleteRow(row)}
-                            className="ml-auto text-[#EB5757] text-[10px] hover:underline"
+                            className="ml-auto text-danger text-[10px] hover:underline"
                           >삭제</button>
                         )}
                       </div>
@@ -4970,16 +4970,16 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
                         <td key={`a-${row.id}-${m}`}
                             onClick={editable ? () => startEdit(row, m, 'actual') : undefined}
                             className={`text-right py-2 px-2 font-mono ${
-                              editable ? 'cursor-pointer hover:bg-[#23252A]' : ''
-                            } ${isMainSection ? 'font-semibold text-[#F7F8F8]' : 'text-[#D0D6E0]'} ${
-                              negative && v > 0 ? 'text-[#EB5757]' : ''
-                            } ${formulaRow ? 'text-[#27A644]' : ''}`}
+                              editable ? 'cursor-pointer hover:bg-border-primary' : ''
+                            } ${isMainSection ? 'font-semibold text-text-primary' : 'text-text-secondary'} ${
+                              negative && v > 0 ? 'text-danger' : ''
+                            } ${formulaRow ? 'text-success' : ''}`}
                         >
                           {fmtCell(v)}
                         </td>
                       );
                     })}
-                    {scope === 'both' && <td className="border-l border-[#2E3138]" />}
+                    {scope === 'both' && <td className="border-l border-border-subtle" />}
 
                     {/* 계획 셀 */}
                     {scope !== 'actual' && MONTHS.map(m => {
@@ -4990,13 +4990,13 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
                       return (
                         <td key={`p-${row.id}-${m}`}
                             onClick={editable ? () => startEdit(row, m, 'plan') : undefined}
-                            className={`text-right py-2 px-2 font-mono text-[#A3A9B3] ${
-                              editable ? 'cursor-pointer hover:bg-[#23252A]' : ''
+                            className={`text-right py-2 px-2 font-mono text-text-dim ${
+                              editable ? 'cursor-pointer hover:bg-border-primary' : ''
                             }`}
                         >
                           {fmtCell(v)}
                           {scope === 'both' && v > 0 && ach !== null && (
-                            <div className="text-[8px] mt-0.5" style={{ color: ach >= 100 ? '#27A644' : ach >= 80 ? '#F0BF00' : '#EB5757' }}>
+                            <div className="text-[8px] mt-0.5" style={{ color: ach >= 100 ? 'var(--color-success)' : ach >= 80 ? 'var(--color-warning)' : 'var(--color-danger)' }}>
                               {ach.toFixed(0)}%
                             </div>
                           )}
@@ -5018,38 +5018,38 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
             <h3 className="text-sm font-semibold mb-2">
               {editCell.row.label} — {year}년 {editCell.month}월 ({editCell.scope === 'actual' ? '실적' : '계획'}) 수정
             </h3>
-            <p className="text-xs text-[#A3A9B3] mb-3">변경 시 P&L 비밀번호가 필요합니다.</p>
+            <p className="text-xs text-text-dim mb-3">변경 시 P&L 비밀번호가 필요합니다.</p>
 
-            <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">값 (원)</label>
+            <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">값 (원)</label>
             <input
               type="number"
               value={editValue} onChange={(e) => setEditValue(e.target.value)}
-              className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-2 text-sm text-[#F7F8F8] font-mono text-right mb-3"
+              className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-2 text-sm text-text-primary font-mono text-right mb-3"
               autoFocus
             />
 
             {pwStatus?.is_set && (
               <>
-                <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">비밀번호</label>
+                <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">비밀번호</label>
                 <input
                   type="password"
                   value={editPw} onChange={(e) => setEditPw(e.target.value)}
-                  className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-2 text-sm text-[#F7F8F8] mb-3"
+                  className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-2 text-sm text-text-primary mb-3"
                 />
               </>
             )}
 
             {!pwStatus?.is_set && (
-              <div className="text-xs text-[#F0BF00] bg-[#F0BF00]/10 border border-[#F0BF00]/30 rounded p-2 mb-3">
+              <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded p-2 mb-3">
                 비밀번호 미설정 상태입니다. {pwStatus?.owner_email}로 로그인한 경우만 저장 가능합니다.
               </div>
             )}
 
-            {editMsg && <div className="text-xs text-[#EB5757] mb-2">{editMsg}</div>}
+            {editMsg && <div className="text-xs text-danger mb-2">{editMsg}</div>}
 
             <div className="flex justify-end gap-2">
-              <button onClick={() => setEditCell(null)} className="px-3 py-1.5 bg-[#1A1B1F] text-[#D0D6E0] rounded text-xs">취소</button>
-              <button onClick={saveEdit} disabled={editBusy} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium disabled:opacity-50">
+              <button onClick={() => setEditCell(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
+              <button onClick={saveEdit} disabled={editBusy} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50">
                 {editBusy ? '저장 중…' : '저장'}
               </button>
             </div>
@@ -5062,21 +5062,21 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className={`${PANEL} p-5 max-w-md w-full`}>
             <h3 className="text-sm font-semibold mb-3">'{addRowParent.label}' 하위 행 추가</h3>
-            <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">행 이름</label>
+            <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">행 이름</label>
             <input
               type="text" value={newRowLabel} onChange={(e) => setNewRowLabel(e.target.value)}
               placeholder="예: 임차료, 인건비"
-              className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-2 text-sm text-[#F7F8F8] mb-3"
+              className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-2 text-sm text-text-primary mb-3"
               autoFocus
             />
-            <label className="text-[10px] uppercase tracking-wider text-[#A3A9B3] block mb-1">비밀번호</label>
+            <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">비밀번호</label>
             <input
               type="password" value={addRowPw} onChange={(e) => setAddRowPw(e.target.value)}
-              className="w-full bg-[#08090A] border border-[#2E3138] rounded px-3 py-2 text-sm text-[#F7F8F8] mb-3"
+              className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-2 text-sm text-text-primary mb-3"
             />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setAddRowParent(null)} className="px-3 py-1.5 bg-[#1A1B1F] text-[#D0D6E0] rounded text-xs">취소</button>
-              <button onClick={addRow} className="px-3 py-1.5 bg-[#828FFF] hover:bg-[#7070FF] text-white rounded text-xs font-medium">추가</button>
+              <button onClick={() => setAddRowParent(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
+              <button onClick={addRow} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">추가</button>
             </div>
           </div>
         </div>
@@ -5087,7 +5087,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
 
 function Empty({ h = 300 }: { h?: number }) {
   return (
-    <div className="flex items-center justify-center text-sm text-[#A3A9B3]" style={{ height: h }}>
+    <div className="flex items-center justify-center text-sm text-text-dim" style={{ height: h }}>
       데이터가 없습니다.
     </div>
   );
@@ -5129,7 +5129,7 @@ function SalesHeatmap({
         <div className="flex sticky top-0">
           <div className="shrink-0 w-[96px]" />
           {hm.periods.map((p) => (
-            <div key={p} className="shrink-0 text-center text-[9px] text-[#7A7F8A] pb-1"
+            <div key={p} className="shrink-0 text-center text-[9px] text-text-muted pb-1"
               style={{ width: cellW }}>
               {fmtPeriod(p)}
             </div>
@@ -5145,7 +5145,7 @@ function SalesHeatmap({
               return (
                 <div
                   key={p}
-                  className="shrink-0 m-[1px] rounded-[3px] cursor-default transition-transform hover:scale-110 hover:ring-1 hover:ring-[#A8B3FF]"
+                  className="shrink-0 m-[1px] rounded-[3px] cursor-default transition-transform hover:scale-110 hover:ring-1 hover:ring-brand-light"
                   style={{ width: cellW - 2, height: 22, background: cellColor(rev) }}
                   onMouseEnter={(e) => setHover({
                     x: e.clientX, y: e.clientY, emp, period: p,
@@ -5160,22 +5160,22 @@ function SalesHeatmap({
         ))}
         {/* 범례 */}
         <div className="flex items-center gap-1.5 mt-2 pl-[96px]">
-          <span className="text-[9px] text-[#7A7F8A]">낮음</span>
+          <span className="text-[9px] text-text-muted">낮음</span>
           {[0.12, 0.32, 0.52, 0.72, 0.97].map((a) => (
             <div key={a} className="w-4 h-3 rounded-[2px]" style={{ background: `rgba(130,143,255,${a})` }} />
           ))}
-          <span className="text-[9px] text-[#7A7F8A]">높음</span>
+          <span className="text-[9px] text-text-muted">높음</span>
         </div>
       </div>
 
       {hover && (
         <div
-          className="fixed z-50 pointer-events-none rounded-lg border border-[#2C2F36] bg-[#15171A] px-3 py-2 shadow-xl"
+          className="fixed z-50 pointer-events-none rounded-lg border border-border-subtle bg-bg-inset px-3 py-2 shadow-xl"
           style={{ left: Math.min(hover.x + 14, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 180), top: hover.y + 14 }}
         >
-          <div className="text-[11px] font-semibold text-[#F7F8F8]">{hover.emp}</div>
-          <div className="text-[10px] text-[#A3A9B3] mb-1">{hover.period}</div>
-          <div className="text-[11px] text-[#A8B3FF]">매출 ₩{Math.round(hover.revenue).toLocaleString()}</div>
+          <div className="text-[11px] font-semibold text-text-primary">{hover.emp}</div>
+          <div className="text-[10px] text-text-dim mb-1">{hover.period}</div>
+          <div className="text-[11px] text-brand-light">매출 ₩{Math.round(hover.revenue).toLocaleString()}</div>
           <div className="text-[10px] text-[#C7CCD4]">수량 {Math.round(hover.pcs).toLocaleString()}개</div>
           <div className="text-[10px] text-[#3DD971]">공헌이익 ₩{Math.round(hover.cm).toLocaleString()}</div>
         </div>

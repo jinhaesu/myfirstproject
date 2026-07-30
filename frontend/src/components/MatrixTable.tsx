@@ -89,32 +89,32 @@ export function MatrixTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year]);
 
-  const th = 'text-xs font-semibold text-[#8A8F98] px-3 py-2 border-b border-[#23252A] whitespace-nowrap';
-  const td = 'px-3 py-1.5 text-sm text-[#D0D6E0] border-b border-[#1A1B1E] whitespace-nowrap tabular-nums';
+  const th = 'text-xs font-semibold text-text-tertiary px-3 py-2 border-b border-border-primary whitespace-nowrap';
+  const td = 'px-3 py-1.5 text-sm text-text-secondary border-b border-bg-inset whitespace-nowrap tabular-nums';
   return (
-    <div className="bg-[#0F1011] border border-[#23252A] rounded-xl p-4">
+    <div className="bg-bg-1 border border-border-primary rounded-xl p-4">
       <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
         <div>
-          <div className="text-sm font-semibold text-[#F7F8F8]">{title} <span className="text-[#62666D] font-normal">· {year}년 1~12월</span></div>
-          {subtitle && <p className="text-xs text-[#62666D] mt-0.5">{subtitle}</p>}
+          <div className="text-sm font-semibold text-text-primary">{title} <span className="text-text-quaternary font-normal">· {year}년 1~12월</span></div>
+          {subtitle && <p className="text-xs text-text-quaternary mt-0.5">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-1">
             {years.map((y) => (
               <button key={y} onClick={() => setYear(y)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${year === y ? 'bg-[#5E6AD2] text-white border-[#5E6AD2]' : 'bg-[#08090A] text-[#8A8F98] border-[#23252A] hover:text-[#D0D6E0]'}`}>{y}년</button>
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${year === y ? 'bg-brand text-white border-brand' : 'bg-bg-0 text-text-tertiary border-border-primary hover:text-text-secondary'}`}>{y}년</button>
             ))}
           </div>
           <button
             onClick={() => data && downloadMatrixCSV(`${title.replace(/\s+/g, '_')}_${year}`, firstCol, data, { category: showCategory })}
             disabled={!data || data.rows.length === 0}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1A1B1E] border border-[#23252A] text-[#D0D6E0] hover:bg-[#23252A] disabled:opacity-40"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-bg-inset border border-border-primary text-text-secondary hover:bg-border-primary disabled:opacity-40"
           >⬇ 엑셀</button>
         </div>
       </div>
       <div className="overflow-x-auto max-h-[460px] overflow-y-auto mt-2">
         <table className="w-full">
-          <thead className="sticky top-0 bg-[#0F1011] z-10">
+          <thead className="sticky top-0 bg-bg-1 z-10">
             <tr>
               {showCategory && <th className={`${th} text-left`}>품목류</th>}
               <th className={`${th} text-left`}>{firstCol}</th>
@@ -124,24 +124,24 @@ export function MatrixTable({
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={(data?.months.length || 12) + (showCategory ? 3 : 2)} className="px-3 py-8 text-center text-sm text-[#62666D]">불러오는 중…</td></tr>
+              <tr><td colSpan={(data?.months.length || 12) + (showCategory ? 3 : 2)} className="px-3 py-8 text-center text-sm text-text-quaternary">불러오는 중…</td></tr>
             ) : !data || data.rows.length === 0 ? (
-              <tr><td colSpan={(data?.months.length || 12) + (showCategory ? 3 : 2)} className="px-3 py-8 text-center text-sm text-[#62666D]">{year}년 데이터 없음</td></tr>
+              <tr><td colSpan={(data?.months.length || 12) + (showCategory ? 3 : 2)} className="px-3 py-8 text-center text-sm text-text-quaternary">{year}년 데이터 없음</td></tr>
             ) : (
               <>
                 {data.rows.map((r, i) => (
                   <tr key={i} className="hover:bg-white/5">
-                    {showCategory && <td className={`${td} text-left text-[#8A8F98]`}>{r.category}</td>}
-                    <td className={`${td} text-left text-[#F7F8F8]`}>{r.name}</td>
-                    {r.values.map((v, j) => <td key={j} className={`${td} text-right ${v < 0 ? 'text-[#EB5757]' : ''}`}>{v ? fmt(v) : '-'}</td>)}
-                    <td className={`${td} text-right font-semibold text-[#F0BF00]`}>{fmt(r.total)}</td>
+                    {showCategory && <td className={`${td} text-left text-text-tertiary`}>{r.category}</td>}
+                    <td className={`${td} text-left text-text-primary`}>{r.name}</td>
+                    {r.values.map((v, j) => <td key={j} className={`${td} text-right ${v < 0 ? 'text-danger' : ''}`}>{v ? fmt(v) : '-'}</td>)}
+                    <td className={`${td} text-right font-semibold text-warning`}>{fmt(r.total)}</td>
                   </tr>
                 ))}
-                <tr className="bg-[#08090A] sticky bottom-0">
-                  {showCategory && <td className={`${td} border-t border-[#23252A]`}></td>}
-                  <td className={`${td} text-left font-bold text-[#F7F8F8] border-t border-[#23252A]`}>총 합계</td>
-                  {data.col_totals.map((v, j) => <td key={j} className={`${td} text-right font-semibold text-[#D0D6E0] border-t border-[#23252A] ${v < 0 ? 'text-[#EB5757]' : ''}`}>{fmt(v)}</td>)}
-                  <td className={`${td} text-right font-bold text-[#F0BF00] border-t border-[#23252A]`}>{fmt(data.grand_total)}</td>
+                <tr className="bg-bg-0 sticky bottom-0">
+                  {showCategory && <td className={`${td} border-t border-border-primary`}></td>}
+                  <td className={`${td} text-left font-bold text-text-primary border-t border-border-primary`}>총 합계</td>
+                  {data.col_totals.map((v, j) => <td key={j} className={`${td} text-right font-semibold text-text-secondary border-t border-border-primary ${v < 0 ? 'text-danger' : ''}`}>{fmt(v)}</td>)}
+                  <td className={`${td} text-right font-bold text-warning border-t border-border-primary`}>{fmt(data.grand_total)}</td>
                 </tr>
               </>
             )}

@@ -20,10 +20,10 @@ export default function Home() {
   // 로딩 중
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[#8A8F98]">로딩 중...</p>
+          <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+          <p className="text-text-tertiary">로딩 중...</p>
         </div>
       </div>
     );
@@ -35,7 +35,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]">
+    <main className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0">
       <Navigation />
 
       {/* 메인 콘텐츠 — 채팅 전면 */}

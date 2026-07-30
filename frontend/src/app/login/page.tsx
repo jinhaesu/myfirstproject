@@ -14,9 +14,9 @@ export default function LoginPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center p-4">
-      <div className="flex flex-col items-center gap-4 text-[#8A8F98]">
-        <div className="w-8 h-8 border-2 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center p-4">
+      <div className="flex flex-col items-center gap-4 text-text-tertiary">
+        <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
         <p>회사 계정 로그인으로 이동 중...</p>
       </div>
     </div>

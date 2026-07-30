@@ -221,17 +221,17 @@ export function TargetListSection({
 
   return (
     <section className="mb-8">
-      <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
+      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
         {/* 헤더 */}
-        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[#F7F8F8]">목표 리스트</h2>
+        <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text-primary">목표 리스트</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
                 setEditingTarget(null);
                 setIsModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg hover:bg-accent transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -240,7 +240,7 @@ export function TargetListSection({
             </button>
             <button
               onClick={() => setIsUploadModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-[#27A644] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-success text-white rounded-lg hover:bg-success transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -251,14 +251,14 @@ export function TargetListSection({
         </div>
 
         {/* 년도/월 선택 & 합계 */}
-        <div className="px-6 py-4 bg-[#08090A] border-b border-[#23252A]">
+        <div className="px-6 py-4 bg-bg-0 border-b border-border-primary">
           <div className="flex flex-wrap items-center gap-4 mb-4">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-[#8A8F98]">기준 년도:</label>
+              <label className="text-sm font-medium text-text-tertiary">기준 년도:</label>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
+                className="px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}년</option>
@@ -266,11 +266,11 @@ export function TargetListSection({
               </select>
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-[#8A8F98]">월:</label>
+              <label className="text-sm font-medium text-text-tertiary">월:</label>
               <select
                 value={selectedMonth ?? ''}
                 onChange={(e) => setSelectedMonth(e.target.value ? Number(e.target.value) : null)}
-                className="px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
+                className="px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand"
               >
                 {months.map((m) => (
                   <option key={m.value ?? 'null'} value={m.value ?? ''}>{m.label}</option>
@@ -282,72 +282,72 @@ export function TargetListSection({
           {/* 합계 표시 */}
           {summary ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                <p className="text-sm text-[#8A8F98] mb-1">
-                  총 목표 매출 <span className="text-xs text-[#62666D]">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+              <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                <p className="text-sm text-text-tertiary mb-1">
+                  총 목표 매출 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                 </p>
-                <p className="text-xl font-bold text-[#7070FF]">
+                <p className="text-xl font-bold text-link">
                   {summary.total_sales > 0 ? `${formatNumber(summary.total_sales)}원` : '없음'}
                 </p>
               </div>
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                <p className="text-sm text-[#8A8F98] mb-1">총 판매량</p>
-                <p className="text-xl font-bold text-[#27A644]">
+              <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                <p className="text-sm text-text-tertiary mb-1">총 판매량</p>
+                <p className="text-xl font-bold text-success">
                   {summary.total_quantity > 0 ? formatNumber(summary.total_quantity, false) : '없음'}
                 </p>
               </div>
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                <p className="text-sm text-[#8A8F98] mb-1">
-                  공헌이익액 <span className="text-xs text-[#62666D]">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+              <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                <p className="text-sm text-text-tertiary mb-1">
+                  공헌이익액 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                 </p>
-                <p className="text-xl font-bold text-[#7070FF]">
+                <p className="text-xl font-bold text-link">
                   {summary.total_contribution > 0 ? `${formatNumber(summary.total_contribution)}원` : '없음'}
                 </p>
               </div>
-              <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                <p className="text-sm text-[#8A8F98] mb-1">
-                  광고선전비 합계 <span className="text-xs text-[#62666D]">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
+              <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                <p className="text-sm text-text-tertiary mb-1">
+                  광고선전비 합계 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                 </p>
-                <p className="text-xl font-bold text-[#FC7840]">
+                <p className="text-xl font-bold text-orange">
                   {summary.total_advertising > 0 ? `${formatNumber(summary.total_advertising)}원` : '없음'}
                 </p>
               </div>
             </div>
           ) : (
-            <p className="text-[#8A8F98]">데이터 로딩 중...</p>
+            <p className="text-text-tertiary">데이터 로딩 중...</p>
           )}
 
           {/* 차트 토글 체크박스 */}
-          <div className="flex items-center gap-6 mt-4 pt-4 border-t border-[#23252A]">
+          <div className="flex items-center gap-6 mt-4 pt-4 border-t border-border-primary">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={showManagerChart}
                   onChange={(e) => setShowManagerChart(e.target.checked)}
-                  className="w-4 h-4 text-[#7070FF] rounded border-[#23252A] focus:ring-[#5E6AD2]"
+                  className="w-4 h-4 text-link rounded border-border-primary focus:ring-brand"
                 />
-                <span className="text-sm font-medium text-[#D0D6E0]">책임자별 목표 지표</span>
+                <span className="text-sm font-medium text-text-secondary">책임자별 목표 지표</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={showCriteriaChart}
                   onChange={(e) => setShowCriteriaChart(e.target.checked)}
-                  className="w-4 h-4 text-[#7070FF] rounded border-[#23252A] focus:ring-[#5E6AD2]"
+                  className="w-4 h-4 text-link rounded border-border-primary focus:ring-brand"
                 />
-                <span className="text-sm font-medium text-[#D0D6E0]">기준별 목표 지표</span>
+                <span className="text-sm font-medium text-text-secondary">기준별 목표 지표</span>
               </label>
             </div>
         </div>
 
         {/* 차트 영역 */}
         {(showManagerChart || showCriteriaChart) && (
-          <div className="px-6 py-4 border-b border-[#23252A]">
+          <div className="px-6 py-4 border-b border-border-primary">
             <div className={`grid gap-6 ${showManagerChart && showCriteriaChart ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
               {/* 책임자별 차트 */}
               {showManagerChart && managerChartData.length > 0 && (
-                <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                  <h3 className="text-sm font-semibold text-[#D0D6E0] mb-4">책임자별 목표 지표</h3>
+                <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                  <h3 className="text-sm font-semibold text-text-secondary mb-4">책임자별 목표 지표</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={managerChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
@@ -359,10 +359,10 @@ export function TargetListSection({
                       }} />
                       <Tooltip formatter={(value: number) => formatNumber(value)} />
                       <Legend />
-                      <Bar dataKey="매출" fill="#5E6AD2" />
-                      <Bar dataKey="판매량" fill="#27A644" />
-                      <Bar dataKey="공헌이익" fill="#7070FF" />
-                      <Bar dataKey="광고선전비" fill="#FC7840" />
+                      <Bar dataKey="매출" fill="var(--color-brand-bg)" />
+                      <Bar dataKey="판매량" fill="var(--color-success)" />
+                      <Bar dataKey="공헌이익" fill="var(--color-link-primary)" />
+                      <Bar dataKey="광고선전비" fill="var(--color-orange)" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -370,8 +370,8 @@ export function TargetListSection({
 
               {/* 기준별 차트 */}
               {showCriteriaChart && criteriaChartData.length > 0 && (
-                <div className="bg-[#0F1011] p-4 rounded-xl border border-[#23252A]">
-                  <h3 className="text-sm font-semibold text-[#D0D6E0] mb-4">기준별 목표 지표</h3>
+                <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
+                  <h3 className="text-sm font-semibold text-text-secondary mb-4">기준별 목표 지표</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={criteriaChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
@@ -383,10 +383,10 @@ export function TargetListSection({
                       }} />
                       <Tooltip formatter={(value: number) => formatNumber(value)} />
                       <Legend />
-                      <Bar dataKey="매출" fill="#5E6AD2" />
-                      <Bar dataKey="판매량" fill="#27A644" />
-                      <Bar dataKey="공헌이익" fill="#7070FF" />
-                      <Bar dataKey="광고선전비" fill="#FC7840" />
+                      <Bar dataKey="매출" fill="var(--color-brand-bg)" />
+                      <Bar dataKey="판매량" fill="var(--color-success)" />
+                      <Bar dataKey="공헌이익" fill="var(--color-link-primary)" />
+                      <Bar dataKey="광고선전비" fill="var(--color-orange)" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -396,28 +396,28 @@ export function TargetListSection({
         )}
 
         {/* 리스트 */}
-        <div className="divide-y divide-[#23252A]">
+        <div className="divide-y divide-border-primary">
           {isLoading ? (
-            <div className="px-6 py-8 text-center text-[#8A8F98]">
-              <div className="w-8 h-8 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            <div className="px-6 py-8 text-center text-text-tertiary">
+              <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-2" />
               로딩 중...
             </div>
           ) : targets.length === 0 ? (
-            <div className="px-6 py-8 text-center text-[#8A8F98]">
+            <div className="px-6 py-8 text-center text-text-tertiary">
               등록된 목표 데이터가 없습니다.
             </div>
           ) : (
             targets.map((target) => (
-              <div key={target.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5/5">
+              <div key={target.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="px-2 py-0.5 bg-[#5E6AD2]/15 text-[#828FFF] text-xs font-medium rounded">
+                    <span className="px-2 py-0.5 bg-brand/15 text-accent text-xs font-medium rounded">
                       {target.kpi_type}
                     </span>
-                    <span className="text-sm text-[#8A8F98]">{target.department}</span>
+                    <span className="text-sm text-text-tertiary">{target.department}</span>
                   </div>
-                  <h3 className="font-medium text-[#F7F8F8]">{target.title}</h3>
-                  <p className="text-sm text-[#8A8F98]">
+                  <h3 className="font-medium text-text-primary">{target.title}</h3>
+                  <p className="text-sm text-text-tertiary">
                     {target.year}년 | 담당: {target.manager}
                   </p>
                 </div>

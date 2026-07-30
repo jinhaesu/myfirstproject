@@ -337,20 +337,20 @@ function PastePreviewModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-[#0F1011] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col mx-4">
-        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
+      <div className="bg-bg-1 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col mx-4">
+        <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-[#F7F8F8]">붙여넣기 미리보기</h3>
-            <p className="text-sm text-[#8A8F98] mt-0.5">{rows.length}행이 추가됩니다. 확인 후 적용하세요.</p>
+            <h3 className="text-lg font-bold text-text-primary">붙여넣기 미리보기</h3>
+            <p className="text-sm text-text-tertiary mt-0.5">{rows.length}행이 추가됩니다. 확인 후 적용하세요.</p>
           </div>
-          <button onClick={onCancel} className="text-[#62666D] hover:text-[#D0D6E0] text-xl leading-none">&times;</button>
+          <button onClick={onCancel} className="text-text-quaternary hover:text-text-secondary text-xl leading-none">&times;</button>
         </div>
         <div className="overflow-auto flex-1 p-4">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="bg-[#08090A]">
+              <tr className="bg-bg-0">
                 {COLUMNS.map(col => (
-                  <th key={col.key} className="px-3 py-2 text-left font-semibold text-[#8A8F98] border border-[#23252A]">
+                  <th key={col.key} className="px-3 py-2 text-left font-semibold text-text-tertiary border border-border-primary">
                     {col.label}
                   </th>
                 ))}
@@ -358,9 +358,9 @@ function PastePreviewModal({
             </thead>
             <tbody>
               {rows.map((row, i) => (
-                <tr key={i} className="hover:bg-[#5E6AD2]/10/50">
+                <tr key={i} className="hover:bg-brand/10">
                   {COLUMNS.map(col => (
-                    <td key={col.key} className="px-3 py-1.5 border border-[#23252A] text-[#D0D6E0]">
+                    <td key={col.key} className="px-3 py-1.5 border border-border-primary text-text-secondary">
                       {String(row[col.key] ?? '')}
                     </td>
                   ))}
@@ -369,16 +369,16 @@ function PastePreviewModal({
             </tbody>
           </table>
         </div>
-        <div className="px-6 py-4 border-t border-[#23252A] flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-border-primary flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] hover:bg-white/5/7 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 hover:bg-white/5 rounded-lg transition-colors"
           >
             취소
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#5E6AD2] hover:bg-[#828FFF] rounded-lg transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+            className="px-4 py-2 text-sm font-medium text-white bg-brand hover:bg-accent rounded-lg transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
           >
             적용 ({rows.length}행 추가)
           </button>
@@ -409,13 +409,13 @@ function AutocompleteDropdown({
   if (!visible || suggestions.length === 0) return null;
   return (
     <div
-      className="fixed z-50 bg-[#0F1011] border border-[#23252A] rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] max-h-48 overflow-y-auto"
+      className="fixed z-50 bg-bg-1 border border-border-primary rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] max-h-48 overflow-y-auto"
       style={{ top, left, width: Math.max(width, 200) }}
     >
       {suggestions.map((s, i) => (
         <button
           key={i}
-          className="w-full text-left px-3 py-2 text-sm text-[#D0D6E0] hover:bg-[#5E6AD2]/10 hover:text-[#828FFF] transition-colors"
+          className="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-brand/10 hover:text-accent transition-colors"
           onMouseDown={(e) => {
             e.preventDefault();
             onSelect(s);
@@ -446,56 +446,56 @@ function CellBreakdownModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[#0F1011] rounded-2xl shadow-2xl w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
+      <div className="bg-bg-1 rounded-2xl shadow-2xl w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-[#F7F8F8]">수량 상세</h3>
-            <p className="text-sm text-[#8A8F98] mt-0.5">{productName} - {dateLabel}</p>
+            <h3 className="text-lg font-bold text-text-primary">수량 상세</h3>
+            <p className="text-sm text-text-tertiary mt-0.5">{productName} - {dateLabel}</p>
           </div>
-          <button onClick={onClose} className="text-[#62666D] hover:text-[#D0D6E0] text-xl leading-none">&times;</button>
+          <button onClick={onClose} className="text-text-quaternary hover:text-text-secondary text-xl leading-none">&times;</button>
         </div>
         <div className="p-4">
           {breakdown.length === 0 ? (
-            <p className="text-[#62666D] text-sm text-center py-6">데이터가 없습니다</p>
+            <p className="text-text-quaternary text-sm text-center py-6">데이터가 없습니다</p>
           ) : (
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-[#08090A]">
-                  <th className="px-3 py-2 text-left font-semibold text-[#8A8F98] border border-[#23252A]">채널구분</th>
-                  <th className="px-3 py-2 text-left font-semibold text-[#8A8F98] border border-[#23252A]">채널명</th>
-                  <th className="px-3 py-2 text-left font-semibold text-[#8A8F98] border border-[#23252A]">담당자</th>
-                  <th className="px-3 py-2 text-right font-semibold text-[#8A8F98] border border-[#23252A]">수량</th>
+                <tr className="bg-bg-0">
+                  <th className="px-3 py-2 text-left font-semibold text-text-tertiary border border-border-primary">채널구분</th>
+                  <th className="px-3 py-2 text-left font-semibold text-text-tertiary border border-border-primary">채널명</th>
+                  <th className="px-3 py-2 text-left font-semibold text-text-tertiary border border-border-primary">담당자</th>
+                  <th className="px-3 py-2 text-right font-semibold text-text-tertiary border border-border-primary">수량</th>
                 </tr>
               </thead>
               <tbody>
                 {breakdown.map((b, i) => (
-                  <tr key={i} className="hover:bg-[#5E6AD2]/10/50">
-                    <td className="px-3 py-2 border border-[#23252A]">
+                  <tr key={i} className="hover:bg-brand/10">
+                    <td className="px-3 py-2 border border-border-primary">
                       <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                        b.channelType === '온라인' ? 'bg-[#5E6AD2]/15 text-[#828FFF]' : 'bg-[#FC7840]/15 text-[#FC7840]'
+                        b.channelType === '온라인' ? 'bg-brand/15 text-accent' : 'bg-orange/15 text-orange'
                       }`}>
                         {b.channelType}
                       </span>
                     </td>
-                    <td className="px-3 py-2 border border-[#23252A] text-[#D0D6E0]">{b.channelName}</td>
-                    <td className="px-3 py-2 border border-[#23252A] text-[#D0D6E0]">{b.assignee}</td>
-                    <td className="px-3 py-2 border border-[#23252A] text-right text-[#D0D6E0] font-medium">{formatNumber(b.qty)}</td>
+                    <td className="px-3 py-2 border border-border-primary text-text-secondary">{b.channelName}</td>
+                    <td className="px-3 py-2 border border-border-primary text-text-secondary">{b.assignee}</td>
+                    <td className="px-3 py-2 border border-border-primary text-right text-text-secondary font-medium">{formatNumber(b.qty)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr className="bg-[#08090A] font-semibold">
-                  <td colSpan={3} className="px-3 py-2 border border-[#23252A] text-[#D0D6E0]">합계</td>
-                  <td className="px-3 py-2 border border-[#23252A] text-right text-[#F7F8F8]">{formatNumber(totalQty)}</td>
+                <tr className="bg-bg-0 font-semibold">
+                  <td colSpan={3} className="px-3 py-2 border border-border-primary text-text-secondary">합계</td>
+                  <td className="px-3 py-2 border border-border-primary text-right text-text-primary">{formatNumber(totalQty)}</td>
                 </tr>
               </tfoot>
             </table>
           )}
         </div>
-        <div className="px-6 py-3 border-t border-[#23252A] flex justify-end">
+        <div className="px-6 py-3 border-t border-border-primary flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] hover:bg-white/5/7 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 hover:bg-white/5 rounded-lg transition-colors"
           >
             닫기
           </button>
@@ -713,13 +713,13 @@ export default function OrderPlanPage() {
 
   // ── Heatmap color function ──
   const getHeatmapColor = useCallback((value: number, maxVal: number): string => {
-    if (value === 0 || maxVal === 0) return 'bg-[#08090A]';
+    if (value === 0 || maxVal === 0) return 'bg-bg-0';
     const intensity = value / maxVal;
-    if (intensity > 0.8) return 'bg-[#5E6AD2] text-white';
-    if (intensity > 0.6) return 'bg-[#4EA7FC] text-white';
-    if (intensity > 0.4) return 'bg-[#4EA7FC]/70 text-[#F7F8F8]';
-    if (intensity > 0.2) return 'bg-[#5E6AD2]/25 text-[#828FFF]';
-    return 'bg-[#5E6AD2]/15 text-[#828FFF]';
+    if (intensity > 0.8) return 'bg-brand text-white';
+    if (intensity > 0.6) return 'bg-info text-white';
+    if (intensity > 0.4) return 'bg-info/70 text-text-primary';
+    if (intensity > 0.2) return 'bg-brand/25 text-accent';
+    return 'bg-brand/15 text-accent';
   }, []);
 
   // ── Cell Editing (detail view) ──
@@ -1044,10 +1044,10 @@ export default function OrderPlanPage() {
   // ── Auth loading / guard ──
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[#8A8F98]">로딩 중...</p>
+          <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+          <p className="text-text-tertiary">로딩 중...</p>
         </div>
       </div>
     );
@@ -1059,7 +1059,7 @@ export default function OrderPlanPage() {
   // RENDER
   // ═══════════════════════════════════════════════
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]">
+    <main className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0">
       <Navigation />
 
       <div className="max-w-[1600px] mx-auto px-4 py-6">
@@ -1067,18 +1067,18 @@ export default function OrderPlanPage() {
         {/* ── Page Header ── */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#F7F8F8]">주문 계획</h1>
-            <p className="text-[#8A8F98] mt-1">품목별 일별 필요 수량을 확인하고 채널별 계획을 관리하세요</p>
+            <h1 className="text-2xl font-bold text-text-primary">주문 계획</h1>
+            <p className="text-text-tertiary mt-1">품목별 일별 필요 수량을 확인하고 채널별 계획을 관리하세요</p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {/* View Toggle Buttons */}
-            <div className="flex rounded-xl border border-[#23252A] bg-[#0F1011] overflow-hidden shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <div className="flex rounded-xl border border-border-primary bg-bg-1 overflow-hidden shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
               <button
                 onClick={() => setViewMode('pivot')}
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   viewMode === 'pivot'
-                    ? 'bg-[#5E6AD2] text-white shadow-inner'
-                    : 'text-[#8A8F98] hover:bg-white/5/5'
+                    ? 'bg-brand text-white shadow-inner'
+                    : 'text-text-tertiary hover:bg-white/5'
                 }`}
               >
                 <span className="flex items-center gap-1.5">
@@ -1092,8 +1092,8 @@ export default function OrderPlanPage() {
                 onClick={() => setViewMode('detail')}
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   viewMode === 'detail'
-                    ? 'bg-[#5E6AD2] text-white shadow-inner'
-                    : 'text-[#8A8F98] hover:bg-white/5/5'
+                    ? 'bg-brand text-white shadow-inner'
+                    : 'text-text-tertiary hover:bg-white/5'
                 }`}
               >
                 <span className="flex items-center gap-1.5">
@@ -1106,22 +1106,22 @@ export default function OrderPlanPage() {
             </div>
 
             {/* Date Range Selector */}
-            <div className="flex items-center gap-2 bg-[#0F1011] px-3 py-2 rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-              <svg className="w-4 h-4 text-[#62666D]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-2 bg-bg-1 px-3 py-2 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <svg className="w-4 h-4 text-text-quaternary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <input
                 type="date"
                 value={dateRange.start}
                 onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                className="text-sm font-medium text-[#D0D6E0] bg-transparent outline-none cursor-pointer"
+                className="text-sm font-medium text-text-secondary bg-transparent outline-none cursor-pointer"
               />
-              <span className="text-[#62666D]">~</span>
+              <span className="text-text-quaternary">~</span>
               <input
                 type="date"
                 value={dateRange.end}
                 onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                className="text-sm font-medium text-[#D0D6E0] bg-transparent outline-none cursor-pointer"
+                className="text-sm font-medium text-text-secondary bg-transparent outline-none cursor-pointer"
               />
             </div>
 
@@ -1129,7 +1129,7 @@ export default function OrderPlanPage() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setDateRange(getWeekRange(new Date()))}
-                className="px-3 py-2 text-xs font-medium text-[#8A8F98] bg-[#0F1011] hover:bg-white/5/5 border border-[#23252A] rounded-lg transition-colors"
+                className="px-3 py-2 text-xs font-medium text-text-tertiary bg-bg-1 hover:bg-white/5 border border-border-primary rounded-lg transition-colors"
               >
                 이번 주
               </button>
@@ -1138,7 +1138,7 @@ export default function OrderPlanPage() {
                   const d = new Date();
                   setDateRange({ start: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`, end: d.toISOString().slice(0, 10) });
                 }}
-                className="px-3 py-2 text-xs font-medium text-[#8A8F98] bg-[#0F1011] hover:bg-white/5/5 border border-[#23252A] rounded-lg transition-colors"
+                className="px-3 py-2 text-xs font-medium text-text-tertiary bg-bg-1 hover:bg-white/5 border border-border-primary rounded-lg transition-colors"
               >
                 이번 달
               </button>
@@ -1149,45 +1149,45 @@ export default function OrderPlanPage() {
         {/* ── Summary Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Unique Product Count */}
-          <div className="bg-gradient-to-br from-[#5E6AD2] to-[#5E6AD2] rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[#5E6AD2]/20">
-            <p className="text-[#7070FF]/40 text-xs font-medium mb-1">총 품목 수</p>
+          <div className="bg-gradient-to-br from-brand to-brand rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[color:var(--color-brand-bg)]/20">
+            <p className="text-link/40 text-xs font-medium mb-1">총 품목 수</p>
             <p className="text-2xl font-bold">{formatNumber(summary.uniqueProductCount)}</p>
-            <p className="text-[#7070FF]/60 text-xs mt-1">등록된 품목</p>
+            <p className="text-link/60 text-xs mt-1">등록된 품목</p>
           </div>
           {/* Total Planned Qty */}
-          <div className="bg-gradient-to-br from-[#27A644] to-[#27A644] rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[#27A644]/20">
-            <p className="text-[#27A644]/15 text-xs font-medium mb-1">총 계획 수량</p>
+          <div className="bg-gradient-to-br from-success to-success rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[color:var(--color-success)]/20">
+            <p className="text-success/15 text-xs font-medium mb-1">총 계획 수량</p>
             <p className="text-2xl font-bold">{formatNumber(summary.totalPlanned)}</p>
-            <p className="text-[#27A644]/25 text-xs mt-1">전체 기간 합계</p>
+            <p className="text-success/25 text-xs mt-1">전체 기간 합계</p>
           </div>
           {/* Avg Daily Qty */}
-          <div className="bg-gradient-to-br from-[#5E6AD2] to-[#5E6AD2] rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[#5E6AD2]/20">
-            <p className="text-[#7070FF]/40 text-xs font-medium mb-1">일평균 계획 수량</p>
+          <div className="bg-gradient-to-br from-brand to-brand rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[color:var(--color-brand-bg)]/20">
+            <p className="text-link/40 text-xs font-medium mb-1">일평균 계획 수량</p>
             <p className="text-2xl font-bold">{formatNumber(summary.avgDailyQty)}</p>
-            <p className="text-[#7070FF]/60 text-xs mt-1">일별 평균</p>
+            <p className="text-link/60 text-xs mt-1">일별 평균</p>
           </div>
           {/* Channel Ratio */}
-          <div className="bg-[#0F1011] rounded-2xl p-4 border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-            <p className="text-[#8A8F98] text-xs font-medium mb-2">채널 비율</p>
+          <div className="bg-bg-1 rounded-2xl p-4 border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <p className="text-text-tertiary text-xs font-medium mb-2">채널 비율</p>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[#7070FF] text-sm font-bold">{summary.onlineRatio}%</span>
-              <span className="text-xs text-[#62666D]">온라인</span>
-              <span className="text-[#62666D] mx-1">|</span>
-              <span className="text-[#FC7840] text-sm font-bold">{summary.offlineRatio}%</span>
-              <span className="text-xs text-[#62666D]">오프라인</span>
+              <span className="text-link text-sm font-bold">{summary.onlineRatio}%</span>
+              <span className="text-xs text-text-quaternary">온라인</span>
+              <span className="text-text-quaternary mx-1">|</span>
+              <span className="text-orange text-sm font-bold">{summary.offlineRatio}%</span>
+              <span className="text-xs text-text-quaternary">오프라인</span>
             </div>
             {/* Mini bar */}
-            <div className="w-full bg-[#141516] rounded-full h-2.5 flex overflow-hidden">
+            <div className="w-full bg-bg-2 rounded-full h-2.5 flex overflow-hidden">
               <div
-                className="bg-[#5E6AD2] h-full transition-all rounded-l-full"
+                className="bg-brand h-full transition-all rounded-l-full"
                 style={{ width: `${summary.onlineRatio}%` }}
               />
               <div
-                className="bg-[#FC7840]/80 h-full transition-all rounded-r-full"
+                className="bg-orange/80 h-full transition-all rounded-r-full"
                 style={{ width: `${summary.offlineRatio}%` }}
               />
             </div>
-            <div className="flex justify-between mt-1.5 text-xs text-[#62666D]">
+            <div className="flex justify-between mt-1.5 text-xs text-text-quaternary">
               <span>{formatNumber(summary.onlineQty)}</span>
               <span>{formatNumber(summary.offlineQty)}</span>
             </div>
@@ -1195,25 +1195,25 @@ export default function OrderPlanPage() {
         </div>
 
         {/* ── Filter Bar ── */}
-        <div className="bg-[#0F1011] rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-4 mb-4 flex flex-wrap items-center gap-3">
+        <div className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-4 mb-4 flex flex-wrap items-center gap-3">
           {/* Product Filter */}
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-[#8A8F98]">품명</label>
+            <label className="text-xs font-medium text-text-tertiary">품명</label>
             <input
               type="text"
               value={filterProduct}
               onChange={e => setFilterProduct(e.target.value)}
               placeholder="품명 검색..."
-              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-[#5E6AD2]/30 w-40 transition-colors"
+              className="px-3 py-1.5 text-sm border border-border-primary rounded-lg outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 w-40 transition-colors"
             />
           </div>
           {/* Channel Type Filter */}
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-[#8A8F98]">채널구분</label>
+            <label className="text-xs font-medium text-text-tertiary">채널구분</label>
             <select
               value={filterChannelType}
               onChange={e => setFilterChannelType(e.target.value as ChannelType | '전체')}
-              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-[#5E6AD2]/30 bg-[#0F1011] cursor-pointer transition-colors"
+              className="px-3 py-1.5 text-sm border border-border-primary rounded-lg outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 bg-bg-1 cursor-pointer transition-colors"
             >
               <option value="전체">전체</option>
               <option value="온라인">온라인</option>
@@ -1222,11 +1222,11 @@ export default function OrderPlanPage() {
           </div>
           {/* Assignee Filter */}
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-[#8A8F98]">담당자</label>
+            <label className="text-xs font-medium text-text-tertiary">담당자</label>
             <select
               value={filterAssignee}
               onChange={e => setFilterAssignee(e.target.value)}
-              className="px-3 py-1.5 text-sm border border-[#23252A] rounded-lg outline-none focus:border-[#5E6AD2]/50 focus:ring-1 focus:ring-[#5E6AD2]/30 bg-[#0F1011] cursor-pointer transition-colors"
+              className="px-3 py-1.5 text-sm border border-border-primary rounded-lg outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 bg-bg-1 cursor-pointer transition-colors"
             >
               <option value="전체">전체</option>
               {uniqueAssignees.map(a => (
@@ -1238,16 +1238,16 @@ export default function OrderPlanPage() {
           <div className="flex-1" />
 
           {/* Row Count */}
-          <span className="text-xs text-[#62666D]">
+          <span className="text-xs text-text-quaternary">
             {filteredRows.length}건
-            {viewMode === 'detail' && dirtyCount > 0 && <span className="text-[#F0BF00] font-medium ml-1">({dirtyCount}건 수정됨)</span>}
+            {viewMode === 'detail' && dirtyCount > 0 && <span className="text-warning font-medium ml-1">({dirtyCount}건 수정됨)</span>}
           </span>
         </div>
 
         {/* Save Message */}
         {saveMessage && (
           <div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 ${
-            saveMessage.type === 'success' ? 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/25' : 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
+            saveMessage.type === 'success' ? 'bg-success/10 text-success border border-success/25' : 'bg-danger/10 text-danger border border-danger/30'
           }`}>
             {saveMessage.type === 'success' ? (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1268,14 +1268,14 @@ export default function OrderPlanPage() {
         {viewMode === 'pivot' && (
           <>
             {/* Pivot Toolbar */}
-            <div className="bg-[#0F1011] rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-3 mb-4 flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-[#D0D6E0] flex items-center gap-1.5">
-                <svg className="w-4 h-4 text-[#7070FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-3 mb-4 flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-text-secondary flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-link" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                 </svg>
                 품목별 일별 필요 수량
               </span>
-              <span className="text-xs text-[#62666D] ml-2">
+              <span className="text-xs text-text-quaternary ml-2">
                 셀을 클릭하면 채널별 상세 내역을 확인할 수 있습니다
               </span>
 
@@ -1291,7 +1291,7 @@ export default function OrderPlanPage() {
                   pivotComputed.productTotals,
                   pivotComputed.grandTotal
                 )}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#27A644] bg-[#27A644]/10 hover:bg-[#27A644]/15 rounded-lg transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-success bg-success/10 hover:bg-success/15 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1301,22 +1301,22 @@ export default function OrderPlanPage() {
             </div>
 
             {/* Pivot Table */}
-            <div className="bg-[#0F1011] rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden">
+            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden">
               {loading ? (
                 <div className="flex items-center justify-center py-20">
                   <div className="flex flex-col items-center gap-3">
-                    <div className="w-10 h-10 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
-                    <p className="text-[#8A8F98] text-sm">데이터를 불러오는 중...</p>
+                    <div className="w-10 h-10 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+                    <p className="text-text-tertiary text-sm">데이터를 불러오는 중...</p>
                   </div>
                 </div>
               ) : pivotComputed.productNames.length === 0 ? (
-                <div className="text-center py-16 text-[#62666D]">
+                <div className="text-center py-16 text-text-quaternary">
                   <div className="flex flex-col items-center gap-3">
-                    <svg className="w-12 h-12 text-[#62666D]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-12 h-12 text-text-quaternary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                     <p className="text-sm">해당 기간에 주문 계획 데이터가 없습니다</p>
-                    <button onClick={() => setViewMode('detail')} className="text-[#7070FF] hover:text-[#828FFF] text-sm font-medium">
+                    <button onClick={() => setViewMode('detail')} className="text-link hover:text-accent text-sm font-medium">
                       상세 뷰에서 데이터 추가하기
                     </button>
                   </div>
@@ -1325,26 +1325,26 @@ export default function OrderPlanPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-sm">
                     <thead>
-                      <tr className="bg-[#08090A] border-b-2 border-[#23252A]">
-                        <th className="sticky left-0 z-10 bg-[#08090A] px-4 py-3 text-left font-semibold text-[#D0D6E0] border-r border-[#23252A] min-w-[280px]">
+                      <tr className="bg-bg-0 border-b-2 border-border-primary">
+                        <th className="sticky left-0 z-10 bg-bg-0 px-4 py-3 text-left font-semibold text-text-secondary border-r border-border-primary min-w-[280px]">
                           품목명
                         </th>
                         {datesInRange.map(date => (
-                          <th key={date} className="px-3 py-3 text-center font-semibold text-[#8A8F98] border-r border-[#23252A] min-w-[90px] whitespace-nowrap">
+                          <th key={date} className="px-3 py-3 text-center font-semibold text-text-tertiary border-r border-border-primary min-w-[90px] whitespace-nowrap">
                             {formatDateLabel(date)}
                           </th>
                         ))}
-                        <th className="px-4 py-3 text-center font-bold text-[#F7F8F8] bg-[#141516] min-w-[100px]">
+                        <th className="px-4 py-3 text-center font-bold text-text-primary bg-bg-2 min-w-[100px]">
                           합계
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {pivotComputed.productNames.map((product, pIdx) => (
-                        <tr key={product} className={`border-b border-[#23252A] ${pIdx % 2 === 0 ? 'bg-[#0F1011]' : 'bg-[#08090A]/30'}`}>
+                        <tr key={product} className={`border-b border-border-primary ${pIdx % 2 === 0 ? 'bg-bg-1' : 'bg-bg-0/30'}`}>
                           {/* Product name (sticky left) */}
-                          <td className={`sticky left-0 z-10 px-4 py-2.5 font-medium text-[#F7F8F8] border-r border-[#23252A] whitespace-nowrap ${
-                            pIdx % 2 === 0 ? 'bg-[#0F1011]' : 'bg-[#08090A]/80'
+                          <td className={`sticky left-0 z-10 px-4 py-2.5 font-medium text-text-primary border-r border-border-primary whitespace-nowrap ${
+                            pIdx % 2 === 0 ? 'bg-bg-1' : 'bg-bg-0/80'
                           }`}>
                             {product}
                           </td>
@@ -1355,7 +1355,7 @@ export default function OrderPlanPage() {
                             return (
                               <td
                                 key={date}
-                                className={`px-3 py-2.5 text-center border-r border-[#23252A] cursor-pointer transition-all hover:ring-2 hover:ring-[#4EA7FC] hover:ring-inset ${colorClass}`}
+                                className={`px-3 py-2.5 text-center border-r border-border-primary cursor-pointer transition-all hover:ring-2 hover:ring-info hover:ring-inset ${colorClass}`}
                                 onClick={() => handlePivotCellClick(product, date)}
                                 title={`${product} / ${formatDateLabel(date)}: ${formatNumber(val)}`}
                               >
@@ -1366,23 +1366,23 @@ export default function OrderPlanPage() {
                             );
                           })}
                           {/* Product total */}
-                          <td className="px-4 py-2.5 text-center font-bold text-[#F7F8F8] bg-[#141516]/70 border-l border-[#23252A]">
+                          <td className="px-4 py-2.5 text-center font-bold text-text-primary bg-bg-2/70 border-l border-border-primary">
                             {formatNumber(pivotComputed.productTotals[product] || 0)}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-[#141516] border-t-2 border-[#23252A] font-bold text-sm">
-                        <td className="sticky left-0 z-10 bg-[#141516] px-4 py-3 text-[#D0D6E0] border-r border-[#23252A]">
+                      <tr className="bg-bg-2 border-t-2 border-border-primary font-bold text-sm">
+                        <td className="sticky left-0 z-10 bg-bg-2 px-4 py-3 text-text-secondary border-r border-border-primary">
                           합계
                         </td>
                         {datesInRange.map(date => (
-                          <td key={date} className="px-3 py-3 text-center text-[#F7F8F8] border-r border-[#23252A]">
+                          <td key={date} className="px-3 py-3 text-center text-text-primary border-r border-border-primary">
                             {formatNumber(pivotComputed.dateTotals[date] || 0)}
                           </td>
                         ))}
-                        <td className="px-4 py-3 text-center text-[#828FFF] bg-[#5E6AD2]/10 text-base">
+                        <td className="px-4 py-3 text-center text-accent bg-brand/10 text-base">
                           {formatNumber(pivotComputed.grandTotal)}
                         </td>
                       </tr>
@@ -1394,15 +1394,15 @@ export default function OrderPlanPage() {
 
             {/* Heatmap Legend */}
             {pivotComputed.productNames.length > 0 && (
-              <div className="mt-3 flex items-center justify-end gap-2 text-xs text-[#8A8F98]">
+              <div className="mt-3 flex items-center justify-end gap-2 text-xs text-text-tertiary">
                 <span>수량 강도:</span>
                 <div className="flex items-center gap-0.5">
-                  <div className="w-6 h-4 rounded bg-[#08090A] border border-[#23252A]" />
-                  <div className="w-6 h-4 rounded bg-[#5E6AD2]/15" />
-                  <div className="w-6 h-4 rounded bg-[#5E6AD2]/25" />
-                  <div className="w-6 h-4 rounded bg-[#4EA7FC]/70" />
-                  <div className="w-6 h-4 rounded bg-[#4EA7FC]" />
-                  <div className="w-6 h-4 rounded bg-[#5E6AD2]" />
+                  <div className="w-6 h-4 rounded bg-bg-0 border border-border-primary" />
+                  <div className="w-6 h-4 rounded bg-brand/15" />
+                  <div className="w-6 h-4 rounded bg-brand/25" />
+                  <div className="w-6 h-4 rounded bg-info/70" />
+                  <div className="w-6 h-4 rounded bg-info" />
+                  <div className="w-6 h-4 rounded bg-brand" />
                 </div>
                 <span>낮음 ~ 높음</span>
               </div>
@@ -1416,11 +1416,11 @@ export default function OrderPlanPage() {
         {viewMode === 'detail' && (
           <>
             {/* Detail Toolbar */}
-            <div className="bg-[#0F1011] rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-3 mb-4 flex items-center gap-2 flex-wrap">
+            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-3 mb-4 flex items-center gap-2 flex-wrap">
               {/* Add Row */}
               <button
                 onClick={addRow}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#7070FF] bg-[#5E6AD2]/10 hover:bg-[#5E6AD2]/15 rounded-lg transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-link bg-brand/10 hover:bg-brand/15 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1430,7 +1430,7 @@ export default function OrderPlanPage() {
               {/* Add Multiple Rows */}
               <div className="relative group">
                 <button
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#8A8F98] bg-[#08090A] hover:bg-white/5/5 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-tertiary bg-bg-0 hover:bg-white/5 rounded-lg transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -1440,12 +1440,12 @@ export default function OrderPlanPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-                <div className="absolute left-0 top-full mt-1 bg-[#0F1011] border border-[#23252A] rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] hidden group-hover:block z-20 min-w-[100px]">
+                <div className="absolute left-0 top-full mt-1 bg-bg-1 border border-border-primary rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] hidden group-hover:block z-20 min-w-[100px]">
                   {[5, 10, 20, 50].map(n => (
                     <button
                       key={n}
                       onClick={() => addMultipleRows(n)}
-                      className="block w-full text-left px-4 py-2 text-sm text-[#D0D6E0] hover:bg-[#5E6AD2]/10 hover:text-[#828FFF] transition-colors"
+                      className="block w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-brand/10 hover:text-accent transition-colors"
                     >
                       {n}행
                     </button>
@@ -1456,7 +1456,7 @@ export default function OrderPlanPage() {
               {/* Load Products from API */}
               <button
                 onClick={loadProductsFromApi}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#7070FF] bg-[#5E6AD2]/10 hover:bg-[#5E6AD2]/15 rounded-lg transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-link bg-brand/10 hover:bg-brand/15 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -1468,7 +1468,7 @@ export default function OrderPlanPage() {
               {selectedRowIds.size > 0 && (
                 <button
                   onClick={deleteSelectedRows}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#EB5757] bg-[#EB5757]/10 hover:bg-[#EB5757]/15 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-danger bg-danger/10 hover:bg-danger/15 rounded-lg transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1480,14 +1480,14 @@ export default function OrderPlanPage() {
               <div className="flex-1" />
 
               {/* Paste Hint */}
-              <span className="text-xs text-[#62666D] hidden lg:inline">
+              <span className="text-xs text-text-quaternary hidden lg:inline">
                 Ctrl+V로 Excel에서 붙여넣기 가능
               </span>
 
               {/* Download Excel */}
               <button
                 onClick={() => downloadDetailExcel(filteredRows)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#27A644] bg-[#27A644]/10 hover:bg-[#27A644]/15 rounded-lg transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-success bg-success/10 hover:bg-success/15 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1501,8 +1501,8 @@ export default function OrderPlanPage() {
                 disabled={saving || dirtyCount === 0}
                 className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-lg transition-all shadow-[0px_1px_3px_rgba(0,0,0,0.2)] ${
                   dirtyCount > 0
-                    ? 'text-white bg-[#5E6AD2] hover:bg-[#828FFF] shadow-[#5E6AD2]/20'
-                    : 'text-[#62666D] bg-[#141516] cursor-not-allowed'
+                    ? 'text-white bg-brand hover:bg-accent shadow-[color:var(--color-brand-bg)]/20'
+                    : 'text-text-quaternary bg-bg-2 cursor-not-allowed'
                 }`}
               >
                 {saving ? (
@@ -1524,15 +1524,15 @@ export default function OrderPlanPage() {
             {/* ── Excel-like Spreadsheet Table ── */}
             <div
               ref={tableRef}
-              className="bg-[#0F1011] rounded-xl border border-[#23252A] shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden focus:outline-none"
+              className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden focus:outline-none"
               tabIndex={0}
               onKeyDown={handleGridKeyDown}
             >
               {loading ? (
                 <div className="flex items-center justify-center py-20">
                   <div className="flex flex-col items-center gap-3">
-                    <div className="w-10 h-10 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
-                    <p className="text-[#8A8F98] text-sm">데이터를 불러오는 중...</p>
+                    <div className="w-10 h-10 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+                    <p className="text-text-tertiary text-sm">데이터를 불러오는 중...</p>
                   </div>
                 </div>
               ) : (
@@ -1540,25 +1540,25 @@ export default function OrderPlanPage() {
                   <table className="w-full border-collapse text-sm">
                     {/* Header */}
                     <thead>
-                      <tr className="bg-[#08090A] border-b border-[#23252A]">
+                      <tr className="bg-bg-0 border-b border-border-primary">
                         {/* Checkbox column */}
-                        <th className="w-10 px-2 py-2.5 border-r border-[#23252A] text-center">
+                        <th className="w-10 px-2 py-2.5 border-r border-border-primary text-center">
                           <input
                             type="checkbox"
                             checked={filteredRows.length > 0 && selectedRowIds.size === filteredRows.length}
                             onChange={toggleAllSelection}
-                            className="w-3.5 h-3.5 rounded border-[#23252A] text-[#7070FF] focus:ring-[#5E6AD2] cursor-pointer"
+                            className="w-3.5 h-3.5 rounded border-border-primary text-link focus:ring-brand cursor-pointer"
                           />
                         </th>
                         {/* Row number */}
-                        <th className="w-10 px-2 py-2.5 border-r border-[#23252A] text-center text-xs font-semibold text-[#62666D]">
+                        <th className="w-10 px-2 py-2.5 border-r border-border-primary text-center text-xs font-semibold text-text-quaternary">
                           #
                         </th>
                         {/* Data columns */}
                         {COLUMNS.map((col) => (
                           <th
                             key={col.key}
-                            className={`${col.width} px-3 py-2.5 border-r border-[#23252A] text-xs font-semibold text-[#8A8F98] tracking-wider ${
+                            className={`${col.width} px-3 py-2.5 border-r border-border-primary text-xs font-semibold text-text-tertiary tracking-wider ${
                               col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                             }`}
                           >
@@ -1566,7 +1566,7 @@ export default function OrderPlanPage() {
                           </th>
                         ))}
                         {/* Actions column */}
-                        <th className="w-12 px-2 py-2.5 text-center text-xs font-semibold text-[#62666D]">
+                        <th className="w-12 px-2 py-2.5 text-center text-xs font-semibold text-text-quaternary">
                           삭제
                         </th>
                       </tr>
@@ -1575,13 +1575,13 @@ export default function OrderPlanPage() {
                     <tbody>
                       {filteredRows.length === 0 ? (
                         <tr>
-                          <td colSpan={COLUMNS.length + 3} className="text-center py-16 text-[#62666D]">
+                          <td colSpan={COLUMNS.length + 3} className="text-center py-16 text-text-quaternary">
                             <div className="flex flex-col items-center gap-3">
-                              <svg className="w-12 h-12 text-[#62666D]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-12 h-12 text-text-quaternary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                               </svg>
                               <p className="text-sm">주문 계획 데이터가 없습니다</p>
-                              <button onClick={addRow} className="text-[#7070FF] hover:text-[#828FFF] text-sm font-medium">
+                              <button onClick={addRow} className="text-link hover:text-accent text-sm font-medium">
                                 + 새 행 추가하기
                               </button>
                             </div>
@@ -1594,21 +1594,21 @@ export default function OrderPlanPage() {
                           return (
                             <tr
                               key={row.id}
-                              className={`border-b border-[#23252A] transition-colors ${
-                                selectedRowIds.has(row.id) ? 'bg-[#5E6AD2]/10/60' : isNewRow ? 'bg-[#27A644]/10/30' : isRowDirty ? 'bg-[#F0BF00]/10/30' : 'hover:bg-white/5/5/50'
+                              className={`border-b border-border-primary transition-colors ${
+                                selectedRowIds.has(row.id) ? 'bg-brand/10' : isNewRow ? 'bg-success/10' : isRowDirty ? 'bg-warning/10' : 'hover:bg-white/5'
                               }`}
                             >
                               {/* Checkbox */}
-                              <td className="px-2 py-0 border-r border-[#23252A] text-center">
+                              <td className="px-2 py-0 border-r border-border-primary text-center">
                                 <input
                                   type="checkbox"
                                   checked={selectedRowIds.has(row.id)}
                                   onChange={() => toggleRowSelection(row.id)}
-                                  className="w-3.5 h-3.5 rounded border-[#23252A] text-[#7070FF] focus:ring-[#5E6AD2] cursor-pointer"
+                                  className="w-3.5 h-3.5 rounded border-border-primary text-link focus:ring-brand cursor-pointer"
                                 />
                               </td>
                               {/* Row number */}
-                              <td className="px-2 py-0 border-r border-[#23252A] text-center text-xs text-[#62666D] font-mono">
+                              <td className="px-2 py-0 border-r border-border-primary text-center text-xs text-text-quaternary font-mono">
                                 {rowIdx + 1}
                               </td>
                               {/* Data cells */}
@@ -1631,11 +1631,11 @@ export default function OrderPlanPage() {
                                 let valueColorClass = '';
                                 if (col.key === 'actualQty' && typeof cellValue === 'number') {
                                   if (cellValue >= row.plannedQty && row.plannedQty > 0) {
-                                    valueColorClass = 'text-[#27A644] font-semibold';
+                                    valueColorClass = 'text-success font-semibold';
                                   } else if (cellValue > 0 && cellValue < row.plannedQty) {
-                                    valueColorClass = 'text-[#F0BF00]';
+                                    valueColorClass = 'text-warning';
                                   } else if (cellValue === 0 && row.plannedQty > 0) {
-                                    valueColorClass = 'text-[#EB5757]';
+                                    valueColorClass = 'text-danger';
                                   }
                                 }
 
@@ -1643,7 +1643,7 @@ export default function OrderPlanPage() {
                                 if (col.key === 'channelType') {
                                   displayValue = (
                                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                                      cellValue === '온라인' ? 'bg-[#5E6AD2]/15 text-[#828FFF]' : 'bg-[#FC7840]/15 text-[#FC7840]'
+                                      cellValue === '온라인' ? 'bg-brand/15 text-accent' : 'bg-orange/15 text-orange'
                                     }`}>
                                       {String(cellValue)}
                                     </span>
@@ -1653,7 +1653,7 @@ export default function OrderPlanPage() {
                                 return (
                                   <td
                                     key={col.key}
-                                    className={`px-0 py-0 border-r border-[#23252A] relative cursor-cell ${
+                                    className={`px-0 py-0 border-r border-border-primary relative cursor-cell ${
                                       isSelected ? 'outline outline-2 outline-blue-500 outline-offset-[-2px] z-10' : ''
                                     } ${isEditing ? 'p-0' : ''}`}
                                     onClick={() => {
@@ -1682,7 +1682,7 @@ export default function OrderPlanPage() {
                                           }}
                                           onBlur={cancelEdit}
                                           onKeyDown={e => handleCellKeyDown(e, rowIdx, colIdx)}
-                                          className="w-full h-full px-3 py-1.5 text-sm bg-[#5E6AD2]/10 border-0 outline-none focus:bg-[#5E6AD2]/10"
+                                          className="w-full h-full px-3 py-1.5 text-sm bg-brand/10 border-0 outline-none focus:bg-brand/10"
                                         >
                                           {col.options?.map(opt => (
                                             <option key={opt} value={opt}>{opt}</option>
@@ -1699,7 +1699,7 @@ export default function OrderPlanPage() {
                                             setShowAutocomplete(false);
                                           }}
                                           onKeyDown={e => handleCellKeyDown(e, rowIdx, colIdx)}
-                                          className={`w-full h-full px-3 py-1.5 text-sm bg-[#5E6AD2]/10 border-0 outline-none focus:bg-[#5E6AD2]/10 ${
+                                          className={`w-full h-full px-3 py-1.5 text-sm bg-brand/10 border-0 outline-none focus:bg-brand/10 ${
                                             col.align === 'right' ? 'text-right' : ''
                                           }`}
                                         />
@@ -1709,7 +1709,7 @@ export default function OrderPlanPage() {
                                         col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : 'justify-start'
                                       } ${valueColorClass}`}>
                                         {(cellValue === '' || (cellValue === 0 && col.type === 'number' && col.key !== 'unitPrice')) ? (
-                                          <span className="text-[#62666D]">{col.type === 'number' ? '0' : '-'}</span>
+                                          <span className="text-text-quaternary">{col.type === 'number' ? '0' : '-'}</span>
                                         ) : (
                                           displayValue
                                         )}
@@ -1722,7 +1722,7 @@ export default function OrderPlanPage() {
                               <td className="px-2 py-0 text-center">
                                 <button
                                   onClick={() => deleteRow(row.id)}
-                                  className="p-1 text-[#62666D] hover:text-[#EB5757] transition-colors rounded"
+                                  className="p-1 text-text-quaternary hover:text-danger transition-colors rounded"
                                   title="삭제"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1738,22 +1738,22 @@ export default function OrderPlanPage() {
                     {/* Footer with totals */}
                     {filteredRows.length > 0 && (
                       <tfoot>
-                        <tr className="bg-[#08090A] border-t-2 border-[#23252A] font-semibold text-sm">
-                          <td className="px-2 py-2.5 border-r border-[#23252A]" />
-                          <td className="px-2 py-2.5 border-r border-[#23252A]" />
-                          <td className="px-3 py-2.5 border-r border-[#23252A] text-[#D0D6E0]" colSpan={5}>
+                        <tr className="bg-bg-0 border-t-2 border-border-primary font-semibold text-sm">
+                          <td className="px-2 py-2.5 border-r border-border-primary" />
+                          <td className="px-2 py-2.5 border-r border-border-primary" />
+                          <td className="px-3 py-2.5 border-r border-border-primary text-text-secondary" colSpan={5}>
                             합계
                           </td>
-                          <td className="px-3 py-2.5 border-r border-[#23252A] text-right text-[#D0D6E0]">
+                          <td className="px-3 py-2.5 border-r border-border-primary text-right text-text-secondary">
                             {formatNumber(summary.totalPlanned)}
                           </td>
-                          <td className="px-3 py-2.5 border-r border-[#23252A] text-right text-[#D0D6E0]">
+                          <td className="px-3 py-2.5 border-r border-border-primary text-right text-text-secondary">
                             {formatNumber(summary.totalActual)}
                           </td>
-                          <td className="px-3 py-2.5 border-r border-[#23252A] text-right text-[#8A8F98]">
+                          <td className="px-3 py-2.5 border-r border-border-primary text-right text-text-tertiary">
                             -
                           </td>
-                          <td className="px-3 py-2.5 border-r border-[#23252A] text-[#8A8F98] text-xs">
+                          <td className="px-3 py-2.5 border-r border-border-primary text-text-tertiary text-xs">
                             -
                           </td>
                           <td className="px-2 py-2.5" />
@@ -1769,20 +1769,20 @@ export default function OrderPlanPage() {
             <div className="mt-4 flex items-center justify-between">
               <button
                 onClick={addRow}
-                className="text-sm text-[#7070FF] hover:text-[#828FFF] font-medium flex items-center gap-1 transition-colors"
+                className="text-sm text-link hover:text-accent font-medium flex items-center gap-1 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 행 추가
               </button>
-              <div className="text-xs text-[#62666D] flex items-center gap-4">
+              <div className="text-xs text-text-quaternary flex items-center gap-4">
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#27A644]/15 border border-[#27A644]/40" />
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-success/15 border border-success/40" />
                   신규 행
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#F0BF00]/15 border border-[#F0BF00]/40" />
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-warning/15 border border-warning/40" />
                   수정됨
                 </span>
                 <span>

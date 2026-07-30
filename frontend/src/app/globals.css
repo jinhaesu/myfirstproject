@@ -2,33 +2,112 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/*
+ * 컬러 토큰 — 다크가 기본값(:root), 라이트는 [data-theme="light"]로 오버라이드.
+ * 이 파일의 CSS 변수를 tailwind.config.ts의 theme.extend.colors가 참조한다.
+ * (예: bg-bg-0, text-text-primary, border-border-primary, bg-danger 등)
+ */
+:root,
+:root[data-theme="dark"] {
+  /* Backgrounds */
   --color-bg-level-0: #08090A;
   --color-bg-level-1: #0F1011;
   --color-bg-level-2: #141516;
   --color-bg-secondary: #1C1C1F;
   --color-bg-tertiary: #232326;
   --color-bg-quaternary: #28282C;
+  --color-bg-inset: #1A1B1E;
+
+  /* Text */
   --color-text-primary: #F7F8F8;
   --color-text-secondary: #D0D6E0;
   --color-text-tertiary: #8A8F98;
   --color-text-quaternary: #62666D;
+  --color-text-dim: #A3A9B3;
+  --color-text-muted: #7A7F8A;
+
+  /* Borders */
   --color-border-primary: #23252A;
   --color-border-secondary: #34343A;
+  --color-border-subtle: #2E3138;
+
+  /* Brand family — 라이트/다크 공통 유지 */
   --color-brand-bg: #5E6AD2;
+  --color-brand-hover: #4D58BD;
+  --color-brand-light: #A8B3FF;
   --color-link-primary: #7070FF;
   --color-accent-hover: #828FFF;
+
+  /* Semantic status */
+  --color-danger: #EB5757;
+  --color-success: #27A644;
+  --color-success-hover: #1E8A3A;
+  --color-success-light: #3FBE5B;
+  --color-warning: #F0BF00;
+  --color-orange: #FC7840;
+  --color-info: #4DA3FF;
+  --color-cyan: #00B8CC;
+  --color-purple: #A855F7;
+}
+
+:root[data-theme="light"] {
+  /* Backgrounds */
+  --color-bg-level-0: #FFFFFF;
+  --color-bg-level-1: #F6F7F8;
+  --color-bg-level-2: #EEF0F2;
+  --color-bg-secondary: #F1F2F4;
+  --color-bg-tertiary: #E9EBEE;
+  --color-bg-quaternary: #E1E4E8;
+  --color-bg-inset: #F3F4F6;
+
+  /* Text */
+  --color-text-primary: #0B0C0D;
+  --color-text-secondary: #3B4046;
+  --color-text-tertiary: #6A7078;
+  --color-text-quaternary: #9AA1A9;
+  --color-text-dim: #565C64;
+  --color-text-muted: #6B7078;
+
+  /* Borders */
+  --color-border-primary: #E6E8EB;
+  --color-border-secondary: #D7DADF;
+  --color-border-subtle: #DCE0E5;
+
+  /* Brand family — 다크와 동일 값 유지 (일관된 브랜드 아이덴티티) */
+  --color-brand-bg: #5E6AD2;
+  --color-brand-hover: #4D58BD;
+  --color-brand-light: #4A54D0;
+  --color-link-primary: #7070FF;
+  --color-accent-hover: #828FFF;
+
+  /* Semantic status — 흰 배경에서도 명확히 보이도록 살짝 짙게 보정 */
+  --color-danger: #C22B2B;
+  --color-success: #1C7A3A;
+  --color-success-hover: #15612E;
+  --color-success-light: #15803D;
+  --color-warning: #8A5D00;
+  --color-orange: #C2410C;
+  --color-info: #1D4ED8;
+  --color-cyan: #0E7490;
+  --color-purple: #7C3AED;
 }
 
 html {
-  color-scheme: dark;
   /* 전체 UI 한 단계 축소 — Tailwind는 rem 기반이라 기준 폰트를 줄이면 폰트·간격·크기가 비례 축소됨 */
   font-size: 85%;
 }
 
+html:not([data-theme="light"]) {
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
 body {
-  color: #F7F8F8;
-  background: #08090A;
+  color: var(--color-text-primary);
+  background: var(--color-bg-level-0);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -37,41 +116,52 @@ body {
 }
 
 input, textarea, select {
-  background-color: #141516;
-  color: #F7F8F8;
-  border-color: #23252A;
+  background-color: var(--color-bg-level-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-primary);
 }
 
 input::placeholder, textarea::placeholder {
-  color: #62666D;
+  color: var(--color-text-quaternary);
 }
 
 /* select 드롭다운 옵션이 흰 배경+흰 글씨로 안 보이는 문제(윈도우 크롬) 방지 */
 select option, select optgroup {
-  background-color: #141516;
-  color: #F7F8F8;
+  background-color: var(--color-bg-level-2);
+  color: var(--color-text-primary);
 }
 
-/* 날짜/시간 입력의 값·아이콘이 어둡게 렌더되어 안 보이는 문제 방지 */
+/* 날짜/시간 입력의 값·아이콘이 테마와 반대로 렌더되어 안 보이는 문제 방지 */
 input[type="date"], input[type="datetime-local"], input[type="month"], input[type="time"] {
   color-scheme: dark;
 }
+html[data-theme="light"] input[type="date"],
+html[data-theme="light"] input[type="datetime-local"],
+html[data-theme="light"] input[type="month"],
+html[data-theme="light"] input[type="time"] {
+  color-scheme: light;
+}
 
-/* Recharts 툴팁/범례/파이 라벨이 어두운 배경에 검은 글씨로 안 보이는 문제 방지 */
+/* Recharts 툴팁/범례/파이 라벨이 배경과 같은 색으로 안 보이는 문제 방지 (다크 기본값) */
 .recharts-default-tooltip {
-  background-color: #0F1011 !important;
-  border: 1px solid #23252A !important;
+  background-color: var(--color-bg-level-1) !important;
+  border: 1px solid var(--color-border-primary) !important;
   border-radius: 8px !important;
 }
-.recharts-tooltip-label { color: #F7F8F8 !important; }
-.recharts-tooltip-item { color: #D0D6E0 !important; }
-.recharts-legend-item-text { color: #D0D6E0 !important; }
-.recharts-pie-label-text, .recharts-text.recharts-pie-label-text { fill: #D0D6E0 !important; }
-.recharts-cartesian-axis-tick-value { fill: #8A8F98; }
+.recharts-tooltip-label { color: var(--color-text-primary) !important; }
+.recharts-tooltip-item { color: var(--color-text-secondary) !important; }
+.recharts-legend-item-text { color: var(--color-text-secondary) !important; }
+.recharts-pie-label-text, .recharts-text.recharts-pie-label-text { fill: var(--color-text-secondary) !important; }
+.recharts-cartesian-axis-tick-value { fill: var(--color-text-tertiary); }
+
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   filter: invert(0.7);
   cursor: pointer;
+}
+html[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator,
+html[data-theme="light"] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.3);
 }
 
 :focus-visible {
@@ -80,18 +170,18 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0F1011; }
-::-webkit-scrollbar-thumb { background: #34343A; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3E3E44; }
+::-webkit-scrollbar-track { background: var(--color-bg-level-1); }
+::-webkit-scrollbar-thumb { background: var(--color-border-secondary); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-quaternary); }
 
 .code-block {
-  background-color: #141516;
-  color: #D0D6E0;
+  background-color: var(--color-bg-level-2);
+  color: var(--color-text-secondary);
   padding: 1rem;
   border-radius: 0.75rem;
   overflow-x: auto;
   font-family: 'Berkeley Mono', 'Fira Code', 'Monaco', monospace;
   font-size: 0.875rem;
   line-height: 1.5;
-  border: 1px solid #23252A;
+  border: 1px solid var(--color-border-primary);
 }

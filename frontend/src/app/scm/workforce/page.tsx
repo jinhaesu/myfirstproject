@@ -73,23 +73,23 @@ const POSITIONS = ['팀장', '대리', '사원', '주임', '과장', '인턴'];
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
 
 const STATUS_COLORS: Record<StaffStatus, string> = {
-  '근무중': 'bg-[#27A644]/15 text-[#27A644]',
-  '휴무': 'bg-[#141516] text-[#8A8F98]',
-  '연차': 'bg-[#F0BF00]/15 text-[#F0BF00]',
-  '출장': 'bg-[#5E6AD2]/15 text-[#828FFF]',
+  '근무중': 'bg-success/15 text-success',
+  '휴무': 'bg-bg-2 text-text-tertiary',
+  '연차': 'bg-warning/15 text-warning',
+  '출장': 'bg-brand/15 text-accent',
 };
 
 const SHIFT_COLORS: Record<ShiftType, string> = {
-  '주간': 'bg-[#5E6AD2]/15 text-[#828FFF] border-[#5E6AD2]/30',
-  '야간': 'bg-[#5E6AD2]/15 text-[#828FFF] border-[#5E6AD2]/30',
-  '휴무': 'bg-[#141516] text-[#8A8F98] border-[#23252A]',
-  '연차': 'bg-[#F0BF00]/15 text-[#F0BF00] border-[#F0BF00]/30',
+  '주간': 'bg-brand/15 text-accent border-brand/30',
+  '야간': 'bg-brand/15 text-accent border-brand/30',
+  '휴무': 'bg-bg-2 text-text-tertiary border-border-primary',
+  '연차': 'bg-warning/15 text-warning border-warning/30',
 };
 
 const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
-  '진행중': 'bg-[#5E6AD2]/15 text-[#828FFF]',
-  '완료': 'bg-[#27A644]/15 text-[#27A644]',
-  '대기': 'bg-[#141516] text-[#8A8F98]',
+  '진행중': 'bg-brand/15 text-accent',
+  '완료': 'bg-success/15 text-success',
+  '대기': 'bg-bg-2 text-text-tertiary',
 };
 
 const PIE_COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#EB5757', '#7070FF', '#ec4899'];
@@ -314,10 +314,10 @@ export default function WorkforcePage() {
   // ---------------------------------------------------------------------------
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[#8A8F98]">로딩 중...</p>
+          <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+          <p className="text-text-tertiary">로딩 중...</p>
         </div>
       </div>
     );
@@ -340,14 +340,14 @@ export default function WorkforcePage() {
   // JSX
   // ---------------------------------------------------------------------------
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#08090A] to-[#08090A]">
+    <main className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[#F7F8F8]">인력배치 / 공수 관리</h1>
-          <p className="text-[#8A8F98] mt-1">SCM 인력 현황과 업무 공수를 관리하세요</p>
+          <h1 className="text-2xl font-bold text-text-primary">인력배치 / 공수 관리</h1>
+          <p className="text-text-tertiary mt-1">SCM 인력 현황과 업무 공수를 관리하세요</p>
         </div>
 
         {/* Summary Cards */}
@@ -357,7 +357,7 @@ export default function WorkforcePage() {
             value={formatNum(summaryCards.total)}
             unit="명"
             icon={
-              <svg className="w-6 h-6 text-[#7070FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-link" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             }
@@ -368,7 +368,7 @@ export default function WorkforcePage() {
             value={formatNum(summaryCards.working)}
             unit="명"
             icon={
-              <svg className="w-6 h-6 text-[#27A644]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             }
@@ -379,7 +379,7 @@ export default function WorkforcePage() {
             value={formatNum(summaryCards.available)}
             unit="명"
             icon={
-              <svg className="w-6 h-6 text-[#7070FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-link" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             }
@@ -390,7 +390,7 @@ export default function WorkforcePage() {
             value={formatNum(summaryCards.utilization)}
             unit="%"
             icon={
-              <svg className="w-6 h-6 text-[#F0BF00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             }
@@ -399,15 +399,15 @@ export default function WorkforcePage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-[#0F1011] rounded-xl p-1 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] w-fit">
+        <div className="flex gap-1 mb-6 bg-bg-1 rounded-xl p-1 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary w-fit">
           {(['인력현황', '주간스케줄', '공수관리'] as TabKey[]).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab
-                  ? 'bg-[#5E6AD2] text-white shadow-[0px_3px_12px_rgba(0,0,0,0.2)]'
-                  : 'text-[#8A8F98] hover:bg-white/5/5'
+                  ? 'bg-brand text-white shadow-[0px_3px_12px_rgba(0,0,0,0.2)]'
+                  : 'text-text-tertiary hover:bg-white/5'
               }`}
             >
               {tab}
@@ -482,15 +482,15 @@ function SummaryCard({ label, value, unit, icon, accent }: {
   accent: string;
 }) {
   return (
-    <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-5 flex items-center gap-4">
+    <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5 flex items-center gap-4">
       <div className={`w-12 h-12 rounded-xl bg-${accent}-50 flex items-center justify-center shrink-0`}>
         {icon}
       </div>
       <div>
-        <p className="text-sm text-[#8A8F98]">{label}</p>
-        <p className="text-2xl font-bold text-[#F7F8F8] mt-0.5">
+        <p className="text-sm text-text-tertiary">{label}</p>
+        <p className="text-2xl font-bold text-text-primary mt-0.5">
           {value}
-          <span className="text-sm font-normal text-[#62666D] ml-1">{unit}</span>
+          <span className="text-sm font-normal text-text-quaternary ml-1">{unit}</span>
         </p>
       </div>
     </div>
@@ -509,19 +509,19 @@ function StaffTab({ staff, departmentFilter, onFilterChange, onAdd, onEdit, onDe
   onDelete: (id: string) => void;
 }) {
   return (
-    <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
+    <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
       {/* Toolbar */}
-      <div className="p-4 border-b border-[#23252A] flex flex-wrap items-center justify-between gap-3">
+      <div className="p-4 border-b border-border-primary flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-[#8A8F98]">부서 필터:</span>
+          <span className="text-sm font-medium text-text-tertiary">부서 필터:</span>
           {(['전체', ...DEPARTMENTS] as (Department | '전체')[]).map(dep => (
             <button
               key={dep}
               onClick={() => onFilterChange(dep)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 departmentFilter === dep
-                  ? 'bg-[#5E6AD2] text-white'
-                  : 'bg-[#141516] text-[#8A8F98] hover:bg-white/5/7'
+                  ? 'bg-brand text-white'
+                  : 'bg-bg-2 text-text-tertiary hover:bg-white/5'
               }`}
             >
               {dep}
@@ -530,7 +530,7 @@ function StaffTab({ staff, departmentFilter, onFilterChange, onAdd, onEdit, onDe
         </div>
         <button
           onClick={onAdd}
-          className="flex items-center gap-1.5 px-4 py-2 bg-[#5E6AD2] text-white text-sm font-medium rounded-lg hover:bg-[#828FFF] transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-accent transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -543,43 +543,43 @@ function StaffTab({ staff, departmentFilter, onFilterChange, onAdd, onEdit, onDe
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-[#08090A]">
-              <th className="text-left px-4 py-3 font-semibold text-[#8A8F98]">이름</th>
-              <th className="text-left px-4 py-3 font-semibold text-[#8A8F98]">부서</th>
-              <th className="text-left px-4 py-3 font-semibold text-[#8A8F98]">직급</th>
-              <th className="text-left px-4 py-3 font-semibold text-[#8A8F98]">상태</th>
-              <th className="text-left px-4 py-3 font-semibold text-[#8A8F98]">담당업무</th>
-              <th className="text-left px-4 py-3 font-semibold text-[#8A8F98]">연락처</th>
-              <th className="text-center px-4 py-3 font-semibold text-[#8A8F98]">관리</th>
+            <tr className="bg-bg-0">
+              <th className="text-left px-4 py-3 font-semibold text-text-tertiary">이름</th>
+              <th className="text-left px-4 py-3 font-semibold text-text-tertiary">부서</th>
+              <th className="text-left px-4 py-3 font-semibold text-text-tertiary">직급</th>
+              <th className="text-left px-4 py-3 font-semibold text-text-tertiary">상태</th>
+              <th className="text-left px-4 py-3 font-semibold text-text-tertiary">담당업무</th>
+              <th className="text-left px-4 py-3 font-semibold text-text-tertiary">연락처</th>
+              <th className="text-center px-4 py-3 font-semibold text-text-tertiary">관리</th>
             </tr>
           </thead>
           <tbody>
             {staff.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-[#62666D]">등록된 인력이 없습니다.</td>
+                <td colSpan={7} className="text-center py-12 text-text-quaternary">등록된 인력이 없습니다.</td>
               </tr>
             )}
             {staff.map(s => (
-              <tr key={s.id} className="border-t border-[#23252A] hover:bg-white/5/5/60 transition-colors">
-                <td className="px-4 py-3 font-medium text-[#F7F8F8]">{s.name}</td>
+              <tr key={s.id} className="border-t border-border-primary hover:bg-white/5 transition-colors">
+                <td className="px-4 py-3 font-medium text-text-primary">{s.name}</td>
                 <td className="px-4 py-3">
-                  <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#5E6AD2]/10 text-[#828FFF]">
+                  <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand/10 text-accent">
                     {s.department}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-[#8A8F98]">{s.position}</td>
+                <td className="px-4 py-3 text-text-tertiary">{s.position}</td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[s.status]}`}>
                     {s.status}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-[#8A8F98]">{s.task}</td>
-                <td className="px-4 py-3 text-[#8A8F98] font-mono text-xs">{s.phone}</td>
+                <td className="px-4 py-3 text-text-tertiary">{s.task}</td>
+                <td className="px-4 py-3 text-text-tertiary font-mono text-xs">{s.phone}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-1">
                     <button
                       onClick={() => onEdit(s)}
-                      className="p-1.5 rounded-lg text-[#62666D] hover:text-[#7070FF] hover:bg-[#5E6AD2]/10 transition-colors"
+                      className="p-1.5 rounded-lg text-text-quaternary hover:text-link hover:bg-brand/10 transition-colors"
                       title="수정"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -590,7 +590,7 @@ function StaffTab({ staff, departmentFilter, onFilterChange, onAdd, onEdit, onDe
                       onClick={() => {
                         if (confirm(`${s.name} 인력을 삭제하시겠습니까?`)) onDelete(s.id);
                       }}
-                      className="p-1.5 rounded-lg text-[#62666D] hover:text-[#EB5757] hover:bg-[#EB5757]/10 transition-colors"
+                      className="p-1.5 rounded-lg text-text-quaternary hover:text-danger hover:bg-danger/10 transition-colors"
                       title="삭제"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -606,8 +606,8 @@ function StaffTab({ staff, departmentFilter, onFilterChange, onAdd, onEdit, onDe
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-[#23252A] bg-[#08090A]/50 text-xs text-[#8A8F98]">
-        총 <span className="font-semibold text-[#D0D6E0]">{staff.length}</span>명 조회됨
+      <div className="px-4 py-3 border-t border-border-primary bg-bg-0/50 text-xs text-text-tertiary">
+        총 <span className="font-semibold text-text-secondary">{staff.length}</span>명 조회됨
       </div>
     </div>
   );
@@ -642,10 +642,10 @@ function StaffModal({ staff, onSave, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[#F7F8F8]">{isEdit ? '인력 수정' : '인력 추가'}</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5/5 text-[#62666D] hover:text-[#D0D6E0] transition-colors">
+      <div className="bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
+          <h3 className="text-lg font-bold text-text-primary">{isEdit ? '인력 수정' : '인력 추가'}</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5 text-text-quaternary hover:text-text-secondary transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -654,12 +654,12 @@ function StaffModal({ staff, onSave, onClose }: {
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-[#D0D6E0] mb-1">이름 *</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">이름 *</label>
             <input
               type="text"
               value={form.name}
               onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+              className="w-full px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
               placeholder="홍길동"
               required
             />
@@ -667,21 +667,21 @@ function StaffModal({ staff, onSave, onClose }: {
           {/* Department & Position */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">부서</label>
+              <label className="block text-sm font-medium text-text-secondary mb-1">부서</label>
               <select
                 value={form.department}
                 onChange={e => setForm(p => ({ ...p, department: e.target.value as Department }))}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+                className="w-full px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
               >
                 {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">직급</label>
+              <label className="block text-sm font-medium text-text-secondary mb-1">직급</label>
               <select
                 value={form.position}
                 onChange={e => setForm(p => ({ ...p, position: e.target.value }))}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+                className="w-full px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
               >
                 {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -689,7 +689,7 @@ function StaffModal({ staff, onSave, onClose }: {
           </div>
           {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-[#D0D6E0] mb-1">상태</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">상태</label>
             <div className="flex gap-2">
               {STAFF_STATUSES.map(st => (
                 <button
@@ -699,7 +699,7 @@ function StaffModal({ staff, onSave, onClose }: {
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                     form.status === st
                       ? `${STATUS_COLORS[st]} border-current`
-                      : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-white/5/5'
+                      : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-white/5'
                   }`}
                 >
                   {st}
@@ -709,23 +709,23 @@ function StaffModal({ staff, onSave, onClose }: {
           </div>
           {/* Task */}
           <div>
-            <label className="block text-sm font-medium text-[#D0D6E0] mb-1">담당업무</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">담당업무</label>
             <input
               type="text"
               value={form.task}
               onChange={e => setForm(p => ({ ...p, task: e.target.value }))}
-              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+              className="w-full px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
               placeholder="업무 내용"
             />
           </div>
           {/* Phone */}
           <div>
-            <label className="block text-sm font-medium text-[#D0D6E0] mb-1">연락처</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">연락처</label>
             <input
               type="text"
               value={form.phone}
               onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
-              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+              className="w-full px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
               placeholder="010-0000-0000"
             />
           </div>
@@ -734,13 +734,13 @@ function StaffModal({ staff, onSave, onClose }: {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-[#5E6AD2] rounded-lg hover:bg-[#828FFF] transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-accent transition-colors"
             >
               {isEdit ? '수정' : '추가'}
             </button>
@@ -769,22 +769,22 @@ function ScheduleTab({ staff, schedule, weekDates, weekLabel, onShiftChange, onW
   };
 
   return (
-    <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
+    <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
       {/* Week navigation */}
-      <div className="p-4 border-b border-[#23252A] flex items-center justify-between">
+      <div className="p-4 border-b border-border-primary flex items-center justify-between">
         <button
           onClick={() => onWeekNav(-1)}
-          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           이전 주
         </button>
-        <h3 className="text-sm font-bold text-[#D0D6E0]">{weekLabel}</h3>
+        <h3 className="text-sm font-bold text-text-secondary">{weekLabel}</h3>
         <button
           onClick={() => onWeekNav(1)}
-          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
         >
           다음 주
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -794,22 +794,22 @@ function ScheduleTab({ staff, schedule, weekDates, weekLabel, onShiftChange, onW
       </div>
 
       {/* Legend */}
-      <div className="px-4 py-2 border-b border-[#23252A] flex items-center gap-4 flex-wrap">
-        <span className="text-xs text-[#8A8F98] font-medium">범례:</span>
+      <div className="px-4 py-2 border-b border-border-primary flex items-center gap-4 flex-wrap">
+        <span className="text-xs text-text-tertiary font-medium">범례:</span>
         {SHIFT_TYPES.map(st => (
           <span key={st} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${SHIFT_COLORS[st]}`}>
             {st}
           </span>
         ))}
-        <span className="text-xs text-[#62666D] ml-auto">셀을 클릭하여 근무 유형을 변경하세요</span>
+        <span className="text-xs text-text-quaternary ml-auto">셀을 클릭하여 근무 유형을 변경하세요</span>
       </div>
 
       {/* Grid */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-[#08090A]">
-              <th className="text-left px-4 py-3 font-semibold text-[#8A8F98] min-w-[120px] sticky left-0 bg-[#08090A] z-10">
+            <tr className="bg-bg-0">
+              <th className="text-left px-4 py-3 font-semibold text-text-tertiary min-w-[120px] sticky left-0 bg-bg-0 z-10">
                 이름
               </th>
               {weekDates.map((d, i) => {
@@ -818,7 +818,7 @@ function ScheduleTab({ staff, schedule, weekDates, weekLabel, onShiftChange, onW
                   <th
                     key={i}
                     className={`text-center px-2 py-3 font-semibold min-w-[80px] ${
-                      isWeekend ? 'text-[#EB5757]' : 'text-[#8A8F98]'
+                      isWeekend ? 'text-danger' : 'text-text-tertiary'
                     }`}
                   >
                     <div>{WEEKDAYS[i]}</div>
@@ -832,15 +832,15 @@ function ScheduleTab({ staff, schedule, weekDates, weekLabel, onShiftChange, onW
           </thead>
           <tbody>
             {staff.map(s => (
-              <tr key={s.id} className="border-t border-[#23252A] hover:bg-white/5/5/40 transition-colors">
-                <td className="px-4 py-2 font-medium text-[#F7F8F8] sticky left-0 bg-[#0F1011] z-10">
+              <tr key={s.id} className="border-t border-border-primary hover:bg-white/5 transition-colors">
+                <td className="px-4 py-2 font-medium text-text-primary sticky left-0 bg-bg-1 z-10">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-[#5E6AD2]/15 text-[#7070FF] flex items-center justify-center text-xs font-bold shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-brand/15 text-link flex items-center justify-center text-xs font-bold shrink-0">
                       {s.name[0]}
                     </div>
                     <div>
                       <div className="text-sm">{s.name}</div>
-                      <div className="text-[10px] text-[#62666D]">{s.department}</div>
+                      <div className="text-[10px] text-text-quaternary">{s.department}</div>
                     </div>
                   </div>
                 </td>
@@ -866,12 +866,12 @@ function ScheduleTab({ staff, schedule, weekDates, weekLabel, onShiftChange, onW
       </div>
 
       {/* Summary footer */}
-      <div className="px-4 py-3 border-t border-[#23252A] bg-[#08090A]/50 flex items-center gap-6 text-xs text-[#8A8F98]">
+      <div className="px-4 py-3 border-t border-border-primary bg-bg-0/50 flex items-center gap-6 text-xs text-text-tertiary">
         {SHIFT_TYPES.map(st => {
           const count = schedule.filter(e => e.shift === st).length;
           return (
             <span key={st}>
-              {st}: <span className="font-semibold text-[#D0D6E0]">{count}</span>건
+              {st}: <span className="font-semibold text-text-secondary">{count}</span>건
             </span>
           );
         })}
@@ -896,12 +896,12 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
   return (
     <div className="space-y-6">
       {/* Task Table */}
-      <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
-        <div className="p-4 border-b border-[#23252A] flex items-center justify-between">
-          <h3 className="text-base font-bold text-[#F7F8F8]">업무 목록</h3>
+      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+        <div className="p-4 border-b border-border-primary flex items-center justify-between">
+          <h3 className="text-base font-bold text-text-primary">업무 목록</h3>
           <button
             onClick={onAdd}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#5E6AD2] text-white text-sm font-medium rounded-lg hover:bg-[#828FFF] transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-accent transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -913,50 +913,50 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[#08090A]">
-                <th className="text-left px-4 py-3 font-semibold text-[#8A8F98]">업무명</th>
-                <th className="text-left px-4 py-3 font-semibold text-[#8A8F98]">담당자</th>
-                <th className="text-center px-4 py-3 font-semibold text-[#8A8F98]">투입시간</th>
-                <th className="text-center px-4 py-3 font-semibold text-[#8A8F98]">예상시간</th>
-                <th className="text-center px-4 py-3 font-semibold text-[#8A8F98]">진행률</th>
-                <th className="text-center px-4 py-3 font-semibold text-[#8A8F98]">상태</th>
-                <th className="text-center px-4 py-3 font-semibold text-[#8A8F98]">관리</th>
+              <tr className="bg-bg-0">
+                <th className="text-left px-4 py-3 font-semibold text-text-tertiary">업무명</th>
+                <th className="text-left px-4 py-3 font-semibold text-text-tertiary">담당자</th>
+                <th className="text-center px-4 py-3 font-semibold text-text-tertiary">투입시간</th>
+                <th className="text-center px-4 py-3 font-semibold text-text-tertiary">예상시간</th>
+                <th className="text-center px-4 py-3 font-semibold text-text-tertiary">진행률</th>
+                <th className="text-center px-4 py-3 font-semibold text-text-tertiary">상태</th>
+                <th className="text-center px-4 py-3 font-semibold text-text-tertiary">관리</th>
               </tr>
             </thead>
             <tbody>
               {tasks.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-[#62666D]">등록된 업무가 없습니다.</td>
+                  <td colSpan={7} className="text-center py-12 text-text-quaternary">등록된 업무가 없습니다.</td>
                 </tr>
               )}
               {tasks.map(t => (
-                <tr key={t.id} className="border-t border-[#23252A] hover:bg-white/5/5/60 transition-colors">
-                  <td className="px-4 py-3 font-medium text-[#F7F8F8]">{t.name}</td>
+                <tr key={t.id} className="border-t border-border-primary hover:bg-white/5 transition-colors">
+                  <td className="px-4 py-3 font-medium text-text-primary">{t.name}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-[#5E6AD2]/15 text-[#7070FF] flex items-center justify-center text-[10px] font-bold shrink-0">
+                      <span className="w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-bold shrink-0">
                         {getAssigneeName(t.assigneeId)[0]}
                       </span>
-                      <span className="text-[#D0D6E0]">{getAssigneeName(t.assigneeId)}</span>
+                      <span className="text-text-secondary">{getAssigneeName(t.assigneeId)}</span>
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center text-[#8A8F98] font-mono">{t.inputHours}h</td>
-                  <td className="px-4 py-3 text-center text-[#8A8F98] font-mono">{t.estimatedHours}h</td>
+                  <td className="px-4 py-3 text-center text-text-tertiary font-mono">{t.inputHours}h</td>
+                  <td className="px-4 py-3 text-center text-text-tertiary font-mono">{t.estimatedHours}h</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-center">
-                      <div className="w-20 h-2 bg-[#232326] rounded-full overflow-hidden">
+                      <div className="w-20 h-2 bg-bg-tertiary rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${
                             t.progress >= 100
-                              ? 'bg-[#27A644]'
+                              ? 'bg-success'
                               : t.progress >= 50
-                                ? 'bg-[#5E6AD2]'
-                                : 'bg-[#F0BF00]/100'
+                                ? 'bg-brand'
+                                : 'bg-warning/100'
                           }`}
                           style={{ width: `${Math.min(t.progress, 100)}%` }}
                         />
                       </div>
-                      <span className="text-xs text-[#8A8F98] w-8 text-right">{t.progress}%</span>
+                      <span className="text-xs text-text-tertiary w-8 text-right">{t.progress}%</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -969,7 +969,7 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
                       onClick={() => {
                         if (confirm(`"${t.name}" 업무를 삭제하시겠습니까?`)) onDelete(t.id);
                       }}
-                      className="p-1.5 rounded-lg text-[#62666D] hover:text-[#EB5757] hover:bg-[#EB5757]/10 transition-colors"
+                      className="p-1.5 rounded-lg text-text-quaternary hover:text-danger hover:bg-danger/10 transition-colors"
                       title="삭제"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -983,39 +983,39 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
           </table>
         </div>
 
-        <div className="px-4 py-3 border-t border-[#23252A] bg-[#08090A]/50 text-xs text-[#8A8F98] flex items-center gap-4">
-          <span>총 <span className="font-semibold text-[#D0D6E0]">{tasks.length}</span>건</span>
-          <span>진행중 <span className="font-semibold text-[#7070FF]">{tasks.filter(t => t.status === '진행중').length}</span></span>
-          <span>완료 <span className="font-semibold text-[#27A644]">{tasks.filter(t => t.status === '완료').length}</span></span>
-          <span>대기 <span className="font-semibold text-[#8A8F98]">{tasks.filter(t => t.status === '대기').length}</span></span>
+        <div className="px-4 py-3 border-t border-border-primary bg-bg-0/50 text-xs text-text-tertiary flex items-center gap-4">
+          <span>총 <span className="font-semibold text-text-secondary">{tasks.length}</span>건</span>
+          <span>진행중 <span className="font-semibold text-link">{tasks.filter(t => t.status === '진행중').length}</span></span>
+          <span>완료 <span className="font-semibold text-success">{tasks.filter(t => t.status === '완료').length}</span></span>
+          <span>대기 <span className="font-semibold text-text-tertiary">{tasks.filter(t => t.status === '대기').length}</span></span>
         </div>
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Bar Chart: 담당자별 주간 투입시간 */}
-        <div className="lg:col-span-2 bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-5">
-          <h3 className="text-base font-bold text-[#F7F8F8] mb-4">담당자별 주간 투입시간</h3>
+        <div className="lg:col-span-2 bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+          <h3 className="text-base font-bold text-text-primary mb-4">담당자별 주간 투입시간</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1C1C1F" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-secondary)" />
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 12, fill: '#8A8F98' }}
-                  axisLine={{ stroke: '#23252A' }}
+                  tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }}
+                  axisLine={{ stroke: 'var(--color-border-primary)' }}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 12, fill: '#8A8F98' }}
-                  axisLine={{ stroke: '#23252A' }}
+                  tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }}
+                  axisLine={{ stroke: 'var(--color-border-primary)' }}
                   tickLine={false}
                   unit="h"
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1C1C1F',
-                    border: '1px solid #34343A',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    border: '1px solid var(--color-border-secondary)',
                     borderRadius: '12px',
                     boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                     fontSize: '13px',
@@ -1023,16 +1023,16 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
                   formatter={(value: number, name: string) => [`${value}h`, name]}
                 />
                 <Legend wrapperStyle={{ fontSize: '12px' }} />
-                <ReferenceLine y={40} stroke="#EB5757" strokeDasharray="4 4" label={{ value: '기준 40h', position: 'right', fontSize: 11, fill: '#EB5757' }} />
-                <Bar dataKey="투입시간" fill="#5E6AD2" radius={[6, 6, 0, 0]} barSize={32} />
+                <ReferenceLine y={40} stroke="var(--color-danger)" strokeDasharray="4 4" label={{ value: '기준 40h', position: 'right', fontSize: 11, fill: 'var(--color-danger)' }} />
+                <Bar dataKey="투입시간" fill="var(--color-brand-bg)" radius={[6, 6, 0, 0]} barSize={32} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Pie Chart: 업무 상태 분포 */}
-        <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-5">
-          <h3 className="text-base font-bold text-[#F7F8F8] mb-4">업무 상태 분포</h3>
+        <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+          <h3 className="text-base font-bold text-text-primary mb-4">업무 상태 분포</h3>
           <div className="h-80 flex flex-col items-center justify-center">
             <ResponsiveContainer width="100%" height="75%">
               <PieChart>
@@ -1053,8 +1053,8 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1C1C1F',
-                    border: '1px solid #34343A',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    border: '1px solid var(--color-border-secondary)',
                     borderRadius: '12px',
                     boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                     fontSize: '13px',
@@ -1065,7 +1065,7 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
             </ResponsiveContainer>
             <div className="flex flex-wrap justify-center gap-3 mt-2">
               {pieData.map((d, idx) => (
-                <div key={d.name} className="flex items-center gap-1.5 text-xs text-[#8A8F98]">
+                <div key={d.name} className="flex items-center gap-1.5 text-xs text-text-tertiary">
                   <div
                     className="w-2.5 h-2.5 rounded-full"
                     style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }}
@@ -1079,8 +1079,8 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
       </div>
 
       {/* Utilization Pie Chart */}
-      <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] p-5">
-        <h3 className="text-base font-bold text-[#F7F8F8] mb-4">담당자별 공수 활용률</h3>
+      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+        <h3 className="text-base font-bold text-text-primary mb-4">담당자별 공수 활용률</h3>
         <UtilizationChart tasks={tasks} staffList={staffList} />
       </div>
     </div>
@@ -1112,29 +1112,29 @@ function UtilizationChart({ tasks, staffList }: { tasks: Task[]; staffList: Staf
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
       {data.map(d => (
-        <div key={d.name} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[#08090A] border border-[#23252A]">
+        <div key={d.name} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-bg-0 border border-border-primary">
           <div className="relative w-16 h-16">
             <svg className="w-16 h-16 -rotate-90" viewBox="0 0 36 36">
               <circle
                 cx="18" cy="18" r="14"
                 fill="none"
-                stroke="#1C1C1F"
+                stroke="var(--color-bg-secondary)"
                 strokeWidth="3"
               />
               <circle
                 cx="18" cy="18" r="14"
                 fill="none"
-                stroke={d.value >= 80 ? '#27A644' : d.value >= 50 ? '#5E6AD2' : '#F0BF00'}
+                stroke={d.value >= 80 ? 'var(--color-success)' : d.value >= 50 ? 'var(--color-brand-bg)' : 'var(--color-warning)'}
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeDasharray={`${(d.value / 100) * 87.96} 87.96`}
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xs font-bold text-[#D0D6E0]">{d.value}%</span>
+              <span className="text-xs font-bold text-text-secondary">{d.value}%</span>
             </div>
           </div>
-          <span className="text-xs font-medium text-[#8A8F98]">{d.name}</span>
+          <span className="text-xs font-medium text-text-tertiary">{d.name}</span>
         </div>
       ))}
     </div>
@@ -1167,10 +1167,10 @@ function TaskModal({ staffList, onSave, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[#F7F8F8]">업무 추가</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5/5 text-[#62666D] hover:text-[#D0D6E0] transition-colors">
+      <div className="bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
+          <h3 className="text-lg font-bold text-text-primary">업무 추가</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5 text-text-quaternary hover:text-text-secondary transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -1179,23 +1179,23 @@ function TaskModal({ staffList, onSave, onClose }: {
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Task Name */}
           <div>
-            <label className="block text-sm font-medium text-[#D0D6E0] mb-1">업무명 *</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">업무명 *</label>
             <input
               type="text"
               value={form.name}
               onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+              className="w-full px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
               placeholder="업무 이름을 입력하세요"
               required
             />
           </div>
           {/* Assignee */}
           <div>
-            <label className="block text-sm font-medium text-[#D0D6E0] mb-1">담당자</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">담당자</label>
             <select
               value={form.assigneeId}
               onChange={e => setForm(p => ({ ...p, assigneeId: e.target.value }))}
-              className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+              className="w-full px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
             >
               {staffList.map(s => (
                 <option key={s.id} value={s.id}>{s.name} ({s.department})</option>
@@ -1205,30 +1205,30 @@ function TaskModal({ staffList, onSave, onClose }: {
           {/* Hours */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">투입시간 (h)</label>
+              <label className="block text-sm font-medium text-text-secondary mb-1">투입시간 (h)</label>
               <input
                 type="number"
                 min={0}
                 value={form.inputHours}
                 onChange={e => setForm(p => ({ ...p, inputHours: Number(e.target.value) }))}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+                className="w-full px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#D0D6E0] mb-1">예상시간 (h)</label>
+              <label className="block text-sm font-medium text-text-secondary mb-1">예상시간 (h)</label>
               <input
                 type="number"
                 min={0}
                 value={form.estimatedHours}
                 onChange={e => setForm(p => ({ ...p, estimatedHours: Number(e.target.value) }))}
-                className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+                className="w-full px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
               />
             </div>
           </div>
           {/* Progress */}
           <div>
-            <label className="block text-sm font-medium text-[#D0D6E0] mb-1">
-              진행률: <span className="text-[#7070FF] font-bold">{form.progress}%</span>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              진행률: <span className="text-link font-bold">{form.progress}%</span>
             </label>
             <input
               type="range"
@@ -1237,9 +1237,9 @@ function TaskModal({ staffList, onSave, onClose }: {
               step={5}
               value={form.progress}
               onChange={e => setForm(p => ({ ...p, progress: Number(e.target.value) }))}
-              className="w-full h-2 bg-[#232326] rounded-lg appearance-none cursor-pointer accent-blue-600"
+              className="w-full h-2 bg-bg-tertiary rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
-            <div className="flex justify-between text-[10px] text-[#62666D] mt-1">
+            <div className="flex justify-between text-[10px] text-text-quaternary mt-1">
               <span>0%</span>
               <span>50%</span>
               <span>100%</span>
@@ -1247,7 +1247,7 @@ function TaskModal({ staffList, onSave, onClose }: {
           </div>
           {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-[#D0D6E0] mb-1">상태</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">상태</label>
             <div className="flex gap-2">
               {TASK_STATUSES.map(st => (
                 <button
@@ -1257,7 +1257,7 @@ function TaskModal({ staffList, onSave, onClose }: {
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                     form.status === st
                       ? `${TASK_STATUS_COLORS[st]} border-current`
-                      : 'bg-[#0F1011] text-[#8A8F98] border-[#23252A] hover:bg-white/5/5'
+                      : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-white/5'
                   }`}
                 >
                   {st}
@@ -1270,13 +1270,13 @@ function TaskModal({ staffList, onSave, onClose }: {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-[#5E6AD2] rounded-lg hover:bg-[#828FFF] transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-accent transition-colors"
             >
               추가
             </button>

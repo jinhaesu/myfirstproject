@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import NuldamSystemBar from '@/components/NuldamSystemBar';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface NavItem {
   href: string;
@@ -245,18 +246,18 @@ export function Navigation() {
   return (
     <>
     <NuldamSystemBar current="scm" />
-    <header className="bg-[#0F1011]/80 backdrop-blur-md shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border-b border-[#23252A] sticky top-0 z-50">
+    <header className="bg-bg-1/80 backdrop-blur-md shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border-b border-border-primary sticky top-0 z-50">
       <div className="max-w-[1400px] mx-auto px-4 py-2.5">
         <div className="flex items-center justify-between">
           {/* 로고 */}
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2.5 shrink-0">
-              <div className="w-9 h-9 bg-gradient-to-br from-[#5E6AD2] to-[#5E6AD2] rounded-xl flex items-center justify-center shadow-[0px_7px_32px_rgba(0,0,0,0.35)]">
+              <div className="w-9 h-9 bg-gradient-to-br from-brand to-brand rounded-xl flex items-center justify-center shadow-[0px_7px_32px_rgba(0,0,0,0.35)]">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <h1 className="text-lg font-bold bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] bg-clip-text text-transparent hidden lg:block">
+              <h1 className="text-lg font-bold bg-gradient-to-r from-brand to-brand bg-clip-text text-transparent hidden lg:block">
                 Nuldam Analytics
               </h1>
             </Link>
@@ -272,8 +273,8 @@ export function Navigation() {
                       onClick={() => setOpenGroup(isOpen ? null : group.label)}
                       className={`flex items-center gap-1 px-2 lg:px-2.5 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-all ${
                         active
-                          ? 'bg-[#5E6AD2]/10 text-[#828FFF]'
-                          : 'text-[#8A8F98] hover:bg-white/5/5 hover:text-[#F7F8F8]'
+                          ? 'bg-brand/10 text-accent'
+                          : 'text-text-tertiary hover:bg-white/5 hover:text-text-primary'
                       }`}
                     >
                       <span className="shrink-0">{iconMap[group.icon]}</span>
@@ -288,15 +289,15 @@ export function Navigation() {
 
                     {/* 드롭다운 */}
                     {isOpen && (
-                      <div className="absolute top-full left-0 mt-1 w-56 bg-[#0F1011] rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] border border-[#23252A] py-2 z-50">
+                      <div className="absolute top-full left-0 mt-1 w-56 bg-bg-1 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] border border-border-primary py-2 z-50">
                         {group.items.map((item, idx) => {
                           const itemActive = pathname === item.href;
                           return (
                             <div key={item.href}>
                               {item.section && (
                                 <>
-                                  {idx > 0 && <div className="border-t border-[#23252A] my-1" />}
-                                  <p className="px-4 pt-2 pb-1 text-xs font-bold text-[#62666D] uppercase tracking-wider">
+                                  {idx > 0 && <div className="border-t border-border-primary my-1" />}
+                                  <p className="px-4 pt-2 pb-1 text-xs font-bold text-text-quaternary uppercase tracking-wider">
                                     {item.section}
                                   </p>
                                 </>
@@ -306,8 +307,8 @@ export function Navigation() {
                                 onClick={() => setOpenGroup(null)}
                                 className={`flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
                                   itemActive
-                                    ? 'bg-[#5E6AD2]/10 text-[#828FFF] font-semibold'
-                                    : 'text-[#8A8F98] hover:bg-white/5/5 hover:text-[#F7F8F8]'
+                                    ? 'bg-brand/10 text-accent font-semibold'
+                                    : 'text-text-tertiary hover:bg-white/5 hover:text-text-primary'
                                 }`}
                               >
                                 {iconMap[item.icon]}
@@ -326,17 +327,18 @@ export function Navigation() {
 
           {/* 사용자 정보 + 모바일 버거 */}
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             {user && (
               <div className="hidden sm:flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 bg-gradient-to-br from-[#27A644] to-[#00B8CC] rounded-full flex items-center justify-center text-white font-semibold text-xs">
+                  <div className="w-7 h-7 bg-gradient-to-br from-success to-cyan rounded-full flex items-center justify-center text-white font-semibold text-xs">
                     {user.name.charAt(0)}
                   </div>
-                  <span className="text-sm text-[#D0D6E0] font-medium">{user.name}</span>
+                  <span className="text-sm text-text-secondary font-medium">{user.name}</span>
                 </div>
                 <button
                   onClick={logout}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-sm text-[#8A8F98] hover:text-[#EB5757] hover:bg-[#EB5757]/10 rounded-lg transition-colors"
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-sm text-text-tertiary hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -349,7 +351,7 @@ export function Navigation() {
             {/* 모바일 햄버거 */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden p-2 text-[#8A8F98] hover:bg-white/5/5 rounded-lg"
+              className="md:hidden p-2 text-text-tertiary hover:bg-white/5 rounded-lg"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {mobileOpen ? (
@@ -364,10 +366,10 @@ export function Navigation() {
 
         {/* 모바일 메뉴 */}
         {mobileOpen && (
-          <div className="md:hidden mt-3 pt-3 border-t border-[#23252A] pb-2">
+          <div className="md:hidden mt-3 pt-3 border-t border-border-primary pb-2">
             {visibleGroups.map((group) => (
               <div key={group.label} className="mb-3">
-                <p className="px-3 py-1 text-xs font-bold text-[#62666D] uppercase tracking-wider">
+                <p className="px-3 py-1 text-xs font-bold text-text-quaternary uppercase tracking-wider">
                   {group.label}
                 </p>
                 {group.items.map((item, idx) => {
@@ -376,8 +378,8 @@ export function Navigation() {
                     <div key={item.href}>
                       {item.section && (
                         <>
-                          {idx > 0 && <div className="border-t border-[#23252A] my-1 mx-3" />}
-                          <p className="px-3 pt-2 pb-1 text-xs font-bold text-[#62666D] uppercase tracking-wider">
+                          {idx > 0 && <div className="border-t border-border-primary my-1 mx-3" />}
+                          <p className="px-3 pt-2 pb-1 text-xs font-bold text-text-quaternary uppercase tracking-wider">
                             {item.section}
                           </p>
                         </>
@@ -387,8 +389,8 @@ export function Navigation() {
                         onClick={() => setMobileOpen(false)}
                         className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                           itemActive
-                            ? 'bg-[#5E6AD2]/10 text-[#828FFF] font-semibold'
-                            : 'text-[#8A8F98] hover:bg-white/5/5'
+                            ? 'bg-brand/10 text-accent font-semibold'
+                            : 'text-text-tertiary hover:bg-white/5'
                         }`}
                       >
                         {iconMap[item.icon]}
@@ -400,9 +402,9 @@ export function Navigation() {
               </div>
             ))}
             {user && (
-              <div className="sm:hidden pt-2 mt-2 border-t border-[#23252A] flex items-center justify-between px-3">
-                <span className="text-sm text-[#D0D6E0] font-medium">{user.name}</span>
-                <button onClick={logout} className="text-sm text-[#EB5757] hover:text-[#EB5757]">로그아웃</button>
+              <div className="sm:hidden pt-2 mt-2 border-t border-border-primary flex items-center justify-between px-3">
+                <span className="text-sm text-text-secondary font-medium">{user.name}</span>
+                <button onClick={logout} className="text-sm text-danger hover:text-danger">로그아웃</button>
               </div>
             )}
           </div>

@@ -16,22 +16,22 @@ const getAuthHeaders = (): Record<string, string> => {
 const getJSON = async <T,>(path: string, def: T): Promise<T> => { try { const r = await fetch(`/api${path}`, { headers: getAuthHeaders() }); if (!r.ok) throw new Error(); return await r.json(); } catch { return def; } };
 const send = async (path: string, method: string, body?: any) => { try { const r = await fetch(`/api${path}`, { method, headers: getAuthHeaders(), body: body !== undefined ? JSON.stringify(body) : undefined }); const data = await r.json().catch(() => ({})); return { ok: r.ok, data }; } catch { return { ok: false, data: {} }; } };
 
-const C = { card: 'bg-[#0F1011] border border-[#23252A] rounded-xl', input: 'bg-[#08090A] border border-[#23252A] rounded-lg px-3 py-2 text-sm text-[#F7F8F8] focus:outline-none focus:border-[#5E6AD2]', btn: 'px-3 py-2 rounded-lg text-sm font-semibold transition-colors', btnPrimary: 'bg-[#5E6AD2] hover:bg-[#4d58bd] text-white', btnGhost: 'bg-[#1A1B1E] hover:bg-[#23252A] text-[#D0D6E0] border border-[#23252A]', th: 'text-left text-xs font-semibold text-[#8A8F98] px-3 py-2 border-b border-[#23252A] whitespace-nowrap', td: 'px-3 py-2 text-sm text-[#D0D6E0] border-b border-[#1A1B1E] whitespace-nowrap' };
+const C = { card: 'bg-bg-1 border border-border-primary rounded-xl', input: 'bg-bg-0 border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-brand', btn: 'px-3 py-2 rounded-lg text-sm font-semibold transition-colors', btnPrimary: 'bg-brand hover:bg-brand-hover text-white', btnGhost: 'bg-bg-inset hover:bg-border-primary text-text-secondary border border-border-primary', th: 'text-left text-xs font-semibold text-text-tertiary px-3 py-2 border-b border-border-primary whitespace-nowrap', td: 'px-3 py-2 text-sm text-text-secondary border-b border-bg-inset whitespace-nowrap' };
 const fmt = (n: number) => Number(n || 0).toLocaleString('ko-KR');
 const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
 const wonShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억'; if (a >= 1e4) return Math.round(n / 1e4).toLocaleString('ko-KR') + '만'; return '₩' + Math.round(n || 0).toLocaleString('ko-KR'); };
 const COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#00B8CC', '#EB5757', '#A855F7', '#F97316', '#14B8A6'];
-const TT = { background: '#0F1011', border: '1px solid #23252A', borderRadius: 8, color: '#F7F8F8', fontSize: 12 } as const;
+const TT = { background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8, color: 'var(--color-text-primary)', fontSize: 12 } as const;
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const thisMonth = () => { const n = new Date(); return { start: iso(new Date(n.getFullYear(), n.getMonth(), 1)), end: iso(new Date(n.getFullYear(), n.getMonth() + 1, 0)) }; };
 function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
-  return <div className={`${C.card} p-4`}><div className="text-[11px] text-[#8A8F98] mb-1 truncate">{label}</div><div className={`text-lg font-bold tabular-nums ${tone || 'text-[#F7F8F8]'}`}>{value}</div>{sub && <div className="text-[11px] text-[#62666D] mt-1 truncate">{sub}</div>}</div>;
+  return <div className={`${C.card} p-4`}><div className="text-[11px] text-text-tertiary mb-1 truncate">{label}</div><div className={`text-lg font-bold tabular-nums ${tone || 'text-text-primary'}`}>{value}</div>{sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}</div>;
 }
 function RangeBar({ range, setRange }: { range: any; setRange: (r: any) => void }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
-      <span className="text-[#62666D]">~</span>
+      <span className="text-text-quaternary">~</span>
       <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
       <button onClick={() => setRange(thisMonth())} className={`${C.btn} ${C.btnGhost}`}>당월</button>
       <button onClick={() => setRange({ start: '2025-01-01', end: iso(new Date()) })} className={`${C.btn} ${C.btnGhost}`}>전체</button>
@@ -50,14 +50,14 @@ export default function PurchasePage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('실적 대시보드');
   useEffect(() => { if (!isLoading && !user) router.replace('/login'); }, [isLoading, user, router]);
-  if (isLoading || !user) return <div className="min-h-screen bg-[#08090A]" />;
+  if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
   const tabs: Tab[] = ['실적 대시보드', '실적 조회', '원부재료 소요', '거래처', '발주'];
   return (
-    <div className="min-h-screen bg-[#08090A]">
+    <div className="min-h-screen bg-bg-0">
       <Navigation />
       <main className="max-w-[1400px] mx-auto px-4 py-6">
-        <div className="mb-4"><h1 className="text-xl font-bold text-[#F7F8F8]">구매 관리</h1><p className="text-sm text-[#8A8F98] mt-0.5">구매일보 실적 분석 · 매출대비 구매비율 · 거래처/품목 이력 · 발주·발주서 발행.</p></div>
-        <div className="flex gap-1 mb-5 border-b border-[#23252A] overflow-x-auto">{tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap ${tab === t ? 'border-[#5E6AD2] text-[#828FFF]' : 'border-transparent text-[#8A8F98] hover:text-[#D0D6E0]'}`}>{t}</button>)}</div>
+        <div className="mb-4"><h1 className="text-xl font-bold text-text-primary">구매 관리</h1><p className="text-sm text-text-tertiary mt-0.5">구매일보 실적 분석 · 매출대비 구매비율 · 거래처/품목 이력 · 발주·발주서 발행.</p></div>
+        <div className="flex gap-1 mb-5 border-b border-border-primary overflow-x-auto">{tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap ${tab === t ? 'border-brand text-accent' : 'border-transparent text-text-tertiary hover:text-text-secondary'}`}>{t}</button>)}</div>
         {tab === '실적 대시보드' && <DashTab />}
         {tab === '실적 조회' && <RecordsTab />}
         {tab === '원부재료 소요' && <MatTab />}
@@ -112,78 +112,78 @@ function DashTab() {
       <div className="flex flex-wrap items-center gap-2">
         {Object.keys(P).map((k) => { const on = ap.start === P[k].start && ap.end === P[k].end; return <button key={k} onClick={() => applyPreset(P[k])} className={`${C.btn} ${on ? C.btnPrimary : C.btnGhost}`}>{k}</button>; })}
         <input type="date" value={dr.start} onChange={(e) => setDr({ ...dr, start: e.target.value })} className={C.input} />
-        <span className="text-[#62666D]">~</span>
+        <span className="text-text-quaternary">~</span>
         <input type="date" value={dr.end} onChange={(e) => setDr({ ...dr, end: e.target.value })} className={C.input} />
-        <button onClick={applyDraft} className={`${C.btn} ${C.btnPrimary} ${dirty ? 'ring-2 ring-[#5E6AD2]/50' : ''}`}>조회</button>
-        <div className="flex gap-1 ml-auto"><span className="text-xs text-[#62666D] self-center mr-1">추이 단위</span>{(['day', 'week', 'month'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} ${gran === g ? C.btnPrimary : C.btnGhost}`}>{g === 'day' ? '일' : g === 'week' ? '주' : '월'}</button>)}</div>
+        <button onClick={applyDraft} className={`${C.btn} ${C.btnPrimary} ${dirty ? 'ring-2 ring-brand/50' : ''}`}>조회</button>
+        <div className="flex gap-1 ml-auto"><span className="text-xs text-text-quaternary self-center mr-1">추이 단위</span>{(['day', 'week', 'month'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} ${gran === g ? C.btnPrimary : C.btnGhost}`}>{g === 'day' ? '일' : g === 'week' ? '주' : '월'}</button>)}</div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <select value={dr.vendor} onChange={(e) => setDr({ ...dr, vendor: e.target.value })} className={C.input}><option value="">전체 거래처</option>{vendors.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}</select>
         <select value={dr.mclass} onChange={(e) => setDr({ ...dr, mclass: e.target.value })} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
         <input value={dr.q} onChange={(e) => setDr({ ...dr, q: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') applyDraft(); }} placeholder="품목명 검색" className={`${C.input} w-40`} />
         {(dr.vendor || dr.mclass || dr.q) && <button onClick={() => { const nx = { ...dr, vendor: '', mclass: '', q: '' }; setDr(nx); setAp(nx); }} className={`${C.btn} ${C.btnGhost}`}>필터 해제</button>}
-        {dirty && <span className="text-xs text-[#F0BF00]">변경됨 — 조회를 누르세요</span>}
+        {dirty && <span className="text-xs text-warning">변경됨 — 조회를 누르세요</span>}
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard label="구매액(공급가)" value={wonShort(d?.total_supply || 0)} tone="text-[#F0BF00]" sub={`${fmt(d?.line_count || 0)}건`} />
-        <StatCard label="원재료" value={wonShort((d?.by_class || []).find((x: any) => x.mclass === '원재료')?.supply || 0)} tone="text-[#4DA3FF]" />
-        <StatCard label="부재료" value={wonShort((d?.by_class || []).find((x: any) => x.mclass === '부재료')?.supply || 0)} tone="text-[#F0BF00]" />
-        <StatCard label="매출액(순)" value={wonShort(d?.sales || 0)} tone="text-[#27A644]" />
-        <StatCard label="구매/매출" value={d?.purchase_to_sales_ratio != null ? `${d.purchase_to_sales_ratio}%` : '-'} tone="text-[#A855F7]" sub="공급가÷순매출" />
+        <StatCard label="구매액(공급가)" value={wonShort(d?.total_supply || 0)} tone="text-warning" sub={`${fmt(d?.line_count || 0)}건`} />
+        <StatCard label="원재료" value={wonShort((d?.by_class || []).find((x: any) => x.mclass === '원재료')?.supply || 0)} tone="text-info" />
+        <StatCard label="부재료" value={wonShort((d?.by_class || []).find((x: any) => x.mclass === '부재료')?.supply || 0)} tone="text-warning" />
+        <StatCard label="매출액(순)" value={wonShort(d?.sales || 0)} tone="text-success" />
+        <StatCard label="구매/매출" value={d?.purchase_to_sales_ratio != null ? `${d.purchase_to_sales_ratio}%` : '-'} tone="text-purple" sub="공급가÷순매출" />
         <StatCard label="거래처·품목" value={`${fmt(d?.vendor_count || 0)}·${fmt(d?.item_count || 0)}`} sub="거래처 · 품목수" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-[#F7F8F8] mb-3">원/부재료 구성</div>
+          <div className="text-sm font-semibold text-text-primary mb-3">원/부재료 구성</div>
           {classData.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}><PieChart><Pie data={classData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={(e: any) => `${e.name} ${Math.round(e.percent * 100)}%`} labelLine={false}>{classData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /></PieChart></ResponsiveContainer>
           ) : <Empty />}
         </div>
         <div className={`${C.card} p-4 lg:col-span-2`}>
-          <div className="text-sm font-semibold text-[#F7F8F8] mb-3">거래처별 구매액 (Top 12)</div>
+          <div className="text-sm font-semibold text-text-primary mb-3">거래처별 구매액 (Top 12)</div>
           {d?.by_vendor?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}><BarChart data={d.by_vendor.slice(0, 12)} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><YAxis type="category" dataKey="vendor" tick={{ fill: '#8A8F98', fontSize: 10 }} width={110} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" radius={[0, 4, 4, 0]}>{d.by_vendor.slice(0, 12).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={260}><BarChart data={d.by_vendor.slice(0, 12)} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis type="category" dataKey="vendor" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} width={110} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" radius={[0, 4, 4, 0]}>{d.by_vendor.slice(0, 12).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>
           ) : <Empty />}
         </div>
       </div>
 
       <div className={`${C.card} p-4`}>
-        <div className="text-sm font-semibold text-[#F7F8F8] mb-3">매출 대비 구매 누적비율 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'} {ratio?.cum_ratio != null && <span className="text-[#A855F7] ml-2">기간 누적 {ratio.cum_ratio}%</span>}</div>
+        <div className="text-sm font-semibold text-text-primary mb-3">매출 대비 구매 누적비율 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'} {ratio?.cum_ratio != null && <span className="text-purple ml-2">기간 누적 {ratio.cum_ratio}%</span>}</div>
         {ratio?.series?.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}><LineChart data={ratio.series}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="bucket" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><YAxis yAxisId="r" orientation="right" tick={{ fill: '#A855F7', fontSize: 10 }} tickFormatter={(v) => `${v}%`} /><Tooltip contentStyle={TT} formatter={(v: any, n: any) => n.includes('비율') ? `${v}%` : won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Line yAxisId="l" type="monotone" dataKey="purchase" name="구매액" stroke="#F0BF00" strokeWidth={2} dot={false} /><Line yAxisId="l" type="monotone" dataKey="sales" name="매출액" stroke="#27A644" strokeWidth={2} dot={false} /><Line yAxisId="r" type="monotone" dataKey="cum_ratio" name="누적 구매/매출 비율" stroke="#A855F7" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={300}><LineChart data={ratio.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-purple)', fontSize: 10 }} tickFormatter={(v) => `${v}%`} /><Tooltip contentStyle={TT} formatter={(v: any, n: any) => n.includes('비율') ? `${v}%` : won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Line yAxisId="l" type="monotone" dataKey="purchase" name="구매액" stroke="var(--color-warning)" strokeWidth={2} dot={false} /><Line yAxisId="l" type="monotone" dataKey="sales" name="매출액" stroke="var(--color-success)" strokeWidth={2} dot={false} /><Line yAxisId="r" type="monotone" dataKey="cum_ratio" name="누적 구매/매출 비율" stroke="var(--color-purple)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer>
         ) : <Empty />}
       </div>
 
       {/* 월별 BOM소요 vs 실구매 / 원가추정 vs 실구매 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-[#F7F8F8] mb-1">BOM 이론소요 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}</div>
-          <p className="text-xs text-[#62666D] mb-3">생산량×BOM개당원가(이론소요) 대비 실제 매입. gap=재고 증감.</p>
+          <div className="text-sm font-semibold text-text-primary mb-1">BOM 이론소요 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}</div>
+          <p className="text-xs text-text-quaternary mb-3">생산량×BOM개당원가(이론소요) 대비 실제 매입. gap=재고 증감.</p>
           {gapT?.series?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}><ComposedChart data={gapT.series}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="bucket" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="bom_req" name="BOM이론소요" fill="#A855F7" radius={[3, 3, 0, 0]} /><Bar dataKey="purchase" name="실제구매" fill="#4DA3FF" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={260}><ComposedChart data={gapT.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="bom_req" name="BOM이론소요" fill="var(--color-purple)" radius={[3, 3, 0, 0]} /><Bar dataKey="purchase" name="실제구매" fill="var(--color-info)" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
           ) : <Empty />}
         </div>
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-[#F7F8F8] mb-1">매출기반 원가추정 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}</div>
-          <p className="text-xs text-[#62666D] mb-3">판매수량×BOM원가(매출원가) 대비 실제 매입. gap=재고 빌드업/소진.</p>
+          <div className="text-sm font-semibold text-text-primary mb-1">매출기반 원가추정 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}</div>
+          <p className="text-xs text-text-quaternary mb-3">판매수량×BOM원가(매출원가) 대비 실제 매입. gap=재고 빌드업/소진.</p>
           {gapT?.series?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}><ComposedChart data={gapT.series}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="bucket" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="cogs_est" name="매출원가추정" fill="#F0BF00" radius={[3, 3, 0, 0]} /><Bar dataKey="purchase" name="실제구매" fill="#4DA3FF" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={260}><ComposedChart data={gapT.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="cogs_est" name="매출원가추정" fill="var(--color-warning)" radius={[3, 3, 0, 0]} /><Bar dataKey="purchase" name="실제구매" fill="var(--color-info)" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
           ) : <Empty />}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-[#F7F8F8] mb-3">일별 구매액</div>
+          <div className="text-sm font-semibold text-text-primary mb-3">일별 구매액</div>
           {d?.by_day?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}><BarChart data={d.by_day}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="date" tick={{ fill: '#8A8F98', fontSize: 9 }} /><YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" fill="#5E6AD2" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={240}><BarChart data={d.by_day}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="date" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 9 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" fill="var(--color-brand-bg)" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer>
           ) : <Empty />}
         </div>
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-[#F7F8F8] mb-3">품목별 구매액 (Top 12)</div>
+          <div className="text-sm font-semibold text-text-primary mb-3">품목별 구매액 (Top 12)</div>
           {d?.by_item?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}><BarChart data={d.by_item.slice(0, 12)} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis type="number" tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><YAxis type="category" dataKey="item_name" tick={{ fill: '#8A8F98', fontSize: 9 }} width={130} tickFormatter={(v) => String(v).slice(0, 14)} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" radius={[0, 4, 4, 0]}>{d.by_item.slice(0, 12).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={240}><BarChart data={d.by_item.slice(0, 12)} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis type="category" dataKey="item_name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 9 }} width={130} tickFormatter={(v) => String(v).slice(0, 14)} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" radius={[0, 4, 4, 0]}>{d.by_item.slice(0, 12).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>
           ) : <Empty />}
         </div>
       </div>
@@ -191,36 +191,36 @@ function DashTab() {
       {/* 생산 소요 vs 실제 구매 히트맵 */}
       <div className={`${C.card} p-4`}>
         <div className="flex items-center justify-between mb-1">
-          <div className="text-sm font-semibold text-[#F7F8F8]">생산 BOM 소요 vs 실제 구매 · 품목별 히트맵</div>
-          {heat && <div className="text-xs text-[#8A8F98]">이론소요 {wonShort(heat.total_req)} · 실구매 {wonShort(heat.total_act)} · 매칭 {heat.matched_count}품목</div>}
+          <div className="text-sm font-semibold text-text-primary">생산 BOM 소요 vs 실제 구매 · 품목별 히트맵</div>
+          {heat && <div className="text-xs text-text-tertiary">이론소요 {wonShort(heat.total_req)} · 실구매 {wonShort(heat.total_act)} · 매칭 {heat.matched_count}품목</div>}
         </div>
-        <p className="text-xs text-[#62666D] mb-3">색이 진할수록 금액 큼. 커버리지 = 실구매÷이론소요(100% 미만=재고소진/과소구매, 초과=재고빌드/선구매).</p>
+        <p className="text-xs text-text-quaternary mb-3">색이 진할수록 금액 큼. 커버리지 = 실구매÷이론소요(100% 미만=재고소진/과소구매, 초과=재고빌드/선구매).</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr>
-              <th className="text-left text-xs text-[#8A8F98] px-2 py-1.5 border-b border-[#23252A]">원부재료</th>
-              <th className="text-right text-xs text-[#8A8F98] px-2 py-1.5 border-b border-[#23252A]">BOM 소요</th>
-              <th className="text-right text-xs text-[#8A8F98] px-2 py-1.5 border-b border-[#23252A]">실제 구매</th>
-              <th className="text-right text-xs text-[#8A8F98] px-2 py-1.5 border-b border-[#23252A]">gap</th>
-              <th className="text-center text-xs text-[#8A8F98] px-2 py-1.5 border-b border-[#23252A]">커버리지</th>
+              <th className="text-left text-xs text-text-tertiary px-2 py-1.5 border-b border-border-primary">원부재료</th>
+              <th className="text-right text-xs text-text-tertiary px-2 py-1.5 border-b border-border-primary">BOM 소요</th>
+              <th className="text-right text-xs text-text-tertiary px-2 py-1.5 border-b border-border-primary">실제 구매</th>
+              <th className="text-right text-xs text-text-tertiary px-2 py-1.5 border-b border-border-primary">gap</th>
+              <th className="text-center text-xs text-text-tertiary px-2 py-1.5 border-b border-border-primary">커버리지</th>
             </tr></thead>
             <tbody>
               {(heat?.items || []).map((it: any, i: number) => {
                 const maxv = Math.max(...(heat?.items || []).map((x: any) => Math.max(x.req_cost, x.act_cost)), 1);
                 const cell = (v: number, hue: string) => ({ background: v > 0 ? `${hue}${Math.max(0.06, Math.min(0.55, v / maxv)).toFixed(2)})` : 'transparent' });
                 const cov = it.coverage;
-                const covColor = cov == null ? 'text-[#62666D]' : cov > 130 ? 'text-[#F0BF00]' : cov < 70 ? 'text-[#EB5757]' : 'text-[#3FBE5B]';
+                const covColor = cov == null ? 'text-text-quaternary' : cov > 130 ? 'text-warning' : cov < 70 ? 'text-danger' : 'text-success-light';
                 return (
                   <tr key={i}>
-                    <td className="px-2 py-1.5 text-[#D0D6E0] border-b border-[#1A1B1E]"><span className={it.type === 'raw' ? 'text-[#4DA3FF]' : it.type === 'sub' ? 'text-[#F0BF00]' : 'text-[#62666D]'}>[{it.type === 'raw' ? '원' : it.type === 'sub' ? '부' : '?'}]</span> {it.name}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums border-b border-[#1A1B1E]" style={cell(it.req_cost, 'rgba(168,85,247,')}>{it.req_cost ? won(it.req_cost) : '-'}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums border-b border-[#1A1B1E]" style={cell(it.act_cost, 'rgba(77,163,255,')}>{it.act_cost ? won(it.act_cost) : '-'}</td>
-                    <td className={`px-2 py-1.5 text-right tabular-nums border-b border-[#1A1B1E] ${it.gap >= 0 ? 'text-[#4DA3FF]' : 'text-[#EB5757]'}`}>{wonShort(it.gap)}</td>
-                    <td className={`px-2 py-1.5 text-center tabular-nums border-b border-[#1A1B1E] ${covColor}`}>{cov == null ? '구매만' : cov >= 9999 ? '소요없음' : `${cov}%`}</td>
+                    <td className="px-2 py-1.5 text-text-secondary border-b border-bg-inset"><span className={it.type === 'raw' ? 'text-info' : it.type === 'sub' ? 'text-warning' : 'text-text-quaternary'}>[{it.type === 'raw' ? '원' : it.type === 'sub' ? '부' : '?'}]</span> {it.name}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums border-b border-bg-inset" style={cell(it.req_cost, 'rgba(168,85,247,')}>{it.req_cost ? won(it.req_cost) : '-'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums border-b border-bg-inset" style={cell(it.act_cost, 'rgba(77,163,255,')}>{it.act_cost ? won(it.act_cost) : '-'}</td>
+                    <td className={`px-2 py-1.5 text-right tabular-nums border-b border-bg-inset ${it.gap >= 0 ? 'text-info' : 'text-danger'}`}>{wonShort(it.gap)}</td>
+                    <td className={`px-2 py-1.5 text-center tabular-nums border-b border-bg-inset ${covColor}`}>{cov == null ? '구매만' : cov >= 9999 ? '소요없음' : `${cov}%`}</td>
                   </tr>
                 );
               })}
-              {(!heat?.items || heat.items.length === 0) && <tr><td colSpan={5} className="px-2 py-6 text-center text-[#62666D]">데이터 없음</td></tr>}
+              {(!heat?.items || heat.items.length === 0) && <tr><td colSpan={5} className="px-2 py-6 text-center text-text-quaternary">데이터 없음</td></tr>}
             </tbody>
           </table>
         </div>
@@ -228,7 +228,7 @@ function DashTab() {
     </div>
   );
 }
-function Empty() { return <div className="h-[200px] flex items-center justify-center text-sm text-[#62666D]">데이터 없음</div>; }
+function Empty() { return <div className="h-[200px] flex items-center justify-center text-sm text-text-quaternary">데이터 없음</div>; }
 
 // ─────────────────────────────────────────────
 // 실적 조회
@@ -254,17 +254,17 @@ function RecordsTab() {
         <RangeBar range={range} setRange={setRange} />
         <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·거래처 검색" className={`${C.input} w-48`} />
-        {data && <span className="text-xs text-[#8A8F98] ml-auto">{fmt(data.total)}건 · 공급가 {won(data.supply_total)}{data.total > 500 && ' (500건 표시)'}</span>}
+        {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가 {won(data.supply_total)}{data.total > 500 && ' (500건 표시)'}</span>}
       </div>
       <div className={`${C.card} overflow-x-auto`}>
         <table className="w-full"><thead><tr><th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>담당</th><th className={C.th}>수량</th><th className={C.th}>단가</th><th className={C.th}>공급가</th><th className={C.th}>합계</th></tr></thead>
-          <tbody>{!data?.rows?.length ? <tr><td colSpan={9} className="p-6 text-center text-[#62666D] text-sm">데이터 없음</td></tr> : data.rows.map((r: any) => (
-            <tr key={r.id} className="hover:bg-[#0F1011]">
+          <tbody>{!data?.rows?.length ? <tr><td colSpan={9} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr> : data.rows.map((r: any) => (
+            <tr key={r.id} className="hover:bg-bg-1">
               <td className={C.td}>{r.pdate}</td>
-              <td className={`${C.td} text-[#F7F8F8]`}><button onClick={() => openVendor(r.vendor)} className="hover:text-[#828FFF] hover:underline text-left">{r.vendor}</button></td>
-              <td className={C.td}><span className={r.mclass === '원재료' ? 'text-[#4DA3FF]' : 'text-[#F0BF00]'}>{r.mclass}</span></td>
-              <td className={C.td}><button onClick={() => openItem(r.item_code, r.item_name)} className="hover:text-[#828FFF] hover:underline text-left">{r.item_name}</button></td>
-              <td className={C.td}>{r.staff}</td><td className={C.td}>{fmt(r.qty)}{r.unit}</td><td className={C.td}>{won(r.unit_price)}</td><td className={`${C.td} text-[#F0BF00]`}>{won(r.supply)}</td><td className={C.td}>{won(r.total)}</td>
+              <td className={`${C.td} text-text-primary`}><button onClick={() => openVendor(r.vendor)} className="hover:text-accent hover:underline text-left">{r.vendor}</button></td>
+              <td className={C.td}><span className={r.mclass === '원재료' ? 'text-info' : 'text-warning'}>{r.mclass}</span></td>
+              <td className={C.td}><button onClick={() => openItem(r.item_code, r.item_name)} className="hover:text-accent hover:underline text-left">{r.item_name}</button></td>
+              <td className={C.td}>{r.staff}</td><td className={C.td}>{fmt(r.qty)}{r.unit}</td><td className={C.td}>{won(r.unit_price)}</td><td className={`${C.td} text-warning`}>{won(r.supply)}</td><td className={C.td}>{won(r.total)}</td>
             </tr>
           ))}</tbody></table>
       </div>
@@ -278,25 +278,25 @@ function HistoryModal({ hist, onClose }: { hist: any; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative bg-[#0F1011] border border-[#23252A] rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
+      <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <div><div className="text-xs text-[#8A8F98]">{isVendor ? '거래처 누적 이력' : '품목 구매 이력'}</div><div className="text-lg font-bold text-[#F7F8F8]">{isVendor ? hist.vendor : hist.item_name}</div></div>
-          <button onClick={onClose} className="text-[#8A8F98] hover:text-white text-xl">×</button>
+          <div><div className="text-xs text-text-tertiary">{isVendor ? '거래처 누적 이력' : '품목 구매 이력'}</div><div className="text-lg font-bold text-text-primary">{isVendor ? hist.vendor : hist.item_name}</div></div>
+          <button onClick={onClose} className="text-text-tertiary hover:text-white text-xl">×</button>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <StatCard label="누적 구매액" value={wonShort(hist.total_supply || 0)} tone="text-[#F0BF00]" />
+          <StatCard label="누적 구매액" value={wonShort(hist.total_supply || 0)} tone="text-warning" />
           <StatCard label="라인수" value={fmt(hist.line_count || 0)} />
           <StatCard label={isVendor ? '거래기간' : '누적수량'} value={isVendor ? `${hist.first || '-'}~` : fmt(hist.total_qty || 0)} sub={isVendor ? (hist.last || '') : ''} />
         </div>
-        <div className="text-sm font-semibold text-[#F7F8F8] mb-2">월별 구매</div>
-        <ResponsiveContainer width="100%" height={200}><BarChart data={hist.by_month || []}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="month" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" fill="#5E6AD2" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer>
+        <div className="text-sm font-semibold text-text-primary mb-2">월별 구매</div>
+        <ResponsiveContainer width="100%" height={200}><BarChart data={hist.by_month || []}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="month" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" fill="var(--color-brand-bg)" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer>
         {!isVendor && hist.price_trend?.length > 1 && <>
-          <div className="text-sm font-semibold text-[#F7F8F8] mt-4 mb-2">단가 추이</div>
-          <ResponsiveContainer width="100%" height={180}><LineChart data={hist.price_trend}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="date" tick={{ fill: '#8A8F98', fontSize: 9 }} /><YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Line type="monotone" dataKey="unit_price" name="단가" stroke="#00B8CC" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer>
+          <div className="text-sm font-semibold text-text-primary mt-4 mb-2">단가 추이</div>
+          <ResponsiveContainer width="100%" height={180}><LineChart data={hist.price_trend}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="date" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 9 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Line type="monotone" dataKey="unit_price" name="단가" stroke="var(--color-cyan)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer>
         </>}
-        <div className="text-sm font-semibold text-[#F7F8F8] mt-4 mb-2">{isVendor ? '품목별' : '거래처별'}</div>
+        <div className="text-sm font-semibold text-text-primary mt-4 mb-2">{isVendor ? '품목별' : '거래처별'}</div>
         <div className="overflow-x-auto"><table className="w-full"><thead><tr><th className={C.th}>{isVendor ? '품목' : '거래처'}</th>{isVendor && <th className={C.th}>수량</th>}<th className={C.th}>구매액</th></tr></thead>
-          <tbody>{(isVendor ? hist.by_item : hist.by_vendor || []).slice(0, 20).map((x: any, i: number) => (<tr key={i}><td className={`${C.td} text-[#D0D6E0]`}>{isVendor ? x.item_name : x.vendor}</td>{isVendor && <td className={C.td}>{fmt(x.qty)}</td>}<td className={`${C.td} text-[#F0BF00]`}>{won(x.supply)}</td></tr>))}</tbody></table></div>
+          <tbody>{(isVendor ? hist.by_item : hist.by_vendor || []).slice(0, 20).map((x: any, i: number) => (<tr key={i}><td className={`${C.td} text-text-secondary`}>{isVendor ? x.item_name : x.vendor}</td>{isVendor && <td className={C.td}>{fmt(x.qty)}</td>}<td className={`${C.td} text-warning`}>{won(x.supply)}</td></tr>))}</tbody></table></div>
       </div>
     </div>
   );
@@ -323,40 +323,40 @@ function MatTab() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <RangeBar range={range} setRange={setRange} />
-        {loading && <span className="text-xs text-[#62666D]">계산 중…</span>}
-        {mr && <span className="text-xs text-[#8A8F98] ml-auto">생산 매칭 {fmt(mr.matched_qty)} · 미매칭 {fmt(mr.unmatched_qty)}</span>}
+        {loading && <span className="text-xs text-text-quaternary">계산 중…</span>}
+        {mr && <span className="text-xs text-text-tertiary ml-auto">생산 매칭 {fmt(mr.matched_qty)} · 미매칭 {fmt(mr.unmatched_qty)}</span>}
       </div>
-      <p className="text-xs text-[#62666D]">생산 실적을 BOM으로 폭발한 <b className="text-[#8A8F98]">이론 소요(계획)</b>입니다. 실제 매입은 [실적 대시보드/조회]에서 확인하세요.</p>
-      {mr?.error && <div className="text-xs text-[#EB5757]">오류: {mr.error}</div>}
+      <p className="text-xs text-text-quaternary">생산 실적을 BOM으로 폭발한 <b className="text-text-tertiary">이론 소요(계획)</b>입니다. 실제 매입은 [실적 대시보드/조회]에서 확인하세요.</p>
+      {mr?.error && <div className="text-xs text-danger">오류: {mr.error}</div>}
       {mr && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard label="총 소요원가(이론)" value={wonShort(mr.total_cost)} tone="text-[#F0BF00]" />
+            <StatCard label="총 소요원가(이론)" value={wonShort(mr.total_cost)} tone="text-warning" />
             <StatCard label="원재료 종류" value={fmt(mr.raw_count)} />
             <StatCard label="부자재 종류" value={fmt(mr.sub_count)} />
             <StatCard label="거래처 수" value={fmt(mr.by_vendor.length)} />
           </div>
           <div className={`${C.card} p-4`}>
-            <div className="text-sm font-semibold text-[#F7F8F8] mb-3">거래처별 소요 (클릭 시 자재 상세 · 발주 생성)</div>
+            <div className="text-sm font-semibold text-text-primary mb-3">거래처별 소요 (클릭 시 자재 상세 · 발주 생성)</div>
             <div className="overflow-x-auto">
               <table className="w-full"><thead><tr><th className={C.th}>거래처</th><th className={C.th}>자재수</th><th className={C.th}>소요원가</th><th className={C.th}></th></tr></thead>
                 <tbody>{mr.by_vendor.map((v) => (
                   <>
-                    <tr key={v.vendor} className="hover:bg-[#0F1011] cursor-pointer" onClick={() => setOpenVendor(openVendor === v.vendor ? null : v.vendor)}>
-                      <td className={`${C.td} text-[#F7F8F8] font-medium`}>{v.vendor}</td><td className={C.td}>{v.items}</td><td className={`${C.td} text-[#F0BF00]`}>{won(v.cost)}</td>
-                      <td className={C.td}><button onClick={(e) => { e.stopPropagation(); createPO(v.vendor); }} className="text-[#828FFF] text-xs hover:underline">발주 생성</button> <span className="text-[#62666D] text-xs ml-2">{openVendor === v.vendor ? '▲' : '▼'}</span></td>
+                    <tr key={v.vendor} className="hover:bg-bg-1 cursor-pointer" onClick={() => setOpenVendor(openVendor === v.vendor ? null : v.vendor)}>
+                      <td className={`${C.td} text-text-primary font-medium`}>{v.vendor}</td><td className={C.td}>{v.items}</td><td className={`${C.td} text-warning`}>{won(v.cost)}</td>
+                      <td className={C.td}><button onClick={(e) => { e.stopPropagation(); createPO(v.vendor); }} className="text-accent text-xs hover:underline">발주 생성</button> <span className="text-text-quaternary text-xs ml-2">{openVendor === v.vendor ? '▲' : '▼'}</span></td>
                     </tr>
                     {openVendor === v.vendor && (
-                      <tr key={`${v.vendor}-d`} className="bg-[#08090A]"><td colSpan={4} className="px-4 py-2 border-b border-[#1A1B1E]">
+                      <tr key={`${v.vendor}-d`} className="bg-bg-0"><td colSpan={4} className="px-4 py-2 border-b border-bg-inset">
                         <table className="w-full"><thead><tr><th className={C.th}>자재</th><th className={C.th}>ERP</th><th className={C.th}>소요량</th><th className={C.th}>단가</th><th className={C.th}>원가</th></tr></thead>
-                          <tbody>{mr.materials.filter((m) => m.vendor === v.vendor).map((m, i) => (<tr key={i}><td className={`${C.td} text-[#D0D6E0]`}><span className={m.type === 'raw' ? 'text-[#4DA3FF]' : 'text-[#F0BF00]'}>[{m.type === 'raw' ? '원' : '부'}]</span> {m.name}</td><td className={C.td}>{m.erp_code || '-'}</td><td className={C.td}>{fmt(m.qty)}{m.unit}</td><td className={C.td}>{won(m.unit_price)}</td><td className={C.td}>{won(m.cost)}</td></tr>))}</tbody></table>
+                          <tbody>{mr.materials.filter((m) => m.vendor === v.vendor).map((m, i) => (<tr key={i}><td className={`${C.td} text-text-secondary`}><span className={m.type === 'raw' ? 'text-info' : 'text-warning'}>[{m.type === 'raw' ? '원' : '부'}]</span> {m.name}</td><td className={C.td}>{m.erp_code || '-'}</td><td className={C.td}>{fmt(m.qty)}{m.unit}</td><td className={C.td}>{won(m.unit_price)}</td><td className={C.td}>{won(m.cost)}</td></tr>))}</tbody></table>
                       </td></tr>
                     )}
                   </>
                 ))}</tbody></table>
             </div>
           </div>
-          {mr.unmatched.length > 0 && <div className="text-xs text-[#F0BF00]">미매칭 생산 품목(BOM 연결 안됨): {mr.unmatched.slice(0, 8).map((u) => `${u.name}(${fmt(u.qty)})`).join(', ')} … → SCM 품목관리에서 BOM 연결 필요</div>}
+          {mr.unmatched.length > 0 && <div className="text-xs text-warning">미매칭 생산 품목(BOM 연결 안됨): {mr.unmatched.slice(0, 8).map((u) => `${u.name}(${fmt(u.qty)})`).join(', ')} … → SCM 품목관리에서 BOM 연결 필요</div>}
         </>
       )}
     </div>
@@ -377,22 +377,22 @@ function VendorTab() {
   return (
     <div className="space-y-4">
       <div className={`${C.card} p-4`}>
-        <div className="flex items-center justify-between mb-3"><div className="text-sm font-semibold text-[#F7F8F8]">거래처 ({rows.length})</div><button onClick={seed} className={`${C.btn} ${C.btnGhost}`}>자재 공급처에서 가져오기</button></div>
+        <div className="flex items-center justify-between mb-3"><div className="text-sm font-semibold text-text-primary">거래처 ({rows.length})</div><button onClick={seed} className={`${C.btn} ${C.btnGhost}`}>자재 공급처에서 가져오기</button></div>
         <div className="flex flex-wrap items-end gap-2">
-          <div><div className="text-xs text-[#8A8F98] mb-1">거래처명 *</div><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={`${C.input} w-40`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">구분</div><select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={C.input}><option>원재료</option><option>부자재</option><option>포장</option><option>기타</option></select></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">담당자</div><input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} className={`${C.input} w-24`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">연락처</div><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={`${C.input} w-32`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">이메일(발주서)</div><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={`${C.input} w-44`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">사업자번호</div><input value={form.biz_no} onChange={(e) => setForm({ ...form, biz_no: e.target.value })} className={`${C.input} w-32`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">리드타임(일)</div><input type="number" value={form.lead_time_days} onChange={(e) => setForm({ ...form, lead_time_days: Number(e.target.value) })} className={`${C.input} w-20`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">거래처명 *</div><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={`${C.input} w-40`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">구분</div><select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={C.input}><option>원재료</option><option>부자재</option><option>포장</option><option>기타</option></select></div>
+          <div><div className="text-xs text-text-tertiary mb-1">담당자</div><input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} className={`${C.input} w-24`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">연락처</div><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={`${C.input} w-32`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">이메일(발주서)</div><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={`${C.input} w-44`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">사업자번호</div><input value={form.biz_no} onChange={(e) => setForm({ ...form, biz_no: e.target.value })} className={`${C.input} w-32`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">리드타임(일)</div><input type="number" value={form.lead_time_days} onChange={(e) => setForm({ ...form, lead_time_days: Number(e.target.value) })} className={`${C.input} w-20`} /></div>
           <button onClick={save} className={`${C.btn} ${C.btnPrimary}`}>{form.id ? '수정' : '+ 추가'}</button>
           {form.id && <button onClick={() => setForm({ name: '', category: '원재료', contact: '', phone: '', email: '', biz_no: '', lead_time_days: 0 })} className={`${C.btn} ${C.btnGhost}`}>취소</button>}
         </div>
       </div>
       <div className={`${C.card} overflow-x-auto`}>
         <table className="w-full"><thead><tr><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>담당자</th><th className={C.th}>연락처</th><th className={C.th}>이메일</th><th className={C.th}>사업자</th><th className={C.th}>리드타임</th><th className={C.th}>취급자재</th><th className={C.th}></th></tr></thead>
-          <tbody>{rows.map((v) => (<tr key={v.id}><td className={`${C.td} text-[#F7F8F8] font-medium`}>{v.name}</td><td className={C.td}>{v.category || '-'}</td><td className={C.td}>{v.contact || '-'}</td><td className={C.td}>{v.phone || '-'}</td><td className={C.td}>{v.email || <span className="text-[#62666D]">미등록</span>}</td><td className={C.td}>{v.biz_no || '-'}</td><td className={C.td}>{v.lead_time_days}일</td><td className={C.td}>원 {v.raw_materials}·부 {v.sub_materials}</td><td className={C.td}><button onClick={() => setForm({ id: v.id, name: v.name, category: v.category, contact: v.contact, phone: v.phone, email: v.email, biz_no: v.biz_no, lead_time_days: v.lead_time_days })} className="text-[#828FFF] text-xs hover:underline mr-2">수정</button><button onClick={() => del(v.id)} className="text-[#EB5757] text-xs hover:underline">삭제</button></td></tr>))}</tbody></table>
+          <tbody>{rows.map((v) => (<tr key={v.id}><td className={`${C.td} text-text-primary font-medium`}>{v.name}</td><td className={C.td}>{v.category || '-'}</td><td className={C.td}>{v.contact || '-'}</td><td className={C.td}>{v.phone || '-'}</td><td className={C.td}>{v.email || <span className="text-text-quaternary">미등록</span>}</td><td className={C.td}>{v.biz_no || '-'}</td><td className={C.td}>{v.lead_time_days}일</td><td className={C.td}>원 {v.raw_materials}·부 {v.sub_materials}</td><td className={C.td}><button onClick={() => setForm({ id: v.id, name: v.name, category: v.category, contact: v.contact, phone: v.phone, email: v.email, biz_no: v.biz_no, lead_time_days: v.lead_time_days })} className="text-accent text-xs hover:underline mr-2">수정</button><button onClick={() => del(v.id)} className="text-danger text-xs hover:underline">삭제</button></td></tr>))}</tbody></table>
       </div>
     </div>
   );
@@ -417,25 +417,25 @@ function POTab() {
     load();
   };
   const STATUS = ['요청', '발주', '입고', '완료', '취소'];
-  const badge: Record<string, string> = { 요청: 'text-[#F0BF00]', 발주: 'text-[#828FFF]', 입고: 'text-[#00B8CC]', 완료: 'text-[#3FBE5B]', 취소: 'text-[#EB5757]' };
+  const badge: Record<string, string> = { 요청: 'text-warning', 발주: 'text-accent', 입고: 'text-cyan', 완료: 'text-success-light', 취소: 'text-danger' };
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
-        <span className="text-[#62666D]">~</span>
+        <span className="text-text-quaternary">~</span>
         <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
-        <span className="text-xs text-[#62666D] ml-auto">{rows.length}건 · [원부재료 소요] 탭에서 거래처별 발주 생성 → 여기서 발주서 발행</span>
+        <span className="text-xs text-text-quaternary ml-auto">{rows.length}건 · [원부재료 소요] 탭에서 거래처별 발주 생성 → 여기서 발주서 발행</span>
       </div>
       <div className={`${C.card} overflow-x-auto`}>
         <table className="w-full"><thead><tr><th className={C.th}>발주일</th><th className={C.th}>거래처</th><th className={C.th}>품목수</th><th className={C.th}>발주액</th><th className={C.th}>상태</th><th className={C.th}></th></tr></thead>
-          <tbody>{rows.length === 0 ? <tr><td colSpan={6} className="p-6 text-center text-[#62666D] text-sm">발주 없음</td></tr> : rows.map((p) => (
+          <tbody>{rows.length === 0 ? <tr><td colSpan={6} className="p-6 text-center text-text-quaternary text-sm">발주 없음</td></tr> : rows.map((p) => (
             <>
-              <tr key={p.id} className="hover:bg-[#0F1011] cursor-pointer" onClick={() => setOpen(open === p.id ? null : p.id)}>
-                <td className={C.td}>{p.order_date}</td><td className={`${C.td} text-[#F7F8F8]`}>{p.vendor_name}</td><td className={C.td}>{p.line_count}</td><td className={`${C.td} text-[#F0BF00]`}>{won(p.total_amount)}</td>
-                <td className={C.td}><select value={p.status} onClick={(e) => e.stopPropagation()} onChange={(e) => setStatus(p.id, e.target.value)} className={`bg-[#08090A] border border-[#23252A] rounded px-2 py-1 text-xs ${badge[p.status] || ''}`}>{STATUS.map((s) => <option key={s} value={s}>{s}</option>)}</select></td>
-                <td className={C.td}><button onClick={(e) => { e.stopPropagation(); issue(p); }} className="text-[#27A644] text-xs hover:underline mr-2">발주서 발행</button><button onClick={(e) => { e.stopPropagation(); del(p.id); }} className="text-[#EB5757] text-xs hover:underline">삭제</button> <span className="text-[#62666D] text-xs ml-1">{open === p.id ? '▲' : '▼'}</span></td>
+              <tr key={p.id} className="hover:bg-bg-1 cursor-pointer" onClick={() => setOpen(open === p.id ? null : p.id)}>
+                <td className={C.td}>{p.order_date}</td><td className={`${C.td} text-text-primary`}>{p.vendor_name}</td><td className={C.td}>{p.line_count}</td><td className={`${C.td} text-warning`}>{won(p.total_amount)}</td>
+                <td className={C.td}><select value={p.status} onClick={(e) => e.stopPropagation()} onChange={(e) => setStatus(p.id, e.target.value)} className={`bg-bg-0 border border-border-primary rounded px-2 py-1 text-xs ${badge[p.status] || ''}`}>{STATUS.map((s) => <option key={s} value={s}>{s}</option>)}</select></td>
+                <td className={C.td}><button onClick={(e) => { e.stopPropagation(); issue(p); }} className="text-success text-xs hover:underline mr-2">발주서 발행</button><button onClick={(e) => { e.stopPropagation(); del(p.id); }} className="text-danger text-xs hover:underline">삭제</button> <span className="text-text-quaternary text-xs ml-1">{open === p.id ? '▲' : '▼'}</span></td>
               </tr>
-              {open === p.id && <tr key={`${p.id}-d`} className="bg-[#08090A]"><td colSpan={6} className="px-4 py-2 border-b border-[#1A1B1E]"><table className="w-full"><thead><tr><th className={C.th}>자재</th><th className={C.th}>소요량</th><th className={C.th}>단가</th><th className={C.th}>금액</th></tr></thead><tbody>{p.lines.map((l: any) => (<tr key={l.id}><td className={C.td}>{l.material_name}</td><td className={C.td}>{fmt(l.qty)}{l.unit}</td><td className={C.td}>{won(l.unit_price)}</td><td className={C.td}>{won(l.amount)}</td></tr>))}</tbody></table></td></tr>}
+              {open === p.id && <tr key={`${p.id}-d`} className="bg-bg-0"><td colSpan={6} className="px-4 py-2 border-b border-bg-inset"><table className="w-full"><thead><tr><th className={C.th}>자재</th><th className={C.th}>소요량</th><th className={C.th}>단가</th><th className={C.th}>금액</th></tr></thead><tbody>{p.lines.map((l: any) => (<tr key={l.id}><td className={C.td}>{l.material_name}</td><td className={C.td}>{fmt(l.qty)}{l.unit}</td><td className={C.td}>{won(l.unit_price)}</td><td className={C.td}>{won(l.amount)}</td></tr>))}</tbody></table></td></tr>}
             </>
           ))}</tbody></table>
       </div>

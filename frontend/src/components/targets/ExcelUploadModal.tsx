@@ -228,16 +228,16 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative bg-[#0F1011] rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#23252A] flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[#F7F8F8]">
+        <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text-primary">
             엑셀 업로드
-            {step === 2 && <span className="ml-2 text-sm font-normal text-[#8A8F98]">- 미리보기</span>}
+            {step === 2 && <span className="ml-2 text-sm font-normal text-text-tertiary">- 미리보기</span>}
           </h2>
           <button
             onClick={handleClose}
-            className="p-2 text-[#62666D] hover:text-[#D0D6E0] transition-colors"
+            className="p-2 text-text-quaternary hover:text-text-secondary transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -250,18 +250,18 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
           {/* Success message */}
           {successCount !== null ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-16 h-16 bg-[#27A644]/15 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-[#27A644]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-16 h-16 bg-success/15 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-[#F7F8F8] mb-2">업로드 완료</h3>
-              <p className="text-[#8A8F98] mb-6">
-                총 <span className="font-bold text-[#7070FF]">{successCount}건</span>의 목표 데이터가 등록되었습니다.
+              <h3 className="text-lg font-semibold text-text-primary mb-2">업로드 완료</h3>
+              <p className="text-text-tertiary mb-6">
+                총 <span className="font-bold text-link">{successCount}건</span>의 목표 데이터가 등록되었습니다.
               </p>
               <button
                 onClick={handleSuccessClose}
-                className="px-6 py-2 bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors"
+                className="px-6 py-2 bg-brand text-white rounded-lg hover:bg-accent transition-colors"
               >
                 확인
               </button>
@@ -276,10 +276,10 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
                   isDragOver
-                    ? 'border-[#5E6AD2]/50 bg-[#5E6AD2]/10'
+                    ? 'border-brand/50 bg-brand/10'
                     : file
-                    ? 'border-[#27A644]/40 bg-[#27A644]/10'
-                    : 'border-[#23252A] bg-[#08090A] hover:border-[#5E6AD2]/50 hover:bg-[#5E6AD2]/10'
+                    ? 'border-success/40 bg-success/10'
+                    : 'border-border-primary bg-bg-0 hover:border-brand/50 hover:bg-brand/10'
                 }`}
               >
                 <input
@@ -291,35 +291,35 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 />
                 {file ? (
                   <div>
-                    <div className="w-12 h-12 bg-[#27A644]/15 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-6 h-6 text-[#27A644]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 bg-success/15 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
-                    <p className="text-sm font-medium text-[#F7F8F8]">{file.name}</p>
-                    <p className="text-xs text-[#8A8F98] mt-1">
+                    <p className="text-sm font-medium text-text-primary">{file.name}</p>
+                    <p className="text-xs text-text-tertiary mt-1">
                       {(file.size / 1024).toFixed(1)} KB
                     </p>
-                    <p className="text-xs text-[#62666D] mt-2">클릭하여 다른 파일 선택</p>
+                    <p className="text-xs text-text-quaternary mt-2">클릭하여 다른 파일 선택</p>
                   </div>
                 ) : (
                   <div>
-                    <div className="w-12 h-12 bg-[#232326] rounded-full flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-6 h-6 text-[#8A8F98]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 bg-bg-tertiary rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                     </div>
-                    <p className="text-sm font-medium text-[#D0D6E0]">
+                    <p className="text-sm font-medium text-text-secondary">
                       엑셀 파일을 드래그하거나 클릭하여 선택하세요
                     </p>
-                    <p className="text-xs text-[#62666D] mt-1">.xlsx, .xls 파일만 지원</p>
+                    <p className="text-xs text-text-quaternary mt-1">.xlsx, .xls 파일만 지원</p>
                   </div>
                 )}
               </div>
 
               {uploadError && (
-                <div className="mt-4 p-3 bg-[#EB5757]/10 border border-[#EB5757]/30 rounded-lg">
-                  <p className="text-sm text-[#EB5757]">{uploadError}</p>
+                <div className="mt-4 p-3 bg-danger/10 border border-danger/30 rounded-lg">
+                  <p className="text-sm text-danger">{uploadError}</p>
                 </div>
               )}
             </div>
@@ -329,21 +329,21 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
               {/* Settings form */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-[#D0D6E0] mb-1">부서</label>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">부서</label>
                   <input
                     type="text"
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
+                    className="w-full px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                     placeholder="영업부"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#D0D6E0] mb-1">기준 년도</label>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">기준 년도</label>
                   <select
                     value={year}
                     onChange={(e) => setYear(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]"
+                    className="w-full px-3 py-2 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                   >
                     {years.map((y) => (
                       <option key={y} value={y}>{y}년</option>
@@ -351,15 +351,15 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-[#D0D6E0] mb-1">KPI 구분</label>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">KPI 구분</label>
                   <div className="flex flex-wrap gap-2">
                     {kpiTypes.map((type) => (
                       <label
                         key={type}
                         className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
                           kpiType === type
-                            ? 'bg-[#5E6AD2] text-white'
-                            : 'bg-[#141516] text-[#D0D6E0] hover:bg-white/5/7'
+                            ? 'bg-brand text-white'
+                            : 'bg-bg-2 text-text-secondary hover:bg-white/5'
                         }`}
                       >
                         <input
@@ -378,16 +378,16 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
               </div>
 
               {/* Preview table */}
-              <div className="border border-[#23252A] rounded-xl overflow-hidden">
+              <div className="border border-border-primary rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-[#141516] border-b border-[#23252A]">
-                        <th className="px-3 py-2 text-left font-medium text-[#8A8F98] whitespace-nowrap sticky left-0 bg-[#141516] z-10">담당자</th>
-                        <th className="px-3 py-2 text-left font-medium text-[#8A8F98] whitespace-nowrap">구분</th>
-                        <th className="px-3 py-2 text-left font-medium text-[#8A8F98] whitespace-nowrap">판매채널</th>
+                      <tr className="bg-bg-2 border-b border-border-primary">
+                        <th className="px-3 py-2 text-left font-medium text-text-tertiary whitespace-nowrap sticky left-0 bg-bg-2 z-10">담당자</th>
+                        <th className="px-3 py-2 text-left font-medium text-text-tertiary whitespace-nowrap">구분</th>
+                        <th className="px-3 py-2 text-left font-medium text-text-tertiary whitespace-nowrap">판매채널</th>
                         {monthLabels.map((m) => (
-                          <th key={m} className="px-3 py-2 text-right font-medium text-[#8A8F98] whitespace-nowrap">{m}</th>
+                          <th key={m} className="px-3 py-2 text-right font-medium text-text-tertiary whitespace-nowrap">{m}</th>
                         ))}
                       </tr>
                     </thead>
@@ -407,14 +407,14 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
               </div>
 
               {previewData.length > 0 && (
-                <p className="mt-3 text-xs text-[#8A8F98]">
+                <p className="mt-3 text-xs text-text-tertiary">
                   총 {previewData.length}건의 데이터가 미리보기에 표시되었습니다.
                 </p>
               )}
 
               {submitError && (
-                <div className="mt-4 p-3 bg-[#EB5757]/10 border border-[#EB5757]/30 rounded-lg">
-                  <p className="text-sm text-[#EB5757]">{submitError}</p>
+                <div className="mt-4 p-3 bg-danger/10 border border-danger/30 rounded-lg">
+                  <p className="text-sm text-danger">{submitError}</p>
                 </div>
               )}
             </div>
@@ -423,13 +423,13 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
 
         {/* Footer */}
         {successCount === null && (
-          <div className="px-6 py-4 border-t border-[#23252A] flex items-center justify-between">
+          <div className="px-6 py-4 border-t border-border-primary flex items-center justify-between">
             <div>
               {step === 2 && (
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-4 py-2 text-[#8A8F98] hover:bg-white/5/5 rounded-lg transition-colors text-sm"
+                  className="px-4 py-2 text-text-tertiary hover:bg-white/5 rounded-lg transition-colors text-sm"
                 >
                   ← 파일 다시 선택
                 </button>
@@ -439,7 +439,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 text-[#8A8F98] hover:bg-white/5/5 rounded-lg transition-colors"
+                className="px-4 py-2 text-text-tertiary hover:bg-white/5 rounded-lg transition-colors"
               >
                 취소
               </button>
@@ -447,7 +447,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 <button
                   onClick={handlePreview}
                   disabled={!file || isUploading}
-                  className="px-4 py-2 bg-[#5E6AD2] text-white rounded-lg hover:bg-[#828FFF] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 bg-brand text-white rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isUploading ? (
                     <>
@@ -462,7 +462,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 <button
                   onClick={handleUpload}
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-[#27A644] text-white rounded-lg hover:bg-[#27A644] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 bg-success text-white rounded-lg hover:bg-success transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
@@ -497,32 +497,32 @@ function ManagerGroup({
   return (
     <>
       {rows.map((row, idx) => (
-        <tr key={`${manager}-${idx}`} className="border-b border-[#23252A] hover:bg-white/5/5">
+        <tr key={`${manager}-${idx}`} className="border-b border-border-primary hover:bg-white/5">
           {idx === 0 ? (
             <td
-              className="px-3 py-2 font-medium text-[#F7F8F8] whitespace-nowrap sticky left-0 bg-[#0F1011] z-10"
+              className="px-3 py-2 font-medium text-text-primary whitespace-nowrap sticky left-0 bg-bg-1 z-10"
               rowSpan={rows.length}
             >
               {manager}
             </td>
           ) : null}
-          <td className="px-3 py-2 text-[#8A8F98] whitespace-nowrap">{row.구분}</td>
-          <td className="px-3 py-2 text-[#8A8F98] whitespace-nowrap">{row.판매채널}</td>
+          <td className="px-3 py-2 text-text-tertiary whitespace-nowrap">{row.구분}</td>
+          <td className="px-3 py-2 text-text-tertiary whitespace-nowrap">{row.판매채널}</td>
           {row.monthly.map((val, mIdx) => (
-            <td key={mIdx} className="px-3 py-2 text-right text-[#D0D6E0] whitespace-nowrap tabular-nums">
+            <td key={mIdx} className="px-3 py-2 text-right text-text-secondary whitespace-nowrap tabular-nums">
               {formatNumber(val)}
             </td>
           ))}
         </tr>
       ))}
       {/* Subtotal row */}
-      <tr className="bg-[#5E6AD2]/10 border-b border-[#5E6AD2]/30">
-        <td className="px-3 py-2 font-semibold text-[#828FFF] whitespace-nowrap sticky left-0 bg-[#5E6AD2]/10 z-10">
+      <tr className="bg-brand/10 border-b border-brand/30">
+        <td className="px-3 py-2 font-semibold text-accent whitespace-nowrap sticky left-0 bg-brand/10 z-10">
           {manager} 소계
         </td>
         <td className="px-3 py-2" colSpan={2}></td>
         {monthLabels.map((_, mIdx) => (
-          <td key={mIdx} className="px-3 py-2 text-right font-semibold text-[#828FFF] whitespace-nowrap tabular-nums">
+          <td key={mIdx} className="px-3 py-2 text-right font-semibold text-accent whitespace-nowrap tabular-nums">
             {formatNumber(calcGroupTotal(rows, mIdx))}
           </td>
         ))}

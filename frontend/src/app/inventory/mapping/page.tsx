@@ -24,10 +24,10 @@ interface Row {
 }
 interface Overview { rows: Row[]; count: number; summary: { sales_linked: number; production_linked: number; bom_linked: number; fully_linked: number }; }
 
-const C = { card: 'bg-[#0F1011] border border-[#23252A] rounded-xl', th: 'text-left text-xs font-semibold text-[#8A8F98] px-3 py-2 border-b border-[#23252A] whitespace-nowrap', td: 'px-3 py-2 text-sm text-[#D0D6E0] border-b border-[#1A1B1E] whitespace-nowrap' };
+const C = { card: 'bg-bg-1 border border-border-primary rounded-xl', th: 'text-left text-xs font-semibold text-text-tertiary px-3 py-2 border-b border-border-primary whitespace-nowrap', td: 'px-3 py-2 text-sm text-text-secondary border-b border-bg-inset whitespace-nowrap' };
 
 function Dot({ on, label }: { on: boolean; label: string }) {
-  return <span className={`inline-flex items-center gap-1 text-[11px] ${on ? 'text-[#3FBE5B]' : 'text-[#62666D]'}`}><span className={`w-2 h-2 rounded-full ${on ? 'bg-[#27A644]' : 'bg-[#3A3A3A]'}`} />{label}</span>;
+  return <span className={`inline-flex items-center gap-1 text-[11px] ${on ? 'text-success-light' : 'text-text-quaternary'}`}><span className={`w-2 h-2 rounded-full ${on ? 'bg-success' : 'bg-[#3A3A3A]'}`} />{label}</span>;
 }
 
 export default function MappingPage() {
@@ -54,34 +54,34 @@ export default function MappingPage() {
     if (r) { alert(`BOM 자동연결 ${r.updated}건 · 미매칭 ${r.unmatched?.length || 0}종`); load(); }
   };
 
-  if (isLoading || !user) return <div className="min-h-screen bg-[#08090A]" />;
+  if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
   const rows = (ov?.rows || []).filter((r) => (!q || r.name.includes(q) || r.category.includes(q)) && (!onlyGap || r.link_score < 3));
 
   return (
-    <div className="min-h-screen bg-[#08090A]">
+    <div className="min-h-screen bg-bg-0">
       <Navigation />
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-[#F7F8F8]">품목 매핑 관계</h1>
-            <p className="text-sm text-[#8A8F98] mt-0.5">한 품목이 영업(매출)·생산·물류재고·BOM(세트)에서 어떻게 연결되는지 한눈에.</p>
+            <h1 className="text-xl font-bold text-text-primary">품목 매핑 관계</h1>
+            <p className="text-sm text-text-tertiary mt-0.5">한 품목이 영업(매출)·생산·물류재고·BOM(세트)에서 어떻게 연결되는지 한눈에.</p>
           </div>
-          <button onClick={automap} disabled={busy} className="px-3 py-2 rounded-lg text-sm font-semibold bg-[#5E6AD2] hover:bg-[#4d58bd] text-white">{busy ? '연결 중…' : 'BOM 자동매핑'}</button>
+          <button onClick={automap} disabled={busy} className="px-3 py-2 rounded-lg text-sm font-semibold bg-brand hover:bg-brand-hover text-white">{busy ? '연결 중…' : 'BOM 자동매핑'}</button>
         </div>
 
         {ov && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className={`${C.card} p-4`}><div className="text-xs text-[#8A8F98]">영업 연결</div><div className="text-2xl font-bold text-[#828FFF]">{ov.summary.sales_linked}<span className="text-sm text-[#62666D]">/{ov.count}</span></div></div>
-            <div className={`${C.card} p-4`}><div className="text-xs text-[#8A8F98]">생산 연결</div><div className="text-2xl font-bold text-[#F0BF00]">{ov.summary.production_linked}<span className="text-sm text-[#62666D]">/{ov.count}</span></div></div>
-            <div className={`${C.card} p-4`}><div className="text-xs text-[#8A8F98]">BOM 연결</div><div className="text-2xl font-bold text-[#00B8CC]">{ov.summary.bom_linked}<span className="text-sm text-[#62666D]">/{ov.count}</span></div></div>
-            <div className={`${C.card} p-4`}><div className="text-xs text-[#8A8F98]">완전 연결(3/3)</div><div className="text-2xl font-bold text-[#3FBE5B]">{ov.summary.fully_linked}<span className="text-sm text-[#62666D]">/{ov.count}</span></div></div>
+            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">영업 연결</div><div className="text-2xl font-bold text-accent">{ov.summary.sales_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
+            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">생산 연결</div><div className="text-2xl font-bold text-warning">{ov.summary.production_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
+            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">BOM 연결</div><div className="text-2xl font-bold text-cyan">{ov.summary.bom_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
+            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">완전 연결(3/3)</div><div className="text-2xl font-bold text-success-light">{ov.summary.fully_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
           </div>
         )}
 
         <div className="flex items-center gap-2 mb-3">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목/카테고리 검색" className="bg-[#08090A] border border-[#23252A] rounded-lg px-3 py-2 text-sm text-[#F7F8F8] w-64" />
-          <label className="text-xs text-[#8A8F98] flex items-center gap-1.5"><input type="checkbox" checked={onlyGap} onChange={(e) => setOnlyGap(e.target.checked)} /> 미완결(연결 누락)만</label>
-          <span className="text-xs text-[#62666D] ml-auto">{rows.length}개 품목</span>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목/카테고리 검색" className="bg-bg-0 border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary w-64" />
+          <label className="text-xs text-text-tertiary flex items-center gap-1.5"><input type="checkbox" checked={onlyGap} onChange={(e) => setOnlyGap(e.target.checked)} /> 미완결(연결 누락)만</label>
+          <span className="text-xs text-text-quaternary ml-auto">{rows.length}개 품목</span>
         </div>
 
         <div className={`${C.card} overflow-x-auto`}>
@@ -94,36 +94,36 @@ export default function MappingPage() {
             <tbody>
               {rows.map((r) => (
                 <>
-                  <tr key={r.id} className="hover:bg-[#0F1011] cursor-pointer" onClick={() => setOpenId(openId === r.id ? null : r.id)}>
-                    <td className={`${C.td} text-[#F7F8F8] font-medium`}>{r.name}{r.code && <span className="text-[10px] text-[#62666D] ml-1">{r.code}</span>}</td>
+                  <tr key={r.id} className="hover:bg-bg-1 cursor-pointer" onClick={() => setOpenId(openId === r.id ? null : r.id)}>
+                    <td className={`${C.td} text-text-primary font-medium`}>{r.name}{r.code && <span className="text-[10px] text-text-quaternary ml-1">{r.code}</span>}</td>
                     <td className={C.td}>{r.category}</td>
-                    <td className={C.td}><span className="text-[#828FFF]">{r.sales_channels}채널</span> · {wonShort(r.sales_amount)}</td>
+                    <td className={C.td}><span className="text-accent">{r.sales_channels}채널</span> · {wonShort(r.sales_amount)}</td>
                     <td className={C.td}>{numShort(r.prod_qty)}</td>
-                    <td className={`${C.td} ${r.stock < 0 ? 'text-[#EB5757]' : ''}`}>{numShort(r.stock)}</td>
-                    <td className={C.td}>{r.bom_total > 0 ? <span className="text-[#00B8CC]">완{r.bom_finished}/반{r.bom_semi}/세트{r.bom_set}</span> : <span className="text-[#EB5757] text-xs">미연결</span>}</td>
+                    <td className={`${C.td} ${r.stock < 0 ? 'text-danger' : ''}`}>{numShort(r.stock)}</td>
+                    <td className={C.td}>{r.bom_total > 0 ? <span className="text-cyan">완{r.bom_finished}/반{r.bom_semi}/세트{r.bom_set}</span> : <span className="text-danger text-xs">미연결</span>}</td>
                     <td className={C.td}><div className="flex gap-2"><Dot on={r.linked.sales} label="영업" /><Dot on={r.linked.production} label="생산" /><Dot on={r.linked.bom} label="BOM" /></div></td>
-                    <td className={C.td}><span className="text-[#62666D] text-xs">{openId === r.id ? '▲' : '▼'}</span></td>
+                    <td className={C.td}><span className="text-text-quaternary text-xs">{openId === r.id ? '▲' : '▼'}</span></td>
                   </tr>
                   {openId === r.id && (
-                    <tr key={`${r.id}-d`} className="bg-[#08090A]">
-                      <td colSpan={8} className="px-4 py-3 border-b border-[#1A1B1E]">
+                    <tr key={`${r.id}-d`} className="bg-bg-0">
+                      <td colSpan={8} className="px-4 py-3 border-b border-bg-inset">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div>
-                            <div className="text-xs font-semibold text-[#8A8F98] mb-1">BOM 연결 품목 ({r.bom_total})</div>
-                            {r.bom_items.length === 0 ? <div className="text-xs text-[#62666D]">연결된 BOM 품목이 없습니다. 상단 [BOM 자동매핑]을 실행하거나 SCM 품목관리에서 연결하세요.</div> : (
+                            <div className="text-xs font-semibold text-text-tertiary mb-1">BOM 연결 품목 ({r.bom_total})</div>
+                            {r.bom_items.length === 0 ? <div className="text-xs text-text-quaternary">연결된 BOM 품목이 없습니다. 상단 [BOM 자동매핑]을 실행하거나 SCM 품목관리에서 연결하세요.</div> : (
                               <div className="flex flex-wrap gap-1.5">
                                 {r.bom_items.map((b, i) => (
-                                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-md bg-[#141516] border border-[#23252A] text-[#D0D6E0]">
-                                    <span className={b.item_type?.includes('세트') ? 'text-[#828FFF]' : b.item_type?.includes('완제품') ? 'text-[#3FBE5B]' : 'text-[#F0BF00]'}>[{b.item_type}]</span> {b.name}
+                                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-md bg-bg-2 border border-border-primary text-text-secondary">
+                                    <span className={b.item_type?.includes('세트') ? 'text-accent' : b.item_type?.includes('완제품') ? 'text-success-light' : 'text-warning'}>[{b.item_type}]</span> {b.name}
                                   </span>
                                 ))}
                               </div>
                             )}
                           </div>
                           <div>
-                            <div className="text-xs font-semibold text-[#8A8F98] mb-1">별칭 / 판매 매핑</div>
-                            <div className="text-[11px] text-[#62666D]">별칭 {r.aliases.length}개 · 판매채널 {r.sales_channels} · 누적매출 {wonShort(r.sales_amount)} · 생산 {numShort(r.prod_qty)}개</div>
-                            <div className="text-[11px] text-[#62666D] mt-1">{r.aliases.slice(0, 12).join(', ')}{r.aliases.length > 12 ? ' …' : ''}</div>
+                            <div className="text-xs font-semibold text-text-tertiary mb-1">별칭 / 판매 매핑</div>
+                            <div className="text-[11px] text-text-quaternary">별칭 {r.aliases.length}개 · 판매채널 {r.sales_channels} · 누적매출 {wonShort(r.sales_amount)} · 생산 {numShort(r.prod_qty)}개</div>
+                            <div className="text-[11px] text-text-quaternary mt-1">{r.aliases.slice(0, 12).join(', ')}{r.aliases.length > 12 ? ' …' : ''}</div>
                           </div>
                         </div>
                       </td>
@@ -134,7 +134,7 @@ export default function MappingPage() {
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-[#62666D] mt-3">연결 = 영업(판매채널/매출)·생산(생산실적)·BOM(scm_products) 세 축. 세 축 모두 있으면 완전 연결. 재고는 물류 재고 시스템 기준.</p>
+        <p className="text-xs text-text-quaternary mt-3">연결 = 영업(판매채널/매출)·생산(생산실적)·BOM(scm_products) 세 축. 세 축 모두 있으면 완전 연결. 재고는 물류 재고 시스템 기준.</p>
       </main>
     </div>
   );

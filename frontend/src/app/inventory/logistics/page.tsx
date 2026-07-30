@@ -27,13 +27,13 @@ const send = async (path: string, method: string, body?: any): Promise<{ ok: boo
 };
 
 const C = {
-  card: 'bg-[#0F1011] border border-[#23252A] rounded-xl',
-  input: 'bg-[#08090A] border border-[#23252A] rounded-lg px-3 py-2 text-sm text-[#F7F8F8] focus:outline-none focus:border-[#5E6AD2]',
+  card: 'bg-bg-1 border border-border-primary rounded-xl',
+  input: 'bg-bg-0 border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-brand',
   btn: 'px-3 py-2 rounded-lg text-sm font-semibold transition-colors',
-  btnPrimary: 'bg-[#5E6AD2] hover:bg-[#4d58bd] text-white',
-  btnGhost: 'bg-[#1A1B1E] hover:bg-[#23252A] text-[#D0D6E0] border border-[#23252A]',
-  th: 'text-left text-xs font-semibold text-[#8A8F98] px-3 py-2 border-b border-[#23252A] whitespace-nowrap',
-  td: 'px-3 py-2 text-sm text-[#D0D6E0] border-b border-[#1A1B1E] whitespace-nowrap',
+  btnPrimary: 'bg-brand hover:bg-brand-hover text-white',
+  btnGhost: 'bg-bg-inset hover:bg-border-primary text-text-secondary border border-border-primary',
+  th: 'text-left text-xs font-semibold text-text-tertiary px-3 py-2 border-b border-border-primary whitespace-nowrap',
+  td: 'px-3 py-2 text-sm text-text-secondary border-b border-bg-inset whitespace-nowrap',
 };
 const fmt = (n: number | null | undefined) => (n === null || n === undefined ? '-' : Number(n).toLocaleString('ko-KR'));
 const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
@@ -56,9 +56,9 @@ const PRESETS: [string, string][] = [['7d', '7일'], ['14d', '14일'], ['thisMon
 function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return (
     <div className={`${C.card} p-4`}>
-      <div className="text-[11px] text-[#8A8F98] mb-1 truncate" title={label}>{label}</div>
-      <div className={`text-lg font-bold tabular-nums leading-tight ${tone || 'text-[#F7F8F8]'}`}>{value}</div>
-      {sub && <div className="text-[11px] text-[#62666D] mt-1 truncate">{sub}</div>}
+      <div className="text-[11px] text-text-tertiary mb-1 truncate" title={label}>{label}</div>
+      <div className={`text-lg font-bold tabular-nums leading-tight ${tone || 'text-text-primary'}`}>{value}</div>
+      {sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}
     </div>
   );
 }
@@ -67,10 +67,10 @@ function PeriodBar({ range, setRange, onApply, dirty }: { range: { start: string
   return (
     <div className="flex flex-wrap items-center gap-2">
       <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
-      <span className="text-[#62666D]">~</span>
+      <span className="text-text-quaternary">~</span>
       <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
-      {onApply && <button onClick={() => onApply(range)} className={`${C.btn} ${C.btnPrimary} ${dirty ? 'ring-2 ring-[#5E6AD2]/50' : ''}`}>조회</button>}
-      {onApply && dirty && <span className="text-[11px] text-[#F0BF00]">기간 변경됨 — 조회를 누르세요</span>}
+      {onApply && <button onClick={() => onApply(range)} className={`${C.btn} ${C.btnPrimary} ${dirty ? 'ring-2 ring-brand/50' : ''}`}>조회</button>}
+      {onApply && dirty && <span className="text-[11px] text-warning">기간 변경됨 — 조회를 누르세요</span>}
       <div className="flex flex-wrap gap-1">{PRESETS.map(([k, l]) => <button key={k} onClick={() => preset(k)} className={`${C.btn} ${C.btnGhost} px-2.5 py-1.5`}>{l}</button>)}</div>
     </div>
   );
@@ -95,19 +95,19 @@ export default function LogisticsPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('대시보드');
   useEffect(() => { if (!isLoading && !user) router.replace('/login'); }, [isLoading, user, router]);
-  if (isLoading || !user) return <div className="min-h-screen bg-[#08090A]" />;
+  if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
   const tabs: Tab[] = ['대시보드', '실적 조회', '실적 입력', '담당자·문자', '업로드'];
   return (
-    <div className="min-h-screen bg-[#08090A]">
+    <div className="min-h-screen bg-bg-0">
       <Navigation />
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="mb-4">
-          <h1 className="text-xl font-bold text-[#F7F8F8]">물류 작업 실적</h1>
-          <p className="text-sm text-[#8A8F98] mt-0.5">물류 현장 작업(단상자·택배·B2B 등) 실적·생산성·채산성과 근태 노무시간 대조.</p>
+          <h1 className="text-xl font-bold text-text-primary">물류 작업 실적</h1>
+          <p className="text-sm text-text-tertiary mt-0.5">물류 현장 작업(단상자·택배·B2B 등) 실적·생산성·채산성과 근태 노무시간 대조.</p>
         </div>
-        <div className="flex gap-1 mb-5 border-b border-[#23252A]">
+        <div className="flex gap-1 mb-5 border-b border-border-primary">
           {tabs.map((t) => (
-            <button key={t} onClick={() => setTab(t)} className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === t ? 'border-[#5E6AD2] text-[#828FFF]' : 'border-transparent text-[#8A8F98] hover:text-[#D0D6E0]'}`}>{t}</button>
+            <button key={t} onClick={() => setTab(t)} className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === t ? 'border-brand text-accent' : 'border-transparent text-text-tertiary hover:text-text-secondary'}`}>{t}</button>
           ))}
         </div>
         {tab === '대시보드' && <DashTab />}
@@ -151,39 +151,39 @@ function DashTab() {
       <div className="flex flex-wrap items-center gap-2">
         <PeriodBar range={draft} setRange={setDraft} onApply={(r) => { setDraft(r); setRange(r); }} dirty={draft.start !== range.start || draft.end !== range.end} />
         <select value={wtype} onChange={(e) => setWtype(e.target.value)} className={C.input}><option value="">전체 작업종류</option>{types.map((t) => <option key={t} value={t}>{t}</option>)}</select>
-        <div className="flex bg-[#0F1011] border border-[#23252A] rounded-lg p-0.5">
-          {(['month', 'week', 'day'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} px-2.5 py-1 ${gran === g ? C.btnPrimary : 'text-[#8A8F98]'}`}>{g === 'month' ? '월' : g === 'week' ? '주' : '일'}</button>)}
+        <div className="flex bg-bg-1 border border-border-primary rounded-lg p-0.5">
+          {(['month', 'week', 'day'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} px-2.5 py-1 ${gran === g ? C.btnPrimary : 'text-text-tertiary'}`}>{g === 'month' ? '월' : g === 'week' ? '주' : '일'}</button>)}
         </div>
-        {loading && <span className="text-xs text-[#62666D]">불러오는 중…</span>}
+        {loading && <span className="text-xs text-text-quaternary">불러오는 중…</span>}
       </div>
-      {d && d.record_count === 0 && <div className={`${C.card} p-8 text-center text-sm text-[#62666D]`}>이 기간 물류 작업 데이터가 없습니다.</div>}
+      {d && d.record_count === 0 && <div className={`${C.card} p-8 text-center text-sm text-text-quaternary`}>이 기간 물류 작업 데이터가 없습니다.</div>}
       {d && d.record_count > 0 && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <StatCard label="총 작업량" value={numShort(d.total_qty)} sub={`${fmt(d.record_count)}건`} />
             <StatCard label="총 작업액" value={wonShort(d.total_amount)} />
-            <StatCard label={`노무비(시급${fmt(d.hourly_wage)}·야1.5)`} value={wonShort(d.total_labor)} tone="text-[#00B8CC]" sub={`노무비율 ${d.labor_ratio}%`} />
-            <StatCard label="채산성" value={`${d.profitability}배`} tone={d.profitability >= 3 ? 'text-[#3FBE5B]' : 'text-[#F0BF00]'} sub="작업액÷노무비" />
+            <StatCard label={`노무비(시급${fmt(d.hourly_wage)}·야1.5)`} value={wonShort(d.total_labor)} tone="text-cyan" sub={`노무비율 ${d.labor_ratio}%`} />
+            <StatCard label="채산성" value={`${d.profitability}배`} tone={d.profitability >= 3 ? 'text-success-light' : 'text-warning'} sub="작업액÷노무비" />
             <StatCard label="총 작업시간" value={`${numShort(d.total_hours)}h`} />
             <StatCard label="시간당 작업량" value={fmt(d.hourly_qty)} sub="개/시간" />
           </div>
 
           {labor && !labor.error && (
-            <div className={`${C.card} p-4 border-l-2 border-l-[#F0BF00]`}>
-              <div className="text-sm font-semibold text-[#F7F8F8] mb-2">노무시간 대조 (근태 연동 · 물류팀 · {gl})</div>
+            <div className={`${C.card} p-4 border-l-2 border-l-warning`}>
+              <div className="text-sm font-semibold text-text-primary mb-2">노무시간 대조 (근태 연동 · 물류팀 · {gl})</div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                 <StatCard label="작업일보 투여시간" value={`${numShort(labor.total_prod_hours)}h`} />
-                <StatCard label="근태 노무시간(물류팀)" value={`${numShort(labor.total_att_hours)}h`} tone="text-[#00B8CC]" sub={`정규직 ${numShort(labor.total_regular_hours)} + 파견 ${numShort(labor.total_dispatch_hours)}`} />
-                <StatCard label="시간 비율(작업÷근태)" value={`${labor.total_hours_ratio}배`} tone={labor.total_hours_ratio > 1.2 || labor.total_hours_ratio < 0.8 ? 'text-[#F0BF00]' : 'text-[#3FBE5B]'} sub="1에 가까울수록 정합" />
+                <StatCard label="근태 노무시간(물류팀)" value={`${numShort(labor.total_att_hours)}h`} tone="text-cyan" sub={`정규직 ${numShort(labor.total_regular_hours)} + 파견 ${numShort(labor.total_dispatch_hours)}`} />
+                <StatCard label="시간 비율(작업÷근태)" value={`${labor.total_hours_ratio}배`} tone={labor.total_hours_ratio > 1.2 || labor.total_hours_ratio < 0.8 ? 'text-warning' : 'text-success-light'} sub="1에 가까울수록 정합" />
                 <StatCard label="근태 실지급+환산" value={wonShort(labor.total_att_cost)} sub={`정규직 실급여 ${wonShort(labor.total_regular_pay)}`} />
               </div>
               <ResponsiveContainer width="100%" height={220}>
                 <ComposedChart data={labor.series}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} />
-                  <YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis yAxisId="r" orientation="right" domain={[0, 2]} tick={{ fill: '#8A8F98', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} /><Legend />
-                  <Bar yAxisId="l" dataKey="prod_hours" name="작업일보 시간" fill="#5E6AD2" /><Bar yAxisId="l" dataKey="att_hours" name="근태 노무시간" fill="#00B8CC" />
-                  <Line yAxisId="r" type="monotone" dataKey="hours_ratio" name="비율(배)" stroke="#F0BF00" strokeWidth={2} dot={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
+                  <YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis yAxisId="r" orientation="right" domain={[0, 2]} tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} /><Legend />
+                  <Bar yAxisId="l" dataKey="prod_hours" name="작업일보 시간" fill="var(--color-brand-bg)" /><Bar yAxisId="l" dataKey="att_hours" name="근태 노무시간" fill="var(--color-cyan)" />
+                  <Line yAxisId="r" type="monotone" dataKey="hours_ratio" name="비율(배)" stroke="var(--color-warning)" strokeWidth={2} dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -191,71 +191,71 @@ function DashTab() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className={`${C.card} p-4`}>
-              <div className="text-sm font-semibold text-[#F7F8F8] mb-3">{gl} 작업 생산성 (시간당 작업량){wtype && ` · ${wtype}`}</div>
+              <div className="text-sm font-semibold text-text-primary mb-3">{gl} 작업 생산성 (시간당 작업량){wtype && ` · ${wtype}`}</div>
               <ResponsiveContainer width="100%" height={240}>
                 <ComposedChart data={ts}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} />
-                  <YAxis yAxisId="l" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis yAxisId="r" orientation="right" tick={{ fill: '#8A8F98', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                  <Bar yAxisId="l" dataKey="hours" name="투여시간" fill="#23252A" /><Line yAxisId="r" type="monotone" dataKey="hourly_qty" name="시간당작업량" stroke="#5E6AD2" strokeWidth={2} dot={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
+                  <YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
+                  <Bar yAxisId="l" dataKey="hours" name="투여시간" fill="var(--color-border-primary)" /><Line yAxisId="r" type="monotone" dataKey="hourly_qty" name="시간당작업량" stroke="var(--color-brand-bg)" strokeWidth={2} dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
             <div className={`${C.card} p-4`}>
-              <div className="text-sm font-semibold text-[#F7F8F8] mb-3">{gl} 채산성 (작업액÷노무비)</div>
+              <div className="text-sm font-semibold text-text-primary mb-3">{gl} 채산성 (작업액÷노무비)</div>
               <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={ts}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} /><Line type="monotone" dataKey="profitability" name="채산성(배)" stroke="#3FBE5B" strokeWidth={2} dot={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} /><Line type="monotone" dataKey="profitability" name="채산성(배)" stroke="var(--color-success-light)" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           <div className={`${C.card} p-4`}>
-            <div className="text-sm font-semibold text-[#F7F8F8] mb-1">{gl} 작업 단가 흐름 {wtype ? `· ${wtype}` : '(전체)'}</div>
-            <div className="text-xs text-[#62666D] mb-3">평균 작업단가(작업액÷작업량) vs 개당 노무단가(실인건비÷작업량). 작업종류를 고르면 그 종류의 단가 추이입니다.</div>
+            <div className="text-sm font-semibold text-text-primary mb-1">{gl} 작업 단가 흐름 {wtype ? `· ${wtype}` : '(전체)'}</div>
+            <div className="text-xs text-text-quaternary mb-3">평균 작업단가(작업액÷작업량) vs 개당 노무단가(실인건비÷작업량). 작업종류를 고르면 그 종류의 단가 추이입니다.</div>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={ts}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" />
-                <XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} />
-                <YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} />
-                <Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => won(v)} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
+                <XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
+                <YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
+                <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => won(v)} />
                 <Legend />
-                <Line type="monotone" dataKey="unit_price" name="평균 작업단가" stroke="#F0BF00" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="unit_labor" name="개당 노무단가" stroke="#00B8CC" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="unit_price" name="평균 작업단가" stroke="var(--color-warning)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="unit_labor" name="개당 노무단가" stroke="var(--color-cyan)" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className={`${C.card} p-4`}>
-              <div className="text-sm font-semibold text-[#F7F8F8] mb-3">작업종류별 비중</div>
+              <div className="text-sm font-semibold text-text-primary mb-3">작업종류별 비중</div>
               <ResponsiveContainer width="100%" height={260}>
-                <PieChart><Pie data={PIE} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={95} label={(e: any) => e.name}>{PIE.map((p, i) => <Cell key={i} fill={p.fill} />)}</Pie><Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} /></PieChart>
+                <PieChart><Pie data={PIE} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={95} label={(e: any) => e.name}>{PIE.map((p, i) => <Cell key={i} fill={p.fill} />)}</Pie><Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} /></PieChart>
               </ResponsiveContainer>
             </div>
             <div className={`${C.card} p-4`}>
-              <div className="text-sm font-semibold text-[#F7F8F8] mb-3">주간/야간 작업량 비교</div>
+              <div className="text-sm font-semibold text-text-primary mb-3">주간/야간 작업량 비교</div>
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={ts}><CartesianGrid strokeDasharray="3 3" stroke="#1A1B1E" /><XAxis dataKey="period" tick={{ fill: '#8A8F98', fontSize: 10 }} /><YAxis tick={{ fill: '#8A8F98', fontSize: 10 }} /><Tooltip contentStyle={{ background: '#0F1011', border: '1px solid #23252A', borderRadius: 8 }} formatter={(v: any) => fmt(v)} /><Legend /><Bar dataKey="day_qty" name="주간" stackId="s" fill="#5E6AD2" /><Bar dataKey="night_qty" name="야간" stackId="s" fill="#A855F7" /></BarChart>
+                <BarChart data={ts}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} /><Legend /><Bar dataKey="day_qty" name="주간" stackId="s" fill="var(--color-brand-bg)" /><Bar dataKey="night_qty" name="야간" stackId="s" fill="var(--color-purple)" /></BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           <div className={`${C.card} p-4`}>
-            <div className="text-sm font-semibold text-[#F7F8F8] mb-3">작업종류별 작업량·작업액·노무비·생산성</div>
+            <div className="text-sm font-semibold text-text-primary mb-3">작업종류별 작업량·작업액·노무비·생산성</div>
             <div className="overflow-x-auto max-h-[300px]">
-              <table className="w-full"><thead className="sticky top-0 bg-[#0F1011]"><tr><th className={C.th}>작업종류</th><th className={C.th}>작업량</th><th className={C.th}>작업액</th><th className={C.th}>노무비</th><th className={C.th}>시간당작업량</th><th className={C.th}>채산성</th></tr></thead>
-                <tbody>{d.by_type.map((t) => (<tr key={t.work_type}><td className={`${C.td} text-[#F7F8F8]`}>{t.work_type}</td><td className={C.td}>{fmt(t.qty)}</td><td className={C.td}>{won(t.amount)}</td><td className={`${C.td} text-[#00B8CC]`}>{won(t.labor)}</td><td className={C.td}>{fmt(t.hourly_qty)}/h</td><td className={C.td}>{t.profitability}배</td></tr>))}</tbody></table>
+              <table className="w-full"><thead className="sticky top-0 bg-bg-1"><tr><th className={C.th}>작업종류</th><th className={C.th}>작업량</th><th className={C.th}>작업액</th><th className={C.th}>노무비</th><th className={C.th}>시간당작업량</th><th className={C.th}>채산성</th></tr></thead>
+                <tbody>{d.by_type.map((t) => (<tr key={t.work_type}><td className={`${C.td} text-text-primary`}>{t.work_type}</td><td className={C.td}>{fmt(t.qty)}</td><td className={C.td}>{won(t.amount)}</td><td className={`${C.td} text-cyan`}>{won(t.labor)}</td><td className={C.td}>{fmt(t.hourly_qty)}/h</td><td className={C.td}>{t.profitability}배</td></tr>))}</tbody></table>
             </div>
           </div>
 
           <div className={`${C.card} p-4`}>
-            <div className="text-sm font-semibold text-[#F7F8F8] mb-3">담당자별 · 조별 작업량·시간·노무비</div>
+            <div className="text-sm font-semibold text-text-primary mb-3">담당자별 · 조별 작업량·시간·노무비</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="overflow-x-auto max-h-[240px]"><table className="w-full"><thead className="sticky top-0 bg-[#0F1011]"><tr><th className={C.th}>담당자</th><th className={C.th}>작업량</th><th className={C.th}>시간</th><th className={C.th}>노무비</th></tr></thead><tbody>{d.by_worker.map((w) => (<tr key={w.worker}><td className={`${C.td} text-[#F7F8F8]`}>{w.worker}</td><td className={C.td}>{fmt(w.qty)}</td><td className={C.td}>{fmt(w.hours)}h</td><td className={`${C.td} text-[#00B8CC]`}>{won(w.labor)}</td></tr>))}</tbody></table></div>
-              <div className="overflow-x-auto max-h-[240px]"><table className="w-full"><thead className="sticky top-0 bg-[#0F1011]"><tr><th className={C.th}>조</th><th className={C.th}>작업량</th><th className={C.th}>시간</th><th className={C.th}>시간당</th></tr></thead><tbody>{d.by_team.map((t) => (<tr key={t.team}><td className={`${C.td} text-[#F7F8F8]`}>{t.team}</td><td className={C.td}>{fmt(t.qty)}</td><td className={C.td}>{fmt(t.hours)}h</td><td className={C.td}>{fmt(t.hourly_qty)}/h</td></tr>))}</tbody></table></div>
+              <div className="overflow-x-auto max-h-[240px]"><table className="w-full"><thead className="sticky top-0 bg-bg-1"><tr><th className={C.th}>담당자</th><th className={C.th}>작업량</th><th className={C.th}>시간</th><th className={C.th}>노무비</th></tr></thead><tbody>{d.by_worker.map((w) => (<tr key={w.worker}><td className={`${C.td} text-text-primary`}>{w.worker}</td><td className={C.td}>{fmt(w.qty)}</td><td className={C.td}>{fmt(w.hours)}h</td><td className={`${C.td} text-cyan`}>{won(w.labor)}</td></tr>))}</tbody></table></div>
+              <div className="overflow-x-auto max-h-[240px]"><table className="w-full"><thead className="sticky top-0 bg-bg-1"><tr><th className={C.th}>조</th><th className={C.th}>작업량</th><th className={C.th}>시간</th><th className={C.th}>시간당</th></tr></thead><tbody>{d.by_team.map((t) => (<tr key={t.team}><td className={`${C.td} text-text-primary`}>{t.team}</td><td className={C.td}>{fmt(t.qty)}</td><td className={C.td}>{fmt(t.hours)}h</td><td className={C.td}>{fmt(t.hourly_qty)}/h</td></tr>))}</tbody></table></div>
             </div>
           </div>
 
@@ -292,12 +292,12 @@ function RecordsTab() {
         <PeriodBar range={range} setRange={setRange} />
         <input value={wtype} onChange={(e) => setWtype(e.target.value)} placeholder="작업종류" className={`${C.input} w-28`} />
         <input value={worker} onChange={(e) => setWorker(e.target.value)} placeholder="담당자" className={`${C.input} w-24`} />
-        <span className="text-xs text-[#8A8F98] ml-auto">{loading ? '불러오는 중…' : `${fmt(rows.length)} / 총 ${fmt(total)}건`}</span>
+        <span className="text-xs text-text-tertiary ml-auto">{loading ? '불러오는 중…' : `${fmt(rows.length)} / 총 ${fmt(total)}건`}</span>
       </div>
       <div className={`${C.card} overflow-x-auto max-h-[70vh]`}>
-        <table className="w-full"><thead className="sticky top-0 bg-[#0F1011]"><tr><th className={C.th}>작업일</th><th className={C.th}>담당자</th><th className={C.th}>조</th><th className={C.th}>작업종류</th><th className={C.th}>작업명</th><th className={C.th}>작업량</th><th className={C.th}>시간</th><th className={C.th}>작업액</th><th className={C.th}>노무비</th><th className={C.th}>주야</th></tr></thead>
-          <tbody>{rows.length === 0 ? <tr><td colSpan={10} className="p-6 text-center text-[#62666D] text-sm">데이터 없음</td></tr> :
-            rows.map((r) => (<tr key={r.id}><td className={C.td}>{r.work_date}</td><td className={C.td}>{r.worker || '-'}</td><td className={C.td}>{r.team || '-'}</td><td className={`${C.td} text-[#F7F8F8]`}>{r.work_type}</td><td className={C.td}>{r.work_name}</td><td className={`${C.td} font-semibold`}>{fmt(r.qty)}</td><td className={C.td}>{fmt(r.hours)}h</td><td className={C.td}>{won(r.amount)}</td><td className={`${C.td} text-[#00B8CC]`}>{won(r.labor_cost)}</td><td className={C.td}>{r.shift || '-'}</td></tr>))}</tbody></table>
+        <table className="w-full"><thead className="sticky top-0 bg-bg-1"><tr><th className={C.th}>작업일</th><th className={C.th}>담당자</th><th className={C.th}>조</th><th className={C.th}>작업종류</th><th className={C.th}>작업명</th><th className={C.th}>작업량</th><th className={C.th}>시간</th><th className={C.th}>작업액</th><th className={C.th}>노무비</th><th className={C.th}>주야</th></tr></thead>
+          <tbody>{rows.length === 0 ? <tr><td colSpan={10} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr> :
+            rows.map((r) => (<tr key={r.id}><td className={C.td}>{r.work_date}</td><td className={C.td}>{r.worker || '-'}</td><td className={C.td}>{r.team || '-'}</td><td className={`${C.td} text-text-primary`}>{r.work_type}</td><td className={C.td}>{r.work_name}</td><td className={`${C.td} font-semibold`}>{fmt(r.qty)}</td><td className={C.td}>{fmt(r.hours)}h</td><td className={C.td}>{won(r.amount)}</td><td className={`${C.td} text-cyan`}>{won(r.labor_cost)}</td><td className={C.td}>{r.shift || '-'}</td></tr>))}</tbody></table>
       </div>
     </div>
   );
@@ -332,25 +332,25 @@ function InputTab() {
   return (
     <div className="space-y-4">
       <div className={`${C.card} p-4`}>
-        <div className="text-sm font-semibold text-[#F7F8F8] mb-3">물류 작업 실적 직접 입력</div>
+        <div className="text-sm font-semibold text-text-primary mb-3">물류 작업 실적 직접 입력</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div><div className="text-xs text-[#8A8F98] mb-1">작업일 *</div><input type="date" value={f.work_date} onChange={(e) => setF({ ...f, work_date: e.target.value })} className={`${C.input} w-full`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">책임자</div><input value={f.worker} onChange={(e) => setF({ ...f, worker: e.target.value })} className={`${C.input} w-full`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">소속 조</div><select value={f.team} onChange={(e) => setF({ ...f, team: e.target.value })} className={`${C.input} w-full`}><option>1조</option><option>2조</option><option>3조</option><option value="">기타</option></select></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">주야</div><select value={f.shift} onChange={(e) => setF({ ...f, shift: e.target.value })} className={`${C.input} w-full`}><option value="주간">주간</option><option value="주간 연장">주간 연장</option><option value="야간">야간(1.5배)</option></select></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">작업종류 *</div><input list="wtlist" value={f.work_type} onChange={(e) => setF({ ...f, work_type: e.target.value })} placeholder="단상자/택배 등" className={`${C.input} w-full`} /><datalist id="wtlist">{types.map((t) => <option key={t} value={t} />)}</datalist></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">작업명 *</div><input list="wnlist" value={f.work_name} onChange={(e) => onPick(e.target.value)} className={`${C.input} w-full ${!f.work_name ? 'border-[#EB5757]/50' : ''}`} /><datalist id="wnlist">{filtered.slice(0, 300).map((c) => <option key={c.work_name} value={c.work_name} />)}</datalist></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">작업량 *</div><input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} className={`${C.input} w-full`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">투여시간(h) *</div><input type="number" value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} className={`${C.input} w-full ${!f.hours ? 'border-[#EB5757]/50' : ''}`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">작업단가(자동)</div><input readOnly value={f.unit_price !== '' ? Number(f.unit_price).toLocaleString('ko-KR') : ''} placeholder="작업명 선택 시" className={`${C.input} w-full bg-[#141516] text-[#8A8F98]`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">작업일 *</div><input type="date" value={f.work_date} onChange={(e) => setF({ ...f, work_date: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">책임자</div><input value={f.worker} onChange={(e) => setF({ ...f, worker: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">소속 조</div><select value={f.team} onChange={(e) => setF({ ...f, team: e.target.value })} className={`${C.input} w-full`}><option>1조</option><option>2조</option><option>3조</option><option value="">기타</option></select></div>
+          <div><div className="text-xs text-text-tertiary mb-1">주야</div><select value={f.shift} onChange={(e) => setF({ ...f, shift: e.target.value })} className={`${C.input} w-full`}><option value="주간">주간</option><option value="주간 연장">주간 연장</option><option value="야간">야간(1.5배)</option></select></div>
+          <div><div className="text-xs text-text-tertiary mb-1">작업종류 *</div><input list="wtlist" value={f.work_type} onChange={(e) => setF({ ...f, work_type: e.target.value })} placeholder="단상자/택배 등" className={`${C.input} w-full`} /><datalist id="wtlist">{types.map((t) => <option key={t} value={t} />)}</datalist></div>
+          <div><div className="text-xs text-text-tertiary mb-1">작업명 *</div><input list="wnlist" value={f.work_name} onChange={(e) => onPick(e.target.value)} className={`${C.input} w-full ${!f.work_name ? 'border-danger/50' : ''}`} /><datalist id="wnlist">{filtered.slice(0, 300).map((c) => <option key={c.work_name} value={c.work_name} />)}</datalist></div>
+          <div><div className="text-xs text-text-tertiary mb-1">작업량 *</div><input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">투여시간(h) *</div><input type="number" value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} className={`${C.input} w-full ${!f.hours ? 'border-danger/50' : ''}`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">작업단가(자동)</div><input readOnly value={f.unit_price !== '' ? Number(f.unit_price).toLocaleString('ko-KR') : ''} placeholder="작업명 선택 시" className={`${C.input} w-full bg-bg-2 text-text-tertiary`} /></div>
           <div className="flex items-end"><button onClick={submit} disabled={saving} className={`${C.btn} ${C.btnPrimary} w-full`}>{saving ? '저장 중…' : '작업 등록'}</button></div>
         </div>
-        <p className="text-xs text-[#62666D] mt-2">예상 노무비: <span className="text-[#00B8CC]">{won(nightLabor)}</span> (시급 15,000{String(f.shift).includes('야') ? ' ×1.5' : ''} × {f.hours || 0}h)</p>
+        <p className="text-xs text-text-quaternary mt-2">예상 노무비: <span className="text-cyan">{won(nightLabor)}</span> (시급 15,000{String(f.shift).includes('야') ? ' ×1.5' : ''} × {f.hours || 0}h)</p>
       </div>
       <div className={`${C.card} p-4`}>
-        <div className="text-sm font-semibold text-[#F7F8F8] mb-3">최근 직접 입력분</div>
-        {recent.length === 0 ? <div className="text-sm text-[#62666D]">없음</div> : (
-          <div className="overflow-x-auto"><table className="w-full"><thead><tr><th className={C.th}>작업일</th><th className={C.th}>작업종류</th><th className={C.th}>작업명</th><th className={C.th}>작업량</th><th className={C.th}>시간</th><th className={C.th}>노무비</th><th className={C.th}></th></tr></thead><tbody>{recent.map((r) => (<tr key={r.id}><td className={C.td}>{r.work_date}</td><td className={`${C.td} text-[#F7F8F8]`}>{r.work_type}</td><td className={C.td}>{r.work_name}</td><td className={C.td}>{fmt(r.qty)}</td><td className={C.td}>{fmt(r.hours)}h</td><td className={`${C.td} text-[#00B8CC]`}>{won(r.labor_cost)}</td><td className={C.td}><button onClick={() => del(r.id)} className="text-[#EB5757] text-xs hover:underline">삭제</button></td></tr>))}</tbody></table></div>
+        <div className="text-sm font-semibold text-text-primary mb-3">최근 직접 입력분</div>
+        {recent.length === 0 ? <div className="text-sm text-text-quaternary">없음</div> : (
+          <div className="overflow-x-auto"><table className="w-full"><thead><tr><th className={C.th}>작업일</th><th className={C.th}>작업종류</th><th className={C.th}>작업명</th><th className={C.th}>작업량</th><th className={C.th}>시간</th><th className={C.th}>노무비</th><th className={C.th}></th></tr></thead><tbody>{recent.map((r) => (<tr key={r.id}><td className={C.td}>{r.work_date}</td><td className={`${C.td} text-text-primary`}>{r.work_type}</td><td className={C.td}>{r.work_name}</td><td className={C.td}>{fmt(r.qty)}</td><td className={C.td}>{fmt(r.hours)}h</td><td className={`${C.td} text-cyan`}>{won(r.labor_cost)}</td><td className={C.td}><button onClick={() => del(r.id)} className="text-danger text-xs hover:underline">삭제</button></td></tr>))}</tbody></table></div>
         )}
       </div>
     </div>
@@ -382,18 +382,18 @@ function PhoneTab() {
   return (
     <div className="space-y-4">
       <div className={`${C.card} p-4`}>
-        <div className="text-sm font-semibold text-[#F7F8F8] mb-1">담당자 핸드폰 (생산·물류 공용)</div>
-        <p className="text-xs text-[#62666D] mb-3">작업 입력 요청 문자 발송 대상. (서버 SMS 미설정 시 휴대폰 문자앱이 열립니다)</p>
+        <div className="text-sm font-semibold text-text-primary mb-1">담당자 핸드폰 (생산·물류 공용)</div>
+        <p className="text-xs text-text-quaternary mb-3">작업 입력 요청 문자 발송 대상. (서버 SMS 미설정 시 휴대폰 문자앱이 열립니다)</p>
         <div className="flex flex-wrap items-end gap-2 mb-3">
-          <div><div className="text-xs text-[#8A8F98] mb-1">이름 *</div><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={`${C.input} w-28`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">핸드폰 *</div><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-…" className={`${C.input} w-36`} /></div>
-          <div><div className="text-xs text-[#8A8F98] mb-1">구분</div><input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={`${C.input} w-24`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">이름 *</div><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={`${C.input} w-28`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">핸드폰 *</div><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-…" className={`${C.input} w-36`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">구분</div><input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={`${C.input} w-24`} /></div>
           <button onClick={save} className={`${C.btn} ${C.btnPrimary}`}>{form.id ? '수정' : '+ 추가'}</button>
         </div>
-        <div className="overflow-x-auto"><table className="w-full"><thead><tr><th className={C.th}><input type="checkbox" checked={sel.size > 0 && sel.size === active.length} onChange={(e) => setSel(e.target.checked ? new Set(active.map((r) => r.id)) : new Set())} /></th><th className={C.th}>이름</th><th className={C.th}>핸드폰</th><th className={C.th}>구분</th><th className={C.th}></th></tr></thead><tbody>{rows.length === 0 ? <tr><td colSpan={5} className="p-6 text-center text-[#62666D] text-sm">담당자를 추가하세요</td></tr> : rows.map((r) => (<tr key={r.id}><td className={C.td}><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggle(r.id)} /></td><td className={`${C.td} text-[#F7F8F8]`}>{r.name}</td><td className={C.td}>{r.phone}</td><td className={C.td}>{r.role || '-'}</td><td className={C.td}><button onClick={() => setForm({ id: r.id, name: r.name, phone: r.phone, location: r.location || '', role: r.role || '' })} className="text-[#828FFF] text-xs hover:underline mr-2">수정</button><button onClick={() => del(r.id)} className="text-[#EB5757] text-xs hover:underline">삭제</button></td></tr>))}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full"><thead><tr><th className={C.th}><input type="checkbox" checked={sel.size > 0 && sel.size === active.length} onChange={(e) => setSel(e.target.checked ? new Set(active.map((r) => r.id)) : new Set())} /></th><th className={C.th}>이름</th><th className={C.th}>핸드폰</th><th className={C.th}>구분</th><th className={C.th}></th></tr></thead><tbody>{rows.length === 0 ? <tr><td colSpan={5} className="p-6 text-center text-text-quaternary text-sm">담당자를 추가하세요</td></tr> : rows.map((r) => (<tr key={r.id}><td className={C.td}><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggle(r.id)} /></td><td className={`${C.td} text-text-primary`}>{r.name}</td><td className={C.td}>{r.phone}</td><td className={C.td}>{r.role || '-'}</td><td className={C.td}><button onClick={() => setForm({ id: r.id, name: r.name, phone: r.phone, location: r.location || '', role: r.role || '' })} className="text-accent text-xs hover:underline mr-2">수정</button><button onClick={() => del(r.id)} className="text-danger text-xs hover:underline">삭제</button></td></tr>))}</tbody></table></div>
       </div>
       <div className={`${C.card} p-4`}>
-        <div className="text-sm font-semibold text-[#F7F8F8] mb-2">작업 입력 요청 문자</div>
+        <div className="text-sm font-semibold text-text-primary mb-2">작업 입력 요청 문자</div>
         <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={4} className={`${C.input} w-full mb-2`} />
         <button onClick={sendSms} className={`${C.btn} ${C.btnPrimary}`}>📩 {sel.size ? sel.size + '명 선택' : '활성 전체'} 발송</button>
       </div>
@@ -424,23 +424,23 @@ function UploadTab() {
   return (
     <div className="space-y-4">
       <div className={`${C.card} p-4 space-y-3`}>
-        <p className="text-sm text-[#D0D6E0]">물류 <b>RAW-DATA</b> 엑셀을 올리면 작업 실적으로 적재됩니다. 인식 열: <span className="text-[#8A8F98]">날짜·책임자·소속조·작업종류·작업명·작업량·투여시간·단가·작업액·주야</span>. 재업로드해도 중복 적재되지 않습니다.</p>
+        <p className="text-sm text-text-secondary">물류 <b>RAW-DATA</b> 엑셀을 올리면 작업 실적으로 적재됩니다. 인식 열: <span className="text-text-tertiary">날짜·책임자·소속조·작업종류·작업명·작업량·투여시간·단가·작업액·주야</span>. 재업로드해도 중복 적재되지 않습니다.</p>
         <div className="flex flex-wrap items-end gap-3">
-          <div><div className="text-xs text-[#8A8F98] mb-1">RAW-DATA 엑셀</div><input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-sm text-[#D0D6E0] file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#23252A] file:text-[#D0D6E0]" /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">RAW-DATA 엑셀</div><input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-sm text-text-secondary file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-border-primary file:text-text-secondary" /></div>
           <button onClick={() => run(true)} disabled={busy} className={`${C.btn} ${C.btnGhost}`}>미리보기</button>
           <button onClick={() => run(false)} disabled={busy} className={`${C.btn} ${C.btnPrimary}`}>{busy ? '처리 중…' : '적재'}</button>
         </div>
       </div>
       {preview?.rows && (
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-[#F7F8F8] mb-2">{preview.dry_run ? '미리보기' : '적재 결과'} · 시트 {preview.sheet} · {fmt(preview.row_count)}행</div>
+          <div className="text-sm font-semibold text-text-primary mb-2">{preview.dry_run ? '미리보기' : '적재 결과'} · 시트 {preview.sheet} · {fmt(preview.row_count)}행</div>
           <div className="overflow-x-auto max-h-72"><table className="w-full"><thead><tr><th className={C.th}>작업일</th><th className={C.th}>작업종류</th><th className={C.th}>작업명</th><th className={C.th}>작업량</th><th className={C.th}>시간</th></tr></thead><tbody>{(preview.rows || []).slice(0, 100).map((r: any, i: number) => (<tr key={i}><td className={C.td}>{r.work_date}</td><td className={C.td}>{r.work_type}</td><td className={C.td}>{r.work_name}</td><td className={C.td}>{fmt(r.qty)}</td><td className={C.td}>{fmt(r.hours)}h</td></tr>))}</tbody></table></div>
         </div>
       )}
       <div className={`${C.card} p-4`}>
-        <div className="text-sm font-semibold text-[#F7F8F8] mb-3">업로드 이력</div>
-        {batches.length === 0 ? <div className="text-sm text-[#62666D]">없음</div> : (
-          <div className="overflow-x-auto"><table className="w-full"><thead><tr><th className={C.th}>업로드</th><th className={C.th}>기간</th><th className={C.th}>건수</th><th className={C.th}>작업량</th><th className={C.th}></th></tr></thead><tbody>{batches.map((b) => (<tr key={b.batch_id}><td className={C.td}>{b.uploaded_at ? new Date(b.uploaded_at).toLocaleString('ko-KR') : '-'}</td><td className={C.td}>{b.period}</td><td className={C.td}>{fmt(b.count)}</td><td className={C.td}>{fmt(b.qty)}</td><td className={C.td}><button onClick={() => delBatch(b.batch_id)} className="text-[#EB5757] text-xs hover:underline">삭제</button></td></tr>))}</tbody></table></div>
+        <div className="text-sm font-semibold text-text-primary mb-3">업로드 이력</div>
+        {batches.length === 0 ? <div className="text-sm text-text-quaternary">없음</div> : (
+          <div className="overflow-x-auto"><table className="w-full"><thead><tr><th className={C.th}>업로드</th><th className={C.th}>기간</th><th className={C.th}>건수</th><th className={C.th}>작업량</th><th className={C.th}></th></tr></thead><tbody>{batches.map((b) => (<tr key={b.batch_id}><td className={C.td}>{b.uploaded_at ? new Date(b.uploaded_at).toLocaleString('ko-KR') : '-'}</td><td className={C.td}>{b.period}</td><td className={C.td}>{fmt(b.count)}</td><td className={C.td}>{fmt(b.qty)}</td><td className={C.td}><button onClick={() => delBatch(b.batch_id)} className="text-danger text-xs hover:underline">삭제</button></td></tr>))}</tbody></table></div>
         )}
       </div>
     </div>

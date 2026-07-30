@@ -185,15 +185,15 @@ function formatKRW(num: number): string {
 // Utility: get achievement color class
 // ---------------------------------------------------------------------------
 function rateColorClass(rate: number): string {
-  if (rate >= 100) return 'text-[#27A644]';
-  if (rate >= 80) return 'text-[#FC7840]';
-  return 'text-[#EB5757]';
+  if (rate >= 100) return 'text-success';
+  if (rate >= 80) return 'text-orange';
+  return 'text-danger';
 }
 
 function rateBgClass(rate: number): string {
-  if (rate >= 100) return 'bg-[#27A644]/10 text-[#27A644] border-[#27A644]/25';
-  if (rate >= 80) return 'bg-[#FC7840]/10 text-[#FC7840] border-[#FC7840]/30';
-  return 'bg-[#EB5757]/10 text-[#EB5757] border-[#EB5757]/30';
+  if (rate >= 100) return 'bg-success/10 text-success border-success/25';
+  if (rate >= 80) return 'bg-orange/10 text-orange border-orange/30';
+  return 'bg-danger/10 text-danger border-danger/30';
 }
 
 // ---------------------------------------------------------------------------
@@ -1017,8 +1017,8 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
       <span
         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
           achieved
-            ? 'bg-[#27A644]/10 text-[#27A644] border-[#27A644]/25'
-            : 'bg-[#EB5757]/10 text-[#EB5757] border-[#EB5757]/30'
+            ? 'bg-success/10 text-success border-success/25'
+            : 'bg-danger/10 text-danger border-danger/30'
         }`}
       >
         {achieved ? '달성' : '미달성'}
@@ -1031,8 +1031,8 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
       <span
         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
           isNormal
-            ? 'bg-[#27A644]/10 text-[#27A644] border-[#27A644]/25'
-            : 'bg-[#EB5757]/10 text-[#EB5757] border-[#EB5757]/30'
+            ? 'bg-success/10 text-success border-success/25'
+            : 'bg-danger/10 text-danger border-danger/30'
         }`}
       >
         {isNormal ? '정상' : '미입력'}
@@ -1066,32 +1066,32 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          .bg-[#0F1011] {
+          .bg-bg-1 {
             background-color: #0F1011 !important;
           }
         }
       `}</style>
 
       <section className="mb-8">
-        <div className="bg-[#0F1011] rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-[#23252A] overflow-hidden">
+        <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
           {/* Collapsible Header */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full px-6 py-4 border-b border-[#23252A] flex items-center justify-between bg-gradient-to-r from-[#5E6AD2]/10 to-[#5E6AD2]/10 hover:from-[#5E6AD2]/15 hover:to-[#5E6AD2]/15 transition-colors no-print"
+            className="w-full px-6 py-4 border-b border-border-primary flex items-center justify-between bg-gradient-to-r from-brand/10 to-brand/10 hover:from-brand/15 hover:to-brand/15 transition-colors no-print"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#5E6AD2] to-[#5E6AD2] flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand to-brand flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
               <div className="text-left">
-                <h2 className="text-lg font-semibold text-[#F7F8F8]">리포트 및 이메일 스케줄링</h2>
-                <p className="text-sm text-[#8A8F98]">목표 달성 현황 리포트를 생성하고 자동 이메일 발송을 설정합니다</p>
+                <h2 className="text-lg font-semibold text-text-primary">리포트 및 이메일 스케줄링</h2>
+                <p className="text-sm text-text-tertiary">목표 달성 현황 리포트를 생성하고 자동 이메일 발송을 설정합니다</p>
               </div>
             </div>
             <svg
-              className={`w-5 h-5 text-[#62666D] transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+              className={`w-5 h-5 text-text-quaternary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1102,13 +1102,13 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
 
           {/* Collapsible Content */}
           {isExpanded && (
-            <div className="divide-y divide-[#23252A]">
+            <div className="divide-y divide-border-primary">
               {/* Report Generation Controls */}
-              <div className="px-6 py-5 bg-[#08090A] no-print">
+              <div className="px-6 py-5 bg-bg-0 no-print">
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-[#8A8F98]">기준:</span>
-                    <span className="px-3 py-1.5 bg-[#0F1011] border border-[#23252A] rounded-lg text-sm font-medium text-[#D0D6E0]">
+                    <span className="text-sm font-medium text-text-tertiary">기준:</span>
+                    <span className="px-3 py-1.5 bg-bg-1 border border-border-primary rounded-lg text-sm font-medium text-text-secondary">
                       {selectedYear}년 {effectiveMonth}월
                     </span>
                   </div>
@@ -1116,7 +1116,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   <button
                     onClick={handleGenerateReport}
                     disabled={isGenerating}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#5E6AD2] to-[#5E6AD2] text-white rounded-lg hover:from-[#5E6AD2] hover:to-[#5E6AD2] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand to-brand text-white rounded-lg hover:from-brand hover:to-brand transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
                   >
                     {isGenerating ? (
                       <>
@@ -1138,11 +1138,11 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       <button
                         onClick={handlePrintReport}
                         disabled={isDownloadingPdf}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-[#0F1011] border border-[#23252A] text-[#D0D6E0] rounded-lg hover:bg-white/5/5 transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)] disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-bg-1 border border-border-primary text-text-secondary rounded-lg hover:bg-white/5 transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)] disabled:opacity-50"
                       >
                         {isDownloadingPdf ? (
                           <>
-                            <div className="w-4 h-4 border-2 border-[#34343A] border-t-transparent rounded-full animate-spin" />
+                            <div className="w-4 h-4 border-2 border-border-secondary border-t-transparent rounded-full animate-spin" />
                             생성 중...
                           </>
                         ) : (
@@ -1158,11 +1158,11 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       <button
                         onClick={handleSendEmail}
                         disabled={isSendingEmail}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-[#0F1011] border border-[#5E6AD2]/30 text-[#828FFF] rounded-lg hover:bg-[#5E6AD2]/10 transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)] disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-bg-1 border border-brand/30 text-accent rounded-lg hover:bg-brand/10 transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)] disabled:opacity-50"
                       >
                         {isSendingEmail ? (
                           <>
-                            <div className="w-4 h-4 border-2 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
+                            <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
                             발송 중...
                           </>
                         ) : (
@@ -1179,27 +1179,27 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                 </div>
 
                 {showEmailInput && (
-                  <div className="mt-3 p-4 bg-[#5E6AD2]/10 border border-[#5E6AD2]/30 rounded-lg">
-                    <label className="block text-sm font-medium text-[#828FFF] mb-2">수신자 이메일</label>
+                  <div className="mt-3 p-4 bg-brand/10 border border-brand/30 rounded-lg">
+                    <label className="block text-sm font-medium text-accent mb-2">수신자 이메일</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={emailRecipients}
                         onChange={(e) => setEmailRecipients(e.target.value)}
                         placeholder="이메일을 쉼표로 구분하여 입력 (예: user1@example.com, user2@example.com)"
-                        className="flex-1 px-4 py-2 border border-[#5E6AD2]/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+                        className="flex-1 px-4 py-2 border border-brand/30 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                         onKeyDown={(e) => { if (e.key === 'Enter' && emailRecipients.trim()) handleSendEmail(); }}
                       />
                       <button
                         onClick={handleSendEmail}
                         disabled={!emailRecipients.trim() || isSendingEmail}
-                        className="px-4 py-2 bg-[#5E6AD2] text-white rounded-lg hover:bg-[#5E6AD2] transition-colors disabled:opacity-50 text-sm font-medium whitespace-nowrap"
+                        className="px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand transition-colors disabled:opacity-50 text-sm font-medium whitespace-nowrap"
                       >
                         {isSendingEmail ? '발송 중...' : '발송'}
                       </button>
                       <button
                         onClick={() => setShowEmailInput(false)}
-                        className="px-3 py-2 bg-[#0F1011] border border-[#23252A] text-[#8A8F98] rounded-lg hover:bg-white/5/5 transition-colors text-sm"
+                        className="px-3 py-2 bg-bg-1 border border-border-primary text-text-tertiary rounded-lg hover:bg-white/5 transition-colors text-sm"
                       >
                         취소
                       </button>
@@ -1210,15 +1210,15 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                 {emailSendResult && (
                   <div className={`mt-3 px-4 py-2 rounded-lg text-sm ${
                     emailSendResult.includes('실패') || emailSendResult.includes('오류')
-                      ? 'bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30'
-                      : 'bg-[#27A644]/10 text-[#27A644] border border-[#27A644]/25'
+                      ? 'bg-danger/10 text-danger border border-danger/30'
+                      : 'bg-success/10 text-success border border-success/25'
                   }`}>
                     {emailSendResult}
                   </div>
                 )}
 
                 {error && (
-                  <div className="mt-3 px-4 py-2 rounded-lg text-sm bg-[#EB5757]/10 text-[#EB5757] border border-[#EB5757]/30">
+                  <div className="mt-3 px-4 py-2 rounded-lg text-sm bg-danger/10 text-danger border border-danger/30">
                     {error}
                   </div>
                 )}
@@ -1231,10 +1231,10 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                 <div ref={reportRef} className="px-6 py-6 space-y-8">
                   {/* Report header */}
                   <div className="text-center print-section">
-                    <h2 className="text-2xl font-bold text-[#F7F8F8]">
+                    <h2 className="text-2xl font-bold text-text-primary">
                       {selectedYear}년 {effectiveMonth}월 목표 달성 현황 리포트
                     </h2>
-                    <p className="text-sm text-[#8A8F98] mt-1">
+                    <p className="text-sm text-text-tertiary mt-1">
                       생성일시: {new Date().toLocaleString('ko-KR')}
                       {excludeVat && ' | 부가세 별도 기준'}
                     </p>
@@ -1245,67 +1245,67 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   {/* ======================================================== */}
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#5E6AD2] to-[#5E6AD2]" />
-                      <h3 className="text-lg font-bold text-[#F7F8F8]">담당자별 목표 vs 실적 현황</h3>
+                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-brand to-brand" />
+                      <h3 className="text-lg font-bold text-text-primary">담당자별 목표 vs 실적 현황</h3>
                     </div>
 
                     {managerComparisons.length === 0 ? (
-                      <div className="bg-[#08090A] rounded-xl p-8 text-center text-[#8A8F98]">
+                      <div className="bg-bg-0 rounded-xl p-8 text-center text-text-tertiary">
                         데이터 없음
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm border-collapse">
                           <thead>
-                            <tr className="bg-gradient-to-r from-[#5E6AD2]/10 to-[#5E6AD2]/10">
-                              <th className="text-left px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">담당자</th>
-                              <th className="text-right px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">목표매출</th>
-                              <th className="text-right px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">실적매출</th>
-                              <th className="text-right px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">달성률</th>
-                              <th className="text-right px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">목표판매량</th>
-                              <th className="text-right px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">실적판매량</th>
-                              <th className="text-right px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">달성률</th>
-                              <th className="text-right px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">목표공헌이익</th>
-                              <th className="text-right px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">실적공헌이익</th>
-                              <th className="text-right px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">달성률</th>
+                            <tr className="bg-gradient-to-r from-brand/10 to-brand/10">
+                              <th className="text-left px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">담당자</th>
+                              <th className="text-right px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">목표매출</th>
+                              <th className="text-right px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">실적매출</th>
+                              <th className="text-right px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">달성률</th>
+                              <th className="text-right px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">목표판매량</th>
+                              <th className="text-right px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">실적판매량</th>
+                              <th className="text-right px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">달성률</th>
+                              <th className="text-right px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">목표공헌이익</th>
+                              <th className="text-right px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">실적공헌이익</th>
+                              <th className="text-right px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">달성률</th>
                             </tr>
                           </thead>
                           <tbody>
                             {managerComparisons.map((mc) => (
-                              <tr key={mc.manager} className="border-b border-[#23252A] hover:bg-white/5/5">
-                                <td className="px-4 py-3 font-medium text-[#F7F8F8]">{mc.manager}</td>
-                                <td className="px-4 py-3 text-right text-[#8A8F98]">{formatKRW(applyVat(mc.targetSales))}</td>
-                                <td className="px-4 py-3 text-right text-[#8A8F98]">{formatKRW(applyVat(mc.actualSales))}</td>
+                              <tr key={mc.manager} className="border-b border-border-primary hover:bg-white/5">
+                                <td className="px-4 py-3 font-medium text-text-primary">{mc.manager}</td>
+                                <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.targetSales))}</td>
+                                <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.actualSales))}</td>
                                 <td className={`px-4 py-3 text-right font-bold ${rateColorClass(mc.salesRate)}`}>
                                   {mc.salesRate.toFixed(1)}%
                                 </td>
-                                <td className="px-4 py-3 text-right text-[#8A8F98]">{formatKRW(mc.targetQuantity)}</td>
-                                <td className="px-4 py-3 text-right text-[#8A8F98]">{formatKRW(mc.actualQuantity)}</td>
+                                <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(mc.targetQuantity)}</td>
+                                <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(mc.actualQuantity)}</td>
                                 <td className={`px-4 py-3 text-right font-bold ${rateColorClass(mc.quantityRate)}`}>
                                   {mc.quantityRate.toFixed(1)}%
                                 </td>
-                                <td className="px-4 py-3 text-right text-[#8A8F98]">{formatKRW(applyVat(mc.targetContribution))}</td>
-                                <td className="px-4 py-3 text-right text-[#8A8F98]">{formatKRW(applyVat(mc.actualContribution))}</td>
+                                <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.targetContribution))}</td>
+                                <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.actualContribution))}</td>
                                 <td className={`px-4 py-3 text-right font-bold ${rateColorClass(mc.contributionRate)}`}>
                                   {mc.contributionRate.toFixed(1)}%
                                 </td>
                               </tr>
                             ))}
                             {/* Summary row */}
-                            <tr className="bg-gradient-to-r from-[#5E6AD2]/10 to-[#5E6AD2]/10 font-bold border-t-2 border-[#23252A]">
-                              <td className="px-4 py-3 text-[#F7F8F8]">합계</td>
-                              <td className="px-4 py-3 text-right text-[#D0D6E0]">{formatKRW(applyVat(summaryTotals.targetSales))}</td>
-                              <td className="px-4 py-3 text-right text-[#D0D6E0]">{formatKRW(applyVat(summaryTotals.actualSales))}</td>
+                            <tr className="bg-gradient-to-r from-brand/10 to-brand/10 font-bold border-t-2 border-border-primary">
+                              <td className="px-4 py-3 text-text-primary">합계</td>
+                              <td className="px-4 py-3 text-right text-text-secondary">{formatKRW(applyVat(summaryTotals.targetSales))}</td>
+                              <td className="px-4 py-3 text-right text-text-secondary">{formatKRW(applyVat(summaryTotals.actualSales))}</td>
                               <td className={`px-4 py-3 text-right ${rateColorClass(summaryTotals.salesRate)}`}>
                                 {summaryTotals.salesRate.toFixed(1)}%
                               </td>
-                              <td className="px-4 py-3 text-right text-[#D0D6E0]">{formatKRW(summaryTotals.targetQuantity)}</td>
-                              <td className="px-4 py-3 text-right text-[#D0D6E0]">{formatKRW(summaryTotals.actualQuantity)}</td>
+                              <td className="px-4 py-3 text-right text-text-secondary">{formatKRW(summaryTotals.targetQuantity)}</td>
+                              <td className="px-4 py-3 text-right text-text-secondary">{formatKRW(summaryTotals.actualQuantity)}</td>
                               <td className={`px-4 py-3 text-right ${rateColorClass(summaryTotals.quantityRate)}`}>
                                 {summaryTotals.quantityRate.toFixed(1)}%
                               </td>
-                              <td className="px-4 py-3 text-right text-[#D0D6E0]">{formatKRW(applyVat(summaryTotals.targetContribution))}</td>
-                              <td className="px-4 py-3 text-right text-[#D0D6E0]">{formatKRW(applyVat(summaryTotals.actualContribution))}</td>
+                              <td className="px-4 py-3 text-right text-text-secondary">{formatKRW(applyVat(summaryTotals.targetContribution))}</td>
+                              <td className="px-4 py-3 text-right text-text-secondary">{formatKRW(applyVat(summaryTotals.actualContribution))}</td>
                               <td className={`px-4 py-3 text-right ${rateColorClass(summaryTotals.contributionRate)}`}>
                                 {summaryTotals.contributionRate.toFixed(1)}%
                               </td>
@@ -1317,8 +1317,8 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
 
                     {/* Achievement rate chart */}
                     {achievementChartData.length > 0 && (
-                      <div className="mt-6 bg-[#08090A] rounded-xl p-5 border border-[#23252A]">
-                        <h4 className="text-sm font-semibold text-[#D0D6E0] mb-4">담당자별 달성률 차트</h4>
+                      <div className="mt-6 bg-bg-0 rounded-xl p-5 border border-border-primary">
+                        <h4 className="text-sm font-semibold text-text-secondary mb-4">담당자별 달성률 차트</h4>
                         <ResponsiveContainer width="100%" height={300}>
                           <BarChart data={achievementChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" />
@@ -1348,15 +1348,15 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
-                        <div className="flex items-center justify-center gap-6 mt-3 text-xs text-[#8A8F98]">
+                        <div className="flex items-center justify-center gap-6 mt-3 text-xs text-text-tertiary">
                           <span className="flex items-center gap-1">
-                            <span className="w-3 h-3 rounded-sm bg-[#27A644] inline-block" /> 100% 이상
+                            <span className="w-3 h-3 rounded-sm bg-success inline-block" /> 100% 이상
                           </span>
                           <span className="flex items-center gap-1">
-                            <span className="w-3 h-3 rounded-sm bg-[#F0BF00]/100 inline-block" /> 80~99%
+                            <span className="w-3 h-3 rounded-sm bg-warning/100 inline-block" /> 80~99%
                           </span>
                           <span className="flex items-center gap-1">
-                            <span className="w-3 h-3 rounded-sm bg-[#EB5757] inline-block" /> 80% 미만
+                            <span className="w-3 h-3 rounded-sm bg-danger inline-block" /> 80% 미만
                           </span>
                         </div>
                       </div>
@@ -1368,40 +1368,40 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   {/* ======================================================== */}
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#5E6AD2] to-[#00B8CC]" />
-                      <h3 className="text-lg font-bold text-[#F7F8F8]">채널별 달성/미달성 현황</h3>
+                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-brand to-cyan" />
+                      <h3 className="text-lg font-bold text-text-primary">채널별 달성/미달성 현황</h3>
                     </div>
 
                     {Object.keys(channelsByManager).length === 0 ? (
-                      <div className="bg-[#08090A] rounded-xl p-8 text-center text-[#8A8F98]">
+                      <div className="bg-bg-0 rounded-xl p-8 text-center text-text-tertiary">
                         데이터 없음
                       </div>
                     ) : (
                       <div className="space-y-4">
                         {Object.entries(channelsByManager).sort(([a], [b]) => a.localeCompare(b)).map(([manager, channels]) => (
-                          <div key={manager} className="bg-[#0F1011] rounded-xl border border-[#23252A] overflow-hidden">
-                            <div className="px-4 py-3 bg-gradient-to-r from-[#08090A] to-[#00B8CC]/10 border-b border-[#23252A]">
-                              <h4 className="font-semibold text-[#D0D6E0]">{manager}</h4>
+                          <div key={manager} className="bg-bg-1 rounded-xl border border-border-primary overflow-hidden">
+                            <div className="px-4 py-3 bg-gradient-to-r from-bg-0 to-cyan/10 border-b border-border-primary">
+                              <h4 className="font-semibold text-text-secondary">{manager}</h4>
                             </div>
                             <div className="overflow-x-auto">
                               <table className="w-full text-sm">
                                 <thead>
-                                  <tr className="border-b border-[#23252A]">
-                                    <th className="text-left px-4 py-2 text-[#8A8F98] font-medium">채널</th>
-                                    <th className="text-right px-4 py-2 text-[#8A8F98] font-medium">목표</th>
-                                    <th className="text-right px-4 py-2 text-[#8A8F98] font-medium">실적</th>
-                                    <th className="text-right px-4 py-2 text-[#8A8F98] font-medium">달성률</th>
-                                    <th className="text-center px-4 py-2 text-[#8A8F98] font-medium">상태</th>
+                                  <tr className="border-b border-border-primary">
+                                    <th className="text-left px-4 py-2 text-text-tertiary font-medium">채널</th>
+                                    <th className="text-right px-4 py-2 text-text-tertiary font-medium">목표</th>
+                                    <th className="text-right px-4 py-2 text-text-tertiary font-medium">실적</th>
+                                    <th className="text-right px-4 py-2 text-text-tertiary font-medium">달성률</th>
+                                    <th className="text-center px-4 py-2 text-text-tertiary font-medium">상태</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {channels.sort((a, b) => a.rate - b.rate).map((ch, idx) => (
-                                    <tr key={idx} className="border-b border-[#23252A] hover:bg-white/5/5">
-                                      <td className="px-4 py-2.5 text-[#D0D6E0]">{ch.channel}</td>
-                                      <td className="px-4 py-2.5 text-right text-[#8A8F98]">
+                                    <tr key={idx} className="border-b border-border-primary hover:bg-white/5">
+                                      <td className="px-4 py-2.5 text-text-secondary">{ch.channel}</td>
+                                      <td className="px-4 py-2.5 text-right text-text-tertiary">
                                         {formatKRW(applyVat(ch.targetValue))}
                                       </td>
-                                      <td className="px-4 py-2.5 text-right text-[#8A8F98]">
+                                      <td className="px-4 py-2.5 text-right text-text-tertiary">
                                         {formatKRW(applyVat(ch.actualValue))}
                                       </td>
                                       <td className={`px-4 py-2.5 text-right font-bold ${rateColorClass(ch.rate)}`}>
@@ -1426,43 +1426,43 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   {/* ======================================================== */}
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#F0BF00] to-[#FC7840]" />
-                      <h3 className="text-lg font-bold text-[#F7F8F8]">담당자별 데이터 입력 현황</h3>
+                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-warning to-orange" />
+                      <h3 className="text-lg font-bold text-text-primary">담당자별 데이터 입력 현황</h3>
                     </div>
 
-                    <p className="text-sm text-[#8A8F98] mb-4">
+                    <p className="text-sm text-text-tertiary mb-4">
                       기준일: {selectedYear}년 {effectiveMonth}월 {yesterday}일까지 입력 필요 (어제까지의 데이터)
                     </p>
 
                     {managerEntryStatuses.length === 0 ? (
-                      <div className="bg-[#08090A] rounded-xl p-8 text-center text-[#8A8F98]">
+                      <div className="bg-bg-0 rounded-xl p-8 text-center text-text-tertiary">
                         데이터 없음
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm border-collapse">
                           <thead>
-                            <tr className="bg-gradient-to-r from-[#F0BF00]/10 to-[#FC7840]/10">
-                              <th className="text-left px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">담당자</th>
-                              <th className="text-center px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">마지막 입력일</th>
-                              <th className="text-center px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">요구 입력일</th>
-                              <th className="text-center px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">미입력 일수</th>
-                              <th className="text-center px-4 py-3 font-semibold text-[#D0D6E0] border-b border-[#23252A]">상태</th>
+                            <tr className="bg-gradient-to-r from-warning/10 to-orange/10">
+                              <th className="text-left px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">담당자</th>
+                              <th className="text-center px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">마지막 입력일</th>
+                              <th className="text-center px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">요구 입력일</th>
+                              <th className="text-center px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">미입력 일수</th>
+                              <th className="text-center px-4 py-3 font-semibold text-text-secondary border-b border-border-primary">상태</th>
                             </tr>
                           </thead>
                           <tbody>
                             {managerEntryStatuses.map((status) => (
-                              <tr key={status.manager} className="border-b border-[#23252A] hover:bg-white/5/5">
-                                <td className="px-4 py-3 font-medium text-[#F7F8F8]">{status.manager}</td>
-                                <td className="px-4 py-3 text-center text-[#8A8F98]">
+                              <tr key={status.manager} className="border-b border-border-primary hover:bg-white/5">
+                                <td className="px-4 py-3 font-medium text-text-primary">{status.manager}</td>
+                                <td className="px-4 py-3 text-center text-text-tertiary">
                                   {status.lastEntryDay > 0 ? `${status.lastEntryDay}일` : '입력 없음'}
                                 </td>
-                                <td className="px-4 py-3 text-center text-[#8A8F98]">{status.requiredDay}일</td>
+                                <td className="px-4 py-3 text-center text-text-tertiary">{status.requiredDay}일</td>
                                 <td className="px-4 py-3 text-center">
                                   {status.missingDays > 0 ? (
-                                    <span className="font-bold text-[#EB5757]">{status.missingDays}일</span>
+                                    <span className="font-bold text-danger">{status.missingDays}일</span>
                                   ) : (
-                                    <span className="text-[#62666D]">-</span>
+                                    <span className="text-text-quaternary">-</span>
                                   )}
                                 </td>
                                 <td className="px-4 py-3 text-center">
@@ -1481,13 +1481,13 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   {/* ======================================================== */}
                   {missingEntryManagers.length > 0 && (
                     <div className="print-section">
-                      <div className="bg-gradient-to-r from-[#EB5757]/10 to-[#FC7840]/10 border border-[#EB5757]/30 rounded-xl overflow-hidden">
-                        <div className="px-5 py-4 border-b border-[#EB5757]/30 flex items-center gap-3">
-                          <svg className="w-6 h-6 text-[#EB5757]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="bg-gradient-to-r from-danger/10 to-orange/10 border border-danger/30 rounded-xl overflow-hidden">
+                        <div className="px-5 py-4 border-b border-danger/30 flex items-center gap-3">
+                          <svg className="w-6 h-6 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                           </svg>
-                          <h3 className="text-lg font-bold text-[#EB5757]">미입력자 경고</h3>
-                          <span className="px-2.5 py-0.5 bg-[#EB5757]/15 text-[#EB5757] rounded-full text-xs font-bold">
+                          <h3 className="text-lg font-bold text-danger">미입력자 경고</h3>
+                          <span className="px-2.5 py-0.5 bg-danger/15 text-danger rounded-full text-xs font-bold">
                             {missingEntryManagers.length}명
                           </span>
                         </div>
@@ -1496,19 +1496,19 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                             {missingEntryManagers.map((status) => (
                               <div
                                 key={status.manager}
-                                className="bg-[#0F1011] rounded-lg border border-[#EB5757]/15 p-4 flex items-start gap-3"
+                                className="bg-bg-1 rounded-lg border border-danger/15 p-4 flex items-start gap-3"
                               >
-                                <div className="w-10 h-10 rounded-full bg-[#EB5757]/15 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-[#EB5757] font-bold text-sm">
+                                <div className="w-10 h-10 rounded-full bg-danger/15 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-danger font-bold text-sm">
                                     {status.manager.charAt(0)}
                                   </span>
                                 </div>
                                 <div>
-                                  <p className="font-semibold text-[#F7F8F8]">{status.manager}</p>
-                                  <p className="text-sm text-[#8A8F98] mt-0.5">
+                                  <p className="font-semibold text-text-primary">{status.manager}</p>
+                                  <p className="text-sm text-text-tertiary mt-0.5">
                                     마지막 입력일: {status.lastEntryDay > 0 ? `${effectiveMonth}월 ${status.lastEntryDay}일` : '입력 없음'}
                                   </p>
-                                  <p className="text-sm text-[#EB5757] font-medium mt-0.5">
+                                  <p className="text-sm text-danger font-medium mt-0.5">
                                     미입력 일수: {status.missingDays}일
                                   </p>
                                 </div>
@@ -1525,12 +1525,12 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   {/* ======================================================== */}
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#27A644] to-[#00B8CC]" />
-                      <h3 className="text-lg font-bold text-[#F7F8F8]">채널별 개선 아이디어</h3>
+                      <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-success to-cyan" />
+                      <h3 className="text-lg font-bold text-text-primary">채널별 개선 아이디어</h3>
                     </div>
 
                     {channelSuggestions.length === 0 ? (
-                      <div className="bg-[#08090A] rounded-xl p-8 text-center text-[#8A8F98]">
+                      <div className="bg-bg-0 rounded-xl p-8 text-center text-text-tertiary">
                         데이터 없음
                       </div>
                     ) : (
@@ -1542,15 +1542,15 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           >
                             <div className="flex-shrink-0 mt-0.5">
                               {cs.rate >= 100 ? (
-                                <svg className="w-5 h-5 text-[#27A644]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                               ) : cs.rate >= 80 ? (
-                                <svg className="w-5 h-5 text-[#FC7840]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                                 </svg>
                               ) : (
-                                <svg className="w-5 h-5 text-[#EB5757]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                               )}
@@ -1560,10 +1560,10 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                 <span className="font-semibold">{cs.channel}</span>
                                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                                   cs.rate >= 100
-                                    ? 'bg-[#27A644]/15 text-[#27A644]'
+                                    ? 'bg-success/15 text-success'
                                     : cs.rate >= 80
-                                    ? 'bg-[#FC7840]/15 text-[#FC7840]'
-                                    : 'bg-[#EB5757]/15 text-[#EB5757]'
+                                    ? 'bg-orange/15 text-orange'
+                                    : 'bg-danger/15 text-danger'
                                 }`}>
                                   {cs.rate > 900 ? '목표 미설정' : `달성률 ${cs.rate.toFixed(1)}%`}
                                 </span>
@@ -1581,18 +1581,18 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
               {/* ============================================================ */}
               {/* EMAIL SCHEDULING SECTION                                      */}
               {/* ============================================================ */}
-              <div className="px-6 py-6 bg-[#08090A] no-print">
+              <div className="px-6 py-6 bg-bg-0 no-print">
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#5E6AD2] to-[#5E6AD2]" />
-                  <h3 className="text-lg font-bold text-[#F7F8F8]">이메일 자동 발송 스케줄</h3>
+                  <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-brand to-brand" />
+                  <h3 className="text-lg font-bold text-text-primary">이메일 자동 발송 스케줄</h3>
                 </div>
 
                 {/* Schedule Form */}
-                <div className="bg-[#0F1011] rounded-xl border border-[#23252A] p-5 mb-5">
+                <div className="bg-bg-1 rounded-xl border border-border-primary p-5 mb-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {/* Recipients */}
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-[#D0D6E0] mb-1.5">
+                      <label className="block text-sm font-medium text-text-secondary mb-1.5">
                         수신자 이메일
                       </label>
                       <input
@@ -1600,13 +1600,13 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                         value={scheduleForm.recipients}
                         onChange={(e) => setScheduleForm((prev) => ({ ...prev, recipients: e.target.value }))}
                         placeholder="이메일 주소를 쉼표로 구분하여 입력 (예: user1@example.com, user2@example.com)"
-                        className="w-full px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+                        className="w-full px-4 py-2.5 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                       />
                     </div>
 
                     {/* Days of week */}
                     <div>
-                      <label className="block text-sm font-medium text-[#D0D6E0] mb-1.5">
+                      <label className="block text-sm font-medium text-text-secondary mb-1.5">
                         발송 요일
                       </label>
                       <div className="flex flex-wrap gap-2">
@@ -1617,8 +1617,8 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                             onClick={() => handleToggleScheduleDay(idx)}
                             className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
                               scheduleForm.days.includes(idx)
-                                ? 'bg-[#5E6AD2] text-white'
-                                : 'bg-[#141516] text-[#8A8F98] hover:bg-white/5/7'
+                                ? 'bg-brand text-white'
+                                : 'bg-bg-2 text-text-tertiary hover:bg-white/5'
                             }`}
                           >
                             {label}
@@ -1629,14 +1629,14 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
 
                     {/* Time */}
                     <div>
-                      <label className="block text-sm font-medium text-[#D0D6E0] mb-1.5">
+                      <label className="block text-sm font-medium text-text-secondary mb-1.5">
                         발송 시각
                       </label>
                       <input
                         type="time"
                         value={scheduleForm.time}
                         onChange={(e) => setScheduleForm((prev) => ({ ...prev, time: e.target.value }))}
-                        className="px-4 py-2.5 border border-[#23252A] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2] focus:border-transparent"
+                        className="px-4 py-2.5 border border-border-primary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                       />
                     </div>
 
@@ -1652,17 +1652,17 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           />
                           <div
                             className={`w-11 h-6 rounded-full transition-colors ${
-                              scheduleForm.enabled ? 'bg-[#5E6AD2]' : 'bg-[#28282C]'
+                              scheduleForm.enabled ? 'bg-brand' : 'bg-bg-quaternary'
                             }`}
                           >
                             <div
-                              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-[#0F1011] rounded-full shadow transition-transform ${
+                              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-bg-1 rounded-full shadow transition-transform ${
                                 scheduleForm.enabled ? 'translate-x-5' : 'translate-x-0'
                               }`}
                             />
                           </div>
                         </div>
-                        <span className="text-sm font-medium text-[#D0D6E0]">
+                        <span className="text-sm font-medium text-text-secondary">
                           자동 발송 {scheduleForm.enabled ? '활성화' : '비활성화'}
                         </span>
                       </label>
@@ -1673,7 +1673,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       <button
                         onClick={handleSaveSchedule}
                         disabled={!scheduleForm.recipients.trim() || scheduleForm.days.length === 0 || isSavingSchedule}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-[#5E6AD2] text-white rounded-lg hover:bg-[#5E6AD2] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                        className="flex items-center gap-2 px-5 py-2.5 bg-brand text-white rounded-lg hover:bg-brand transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
                       >
                         {isSavingSchedule ? (
                           <>
@@ -1696,7 +1696,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                             setEditingScheduleIdx(null);
                             setScheduleForm({ recipients: '', days: [1], time: '09:00', enabled: true });
                           }}
-                          className="ml-2 px-4 py-2.5 text-[#8A8F98] bg-[#141516] rounded-lg hover:bg-white/5/7 transition-colors text-sm"
+                          className="ml-2 px-4 py-2.5 text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors text-sm"
                         >
                           취소
                         </button>
@@ -1708,13 +1708,13 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                 {/* Existing Schedules */}
                 {schedules.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-[#D0D6E0] mb-3">등록된 스케줄</h4>
+                    <h4 className="text-sm font-semibold text-text-secondary mb-3">등록된 스케줄</h4>
                     <div className="space-y-2">
                       {schedules.map((schedule, idx) => (
                         <div
                           key={idx}
-                          className={`bg-[#0F1011] rounded-lg border p-4 flex items-center justify-between ${
-                            schedule.enabled ? 'border-[#23252A]' : 'border-[#23252A] opacity-60'
+                          className={`bg-bg-1 rounded-lg border p-4 flex items-center justify-between ${
+                            schedule.enabled ? 'border-border-primary' : 'border-border-primary opacity-60'
                           }`}
                         >
                           <div className="flex-1 min-w-0">
@@ -1722,22 +1722,22 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                               <span
                                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                   schedule.enabled
-                                    ? 'bg-[#27A644]/10 text-[#27A644]'
-                                    : 'bg-[#141516] text-[#8A8F98]'
+                                    ? 'bg-success/10 text-success'
+                                    : 'bg-bg-2 text-text-tertiary'
                                 }`}
                               >
                                 {schedule.enabled ? '활성' : '비활성'}
                               </span>
-                              <span className="text-sm text-[#8A8F98]">
+                              <span className="text-sm text-text-tertiary">
                                 {schedule.days.map((d) => DAY_LABELS[d]).join(', ')} {schedule.time}
                               </span>
                             </div>
-                            <p className="text-sm text-[#8A8F98] truncate">{schedule.recipients}</p>
+                            <p className="text-sm text-text-tertiary truncate">{schedule.recipients}</p>
                           </div>
                           <div className="flex items-center gap-1 ml-3">
                             <button
                               onClick={() => handleEditSchedule(idx)}
-                              className="p-2 text-[#62666D] hover:text-[#7070FF] hover:bg-[#5E6AD2]/10 rounded-lg transition-colors"
+                              className="p-2 text-text-quaternary hover:text-link hover:bg-brand/10 rounded-lg transition-colors"
                               title="수정"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1746,7 +1746,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                             </button>
                             <button
                               onClick={() => handleDeleteSchedule(idx)}
-                              className="p-2 text-[#62666D] hover:text-[#EB5757] hover:bg-[#EB5757]/10 rounded-lg transition-colors"
+                              className="p-2 text-text-quaternary hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                               title="삭제"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1761,7 +1761,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                 )}
 
                 {schedules.length === 0 && (
-                  <div className="text-center py-6 text-[#62666D] text-sm">
+                  <div className="text-center py-6 text-text-quaternary text-sm">
                     등록된 이메일 스케줄이 없습니다. 위 양식에서 스케줄을 추가하세요.
                   </div>
                 )}
