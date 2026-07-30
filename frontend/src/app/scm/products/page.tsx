@@ -566,7 +566,7 @@ export default function ProductsPage() {
                   className={`px-3 py-1.5 text-xs font-medium rounded-full border transition ${
                     isActive
                       ? cat === '전체'
-                        ? 'bg-bg-0 text-white border-border-secondary'
+                        ? 'bg-bg-0 text-text-primary border-border-secondary'
                         : `${color!.bg} ${color!.text} ${color!.border} ring-2 ring-offset-1 ring-current`
                       : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-white/5'
                   }`}
@@ -781,7 +781,7 @@ export default function ProductsPage() {
         {/* ── Toast ── */}
         {toast && (
           <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
-            <div className="bg-bg-0 text-white px-5 py-3 rounded-xl shadow-2xl text-sm flex items-center gap-2">
+            <div className="bg-bg-0 text-text-primary px-5 py-3 rounded-xl shadow-2xl text-sm flex items-center gap-2">
               <svg className="h-4 w-4 text-success-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
               {toast}
             </div>

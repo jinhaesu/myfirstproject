@@ -1262,7 +1262,7 @@ export default function ProductionResultsPage() {
       {/* ── Toast notification ── */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className="bg-bg-1 text-white px-5 py-3 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm font-medium flex items-center gap-2">
+          <div className="bg-bg-1 text-text-primary px-5 py-3 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm font-medium flex items-center gap-2">
             <svg className="w-4 h-4 text-success-light" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             {toast}
           </div>

@@ -281,7 +281,7 @@ function HistoryModal({ hist, onClose }: { hist: any; onClose: () => void }) {
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div><div className="text-xs text-text-tertiary">{isVendor ? '거래처 누적 이력' : '품목 구매 이력'}</div><div className="text-lg font-bold text-text-primary">{isVendor ? hist.vendor : hist.item_name}</div></div>
-          <button onClick={onClose} className="text-text-tertiary hover:text-white text-xl">×</button>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-4">
           <StatCard label="누적 구매액" value={wonShort(hist.total_supply || 0)} tone="text-warning" />

@@ -716,7 +716,7 @@ export default function OrderPlanPage() {
     if (value === 0 || maxVal === 0) return 'bg-bg-0';
     const intensity = value / maxVal;
     if (intensity > 0.8) return 'bg-brand text-white';
-    if (intensity > 0.6) return 'bg-info text-white';
+    if (intensity > 0.6) return 'bg-info text-bg-0';
     if (intensity > 0.4) return 'bg-info/70 text-text-primary';
     if (intensity > 0.2) return 'bg-brand/25 text-accent';
     return 'bg-brand/15 text-accent';

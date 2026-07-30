@@ -936,7 +936,7 @@ export default function CSPage() {
       {/* ── Toast ── */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-2">
-          <div className="bg-bg-0 text-white px-4 py-3 rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm flex items-center gap-2">
+          <div className="bg-bg-0 text-text-primary px-4 py-3 rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm flex items-center gap-2">
             <svg className="w-4 h-4 text-success-light flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             {toast}
           </div>
@@ -1000,7 +1000,7 @@ export default function CSPage() {
             {/* Sync Status button */}
             <button
               onClick={handleSyncStatus}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-cyan text-white rounded-lg hover:bg-cyan transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-cyan text-bg-0 rounded-lg hover:bg-cyan transition-colors"
             >
               상태 동기화
             </button>
@@ -1031,7 +1031,7 @@ export default function CSPage() {
               <button
                 onClick={handleBulkRegenerate}
                 disabled={bulkRegenRunning}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-orange text-white text-sm font-medium rounded-lg hover:bg-orange disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-orange text-bg-0 text-sm font-medium rounded-lg hover:bg-orange disabled:opacity-50 transition-colors"
               >
                 {bulkRegenRunning ? (
                   <>
@@ -1186,7 +1186,7 @@ export default function CSPage() {
                   <button
                     onClick={handleBulkSend}
                     disabled={bulkSending}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-white rounded-lg hover:bg-white/5 disabled:opacity-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-text-primary rounded-lg hover:bg-white/5 disabled:opacity-50 transition-colors"
                   >
                     {bulkSending ? (
                       <>
@@ -1456,14 +1456,14 @@ export default function CSPage() {
                           </button>
                           <button
                             onClick={() => handleApproveAndSend(inquiry.id, expandedId === inquiry.id ? editingResponse : undefined)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-white rounded-lg hover:bg-white/5 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-text-primary rounded-lg hover:bg-white/5 transition-colors"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 승인+발송
                           </button>
                         </>
                       )}
                       {inquiry.status === 'approved' && (
-                        <button onClick={() => handleSend(inquiry.id)} disabled={isSending} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-white rounded-lg hover:bg-white/5 disabled:opacity-50 transition-colors">
+                        <button onClick={() => handleSend(inquiry.id)} disabled={isSending} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-text-primary rounded-lg hover:bg-white/5 disabled:opacity-50 transition-colors">
                           {isSending ? <><svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 발송 중...</> : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 발송</>}
                         </button>
                       )}

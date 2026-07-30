@@ -819,6 +819,8 @@ export default function MappingPage() {
       if (c >= 0.5) return 'bg-warning/100';
       return 'bg-danger';
     };
+    // 배지 위 텍스트는 배경 밝기에 따라 자동으로 검정/흰색으로 전환되는 bg-0 토큰을 사용
+    // (bg-warning은 다크 테마에서 밝은 골드톤이라 고정 흰색 글자와 대비가 거의 사라짐)
 
     return (
       <div className="space-y-4">
@@ -936,7 +938,7 @@ export default function MappingPage() {
                           <svg className="w-5 h-5 text-text-quaternary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                           </svg>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full text-white ${getConfidenceColor(suggestion.confidence)}`}>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full text-bg-0 ${getConfidenceColor(suggestion.confidence)}`}>
                             {confidencePct}%
                           </span>
                           <div className="w-16 h-1.5 bg-bg-2 rounded-full overflow-hidden">
@@ -1642,7 +1644,7 @@ export default function MappingPage() {
               {tab.label}
               {'count' in tab && tab.count !== undefined && (
                 <span className={`px-1.5 py-0.5 rounded-full text-xs ${
-                  activeTab === tab.key ? 'bg-info text-white' : 'bg-bg-tertiary text-text-tertiary'
+                  activeTab === tab.key ? 'bg-info text-bg-0' : 'bg-bg-tertiary text-text-tertiary'
                 }`}>
                   {tab.count}
                 </span>
@@ -1661,7 +1663,7 @@ export default function MappingPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-bg-0 text-white px-5 py-3 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm z-50 animate-fade-in">
+        <div className="fixed bottom-6 right-6 bg-bg-0 text-text-primary px-5 py-3 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm z-50 animate-fade-in">
           {toast}
         </div>
       )}

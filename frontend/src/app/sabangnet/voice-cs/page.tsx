@@ -658,7 +658,7 @@ export default function VoiceCsPage() {
 
       {/* ── Toast ── */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-bg-1 text-white text-sm px-4 py-3 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] animate-fade-in">
+        <div className="fixed top-4 right-4 z-50 bg-bg-1 text-text-primary text-sm px-4 py-3 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] animate-fade-in">
           {toast}
         </div>
       )}
