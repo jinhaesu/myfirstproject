@@ -81,15 +81,18 @@ const PRESETS: [string, string][] = [
   ['7d', '7일'], ['14d', '14일'], ['thisMonth', '당월'], ['lastMonth', '전월'],
   ['thisQuarter', '당분기'], ['lastQuarter', '전분기'], ['lastYear', '전년도'], ['all', '전체'],
 ];
-function PeriodBar({ range, setRange }: { range: { start: string; end: string }; setRange: (r: { start: string; end: string }) => void }) {
+function PeriodBar({ range, setRange, onApply, dirty }: { range: { start: string; end: string }; setRange: (r: { start: string; end: string }) => void; onApply?: (r: { start: string; end: string }) => void; dirty?: boolean }) {
+  const preset = (k: string) => { const r = presetRange(k); if (onApply) onApply(r); else setRange(r); };
   return (
     <div className="flex flex-wrap items-center gap-2">
       <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
       <span className="text-[#62666D]">~</span>
       <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
+      {onApply && <button onClick={() => onApply(range)} className={`${C.btn} ${C.btnPrimary} ${dirty ? 'ring-2 ring-[#5E6AD2]/50' : ''}`}>조회</button>}
+      {onApply && dirty && <span className="text-[11px] text-[#F0BF00]">기간 변경됨 — 조회를 누르세요</span>}
       <div className="flex flex-wrap gap-1">
         {PRESETS.map(([k, l]) => (
-          <button key={k} onClick={() => setRange(presetRange(k))} className={`${C.btn} ${C.btnGhost} px-2.5 py-1.5`}>{l}</button>
+          <button key={k} onClick={() => preset(k)} className={`${C.btn} ${C.btnGhost} px-2.5 py-1.5`}>{l}</button>
         ))}
       </div>
     </div>
@@ -151,7 +154,8 @@ export default function ProductionPage() {
 }
 
 function DashTab() {
-  const [range, setRange] = useState(presetRange('thisMonth'));
+  const [range, setRange] = useState(presetRange('thisMonth'));       // 적용된(조회된) 기간
+  const [draft, setDraft] = useState(presetRange('thisMonth'));       // 입력 중(미적용)
   const [cat, setCat] = useState('');
   const [loc, setLoc] = useState('');
   const [allLocs, setAllLocs] = useState<string[]>([]);
@@ -189,7 +193,7 @@ function DashTab() {
     <div className="space-y-5 relative">
       <LoadingOverlay show={loading} />
       <div className="flex flex-wrap items-center gap-2">
-        <PeriodBar range={range} setRange={setRange} />
+        <PeriodBar range={draft} setRange={setDraft} onApply={(r) => { setDraft(r); setRange(r); }} dirty={draft.start !== range.start || draft.end !== range.end} />
         <select value={cat} onChange={(e) => setCat(e.target.value)} className={C.input}>
           <option value="">전체 품목류</option>
           {cats.map((c) => <option key={c} value={c}>{c}</option>)}

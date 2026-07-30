@@ -62,13 +62,16 @@ function StatCard({ label, value, sub, tone }: { label: string; value: string; s
     </div>
   );
 }
-function PeriodBar({ range, setRange }: { range: { start: string; end: string }; setRange: (r: { start: string; end: string }) => void }) {
+function PeriodBar({ range, setRange, onApply, dirty }: { range: { start: string; end: string }; setRange: (r: { start: string; end: string }) => void; onApply?: (r: { start: string; end: string }) => void; dirty?: boolean }) {
+  const preset = (k: string) => { const r = presetRange(k); if (onApply) onApply(r); else setRange(r); };
   return (
     <div className="flex flex-wrap items-center gap-2">
       <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
       <span className="text-[#62666D]">~</span>
       <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
-      <div className="flex flex-wrap gap-1">{PRESETS.map(([k, l]) => <button key={k} onClick={() => setRange(presetRange(k))} className={`${C.btn} ${C.btnGhost} px-2.5 py-1.5`}>{l}</button>)}</div>
+      {onApply && <button onClick={() => onApply(range)} className={`${C.btn} ${C.btnPrimary} ${dirty ? 'ring-2 ring-[#5E6AD2]/50' : ''}`}>조회</button>}
+      {onApply && dirty && <span className="text-[11px] text-[#F0BF00]">기간 변경됨 — 조회를 누르세요</span>}
+      <div className="flex flex-wrap gap-1">{PRESETS.map(([k, l]) => <button key={k} onClick={() => preset(k)} className={`${C.btn} ${C.btnGhost} px-2.5 py-1.5`}>{l}</button>)}</div>
     </div>
   );
 }
@@ -119,6 +122,7 @@ export default function LogisticsPage() {
 
 function DashTab() {
   const [range, setRange] = useState(presetRange('thisMonth'));
+  const [draft, setDraft] = useState(presetRange('thisMonth'));
   const [wtype, setWtype] = useState('');
   const [gran, setGran] = useState<'month' | 'week' | 'day'>('day');
   const [d, setD] = useState<Dash | null>(null);
@@ -145,7 +149,7 @@ function DashTab() {
     <div className="space-y-5 relative">
       <LoadingOverlay show={loading} />
       <div className="flex flex-wrap items-center gap-2">
-        <PeriodBar range={range} setRange={setRange} />
+        <PeriodBar range={draft} setRange={setDraft} onApply={(r) => { setDraft(r); setRange(r); }} dirty={draft.start !== range.start || draft.end !== range.end} />
         <select value={wtype} onChange={(e) => setWtype(e.target.value)} className={C.input}><option value="">전체 작업종류</option>{types.map((t) => <option key={t} value={t}>{t}</option>)}</select>
         <div className="flex bg-[#0F1011] border border-[#23252A] rounded-lg p-0.5">
           {(['month', 'week', 'day'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} px-2.5 py-1 ${gran === g ? C.btnPrimary : 'text-[#8A8F98]'}`}>{g === 'month' ? '월' : g === 'week' ? '주' : '일'}</button>)}

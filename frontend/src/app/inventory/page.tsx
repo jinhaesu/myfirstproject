@@ -183,7 +183,8 @@ export default function InventoryPage() {
 function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
   const [d, setD] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(false);
-  const [range, setRange] = useState(presetRange('thisMonth'));
+  const [range, setRange] = useState(presetRange('thisMonth'));      // 적용된(조회된) 기간
+  const [draftRange, setDraftRange] = useState(presetRange('thisMonth')); // 입력 중(미적용)
   const [gran, setGran] = useState<'month' | 'week' | 'day'>('day');
   const [whId, setWhId] = useState<number | ''>('');
   const [trend, setTrend] = useState<TrendPoint[]>([]);
@@ -225,11 +226,13 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
       <LoadingOverlay show={loading} />
       <div className={`${C.card} p-3 flex flex-wrap items-center gap-2 sticky top-[52px] z-10`}>
         <span className="text-sm font-semibold text-[#F7F8F8]">기간</span>
-        <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
+        <input type="date" value={draftRange.start} onChange={(e) => setDraftRange({ ...draftRange, start: e.target.value })} className={C.input} />
         <span className="text-[#62666D]">~</span>
-        <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
+        <input type="date" value={draftRange.end} onChange={(e) => setDraftRange({ ...draftRange, end: e.target.value })} className={C.input} />
+        <button onClick={() => setRange(draftRange)} className={`${C.btn} ${C.btnPrimary} ${(draftRange.start !== range.start || draftRange.end !== range.end) ? 'ring-2 ring-[#5E6AD2]/50' : ''}`}>조회</button>
+        {(draftRange.start !== range.start || draftRange.end !== range.end) && <span className="text-[11px] text-[#F0BF00]">변경됨 — 조회</span>}
         <div className="flex flex-wrap gap-1">
-          {RANGE_PRESETS.map(([k, l]) => <button key={k} onClick={() => setRange(presetRange(k))} className={`${C.btn} ${C.btnGhost} px-2 py-1`}>{l}</button>)}
+          {RANGE_PRESETS.map(([k, l]) => <button key={k} onClick={() => { const r = presetRange(k); setDraftRange(r); setRange(r); }} className={`${C.btn} ${C.btnGhost} px-2 py-1`}>{l}</button>)}
         </div>
         <div className="flex bg-[#08090A] border border-[#23252A] rounded-lg p-0.5">
           {(['month', 'week', 'day'] as const).map((g) => (
