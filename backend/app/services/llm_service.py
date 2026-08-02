@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 class LLMService:
     def __init__(self, api_key: str):
         self.client = anthropic.Anthropic(api_key=api_key)
-        self.model = "claude-opus-4-8"
+        self.model = "claude-fable-5"
 
     def generate(self, prompt: str, system: str = "", max_tokens: int = 4096) -> str:
         """Claude API로 텍스트 생성"""

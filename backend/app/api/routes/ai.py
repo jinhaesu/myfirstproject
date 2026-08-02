@@ -52,7 +52,7 @@ async def get_ai_summary(
 
     try:
         message = client.messages.create(
-            model="claude-opus-4-8",
+            model="claude-fable-5",
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -89,7 +89,7 @@ async def get_ai_advice(
 
     try:
         message = client.messages.create(
-            model="claude-opus-4-8",
+            model="claude-fable-5",
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}]
         )

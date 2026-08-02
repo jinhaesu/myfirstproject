@@ -90,6 +90,7 @@ class VapiService:
             "name": name,
             "model": {
                 "provider": "anthropic",
+                # VAPI가 지원하는 모델 enum 한정 + 음성통화 지연 최소화 → Fable 5 제외
                 "model": "claude-opus-4-8",
                 "messages": [{"role": "system", "content": system_prompt}],
             },
