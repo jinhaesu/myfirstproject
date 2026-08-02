@@ -199,7 +199,7 @@ async def generate_mapping_suggestion(
     try:
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
-            model="claude-opus-4-8",
+            model="claude-fable-5",
             max_tokens=1000,
             messages=[{
                 "role": "user",
