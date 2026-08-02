@@ -2339,6 +2339,28 @@ def dashboard(
         slot["contribution_margin"] += r.contribution_margin or 0
     channels_summary = sorted(by_channel.values(), key=lambda x: -x["revenue"])
 
+    # 특정 채널만 주문건수를 '주문번호 고유값'으로 보정 — 대시보드 orders는
+    # 품목별 order_count 합산이라 한 주문에 여러 상품이면 중복집계된다. 요청에 따라
+    # 롯데홈쇼핑·삼성카드만 raw_lines의 DISTINCT order_no로 재계산(다른 채널은 기존 유지).
+    _DISTINCT_ORDER_CHANNELS = {"롯데 홈쇼핑", "롯데홈쇼핑", "삼성카드쇼핑", "삼성카드"}
+    _corr_ids = [c["channel_id"] for c in channels_summary
+                 if (c.get("channel_name") or "") in _DISTINCT_ORDER_CHANNELS]
+    if _corr_ids:
+        _oq = db.query(
+            ChannelSalesRawLine.channel_id,
+            func.count(func.distinct(ChannelSalesRawLine.order_no)),
+        ).filter(
+            ChannelSalesRawLine.channel_id.in_(_corr_ids),
+            ChannelSalesRawLine.sale_date >= period_start,
+            ChannelSalesRawLine.sale_date <= period_end,
+            func.coalesce(ChannelSalesRawLine.mapping_status, "") != "cancelled",
+            ChannelSalesRawLine.order_no.isnot(None),
+        ).group_by(ChannelSalesRawLine.channel_id)
+        _distinct_orders = {cid: int(n or 0) for cid, n in _oq.all()}
+        for c in channels_summary:
+            if c["channel_id"] in _distinct_orders:
+                c["orders"] = _distinct_orders[c["channel_id"]]
+
     # 품목별 합계 — 미매핑(product_id=None)은 '(미매핑)' 단일 항목으로 묶어 포함.
     # (제외하면 품목별 합계가 상단 KPI/채널별 합계와 어긋남.)
     by_product: dict[int, dict] = {}
