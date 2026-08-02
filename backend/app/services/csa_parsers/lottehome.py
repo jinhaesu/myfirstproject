@@ -110,14 +110,41 @@ def _read(path: str) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+# 상품명(E열) → 낱개 입수. 롯데홈쇼핑은 옵션이 '맛 선택' 위주라 상품명 기준 매핑.
+# (폼 2026-07-28 김재경/MD: 세트 미환산 158→1,174. 특정 substring 우선순위로 매칭)
+_LOTTE_NAME_MAP = [
+    ("통밀식빵 3종 4개입 2+1set", 12), ("통밀식빵 3종 택1", 3),
+    ("쫀득 베이글 16개입", 16), ("베이글 7종 12개입", 12), ("베이글 7종 7개입", 7),
+    ("배꼽 베이글 4개", 4), ("포카치아 8개", 8),
+    ("6봉+6봉", 12), ("식이섬유 4봉", 4), ("식이섬유 5봉", 5),
+    ("르뱅 쿠키 6종 12개입", 12), ("르뱅 쿠키 6종 1BOX", 6),
+    ("아메리칸 쿠키 6봉 2박스", 12),
+    ("휘낭시에 8개입 2박스", 16), ("휘낭시에 8개입 1박스", 8),
+    ("8구 1BOX+뚱낭시에", 16), ("쫀득 마카롱 선물패키지", 8), ("벚꽃마카롱", 8),
+    ("두바이 쫀득 뚱카롱 8구 1박스", 8), ("듀오에디션", 16),
+    ("슬랩 600g 1+1개", 2), ("슬랩 600g 1개", 1),
+]
+
+
+def _lotte_units(prod: str):
+    p = prod or ""
+    for key, u in _LOTTE_NAME_MAP:
+        if key in p:
+            return u
+    return None  # 미매핑
+
+
 def _parse_integrated_admin(df: pd.DataFrame) -> Iterable[ParsedLine]:
     """인터넷-TV 통합 어드민 신양식 (2026-07 기준변경요청서, 김재경).
 
     컬럼: 순번/주문번호/상품코드/단품/상품명/단품상세/과세/수량/판매금액/매입금액/매입수수료
-    - 행마다 과세='합계'인 소계 행이 끼어 있음 → 제외 (포함 시 매출 정확히 2배)
+    - 과세='합계'인 소계 행 제외(포함 시 매출 2배)
     - 날짜 컬럼 없음 → 주문번호 앞 8자리(YYYYMMDD)가 주문일
-    - 순매출 = 판매금액(i열) 합계
+    - 순매출 = 판매금액(i열) ÷1.1(VAT). 낱개 = 상품명 매핑 입수 × 수량.
+    - 완전 반품쌍(동일 주문번호+상품코드에 +금액/−금액 공존) → 매출·낱개·행수에서 제외.
     """
+    from collections import defaultdict
+    rows = []
     for _idx, (_, row) in enumerate(df.iterrows()):
         tax = to_str(row.get("과세")) or ""
         if "합계" in tax:
@@ -130,15 +157,27 @@ def _parse_integrated_admin(df: pd.DataFrame) -> Iterable[ParsedLine]:
         prod = to_str(row.get("상품명"))
         if not prod:
             continue
-        qty = to_float(row.get("수량") or 1)
-        gross = to_float(row.get("판매금액") or 0)
+        code = to_str(row.get("상품코드")) or ""
+        rows.append((_idx, sale_d, order_no, code, prod,
+                     to_str(row.get("단품상세")), to_str(row.get("단품")),
+                     to_float(row.get("수량") or 1), to_float(row.get("판매금액") or 0)))
+
+    amts = defaultdict(list)
+    for r in rows:
+        amts[(r[2], r[3])].append(r[8])
+    refund_keys = {k for k, a in amts.items() if any(x > 0 for x in a) and any(x < 0 for x in a)}
+
+    for _idx, sale_d, order_no, code, prod, danpum_detail, danpum, qty, gross in rows:
+        if (order_no, code) in refund_keys:
+            continue
         yield ParsedLine(
             sale_date=sale_d,
             order_no=order_no,
-            line_no=f"{to_str(row.get('상품코드')) or ''}|{to_str(row.get('단품')) or ''}-{_idx}",
+            line_no=f"{code}|{danpum}-{_idx}",
             raw_product_name=prod,
-            raw_option_name=to_str(row.get("단품상세")),
+            raw_option_name=danpum_detail,
             raw_qty=qty,
+            unit_per_set=_lotte_units(prod) or 1,   # 상품명 기준 낱개 입수(세트환산)
             gross_amount=gross,
             net_amount=gross,
         )
