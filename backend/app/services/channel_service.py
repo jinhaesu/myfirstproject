@@ -70,6 +70,7 @@ DEFAULT_CHANNELS = [
     {"name": "제로스토어", "category": "B2B", "integration_type": "manual"},
     {"name": "파르나스", "category": "B2B", "integration_type": "manual"},
     {"name": "B2B파트너스", "category": "B2B", "integration_type": "manual"},
+    {"name": "이지웨이", "category": "B2B", "integration_type": "manual"},  # (주)이지웨이 거래명세표(오프라인 B2B, 2026-08-03 신규)
 ]
 
 
