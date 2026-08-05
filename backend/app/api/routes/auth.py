@@ -103,11 +103,17 @@ def get_current_user(
     user = auth_service.get_user_by_email(email)
 
     if user is None:
-        raise HTTPException(
-            status_code=401,
-            detail="사용자를 찾을 수 없습니다",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        # 허브 SSO로 로그인한 사용자는 이 앱의 로컬 user 스토어(USERS_JSON 등)에 없다.
+        # 토큰은 이미 verify_token을 통과했으므로 인증된 사용자다 → 토큰의 email로 통과시킨다.
+        # (이 검사를 하드 401로 두면 모든 SSO 사용자가 /my-menus 등에서 거부돼
+        #  프론트가 기본값 sales만 노출하는 버그가 됨 — 2026-08-05 수정.)
+        if not email:
+            raise HTTPException(
+                status_code=401,
+                detail="사용자를 찾을 수 없습니다",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return {"email": email, "name": (email.split("@")[0] if "@" in email else email)}
 
     return {"email": user["email"], "name": user["name"]}
 
