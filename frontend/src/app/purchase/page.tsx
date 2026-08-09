@@ -382,7 +382,7 @@ function PriceTab() {
               <div className="text-xs text-text-quaternary mt-1">
                 {(data.net_savings ?? 0) >= 0 ? '인하분이 인상분보다 커서 총액상 원가 절감 우위' : '인상분이 인하분보다 커서 총액상 원가 부담 우위'}
                 <span className="text-text-tertiary"> · {range.start}~{range.end}</span>
-                {data.excluded_outliers > 0 && <span className="text-warning"> · 단가 오기입 의심 {fmt(data.excluded_outliers)}건(변동률 ±{data.outlier_pct}% 초과) 집계 제외</span>}
+                {data.excluded_outliers > 0 && <span className="text-warning"> · 단가 오기입 의심 {fmt(data.excluded_outliers)}건(비현실적 변동·수량↔단가 기준 불일치) 집계 제외</span>}
               </div>
             </div>
             <div className="flex gap-6">

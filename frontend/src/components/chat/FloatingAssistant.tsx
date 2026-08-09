@@ -21,7 +21,6 @@ const SUGGESTIONS = [
 export function FloatingAssistant() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [showBubble, setShowBubble] = useState(true);
   const { messages, isLoading, error, sendMessage, clearMessages } = useChat({ omni: true });
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -29,14 +28,9 @@ export function FloatingAssistant() {
     if (open) endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, open, isLoading]);
 
-  // 방문 시 기본 안내 말풍선 — 12초 후 자동 사라짐
-  useEffect(() => {
-    if (!showBubble) return;
-    const t = setTimeout(() => setShowBubble(false), 12000);
-    return () => clearTimeout(t);
-  }, [showBubble]);
-
   if (!user) return null; // 로그인 사용자에게만 노출
+  // 안내 말풍선은 채팅이 닫혀 있는 동안 상시 노출 (자동 사라짐 없음)
+  const showBubble = !open;
 
   return (
     <>
@@ -45,16 +39,18 @@ export function FloatingAssistant() {
         <div className="fixed bottom-6 right-6 z-[60] flex items-end gap-2.5">
           {showBubble && (
             <div className="relative mb-1 max-w-[260px]">
-              <div className="rounded-2xl rounded-br-sm bg-bg-1 border border-border-primary shadow-[0px_8px_28px_rgba(0,0,0,0.35)] px-3.5 py-2.5">
-                <button onClick={() => setShowBubble(false)} className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-bg-inset border border-border-primary text-text-tertiary hover:text-text-primary flex items-center justify-center text-xs" aria-label="닫기">×</button>
+              <button
+                onClick={() => setOpen(true)}
+                className="block text-left rounded-2xl rounded-br-sm bg-bg-1 border border-border-primary shadow-[0px_8px_28px_rgba(0,0,0,0.35)] px-3.5 py-2.5 hover:border-brand transition-colors"
+              >
                 <p className="text-[13px] leading-snug text-text-secondary">AI에게 복합적으로 궁금한 <b className="text-text-primary">데이터 분석</b>을 물어보세요.</p>
-              </div>
+              </button>
               {/* 꼬리 */}
-              <div className="absolute -bottom-1.5 right-3 w-3 h-3 bg-bg-1 border-b border-r border-border-primary rotate-45" />
+              <div className="absolute -bottom-1.5 right-3 w-3 h-3 bg-bg-1 border-b border-r border-border-primary rotate-45 pointer-events-none" />
             </div>
           )}
           <button
-            onClick={() => { setOpen(true); setShowBubble(false); }}
+            onClick={() => setOpen(true)}
             aria-label="전사 AI 비서 열기"
             className="w-16 h-16 rounded-full bg-gradient-to-br from-brand to-brand-hover text-white shadow-[0px_8px_28px_rgba(0,0,0,0.4)] flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shrink-0"
           >

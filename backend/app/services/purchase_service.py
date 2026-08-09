@@ -582,17 +582,25 @@ def price_tracker(db: Session, start: date, end: date,
     # 기간 총 단가효과(총액) = Σ인하절감액 − Σ인상부담액.
     #   인하절감액 = Σ(각 인하품목 발주량 × 인하분),  인상부담액 = Σ(각 인상품목 발주량 × 인상분)
     #   net_savings ≥ 0 이면 인하가 인상보다 커서 총액상 원가절감(유리).
-    # ⚠️ 단가효과는 (단가변동 × 발주량)이라 전표 단가 오기입(단위기준 혼재: kg↔box 등)이
-    #    있으면 수억~수백억으로 폭증한다. |변동률| > OUTLIER_PCT 는 실제 가격변동이 아니라
-    #    입력오류로 보고 순효과 집계에서 제외한다(품목 표에는 그대로 노출).
+    # ⚠️ 단가효과 = 단가변동 × 발주량. 전표 오기입(수량·단가 기준 불일치: 동판비처럼 qty가
+    #    실제 매입수량이 아닌 인쇄량 등)이 있으면 수억~수백억으로 폭증한다. 두 가드로 제외:
+    #    (1) |변동률| > OUTLIER_PCT — 단위기준 혼재(kg↔box)로 인한 비현실적 % 변동
+    #    (2) |단가효과| > 매입액 × SUPPLY_MULT — 단가효과는 그 품목 실제 총매입액을 넘을 수
+    #        없다. 넘으면 qty·unit_price 기준 불일치(동판비: 매입액 1,438만인데 효과 220억).
+    #    (품목 표에는 이상치도 그대로 노출 — 사용자가 오기입 발견·수정하도록.)
     OUTLIER_PCT = 200.0
+    SUPPLY_MULT = 2.0
     def _sane(x):
         cp = x["change_pct"]
-        return cp is not None and abs(cp) <= OUTLIER_PCT
+        if cp is None or abs(cp) > OUTLIER_PCT:
+            return False
+        if abs(x["cost_impact"]) > max(x["total_supply"], 1) * SUPPLY_MULT:
+            return False
+        return True
     savings_amount = sum(-x["cost_impact"] for x in falling if _sane(x))   # 인하분(양수)
     increase_amount = sum(x["cost_impact"] for x in rising if _sane(x))    # 인상분(양수)
     net_savings = savings_amount - increase_amount
-    excluded_outliers = sum(1 for x in out if x["change_pct"] is not None and abs(x["change_pct"]) > OUTLIER_PCT)
+    excluded_outliers = sum(1 for x in out if not _sane(x))
     return {
         "start": start.isoformat(), "end": end.isoformat(),
         "item_count": len(out),
