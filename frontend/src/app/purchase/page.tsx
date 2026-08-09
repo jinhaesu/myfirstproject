@@ -27,18 +27,24 @@ const thisMonth = () => { const n = new Date(); return { start: iso(new Date(n.g
 function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return <div className={`${C.card} p-4`}><div className="text-[11px] text-text-tertiary mb-1 truncate">{label}</div><div className={`text-lg font-bold tabular-nums ${tone || 'text-text-primary'}`}>{value}</div>{sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}</div>;
 }
-// 구매 관리 공통 기간 토글 — 프리셋 즉시 적용 + 날짜 직접 지정
-function RangeBar({ range, setRange }: { range: any; setRange: (r: any) => void }) {
+// 구매 관리 공통 기간 토글 — 프리셋 즉시 적용 + 날짜는 '조회' 버튼으로만 반영.
+// value = 적용된 기간, onApply = 조회 시 부모에 반영. 날짜 편집은 내부 draft에만 반영된다.
+function PeriodBar({ value, onApply }: { value: any; onApply: (r: any) => void }) {
   const P = presets();
+  const [draft, setDraft] = useState({ start: value.start, end: value.end });
+  useEffect(() => { setDraft({ start: value.start, end: value.end }); }, [value.start, value.end]);
+  const dirty = draft.start !== value.start || draft.end !== value.end;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {Object.keys(P).map((k) => {
-        const on = range.start === P[k].start && range.end === P[k].end;
-        return <button key={k} onClick={() => setRange({ ...range, ...P[k] })} className={`${C.btn} ${on ? C.btnPrimary : C.btnGhost}`}>{k}</button>;
+        const on = value.start === P[k].start && value.end === P[k].end;
+        return <button key={k} onClick={() => { setDraft(P[k]); onApply(P[k]); }} className={`${C.btn} ${on ? C.btnPrimary : C.btnGhost}`}>{k}</button>;
       })}
-      <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
+      <input type="date" value={draft.start} onChange={(e) => setDraft({ ...draft, start: e.target.value })} className={C.input} />
       <span className="text-text-quaternary">~</span>
-      <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
+      <input type="date" value={draft.end} onChange={(e) => setDraft({ ...draft, end: e.target.value })} className={C.input} />
+      <button onClick={() => onApply(draft)} className={`${C.btn} ${C.btnPrimary} ${dirty ? 'ring-2 ring-brand/50' : ''}`}>조회</button>
+      {dirty && <span className="text-xs text-warning self-center">변경됨 — 조회를 누르세요</span>}
     </div>
   );
 }
@@ -271,7 +277,7 @@ function RecordsTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <RangeBar range={range} setRange={setRange} />
+        <PeriodBar value={range} onApply={setRange} />
         <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·거래처 검색" className={`${C.input} w-48`} />
         {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가 {won(data.supply_total)}{data.total > 500 && ' (500건 표시)'}</span>}
@@ -363,7 +369,7 @@ function PriceTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <RangeBar range={range} setRange={setRange} />
+        <PeriodBar value={range} onApply={setRange} />
         <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·코드 검색" className={`${C.input} w-40`} />
         <label className="text-xs text-text-tertiary flex items-center gap-1">최소 매입<select value={minLines} onChange={(e) => setMinLines(Number(e.target.value))} className={C.input}>{[1, 2, 3, 5].map((n) => <option key={n} value={n}>{n}회+</option>)}</select></label>
@@ -478,7 +484,7 @@ function MatTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <RangeBar range={range} setRange={setRange} />
+        <PeriodBar value={range} onApply={setRange} />
         {loading && <span className="text-xs text-text-quaternary">계산 중…</span>}
         {mr && <span className="text-xs text-text-tertiary ml-auto">생산 매칭 {fmt(mr.matched_qty)} · 미매칭 {fmt(mr.unmatched_qty)}</span>}
       </div>
