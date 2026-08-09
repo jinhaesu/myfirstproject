@@ -511,14 +511,18 @@ def price_tracker(db: Session, start: date, end: date,
         )
     rows = qry.order_by(PurchaseRecord.pdate, PurchaseRecord.seq).all()
 
+    # 품목 × 단위(구매단위)로 묶는다 — 같은 품목이라도 낱개/box/20kg 등 단위가 섞이면
+    # 단가 기준(basis)이 달라 변동률이 왜곡되므로, 단위별로 별도 시계열을 만든다.
     items: dict = {}
     for r in rows:
-        key = (r.item_code or "").strip() or (r.item_name or "").strip()
-        if not key:
+        base = (r.item_code or "").strip() or (r.item_name or "").strip()
+        if not base:
             continue
+        unit = (r.unit or "").strip() or "-"
+        key = (base, unit)
         it = items.setdefault(key, {
             "item_code": r.item_code, "item_name": r.item_name,
-            "mclass": r.mclass, "points": [], "vendors": set(),
+            "mclass": r.mclass, "unit": unit, "points": [], "vendors": set(),
             "total_qty": 0.0, "total_supply": 0.0,
         })
         it["total_qty"] += (r.qty or 0)
@@ -546,7 +550,7 @@ def price_tracker(db: Session, start: date, end: date,
         spread_pct = ((hi - lo) / lo * 100) if lo else None
         out.append({
             "item_code": it["item_code"], "item_name": it["item_name"],
-            "mclass": it["mclass"], "vendor_count": len(it["vendors"]),
+            "mclass": it["mclass"], "unit": it["unit"], "vendor_count": len(it["vendors"]),
             "vendors": sorted(it["vendors"])[:5],
             "buy_count": len(pts),
             "first_date": first_d.isoformat(), "first_price": round(first_p, 2),

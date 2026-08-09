@@ -359,15 +359,16 @@ function PriceTab() {
         {loading && <div className="absolute inset-0 bg-bg-0/40 z-10" />}
         <table className="w-full">
           <thead><tr>
-            <th className={C.th}>품목</th><th className={C.th}>구분</th><th className={`${C.th} text-right`}>매입</th>
+            <th className={C.th}>품목</th><th className={C.th}>구분</th><th className={C.th}>단위</th><th className={`${C.th} text-right`}>매입</th>
             <th className={`${C.th} text-right`}>최초단가</th><th className={`${C.th} text-right`}>최근단가</th>
             <th className={`${C.th} text-right`}>변동률</th><th className={`${C.th} text-right`}>최저~최고</th>
             <th className={`${C.th} text-right`}>편차</th><th className={`${C.th} text-right`}>가중평균</th><th className={`${C.th} text-right`}>누적공급가</th>
           </tr></thead>
-          <tbody>{!items.length ? <tr><td colSpan={10} className="p-6 text-center text-text-quaternary text-sm">{loading ? '조회 중…' : '데이터 없음'}</td></tr> : items.map((it: any, i: number) => (
+          <tbody>{!items.length ? <tr><td colSpan={11} className="p-6 text-center text-text-quaternary text-sm">{loading ? '조회 중…' : '데이터 없음'}</td></tr> : items.map((it: any, i: number) => (
             <tr key={i} className="hover:bg-bg-1 cursor-pointer" onClick={() => openItem(it.item_code, it.item_name)}>
               <td className={`${C.td} text-text-primary max-w-[280px] truncate`} title={it.item_name}>{it.item_name}{it.vendor_count > 1 && <span className="text-text-quaternary text-[11px] ml-1">·{it.vendor_count}처</span>}</td>
               <td className={C.td}><span className={it.mclass === '원재료' ? 'text-info' : 'text-warning'}>{it.mclass || '-'}</span></td>
+              <td className={`${C.td} text-text-tertiary`}>{it.unit || '-'}</td>
               <td className={`${C.td} text-right tabular-nums`}>{it.buy_count}회</td>
               <td className={`${C.td} text-right tabular-nums`}>{won(it.first_price)}<div className="text-[10px] text-text-quaternary">{it.first_date?.slice(2)}</div></td>
               <td className={`${C.td} text-right tabular-nums text-text-primary`}>{won(it.last_price)}<div className="text-[10px] text-text-quaternary">{it.last_date?.slice(2)}</div></td>
