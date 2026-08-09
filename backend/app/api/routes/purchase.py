@@ -188,6 +188,49 @@ def manual_recent(limit: int = 30, db: Session = Depends(get_db)):
     return pur.manual_recent(db, limit=limit)
 
 
+class RecordPatchIn(BaseModel):
+    qty: Optional[float] = None
+    unit_price: Optional[float] = None
+    supply: Optional[float] = None
+    vat: Optional[float] = None
+    total: Optional[float] = None
+    unit: Optional[str] = None
+    vendor: Optional[str] = None
+    mclass: Optional[str] = None
+    staff: Optional[str] = None
+    item_code: Optional[str] = None
+    item_name: Optional[str] = None
+    warehouse: Optional[str] = None
+    note: Optional[str] = None
+    pdate: Optional[str] = None
+    seq: Optional[int] = None
+    recompute: bool = True
+
+
+@router.patch("/records/{rec_id}")
+def update_record(rec_id: int, body: RecordPatchIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    # None(미지정) 필드는 제외 — 그래야 update_record의 재계산 판정("supply" 미지정 등)이 올바르게 동작.
+    fields = {k: v for k, v in body.model_dump(exclude_none=True).items() if k != "recompute"}
+    res = pur.update_record(db, rec_id, fields, recompute=body.recompute)
+    if not res.get("ok"):
+        raise HTTPException(404, res.get("msg") or "실패")
+    return res
+
+
+class NormalizeUnitIn(BaseModel):
+    item_code: str
+    box_kg: float
+    threshold: float = 15000
+    dry_run: bool = True
+
+
+@router.post("/records/normalize-unit")
+def normalize_unit(body: NormalizeUnitIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    """kg당 단가(초기 입력분)를 박스당 단가로 정규화 (단위기준 혼재 교정)."""
+    return pur.normalize_unit_basis(db, body.item_code, body.box_kg,
+                                    threshold=body.threshold, dry_run=body.dry_run)
+
+
 @router.delete("/records/{rec_id}")
 def delete_record(rec_id: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     return pur.delete_record(db, rec_id)

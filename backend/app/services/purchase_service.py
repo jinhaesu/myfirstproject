@@ -350,6 +350,81 @@ def delete_record(db: Session, rec_id: int) -> dict:
     return {"ok": True, "deleted": n}
 
 
+_EDITABLE = {"qty", "unit_price", "supply", "vat", "total", "unit", "vendor",
+             "mclass", "staff", "item_code", "item_name", "warehouse", "note", "pdate", "seq"}
+_FIELD_MAP = {"vendor": "vendor_name", "supply": "supply_amount", "total": "total_amount"}
+
+
+def update_record(db: Session, rec_id: int, fields: dict, recompute: bool = True) -> dict:
+    """구매 실적 1건 수정. recompute=True면 supply/vat/total을 수량×단가로 재계산.
+
+    금액(supply/vat/total)이 명시적으로 넘어오면 그 값을 우선한다. row_hash도 재산출.
+    """
+    rec = db.get(PurchaseRecord, rec_id)
+    if not rec:
+        return {"ok": False, "msg": "해당 실적이 없습니다"}
+    for k, v in fields.items():
+        if k not in _EDITABLE or v is None:
+            continue
+        if k == "pdate":
+            try:
+                rec.pdate = date.fromisoformat(str(v)[:10])
+            except Exception:
+                return {"ok": False, "msg": "일자 형식 오류"}
+            continue
+        if k == "mclass":
+            rec.mclass = _mclass_norm(v); continue
+        setattr(rec, _FIELD_MAP.get(k, k), v)
+    # 금액 재계산: supply/total이 명시 안 됐고 recompute면 수량×단가로.
+    if recompute and "supply" not in fields:
+        rec.supply_amount = round((rec.qty or 0) * (rec.unit_price or 0))
+    if recompute and "vat" not in fields and "total" not in fields:
+        rec.total_amount = round((rec.supply_amount or 0) + (rec.vat or 0))
+    elif "total" not in fields:
+        rec.total_amount = round((rec.supply_amount or 0) + (rec.vat or 0))
+    rec.row_hash = _rec_hash({
+        "pdate": rec.pdate.isoformat() if rec.pdate else None, "seq": rec.seq,
+        "item_code": rec.item_code, "item_name": rec.item_name,
+        "supply": rec.supply_amount, "total": rec.total_amount, "qty": rec.qty,
+    })
+    db.commit()
+    return {"ok": True, "id": rec.id, "qty": rec.qty, "unit_price": rec.unit_price,
+            "supply": rec.supply_amount, "vat": rec.vat, "total": rec.total_amount}
+
+
+def normalize_unit_basis(db: Session, item_code: str, box_kg: float,
+                         threshold: float = 15000, dry_run: bool = True) -> dict:
+    """품목의 kg당 단가(초기 입력분)를 박스당 단가로 정규화.
+
+    unit_price < threshold 인 행 = kg당 입력으로 보고 unit_price×box_kg, qty÷box_kg 로 환산.
+    공급가/합계는 불변(수량×단가 항등). dry_run이면 변경건수만 반환.
+    """
+    q = db.query(PurchaseRecord).filter(
+        PurchaseRecord.item_code == item_code,
+        PurchaseRecord.unit_price > 0,
+        PurchaseRecord.unit_price < threshold,
+    ).all()
+    changed = []
+    for r in q:
+        old_up, old_qty = r.unit_price, r.qty
+        new_up = round(old_up * box_kg, 2)
+        new_qty = round((old_qty or 0) / box_kg, 4)
+        changed.append({"id": r.id, "pdate": r.pdate.isoformat() if r.pdate else None,
+                        "old_unit_price": old_up, "new_unit_price": new_up,
+                        "old_qty": old_qty, "new_qty": new_qty})
+        if not dry_run:
+            r.unit_price = new_up
+            r.qty = new_qty
+            r.row_hash = _rec_hash({
+                "pdate": r.pdate.isoformat() if r.pdate else None, "seq": r.seq,
+                "item_code": r.item_code, "item_name": r.item_name,
+                "supply": r.supply_amount, "total": r.total_amount, "qty": r.qty})
+    if not dry_run:
+        db.commit()
+    return {"ok": True, "item_code": item_code, "box_kg": box_kg,
+            "count": len(changed), "dry_run": dry_run, "changes": changed[:50]}
+
+
 def purge_records(db: Session) -> dict:
     n = db.query(PurchaseRecord).delete()
     db.commit()
