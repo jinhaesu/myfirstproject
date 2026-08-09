@@ -218,6 +218,19 @@ def item_history(item_code: Optional[str] = None, item_name: Optional[str] = Non
     return pur.item_history(db, item_code=item_code, item_name=item_name, start=_pd(start), end=_pd(end))
 
 
+@router.get("/records/price-tracker")
+def price_tracker(start: str, end: str, mclass: Optional[str] = None,
+                  vendor: Optional[str] = None, q: Optional[str] = None,
+                  min_lines: int = Query(1, ge=1), sort: str = "abs_change",
+                  db: Session = Depends(get_db)):
+    """품목별 매입 단가 변동 개요 — 기간 내 최초/최근/최저/최고 단가 + 변동률."""
+    s, e = _pd(start), _pd(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 날짜가 필요합니다.")
+    return pur.price_tracker(db, s, e, mclass=mclass, vendor=vendor, q=q,
+                             min_lines=min_lines, sort=sort)
+
+
 # ── 발주서 이메일 발행 ──
 @router.post("/orders/{pid}/issue")
 def issue_order(pid: int, to: Optional[str] = Query(None), db: Session = Depends(get_db), user: dict = Depends(get_current_user)):

@@ -486,6 +486,101 @@ def item_history(db: Session, item_code=None, item_name=None, start=None, end=No
     }
 
 
+def price_tracker(db: Session, start: date, end: date,
+                  mclass: Optional[str] = None, vendor: Optional[str] = None,
+                  q: Optional[str] = None, min_lines: int = 1,
+                  sort: str = "abs_change") -> dict:
+    """기간 내 품목별 매입 단가 변동 개요.
+
+    품목(item_code 우선, 없으면 item_name)별로 기간 내 최초/최근 단가, 최저/최고,
+    가중평균(공급가÷수량), 변동률(최근÷최초)을 집계. 단가 상승/하락 품목을 한눈에.
+    · 단가는 행별 unit_price(공급가/수량 아님)를 사용하되, 0/음수는 제외.
+    · 매입 시점이 여럿이면 최초=기간 첫 매입일 단가, 최근=마지막 매입일 단가.
+    """
+    qry = db.query(PurchaseRecord).filter(
+        PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end,
+    )
+    if mclass:
+        qry = qry.filter(PurchaseRecord.mclass == _mclass_norm(mclass))
+    if vendor:
+        qry = qry.filter(PurchaseRecord.vendor_name == vendor)
+    if q:
+        like = f"%{q}%"
+        qry = qry.filter(
+            (PurchaseRecord.item_name.ilike(like)) | (PurchaseRecord.item_code.ilike(like))
+        )
+    rows = qry.order_by(PurchaseRecord.pdate, PurchaseRecord.seq).all()
+
+    items: dict = {}
+    for r in rows:
+        key = (r.item_code or "").strip() or (r.item_name or "").strip()
+        if not key:
+            continue
+        it = items.setdefault(key, {
+            "item_code": r.item_code, "item_name": r.item_name,
+            "mclass": r.mclass, "points": [], "vendors": set(),
+            "total_qty": 0.0, "total_supply": 0.0,
+        })
+        it["total_qty"] += (r.qty or 0)
+        it["total_supply"] += (r.supply_amount or 0)
+        if r.vendor_name:
+            it["vendors"].add(r.vendor_name)
+        up = r.unit_price or 0
+        if up > 0 and r.pdate:
+            it["points"].append((r.pdate, up, r.vendor_name))
+
+    out = []
+    for key, it in items.items():
+        pts = it["points"]
+        if len(pts) < min_lines:
+            continue
+        if not pts:
+            continue
+        prices = [p for _, p, _ in pts]
+        first_d, first_p, _ = pts[0]
+        last_d, last_p, _ = pts[-1]
+        lo, hi = min(prices), max(prices)
+        wavg = (it["total_supply"] / it["total_qty"]) if it["total_qty"] else None
+        change = (last_p - first_p)
+        change_pct = (change / first_p * 100) if first_p else None
+        spread_pct = ((hi - lo) / lo * 100) if lo else None
+        out.append({
+            "item_code": it["item_code"], "item_name": it["item_name"],
+            "mclass": it["mclass"], "vendor_count": len(it["vendors"]),
+            "vendors": sorted(it["vendors"])[:5],
+            "buy_count": len(pts),
+            "first_date": first_d.isoformat(), "first_price": round(first_p, 2),
+            "last_date": last_d.isoformat(), "last_price": round(last_p, 2),
+            "min_price": round(lo, 2), "max_price": round(hi, 2),
+            "avg_price": round(wavg, 2) if wavg is not None else None,
+            "change": round(change, 2),
+            "change_pct": round(change_pct, 1) if change_pct is not None else None,
+            "spread_pct": round(spread_pct, 1) if spread_pct is not None else None,
+            "total_qty": round(it["total_qty"], 1),
+            "total_supply": round(it["total_supply"]),
+        })
+
+    keyfn = {
+        "abs_change": lambda x: -abs(x["change_pct"] or 0),
+        "change_desc": lambda x: -(x["change_pct"] or 0),
+        "change_asc": lambda x: (x["change_pct"] or 0),
+        "spread": lambda x: -(x["spread_pct"] or 0),
+        "supply": lambda x: -(x["total_supply"] or 0),
+        "name": lambda x: (x["item_name"] or ""),
+    }.get(sort, lambda x: -abs(x["change_pct"] or 0))
+    out.sort(key=keyfn)
+
+    rising = [x for x in out if (x["change_pct"] or 0) > 0]
+    falling = [x for x in out if (x["change_pct"] or 0) < 0]
+    return {
+        "start": start.isoformat(), "end": end.isoformat(),
+        "item_count": len(out),
+        "rising_count": len(rising), "falling_count": len(falling),
+        "flat_count": len(out) - len(rising) - len(falling),
+        "items": out,
+    }
+
+
 def req_vs_actual(db: Session, start: date, end: date, top: int = 40) -> dict:
     """생산 BOM 이론소요 vs 실제 구매를 품목(erp_code)별로 대조 — 히트맵/비교용.
 

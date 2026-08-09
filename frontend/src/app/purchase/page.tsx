@@ -43,7 +43,7 @@ interface MatReq { materials: { type: string; name: string; erp_code: string; qt
 interface Vendor { id: number; name: string; biz_no: string; contact: string; phone: string; email: string; category: string; lead_time_days: number; is_active: boolean; raw_materials: number; sub_materials: number; }
 interface PO { id: number; po_no: string; vendor_id: number; vendor_name: string; order_date: string; expected_date: string; status: string; total_amount: number; line_count: number; lines: any[]; }
 
-type Tab = '실적 대시보드' | '실적 조회' | '원부재료 소요' | '거래처' | '발주';
+type Tab = '실적 대시보드' | '실적 조회' | '단가 추이' | '원부재료 소요' | '거래처' | '발주';
 
 export default function PurchasePage() {
   const { user, isLoading } = useAuth();
@@ -51,7 +51,7 @@ export default function PurchasePage() {
   const [tab, setTab] = useState<Tab>('실적 대시보드');
   useEffect(() => { if (!isLoading && !user) router.replace('/login'); }, [isLoading, user, router]);
   if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
-  const tabs: Tab[] = ['실적 대시보드', '실적 조회', '원부재료 소요', '거래처', '발주'];
+  const tabs: Tab[] = ['실적 대시보드', '실적 조회', '단가 추이', '원부재료 소요', '거래처', '발주'];
   return (
     <div className="min-h-screen bg-bg-0">
       <Navigation />
@@ -60,6 +60,7 @@ export default function PurchasePage() {
         <div className="flex gap-1 mb-5 border-b border-border-primary overflow-x-auto">{tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap ${tab === t ? 'border-brand text-accent' : 'border-transparent text-text-tertiary hover:text-text-secondary'}`}>{t}</button>)}</div>
         {tab === '실적 대시보드' && <DashTab />}
         {tab === '실적 조회' && <RecordsTab />}
+        {tab === '단가 추이' && <PriceTab />}
         {tab === '원부재료 소요' && <MatTab />}
         {tab === '거래처' && <VendorTab />}
         {tab === '발주' && <POTab />}
@@ -298,6 +299,88 @@ function HistoryModal({ hist, onClose }: { hist: any; onClose: () => void }) {
         <div className="overflow-x-auto"><table className="w-full"><thead><tr><th className={C.th}>{isVendor ? '품목' : '거래처'}</th>{isVendor && <th className={C.th}>수량</th>}<th className={C.th}>구매액</th></tr></thead>
           <tbody>{(isVendor ? hist.by_item : hist.by_vendor || []).slice(0, 20).map((x: any, i: number) => (<tr key={i}><td className={`${C.td} text-text-secondary`}>{isVendor ? x.item_name : x.vendor}</td>{isVendor && <td className={C.td}>{fmt(x.qty)}</td>}<td className={`${C.td} text-warning`}>{won(x.supply)}</td></tr>))}</tbody></table></div>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 단가 추이 — 품목별 매입단가 변동 개요
+// ─────────────────────────────────────────────
+const SORTS: { k: string; label: string }[] = [
+  { k: 'abs_change', label: '변동폭 큰순' },
+  { k: 'change_desc', label: '상승률순' },
+  { k: 'change_asc', label: '하락률순' },
+  { k: 'spread', label: '가격편차순' },
+  { k: 'supply', label: '구매액순' },
+  { k: 'name', label: '품목명순' },
+];
+function pctTone(p: number | null) { if (p == null) return 'text-text-quaternary'; if (p > 0) return 'text-danger'; if (p < 0) return 'text-info'; return 'text-text-tertiary'; }
+function pctStr(p: number | null) { if (p == null) return '-'; const s = p > 0 ? '▲' : p < 0 ? '▼' : '='; return `${s} ${Math.abs(p).toFixed(1)}%`; }
+
+function PriceTab() {
+  const [range, setRange] = useState({ start: '2025-01-01', end: iso(new Date()) });
+  const [ap, setAp] = useState(range);
+  const [mclass, setMclass] = useState('');
+  const [q, setQ] = useState('');
+  const [minLines, setMinLines] = useState(2);
+  const [sort, setSort] = useState('abs_change');
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [hist, setHist] = useState<any>(null);
+  const load = useCallback(async () => {
+    setLoading(true);
+    const p = new URLSearchParams({ start: ap.start, end: ap.end, min_lines: String(minLines), sort });
+    if (mclass) p.set('mclass', mclass);
+    if (q) p.set('q', q);
+    setData(await getJSON<any>(`/purchase/records/price-tracker?${p.toString()}`, null));
+    setLoading(false);
+  }, [ap, mclass, q, minLines, sort]);
+  useEffect(() => { load(); }, [load]);
+  const openItem = async (code: string, name: string) => setHist({ type: 'item', ...(await getJSON<any>(`/purchase/records/item-history?item_code=${encodeURIComponent(code || '')}&item_name=${encodeURIComponent(name || '')}&start=${ap.start}&end=${ap.end}`, {})) });
+  const items = data?.items || [];
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <RangeBar range={range} setRange={setRange} />
+        <button onClick={() => setAp({ ...range })} className={`${C.btn} ${C.btnPrimary} ${(range.start !== ap.start || range.end !== ap.end) ? 'ring-2 ring-brand/50' : ''}`}>조회</button>
+        <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·거래처 검색" className={`${C.input} w-44`} />
+        <label className="text-xs text-text-tertiary flex items-center gap-1">최소 매입<select value={minLines} onChange={(e) => setMinLines(Number(e.target.value))} className={C.input}>{[1, 2, 3, 5].map((n) => <option key={n} value={n}>{n}회+</option>)}</select></label>
+        <select value={sort} onChange={(e) => setSort(e.target.value)} className={`${C.input} ml-auto`}>{SORTS.map((s) => <option key={s.k} value={s.k}>{s.label}</option>)}</select>
+      </div>
+      <p className="text-xs text-text-quaternary">기간 내 각 품목의 <b className="text-text-tertiary">매입 단가(공급가÷수량 아님, 전표상 단가)</b> 최초→최근 변동입니다. 상승=<span className="text-danger">빨강</span>, 하락=<span className="text-info">파랑</span>. 행 클릭 시 단가 추이 그래프.</p>
+      {data && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard label="대상 품목" value={fmt(data.item_count)} sub={`${ap.start} ~ ${ap.end}`} />
+        <StatCard label="단가 상승" value={fmt(data.rising_count)} tone="text-danger" />
+        <StatCard label="단가 하락" value={fmt(data.falling_count)} tone="text-info" />
+        <StatCard label="보합" value={fmt(data.flat_count)} tone="text-text-tertiary" />
+      </div>}
+      <div className={`${C.card} overflow-x-auto relative`}>
+        {loading && <div className="absolute inset-0 bg-bg-0/40 z-10" />}
+        <table className="w-full">
+          <thead><tr>
+            <th className={C.th}>품목</th><th className={C.th}>구분</th><th className={`${C.th} text-right`}>매입</th>
+            <th className={`${C.th} text-right`}>최초단가</th><th className={`${C.th} text-right`}>최근단가</th>
+            <th className={`${C.th} text-right`}>변동률</th><th className={`${C.th} text-right`}>최저~최고</th>
+            <th className={`${C.th} text-right`}>편차</th><th className={`${C.th} text-right`}>가중평균</th><th className={`${C.th} text-right`}>누적공급가</th>
+          </tr></thead>
+          <tbody>{!items.length ? <tr><td colSpan={10} className="p-6 text-center text-text-quaternary text-sm">{loading ? '조회 중…' : '데이터 없음'}</td></tr> : items.map((it: any, i: number) => (
+            <tr key={i} className="hover:bg-bg-1 cursor-pointer" onClick={() => openItem(it.item_code, it.item_name)}>
+              <td className={`${C.td} text-text-primary max-w-[280px] truncate`} title={it.item_name}>{it.item_name}{it.vendor_count > 1 && <span className="text-text-quaternary text-[11px] ml-1">·{it.vendor_count}처</span>}</td>
+              <td className={C.td}><span className={it.mclass === '원재료' ? 'text-info' : 'text-warning'}>{it.mclass || '-'}</span></td>
+              <td className={`${C.td} text-right tabular-nums`}>{it.buy_count}회</td>
+              <td className={`${C.td} text-right tabular-nums`}>{won(it.first_price)}<div className="text-[10px] text-text-quaternary">{it.first_date?.slice(2)}</div></td>
+              <td className={`${C.td} text-right tabular-nums text-text-primary`}>{won(it.last_price)}<div className="text-[10px] text-text-quaternary">{it.last_date?.slice(2)}</div></td>
+              <td className={`${C.td} text-right tabular-nums font-semibold ${pctTone(it.change_pct)}`}>{pctStr(it.change_pct)}</td>
+              <td className={`${C.td} text-right tabular-nums text-text-tertiary text-xs`}>{won(it.min_price)}~{won(it.max_price)}</td>
+              <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{it.spread_pct != null ? `${it.spread_pct.toFixed(0)}%` : '-'}</td>
+              <td className={`${C.td} text-right tabular-nums`}>{it.avg_price != null ? won(it.avg_price) : '-'}</td>
+              <td className={`${C.td} text-right tabular-nums text-warning`}>{wonShort(it.total_supply)}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      {hist && <HistoryModal hist={hist} onClose={() => setHist(null)} />}
     </div>
   );
 }
