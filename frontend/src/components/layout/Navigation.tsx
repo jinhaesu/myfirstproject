@@ -32,7 +32,6 @@ const navGroups: NavGroup[] = [
     icon: 'sales',
     pathPrefix: ['/', '/channels', '/settlement'],
     items: [
-      { href: '/', label: 'AI 분류', icon: 'chat' },
       { href: '/channels', label: '채널별 매출 취합', icon: 'channel' },
       { href: '/settlement', label: '월별 결산', icon: 'settlement' },
       { href: '/contribution-margin', label: '공헌이익 시뮬레이션', icon: 'simulation' },

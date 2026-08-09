@@ -21,6 +21,7 @@ const SUGGESTIONS = [
 export function FloatingAssistant() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [showBubble, setShowBubble] = useState(true);
   const { messages, isLoading, error, sendMessage, clearMessages } = useChat({ omni: true });
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -28,22 +29,41 @@ export function FloatingAssistant() {
     if (open) endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, open, isLoading]);
 
+  // 방문 시 기본 안내 말풍선 — 12초 후 자동 사라짐
+  useEffect(() => {
+    if (!showBubble) return;
+    const t = setTimeout(() => setShowBubble(false), 12000);
+    return () => clearTimeout(t);
+  }, [showBubble]);
+
   if (!user) return null; // 로그인 사용자에게만 노출
 
   return (
     <>
-      {/* 플로팅 버튼 */}
+      {/* 플로팅 버튼 + 기본 안내 말풍선 */}
       {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          aria-label="AI 매출 분석 열기"
-          className="fixed bottom-6 right-6 z-[60] w-16 h-16 rounded-full bg-gradient-to-br from-brand to-brand-hover text-white shadow-[0px_8px_28px_rgba(0,0,0,0.4)] flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
-        >
-          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-          <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-success text-[9px] font-bold text-white shadow">AI</span>
-        </button>
+        <div className="fixed bottom-6 right-6 z-[60] flex items-end gap-2.5">
+          {showBubble && (
+            <div className="relative mb-1 max-w-[260px]">
+              <div className="rounded-2xl rounded-br-sm bg-bg-1 border border-border-primary shadow-[0px_8px_28px_rgba(0,0,0,0.35)] px-3.5 py-2.5">
+                <button onClick={() => setShowBubble(false)} className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-bg-inset border border-border-primary text-text-tertiary hover:text-text-primary flex items-center justify-center text-xs" aria-label="닫기">×</button>
+                <p className="text-[13px] leading-snug text-text-secondary">AI에게 복합적으로 궁금한 <b className="text-text-primary">데이터 분석</b>을 물어보세요.</p>
+              </div>
+              {/* 꼬리 */}
+              <div className="absolute -bottom-1.5 right-3 w-3 h-3 bg-bg-1 border-b border-r border-border-primary rotate-45" />
+            </div>
+          )}
+          <button
+            onClick={() => { setOpen(true); setShowBubble(false); }}
+            aria-label="전사 AI 비서 열기"
+            className="w-16 h-16 rounded-full bg-gradient-to-br from-brand to-brand-hover text-white shadow-[0px_8px_28px_rgba(0,0,0,0.4)] flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shrink-0"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-success text-[9px] font-bold text-white shadow">AI</span>
+          </button>
+        </div>
       )}
 
       {/* 채팅 패널 */}

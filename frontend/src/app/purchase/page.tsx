@@ -370,12 +370,34 @@ function PriceTab() {
         <select value={sort} onChange={(e) => setSort(e.target.value)} className={`${C.input} ml-auto`}>{SORTS.map((s) => <option key={s.k} value={s.k}>{s.label}</option>)}</select>
       </div>
       <p className="text-xs text-text-quaternary">기간 내 각 품목의 <b className="text-text-tertiary">매입 단가(전표상 단가, 품목×단위별)</b> 최초→최근 변동입니다. 상승=<span className="text-danger">빨강</span>, 하락=<span className="text-info">파랑</span>. 점/행 클릭 시 단가 추이 그래프.</p>
-      {data && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="대상 품목" value={fmt(items.length)} sub={`${range.start} ~ ${range.end}`} />
-        <StatCard label="단가 상승" value={fmt(rising.length)} tone="text-danger" />
-        <StatCard label="단가 하락" value={fmt(falling.length)} tone="text-info" />
-        <StatCard label="보합" value={fmt(flat.length)} tone="text-text-tertiary" />
-      </div>}
+      {data && <>
+        {/* 기간 총 단가효과 (인하 절감 − 인상 부담) — 총액 관점 순효과 */}
+        <div className={`${C.card} p-4 border-l-4 ${(data.net_savings ?? 0) >= 0 ? 'border-l-success' : 'border-l-danger'}`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] text-text-tertiary mb-1">기간 총 단가효과 (인하 절감 − 인상 부담) · 발주량 가중</div>
+              <div className={`text-2xl font-bold tabular-nums ${(data.net_savings ?? 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+                {(data.net_savings ?? 0) >= 0 ? '▼ 절감 ' : '▲ 부담 '}{won(Math.abs(data.net_savings || 0))}
+              </div>
+              <div className="text-xs text-text-quaternary mt-1">
+                {(data.net_savings ?? 0) >= 0 ? '인하분이 인상분보다 커서 총액상 원가 절감 우위' : '인상분이 인하분보다 커서 총액상 원가 부담 우위'}
+                <span className="text-text-tertiary"> · {range.start}~{range.end}</span>
+                {data.excluded_outliers > 0 && <span className="text-warning"> · 단가 오기입 의심 {fmt(data.excluded_outliers)}건(변동률 ±{data.outlier_pct}% 초과) 집계 제외</span>}
+              </div>
+            </div>
+            <div className="flex gap-6">
+              <div className="text-right"><div className="text-[11px] text-info mb-0.5">인하 절감액</div><div className="text-lg font-bold tabular-nums text-info">−{wonShort(data.savings_amount || 0)}</div><div className="text-[10px] text-text-quaternary">{fmt(data.falling_count)}품목</div></div>
+              <div className="text-right"><div className="text-[11px] text-danger mb-0.5">인상 부담액</div><div className="text-lg font-bold tabular-nums text-danger">+{wonShort(data.increase_amount || 0)}</div><div className="text-[10px] text-text-quaternary">{fmt(data.rising_count)}품목</div></div>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="대상 품목" value={fmt(items.length)} sub={`${range.start} ~ ${range.end}`} />
+          <StatCard label="단가 상승" value={fmt(rising.length)} tone="text-danger" />
+          <StatCard label="단가 하락" value={fmt(falling.length)} tone="text-info" />
+          <StatCard label="보합" value={fmt(flat.length)} tone="text-text-tertiary" />
+        </div>
+      </>}
 
       {/* 점도표 — 단가 변동률 분포 (x=변동률, y=누적공급가, 점크기=매입횟수) */}
       <div className={`${C.card} p-4 relative`}>

@@ -2,48 +2,22 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChatContainer } from '@/components/chat/ChatContainer';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigation } from '@/components/layout/Navigation';
 
+// '/' 는 더 이상 AI 챗 페이지가 아니다 (AI는 우측 하단 플로팅 비서로만 사용).
+// 로그인 상태면 매출 취합으로, 아니면 로그인으로 리다이렉트.
 export default function Home() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
-  // 로그인 확인
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, authLoading, router]);
-
-  // 로딩 중
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
-          <p className="text-text-tertiary">로딩 중...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // 로그인 안됨
-  if (!user) {
-    return null;
-  }
+    if (isLoading) return;
+    router.replace(user ? '/channels' : '/login');
+  }, [user, isLoading, router]);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0">
-      <Navigation />
-
-      {/* 메인 콘텐츠 — 채팅 전면 */}
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        <div className="h-[calc(100vh-140px)]">
-          <ChatContainer />
-        </div>
-      </div>
-    </main>
+    <div className="min-h-screen bg-bg-0 flex items-center justify-center">
+      <div className="w-10 h-10 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+    </div>
   );
 }

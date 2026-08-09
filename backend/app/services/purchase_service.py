@@ -548,6 +548,8 @@ def price_tracker(db: Session, start: date, end: date,
         change = (last_p - first_p)
         change_pct = (change / first_p * 100) if first_p else None
         spread_pct = ((hi - lo) / lo * 100) if lo else None
+        # 단가효과(총액) = 단가변동분 × 기간 발주량. +면 인상 부담, −면 인하 절감.
+        cost_impact = change * it["total_qty"]
         out.append({
             "item_code": it["item_code"], "item_name": it["item_name"],
             "mclass": it["mclass"], "unit": it["unit"], "vendor_count": len(it["vendors"]),
@@ -562,6 +564,7 @@ def price_tracker(db: Session, start: date, end: date,
             "spread_pct": round(spread_pct, 1) if spread_pct is not None else None,
             "total_qty": round(it["total_qty"], 1),
             "total_supply": round(it["total_supply"]),
+            "cost_impact": round(cost_impact),
         })
 
     keyfn = {
@@ -576,11 +579,30 @@ def price_tracker(db: Session, start: date, end: date,
 
     rising = [x for x in out if (x["change_pct"] or 0) > 0]
     falling = [x for x in out if (x["change_pct"] or 0) < 0]
+    # 기간 총 단가효과(총액) = Σ인하절감액 − Σ인상부담액.
+    #   인하절감액 = Σ(각 인하품목 발주량 × 인하분),  인상부담액 = Σ(각 인상품목 발주량 × 인상분)
+    #   net_savings ≥ 0 이면 인하가 인상보다 커서 총액상 원가절감(유리).
+    # ⚠️ 단가효과는 (단가변동 × 발주량)이라 전표 단가 오기입(단위기준 혼재: kg↔box 등)이
+    #    있으면 수억~수백억으로 폭증한다. |변동률| > OUTLIER_PCT 는 실제 가격변동이 아니라
+    #    입력오류로 보고 순효과 집계에서 제외한다(품목 표에는 그대로 노출).
+    OUTLIER_PCT = 200.0
+    def _sane(x):
+        cp = x["change_pct"]
+        return cp is not None and abs(cp) <= OUTLIER_PCT
+    savings_amount = sum(-x["cost_impact"] for x in falling if _sane(x))   # 인하분(양수)
+    increase_amount = sum(x["cost_impact"] for x in rising if _sane(x))    # 인상분(양수)
+    net_savings = savings_amount - increase_amount
+    excluded_outliers = sum(1 for x in out if x["change_pct"] is not None and abs(x["change_pct"]) > OUTLIER_PCT)
     return {
         "start": start.isoformat(), "end": end.isoformat(),
         "item_count": len(out),
         "rising_count": len(rising), "falling_count": len(falling),
         "flat_count": len(out) - len(rising) - len(falling),
+        "savings_amount": round(savings_amount),      # 인하 총 절감액 (이상치 제외)
+        "increase_amount": round(increase_amount),    # 인상 총 부담액 (이상치 제외)
+        "net_savings": round(net_savings),            # 순효과(인하−인상). ≥0=절감 우세
+        "outlier_pct": OUTLIER_PCT,                   # 순효과 집계 제외 기준(|변동률|%)
+        "excluded_outliers": excluded_outliers,       # 제외된 이상치 품목수
         "items": out,
     }
 
