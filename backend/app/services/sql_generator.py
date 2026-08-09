@@ -95,9 +95,10 @@ class SQLGenerator:
         question: str,
         sql: str,
         rows: list[dict[str, Any]],
-        row_count: int
+        row_count: int,
+        system: str = RESULT_EXPLANATION_SYSTEM,
     ) -> str:
-        """쿼리 결과를 자연어로 설명"""
+        """쿼리 결과를 자연어로 설명. system을 넘기면 설명 스타일을 교체한다."""
         sample_count = min(len(rows), 50)
         sample_rows = rows[:sample_count]
         results_text = json.dumps(sample_rows, ensure_ascii=False, indent=2, default=str)
@@ -110,7 +111,7 @@ class SQLGenerator:
             row_count=row_count
         )
 
-        return self.llm.generate(prompt, system=RESULT_EXPLANATION_SYSTEM, max_tokens=8192)
+        return self.llm.generate(prompt, system=system, max_tokens=8192)
 
     def _clean_sql(self, sql: str) -> str:
         """SQL에서 불필요한 요소 제거"""

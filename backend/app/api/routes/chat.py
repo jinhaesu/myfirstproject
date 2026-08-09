@@ -14,12 +14,26 @@ router = APIRouter()
 
 MAX_SQL_RETRIES = 2
 
+# 전사 비서 전용 설명 스타일 — 마크다운/기호 없이 사람이 말하듯 평문으로.
+OMNI_EXPLANATION_SYSTEM = (
+    "당신은 조인앤조인의 데이터 분석 비서입니다. 조회된 데이터를 바탕으로 한국어 평문으로 "
+    "간결하게 설명하세요.\n"
+    "반드시 지킬 것:\n"
+    "- 표(|), 별표(*), 우물정(#), 불릿(-, •) 같은 마크다운/특수기호를 절대 쓰지 말 것. "
+    "AI 티가 나는 서식을 배제하고, 사람이 대화하듯 문장으로만 답하세요.\n"
+    "- 숫자는 천단위 콤마와 '원/개' 등 단위를 붙여 읽기 쉽게. 금액은 공급가(부가세 별도) 기준.\n"
+    "- 나열이 필요하면 줄바꿈으로 '항목: 값' 형태의 짧은 문장을 쓰되 기호는 붙이지 말 것.\n"
+    "- 핵심 결론을 먼저, 그다음 근거 수치를 간단히. 불필요한 상투어 없이.\n"
+    "- 데이터로 확인되지 않는 내용은 지어내지 말 것."
+)
+
 
 def _run_chat(
     question: str,
     schema_text: str,
     sql_gen: SQLGenerator,
     blocked_tables: tuple[str, ...] = (),
+    explain_system: str = None,
 ) -> ChatResponse:
     """자연어 질문 → SQL 생성 → 실행(실패 시 자동 수정 재시도) → 결과 설명.
 
@@ -56,8 +70,9 @@ def _run_chat(
         if last_error is not None:
             raise last_error
 
+        explain_kwargs = {"system": explain_system} if explain_system else {}
         explanation = sql_gen.explain_results(
-            question=question, sql=sql, rows=rows, row_count=len(rows)
+            question=question, sql=sql, rows=rows, row_count=len(rows), **explain_kwargs
         )
         return ChatResponse(
             question=question, sql=sql, explanation=explanation,
@@ -103,4 +118,5 @@ async def chat_omni(
         get_omni_schema_text(),
         sql_gen,
         blocked_tables=BOM_BLOCKED_TABLES,
+        explain_system=OMNI_EXPLANATION_SYSTEM,
     )

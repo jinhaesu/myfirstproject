@@ -1657,6 +1657,8 @@ class PurchaseRecord(Base):
     vat = Column(Float, default=0)
     total_amount = Column(Float, default=0)                  # 합계(VAT포함)
     note = Column(String(300), nullable=True)                # 적요
+    source = Column(String(20), default="import", index=True)  # import=엑셀/시트 적재, manual=화면 직접입력
+    created_by = Column(String(200), nullable=True)          # 수동입력자 이메일
     created_at = Column(DateTime, default=func.now())
 
 

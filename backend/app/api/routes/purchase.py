@@ -157,6 +157,42 @@ def ingest_records(body: RecordsIn, db: Session = Depends(get_db), user: dict = 
     return pur.ingest_records(db, body.rows)
 
 
+class ManualRecordIn(BaseModel):
+    pdate: str
+    seq: int = 0
+    warehouse: Optional[str] = None
+    vendor: Optional[str] = None
+    mclass: Optional[str] = None
+    staff: Optional[str] = None
+    item_code: Optional[str] = None
+    item_name: Optional[str] = None
+    unit: Optional[str] = "ea"
+    qty: float = 0
+    unit_price: float = 0
+    supply: Optional[float] = None
+    vat: Optional[float] = None
+    total: Optional[float] = None
+    note: Optional[str] = None
+
+
+@router.post("/records/manual")
+def add_manual_record(body: ManualRecordIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    res = pur.add_manual_record(db, body.model_dump(), user=user.get("email"))
+    if not res.get("ok"):
+        raise HTTPException(400, res.get("msg") or "실패")
+    return res
+
+
+@router.get("/records/manual-recent")
+def manual_recent(limit: int = 30, db: Session = Depends(get_db)):
+    return pur.manual_recent(db, limit=limit)
+
+
+@router.delete("/records/{rec_id}")
+def delete_record(rec_id: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return pur.delete_record(db, rec_id)
+
+
 @router.delete("/records")
 def purge_records(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     return pur.purge_records(db)

@@ -292,6 +292,64 @@ def ingest_records(db: Session, rows: list[dict]) -> dict:
     return {"added": added, "skipped": skipped, "total_in_db": db.query(func.count(PurchaseRecord.id)).scalar()}
 
 
+def add_manual_record(db: Session, r: dict, user: Optional[str] = None) -> dict:
+    """화면에서 구매 실적 1건 직접 입력. 공급가/합계는 비어 있으면 자동계산."""
+    try:
+        pd = date.fromisoformat(str(r.get("pdate"))[:10])
+    except Exception:
+        return {"ok": False, "msg": "일자(pdate) 형식 오류"}
+    if not (r.get("item_name") or r.get("item_code")):
+        return {"ok": False, "msg": "품목명 또는 품목코드는 필수입니다"}
+    qty = float(r.get("qty") or 0)
+    unit_price = float(r.get("unit_price") or 0)
+    supply = float(r.get("supply") or 0) or round(qty * unit_price)
+    # vat: 명시적으로 넘어오면(0 포함) 존중, 없으면 공급가의 10%
+    vat = r.get("vat")
+    vat = float(vat) if vat not in (None, "") else round(supply * 0.1)
+    total = float(r.get("total") or 0) or round(supply + vat)
+    rec = PurchaseRecord(
+        row_hash=_rec_hash({"pdate": pd.isoformat(), "seq": r.get("seq") or 0,
+                            "item_code": r.get("item_code"), "item_name": r.get("item_name"),
+                            "supply": supply, "total": total, "qty": qty}),
+        pdate=pd, seq=int(r.get("seq") or 0),
+        warehouse=(r.get("warehouse") or "")[:100],
+        vendor_name=(r.get("vendor") or "")[:200],
+        mclass=_mclass_norm(r.get("mclass")),
+        staff=(r.get("staff") or "")[:50],
+        item_code=(str(r.get("item_code") or ""))[:50],
+        item_name=(r.get("item_name") or "")[:400],
+        unit=(r.get("unit") or "")[:30],
+        qty=qty, unit_price=unit_price, supply_amount=supply, vat=vat,
+        total_amount=total, note=(r.get("note") or "")[:300],
+        source="manual", created_by=user,
+    )
+    # 동일 전표 중복 방지
+    if db.query(PurchaseRecord.id).filter(PurchaseRecord.row_hash == rec.row_hash).first():
+        return {"ok": False, "msg": "동일 내용의 구매 실적이 이미 있습니다(일자·품목·금액 중복)"}
+    db.add(rec); db.commit(); db.refresh(rec)
+    return {"ok": True, "id": rec.id, "supply": supply, "vat": vat, "total": total}
+
+
+def manual_recent(db: Session, limit: int = 30) -> dict:
+    """최근 화면 직접입력분(수동) 목록."""
+    q = (db.query(PurchaseRecord).filter(PurchaseRecord.source == "manual")
+         .order_by(PurchaseRecord.id.desc()).limit(limit).all())
+    return {"rows": [{
+        "id": x.id, "pdate": x.pdate.isoformat() if x.pdate else None, "seq": x.seq,
+        "warehouse": x.warehouse, "vendor": x.vendor_name, "mclass": x.mclass,
+        "staff": x.staff, "item_code": x.item_code, "item_name": x.item_name,
+        "unit": x.unit, "qty": x.qty, "unit_price": x.unit_price,
+        "supply": x.supply_amount, "vat": x.vat, "total": x.total_amount,
+        "note": x.note, "created_by": x.created_by,
+    } for x in q]}
+
+
+def delete_record(db: Session, rec_id: int) -> dict:
+    n = db.query(PurchaseRecord).filter(PurchaseRecord.id == rec_id).delete()
+    db.commit()
+    return {"ok": True, "deleted": n}
+
+
 def purge_records(db: Session) -> dict:
     n = db.query(PurchaseRecord).delete()
     db.commit()

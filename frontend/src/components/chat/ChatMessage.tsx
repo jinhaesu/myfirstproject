@@ -11,7 +11,7 @@ interface ChatMessageProps {
   message: Message;
 }
 
-const COLLAPSE_THRESHOLD = 500; // 글자 수 기준
+const COLLAPSE_THRESHOLD = 700; // 글자 수 기준 (이 이상이면 접기)
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
@@ -142,26 +142,26 @@ export function ChatMessage({ message }: ChatMessageProps) {
         <div className="relative">
           <div
             className={`text-[13px] whitespace-pre-wrap leading-relaxed break-words ${isUser ? '' : 'text-text-secondary'} ${
-              isLong && !expanded ? 'max-h-[300px] overflow-hidden' : ''
+              isLong && !expanded ? 'max-h-[260px] overflow-hidden' : ''
             }`}
           >
             {message.content}
           </div>
           {isLong && !expanded && (
-            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-bg-1 to-transparent pointer-events-none" />
+            <div className="absolute bottom-9 left-0 right-0 h-14 bg-gradient-to-t from-bg-1 to-transparent pointer-events-none" />
           )}
           {isLong && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="mt-1 text-xs font-medium text-link hover:text-accent flex items-center gap-1"
+              className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-accent bg-brand/10 hover:bg-brand/20 border border-brand/30 rounded-lg transition-colors"
             >
               <svg
-                className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
-              {expanded ? '접기' : '더보기'}
+              {expanded ? '접기' : '전체 보기'}
             </button>
           )}
         </div>

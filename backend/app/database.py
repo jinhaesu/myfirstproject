@@ -170,6 +170,20 @@ def init_db():
         except Exception:
             pass
 
+        # 구매일보 수동입력 구분 컬럼 (import=엑셀/시트 적재, manual=화면 직접입력)
+        try:
+            from sqlalchemy import text
+            with engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE purchase_record ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'import'"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE purchase_record ADD COLUMN IF NOT EXISTS created_by VARCHAR(200)"
+                ))
+                conn.commit()
+        except Exception:
+            pass
+
         # CSA 변동비 분해 컬럼 (기존 daily_product 테이블에 추가)
         try:
             from sqlalchemy import text
