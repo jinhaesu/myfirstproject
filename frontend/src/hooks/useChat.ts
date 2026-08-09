@@ -5,7 +5,8 @@ import { api } from '@/lib/api';
 import { generateId } from '@/lib/utils';
 import type { Message } from '@/types';
 
-export function useChat() {
+export function useChat(options?: { omni?: boolean }) {
+  const omni = options?.omni ?? false;
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,7 @@ export function useChat() {
       setMessages((prev) => [...prev, userMessage]);
 
       try {
-        const response = await api.chat({ question });
+        const response = omni ? await api.chatOmni({ question }) : await api.chat({ question });
 
         // 응답 유효성 검사
         const explanation = response.explanation || '결과를 가져왔습니다.';
@@ -62,7 +63,7 @@ export function useChat() {
         setIsLoading(false);
       }
     },
-    []
+    [omni]
   );
 
   const clearMessages = useCallback(() => {

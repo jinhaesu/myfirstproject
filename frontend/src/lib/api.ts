@@ -116,4 +116,12 @@ export const api = {
       body: JSON.stringify(request),
     });
   },
+
+  // 전사 통합 AI 비서 (Opus 5.0) — 매출·구매/원가·생산·물류·재고 전체
+  chatOmni: (request: ChatRequest): Promise<ChatResponse> => {
+    return fetchBackendDirect<ChatResponse>('/chat/omni', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  },
 };

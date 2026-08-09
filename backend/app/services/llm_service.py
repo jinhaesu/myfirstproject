@@ -4,10 +4,26 @@ import anthropic
 logger = logging.getLogger(__name__)
 
 
+def _text_from_response(response) -> str:
+    """응답 content 블록에서 텍스트만 이어붙인다.
+
+    Opus 5.0 등은 확장 사고(thinking)가 기본 활성화되어 content[0]가 ThinkingBlock일 수
+    있다. content[0].text를 바로 읽으면 'ThinkingBlock' object has no attribute 'text'로
+    실패하므로, type=='text'(또는 .text 속성 보유) 블록만 골라 합친다.
+    """
+    parts = []
+    for block in response.content:
+        if getattr(block, "type", None) == "text" or (
+            getattr(block, "type", None) is None and hasattr(block, "text")
+        ):
+            parts.append(block.text)
+    return "".join(parts)
+
+
 class LLMService:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, model: str = "claude-opus-4-8"):
         self.client = anthropic.Anthropic(api_key=api_key)
-        self.model = "claude-opus-4-8"
+        self.model = model
 
     def generate(self, prompt: str, system: str = "", max_tokens: int = 4096) -> str:
         """Claude API로 텍스트 생성"""
@@ -21,7 +37,7 @@ class LLMService:
                 kwargs["system"] = system
 
             response = self.client.messages.create(**kwargs)
-            text = response.content[0].text
+            text = _text_from_response(response)
 
             # max_tokens에서 잘렸으면 자동 이어쓰기
             if response.stop_reason == "max_tokens":
@@ -77,7 +93,7 @@ class LLMService:
                 kwargs["system"] = system
 
             response = self.client.messages.create(**kwargs)
-            chunk = response.content[0].text
+            chunk = _text_from_response(response)
             full_text += chunk
 
             if response.stop_reason != "max_tokens":

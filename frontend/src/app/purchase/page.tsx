@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie, Legend, ComposedChart } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie, Legend, ComposedChart, ScatterChart, Scatter, ZAxis, ReferenceLine } from 'recharts';
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -27,14 +27,18 @@ const thisMonth = () => { const n = new Date(); return { start: iso(new Date(n.g
 function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return <div className={`${C.card} p-4`}><div className="text-[11px] text-text-tertiary mb-1 truncate">{label}</div><div className={`text-lg font-bold tabular-nums ${tone || 'text-text-primary'}`}>{value}</div>{sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}</div>;
 }
+// 구매 관리 공통 기간 토글 — 프리셋 즉시 적용 + 날짜 직접 지정
 function RangeBar({ range, setRange }: { range: any; setRange: (r: any) => void }) {
+  const P = presets();
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-1.5">
+      {Object.keys(P).map((k) => {
+        const on = range.start === P[k].start && range.end === P[k].end;
+        return <button key={k} onClick={() => setRange({ ...range, ...P[k] })} className={`${C.btn} ${on ? C.btnPrimary : C.btnGhost}`}>{k}</button>;
+      })}
       <input type="date" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} className={C.input} />
       <span className="text-text-quaternary">~</span>
       <input type="date" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} className={C.input} />
-      <button onClick={() => setRange(thisMonth())} className={`${C.btn} ${C.btnGhost}`}>당월</button>
-      <button onClick={() => setRange({ start: '2025-01-01', end: iso(new Date()) })} className={`${C.btn} ${C.btnGhost}`}>전체</button>
     </div>
   );
 }
@@ -69,15 +73,30 @@ export default function PurchasePage() {
   );
 }
 
-// 기간 프리셋
+// 기간 프리셋 — 구매 관리 전 탭 공통 (금주/당월/전월/당분기/전분기/전년 + 올해/전체)
 const presets = () => {
   const n = new Date();
   const ym = (y: number, m: number, d: number) => iso(new Date(y, m, d));
+  const y = n.getFullYear(), m = n.getMonth();
+  // 금주: 월요일~일요일
+  const dow = n.getDay(); // 0=일..6=토
+  const monOffset = dow === 0 ? -6 : 1 - dow;
+  const mon = new Date(y, m, n.getDate() + monOffset);
+  const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
+  // 분기
+  const q = Math.floor(m / 3);          // 0..3
+  const qStart = q * 3;                 // 분기 시작월
+  const pq = q === 0 ? 3 : q - 1;       // 전분기
+  const pqYear = q === 0 ? y - 1 : y;
+  const pqStart = pq * 3;
   return {
-    당월: { start: ym(n.getFullYear(), n.getMonth(), 1), end: ym(n.getFullYear(), n.getMonth() + 1, 0) },
-    전월: { start: ym(n.getFullYear(), n.getMonth() - 1, 1), end: ym(n.getFullYear(), n.getMonth(), 0) },
-    '최근3개월': { start: ym(n.getFullYear(), n.getMonth() - 2, 1), end: iso(n) },
-    올해: { start: ym(n.getFullYear(), 0, 1), end: iso(n) },
+    금주: { start: iso(mon), end: iso(sun) },
+    당월: { start: ym(y, m, 1), end: ym(y, m + 1, 0) },
+    전월: { start: ym(y, m - 1, 1), end: ym(y, m, 0) },
+    당분기: { start: ym(y, qStart, 1), end: ym(y, qStart + 3, 0) },
+    전분기: { start: ym(pqYear, pqStart, 1), end: ym(pqYear, pqStart + 3, 0) },
+    전년: { start: ym(y - 1, 0, 1), end: ym(y - 1, 11, 31) },
+    올해: { start: ym(y, 0, 1), end: iso(n) },
     전체: { start: '2025-01-01', end: iso(n) },
   } as Record<string, { start: string; end: string }>;
 };
@@ -319,7 +338,6 @@ function pctStr(p: number | null) { if (p == null) return '-'; const s = p > 0 ?
 
 function PriceTab() {
   const [range, setRange] = useState({ start: '2025-01-01', end: iso(new Date()) });
-  const [ap, setAp] = useState(range);
   const [mclass, setMclass] = useState('');
   const [q, setQ] = useState('');
   const [minLines, setMinLines] = useState(2);
@@ -329,32 +347,64 @@ function PriceTab() {
   const [hist, setHist] = useState<any>(null);
   const load = useCallback(async () => {
     setLoading(true);
-    const p = new URLSearchParams({ start: ap.start, end: ap.end, min_lines: String(minLines), sort });
+    const p = new URLSearchParams({ start: range.start, end: range.end, min_lines: String(minLines), sort });
     if (mclass) p.set('mclass', mclass);
-    if (q) p.set('q', q);
     setData(await getJSON<any>(`/purchase/records/price-tracker?${p.toString()}`, null));
     setLoading(false);
-  }, [ap, mclass, q, minLines, sort]);
+  }, [range, mclass, minLines, sort]);
   useEffect(() => { load(); }, [load]);
-  const openItem = async (code: string, name: string) => setHist({ type: 'item', ...(await getJSON<any>(`/purchase/records/item-history?item_code=${encodeURIComponent(code || '')}&item_name=${encodeURIComponent(name || '')}&start=${ap.start}&end=${ap.end}`, {})) });
-  const items = data?.items || [];
+  const openItem = async (code: string, name: string) => setHist({ type: 'item', ...(await getJSON<any>(`/purchase/records/item-history?item_code=${encodeURIComponent(code || '')}&item_name=${encodeURIComponent(name || '')}&start=${range.start}&end=${range.end}`, {})) });
+  const allItems = data?.items || [];
+  const ql = q.trim().toLowerCase();
+  const items = ql ? allItems.filter((it: any) => (it.item_name || '').toLowerCase().includes(ql) || (it.item_code || '').toLowerCase().includes(ql)) : allItems;
+  // 점도표 데이터: x=변동률(%), y=누적공급가, 크기=매입횟수. 상승(빨강)/하락(파랑)/보합.
+  const scatter = items.filter((it: any) => it.change_pct != null).map((it: any) => ({ ...it, x: it.change_pct, y: it.total_supply, z: it.buy_count }));
+  const rising = scatter.filter((d: any) => d.x > 0), falling = scatter.filter((d: any) => d.x < 0), flat = scatter.filter((d: any) => d.x === 0);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <RangeBar range={range} setRange={setRange} />
-        <button onClick={() => setAp({ ...range })} className={`${C.btn} ${C.btnPrimary} ${(range.start !== ap.start || range.end !== ap.end) ? 'ring-2 ring-brand/50' : ''}`}>조회</button>
         <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·거래처 검색" className={`${C.input} w-44`} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·코드 검색" className={`${C.input} w-40`} />
         <label className="text-xs text-text-tertiary flex items-center gap-1">최소 매입<select value={minLines} onChange={(e) => setMinLines(Number(e.target.value))} className={C.input}>{[1, 2, 3, 5].map((n) => <option key={n} value={n}>{n}회+</option>)}</select></label>
         <select value={sort} onChange={(e) => setSort(e.target.value)} className={`${C.input} ml-auto`}>{SORTS.map((s) => <option key={s.k} value={s.k}>{s.label}</option>)}</select>
       </div>
-      <p className="text-xs text-text-quaternary">기간 내 각 품목의 <b className="text-text-tertiary">매입 단가(공급가÷수량 아님, 전표상 단가)</b> 최초→최근 변동입니다. 상승=<span className="text-danger">빨강</span>, 하락=<span className="text-info">파랑</span>. 행 클릭 시 단가 추이 그래프.</p>
+      <p className="text-xs text-text-quaternary">기간 내 각 품목의 <b className="text-text-tertiary">매입 단가(전표상 단가, 품목×단위별)</b> 최초→최근 변동입니다. 상승=<span className="text-danger">빨강</span>, 하락=<span className="text-info">파랑</span>. 점/행 클릭 시 단가 추이 그래프.</p>
       {data && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="대상 품목" value={fmt(data.item_count)} sub={`${ap.start} ~ ${ap.end}`} />
-        <StatCard label="단가 상승" value={fmt(data.rising_count)} tone="text-danger" />
-        <StatCard label="단가 하락" value={fmt(data.falling_count)} tone="text-info" />
-        <StatCard label="보합" value={fmt(data.flat_count)} tone="text-text-tertiary" />
+        <StatCard label="대상 품목" value={fmt(items.length)} sub={`${range.start} ~ ${range.end}`} />
+        <StatCard label="단가 상승" value={fmt(rising.length)} tone="text-danger" />
+        <StatCard label="단가 하락" value={fmt(falling.length)} tone="text-info" />
+        <StatCard label="보합" value={fmt(flat.length)} tone="text-text-tertiary" />
       </div>}
+
+      {/* 점도표 — 단가 변동률 분포 (x=변동률, y=누적공급가, 점크기=매입횟수) */}
+      <div className={`${C.card} p-4 relative`}>
+        {loading && <div className="absolute inset-0 bg-bg-0/40 z-10 rounded-xl" />}
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-sm font-semibold text-text-primary">단가 변동 점도표</div>
+          <div className="text-xs text-text-quaternary">x축 = 변동률(%) · y축 = 누적 공급가 · 점 크기 = 매입 횟수 · 점 클릭 = 상세</div>
+        </div>
+        {scatter.length > 0 ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
+              <XAxis type="number" dataKey="x" name="변동률" unit="%" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} domain={['dataMin', 'dataMax']} tickFormatter={(v) => `${Math.round(v)}%`} />
+              <YAxis type="number" dataKey="y" name="누적공급가" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} width={54} />
+              <ZAxis type="number" dataKey="z" range={[40, 400]} name="매입횟수" />
+              <ReferenceLine x={0} stroke="var(--color-text-quaternary)" strokeDasharray="4 4" />
+              <Tooltip contentStyle={TT} cursor={{ strokeDasharray: '3 3' }} formatter={(v: any, n: any) => n === '누적공급가' ? won(v) : n === '변동률' ? `${v}%` : v}
+                labelFormatter={() => ''} content={({ payload }: any) => {
+                  const d = payload?.[0]?.payload; if (!d) return null;
+                  return <div style={TT as any} className="p-2 text-xs"><div className="font-semibold text-text-primary mb-0.5">{d.item_name} <span className="text-text-quaternary">[{d.unit}]</span></div><div className={pctTone(d.change_pct)}>{pctStr(d.change_pct)} · {won(d.first_price)}→{won(d.last_price)}</div><div className="text-text-tertiary">누적 {won(d.total_supply)} · {d.buy_count}회</div></div>;
+                }} />
+              <Scatter name="상승" data={rising} fill="var(--color-danger)" fillOpacity={0.7} onClick={(d: any) => openItem(d.item_code, d.item_name)} cursor="pointer" />
+              <Scatter name="하락" data={falling} fill="var(--color-info)" fillOpacity={0.7} onClick={(d: any) => openItem(d.item_code, d.item_name)} cursor="pointer" />
+              <Scatter name="보합" data={flat} fill="var(--color-text-quaternary)" fillOpacity={0.6} onClick={(d: any) => openItem(d.item_code, d.item_name)} cursor="pointer" />
+            </ScatterChart>
+          </ResponsiveContainer>
+        ) : <div className="py-16 text-center text-text-quaternary text-sm">{loading ? '조회 중…' : '데이터 없음'}</div>}
+      </div>
+
       <div className={`${C.card} overflow-x-auto relative`}>
         {loading && <div className="absolute inset-0 bg-bg-0/40 z-10" />}
         <table className="w-full">

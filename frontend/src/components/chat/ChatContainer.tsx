@@ -25,7 +25,7 @@ export function ChatContainer() {
             </svg>
           </div>
           <div>
-            <h2 className="text-base font-bold text-text-primary">AI 매출 분석</h2>
+            <h2 className="text-base font-bold text-text-primary">AI 분류</h2>
             <p className="text-xs text-text-tertiary">
               <span className="font-semibold text-link">채널별 매출 취합</span> 업로드 데이터 기반
             </p>
