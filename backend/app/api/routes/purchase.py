@@ -374,3 +374,76 @@ def issue_order(pid: int, to: Optional[str] = Query(None), db: Session = Depends
         raise
     except Exception as e:
         raise HTTPException(500, f"발송 실패: {str(e)[:200]}")
+
+
+# ══════════════════════════════════════════════════════════════
+# 매입채무(AP) — 정산조건 / 지급 / aging / 자동완성
+# ══════════════════════════════════════════════════════════════
+
+@router.get("/suggest/vendors")
+def suggest_vendors(q: Optional[str] = None, limit: int = 30, db: Session = Depends(get_db)):
+    return {"vendors": pur.suggest_vendors(db, q=q, limit=limit)}
+
+
+@router.get("/suggest/items")
+def suggest_items(q: Optional[str] = None, limit: int = 30, db: Session = Depends(get_db)):
+    return {"items": pur.suggest_items(db, q=q, limit=limit)}
+
+
+@router.get("/vendor-terms")
+def vendor_terms(db: Session = Depends(get_db)):
+    return {"terms": pur.vendor_terms_list(db)}
+
+
+class VendorTermIn(BaseModel):
+    vendor: str
+    term_type: str = "MONTH_END"       # DAYS_AFTER / DAY_OF_MONTH / MONTH_END
+    term_days: Optional[int] = None
+    term_month_offset: Optional[int] = None
+    term_day: Optional[int] = None
+    memo: Optional[str] = None
+
+
+@router.post("/vendor-terms")
+def upsert_vendor_term(body: VendorTermIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    try:
+        return pur.upsert_vendor_term(db, body.model_dump())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/vendor-terms/{tid}")
+def delete_vendor_term(tid: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return pur.delete_vendor_term(db, tid)
+
+
+@router.get("/payments")
+def payments(vendor: Optional[str] = None, limit: int = 200, db: Session = Depends(get_db)):
+    return {"payments": pur.payments_list(db, vendor=vendor, limit=limit)}
+
+
+class PaymentIn(BaseModel):
+    vendor: str
+    pay_date: str
+    amount: float
+    method: Optional[str] = None
+    memo: Optional[str] = None
+
+
+@router.post("/payments")
+def add_payment(body: PaymentIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    try:
+        return pur.add_payment(db, body.model_dump(), user=user.get("email"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/payments/{pid}")
+def delete_payment(pid: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return pur.delete_payment(db, pid)
+
+
+@router.get("/ap-aging")
+def ap_aging(asof: Optional[str] = None, start: Optional[str] = None, db: Session = Depends(get_db)):
+    """거래처별 매입채무 잔액 + 계약 정산일 기준 aging + 정산 우선순위."""
+    return pur.ap_aging(db, asof=_pd(asof), start=_pd(start))

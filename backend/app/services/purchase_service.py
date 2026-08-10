@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 import hashlib
+import calendar
 from datetime import date, datetime, timedelta
 from typing import Optional
 
@@ -16,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.db_models import (
     InventoryProduction, ScmProduct, ScmRawMaterial, ScmSubMaterial,
     PurchaseVendor, PurchaseOrder, PurchaseOrderLine, PurchaseRecord,
-    ChannelSalesDailyProduct,
+    ChannelSalesDailyProduct, PurchaseVendorTerm, PurchasePayment,
 )
 
 
@@ -806,3 +807,304 @@ def req_vs_actual(db: Session, start: date, end: date, top: int = 40) -> dict:
         "total_act": round(sum(i["act_cost"] for i in items)),
         "matched_count": sum(1 for i in items if i["matched"]),
     }
+
+
+# ══════════════════════════════════════════════════════════════
+# 매입채무(AP) — 거래처 정산조건 + 지급기록 + aging
+# ══════════════════════════════════════════════════════════════
+
+_TERM_LABELS = {
+    "DAYS_AFTER": "발주 후 N일",
+    "DAY_OF_MONTH": "지정월 N일",
+    "MONTH_END": "지정월 말일",
+}
+_OFFSET_LABELS = {0: "당월", 1: "익월", 2: "익익월", 3: "3개월후"}
+
+
+def _last_day(y: int, m: int) -> int:
+    return calendar.monthrange(y, m)[1]
+
+
+def _shift_month(y: int, m: int, offset: int) -> tuple[int, int]:
+    idx = (m - 1) + offset
+    return y + idx // 12, idx % 12 + 1
+
+
+def compute_due_date(pdate: date, term) -> Optional[date]:
+    """발주일 + 계약 정산조건 → 만기(정산예정)일. term 없으면 None."""
+    if not pdate or term is None:
+        return None
+    tt = term.term_type or "MONTH_END"
+    try:
+        if tt == "DAYS_AFTER":
+            return pdate + timedelta(days=int(term.term_days or 0))
+        y, m = _shift_month(pdate.year, pdate.month, int(term.term_month_offset or 0))
+        if tt == "MONTH_END":
+            return date(y, m, _last_day(y, m))
+        day = min(int(term.term_day or 1), _last_day(y, m))
+        return date(y, m, day)
+    except Exception:
+        return None
+
+
+def term_label(term) -> str:
+    tt = term.term_type or "MONTH_END"
+    if tt == "DAYS_AFTER":
+        return f"발주 후 {int(term.term_days or 0)}일"
+    off = _OFFSET_LABELS.get(int(term.term_month_offset or 0), f"{term.term_month_offset}개월후")
+    if tt == "MONTH_END":
+        return f"{off} 말일"
+    return f"{off} {int(term.term_day or 1)}일"
+
+
+def vendor_terms_list(db: Session) -> list[dict]:
+    rows = db.query(PurchaseVendorTerm).order_by(PurchaseVendorTerm.vendor_name).all()
+    return [{
+        "id": t.id, "vendor": t.vendor_name, "term_type": t.term_type,
+        "term_days": t.term_days, "term_month_offset": t.term_month_offset,
+        "term_day": t.term_day, "memo": t.memo, "label": term_label(t),
+    } for t in rows]
+
+
+def upsert_vendor_term(db: Session, data: dict) -> dict:
+    vendor = (data.get("vendor") or "").strip()
+    if not vendor:
+        raise ValueError("거래처명이 필요합니다")
+    t = db.query(PurchaseVendorTerm).filter(PurchaseVendorTerm.vendor_name == vendor).first()
+    if not t:
+        t = PurchaseVendorTerm(vendor_name=vendor)
+        db.add(t)
+    t.term_type = data.get("term_type") or "MONTH_END"
+    if data.get("term_days") is not None:
+        t.term_days = int(data["term_days"])
+    if data.get("term_month_offset") is not None:
+        t.term_month_offset = int(data["term_month_offset"])
+    if data.get("term_day") is not None:
+        t.term_day = int(data["term_day"])
+    t.memo = data.get("memo")
+    db.commit(); db.refresh(t)
+    return {"id": t.id, "vendor": t.vendor_name, "label": term_label(t)}
+
+
+def delete_vendor_term(db: Session, tid: int) -> dict:
+    t = db.query(PurchaseVendorTerm).get(tid)
+    if t:
+        db.delete(t); db.commit()
+    return {"ok": True}
+
+
+def payments_list(db: Session, vendor: Optional[str] = None, limit: int = 200) -> list[dict]:
+    q = db.query(PurchasePayment)
+    if vendor:
+        q = q.filter(PurchasePayment.vendor_name == vendor)
+    rows = q.order_by(PurchasePayment.pay_date.desc(), PurchasePayment.id.desc()).limit(limit).all()
+    return [{
+        "id": p.id, "vendor": p.vendor_name,
+        "pay_date": p.pay_date.isoformat() if p.pay_date else None,
+        "amount": float(p.amount or 0), "method": p.method, "memo": p.memo,
+        "created_by": p.created_by,
+    } for p in rows]
+
+
+def add_payment(db: Session, data: dict, user: Optional[str] = None) -> dict:
+    vendor = (data.get("vendor") or "").strip()
+    if not vendor:
+        raise ValueError("거래처명이 필요합니다")
+    pd = data.get("pay_date")
+    pdt = date.fromisoformat(pd[:10]) if isinstance(pd, str) else (pd or date.today())
+    p = PurchasePayment(
+        vendor_name=vendor, pay_date=pdt, amount=float(data.get("amount") or 0),
+        method=data.get("method"), memo=data.get("memo"), created_by=user,
+    )
+    db.add(p); db.commit(); db.refresh(p)
+    return {"id": p.id}
+
+
+def delete_payment(db: Session, pid: int) -> dict:
+    p = db.query(PurchasePayment).get(pid)
+    if p:
+        db.delete(p); db.commit()
+    return {"ok": True}
+
+
+def _aging_bucket(days_overdue: int) -> str:
+    if days_overdue < 0:
+        return "미도래"
+    if days_overdue == 0:
+        return "당일"
+    if days_overdue <= 30:
+        return "1~30일"
+    if days_overdue <= 60:
+        return "31~60일"
+    if days_overdue <= 90:
+        return "61~90일"
+    return "90일+"
+
+
+_BUCKET_ORDER = ["미도래", "당일", "1~30일", "31~60일", "61~90일", "90일+"]
+
+
+def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = None) -> dict:
+    """거래처별 매입채무 잔액 + 계약 정산일 기준 aging + 정산 우선순위.
+
+    매입채무 = purchase_record.total_amount(VAT포함) 합계.
+    잔액 = 매입 − 지급(FIFO 오래된 발주부터 상계).
+    잔액에 해당하는 (최근) 미지급 발주들의 만기일로 aging 버킷 분류.
+    """
+    today = asof or date.today()
+    terms = {t.vendor_name: t for t in db.query(PurchaseVendorTerm).all()}
+
+    q = db.query(
+        PurchaseRecord.vendor_name,
+        PurchaseRecord.pdate,
+        func.sum(PurchaseRecord.total_amount),
+        func.sum(PurchaseRecord.supply_amount),
+    ).filter(PurchaseRecord.vendor_name.isnot(None))
+    if start:
+        q = q.filter(PurchaseRecord.pdate >= start)
+    q = q.group_by(PurchaseRecord.vendor_name, PurchaseRecord.pdate)
+    rows = q.all()
+
+    by_vendor: dict = {}
+    for vname, pd, tot, sup in rows:
+        by_vendor.setdefault(vname, []).append({
+            "pdate": pd, "total": float(tot or 0), "supply": float(sup or 0),
+        })
+
+    pay_rows = db.query(PurchasePayment.vendor_name, func.sum(PurchasePayment.amount)).group_by(
+        PurchasePayment.vendor_name).all()
+    paid_by_vendor = {v: float(a or 0) for v, a in pay_rows}
+
+    vendors_out = []
+    totals = {"payable": 0.0, "paid": 0.0, "balance": 0.0, "overdue": 0.0}
+    bucket_totals = {b: 0.0 for b in _BUCKET_ORDER}
+
+    for vname, buys in by_vendor.items():
+        buys.sort(key=lambda x: x["pdate"])
+        payable = sum(b["total"] for b in buys)
+        paid = paid_by_vendor.get(vname, 0.0)
+        balance = max(0.0, payable - paid)
+        totals["payable"] += payable
+        totals["paid"] += paid
+        totals["balance"] += balance
+
+        term = terms.get(vname)
+        remaining = balance
+        open_items = []
+        overdue_amt = 0.0
+        earliest_due = None
+        vbuckets = {b: 0.0 for b in _BUCKET_ORDER}
+        for b in reversed(buys):
+            if remaining <= 0.5:
+                break
+            take = min(b["total"], remaining)
+            remaining -= take
+            due = compute_due_date(b["pdate"], term)
+            days_over = (today - due).days if due else None
+            bucket = _aging_bucket(days_over) if due is not None else "미설정"
+            vbuckets.setdefault(bucket, 0.0)
+            vbuckets[bucket] += take
+            if bucket in bucket_totals:
+                bucket_totals[bucket] += take
+            if due is not None and days_over is not None and days_over > 0:
+                overdue_amt += take
+            if due is not None and (earliest_due is None or due < earliest_due):
+                earliest_due = due
+            open_items.append({
+                "pdate": b["pdate"].isoformat(),
+                "amount": round(take),
+                "due": due.isoformat() if due else None,
+                "days_overdue": days_over,
+                "bucket": bucket,
+            })
+        totals["overdue"] += overdue_amt
+        vendors_out.append({
+            "vendor": vname,
+            "payable": round(payable),
+            "paid": round(paid),
+            "balance": round(balance),
+            "overdue": round(overdue_amt),
+            "term_label": term_label(term) if term else None,
+            "has_term": term is not None,
+            "earliest_due": earliest_due.isoformat() if earliest_due else None,
+            "buckets": {k: round(v) for k, v in vbuckets.items() if v > 0.5},
+            "open_items": open_items[:12],
+        })
+
+    def _prio_key(v):
+        due_rank = v["earliest_due"] or "9999-99-99"
+        return (-v["overdue"], due_rank, -v["balance"])
+    vendors_out.sort(key=_prio_key)
+    for i, v in enumerate(vendors_out, 1):
+        v["priority"] = i
+
+    return {
+        "asof": today.isoformat(),
+        "totals": {k: round(val) for k, val in totals.items()},
+        "bucket_totals": {k: round(bucket_totals[k]) for k in _BUCKET_ORDER},
+        "bucket_order": _BUCKET_ORDER,
+        "vendors": vendors_out,
+        "unset_vendors": [v["vendor"] for v in vendors_out if not v["has_term"] and v["balance"] > 0.5],
+    }
+
+
+# ──────────────────────────────────────────────
+# 실적 입력 자동완성(거래처/품목 제안)
+# ──────────────────────────────────────────────
+
+def suggest_vendors(db: Session, q: Optional[str] = None, limit: int = 30) -> list[str]:
+    """구매일보에 실제 등장한 거래처명 + 거래처 마스터를 합쳐 키워드 제안."""
+    names: dict[str, int] = {}
+    rows = db.query(PurchaseRecord.vendor_name, func.count(PurchaseRecord.id)).filter(
+        PurchaseRecord.vendor_name.isnot(None)).group_by(PurchaseRecord.vendor_name).all()
+    for n, c in rows:
+        if n and n.strip():
+            names[n.strip()] = names.get(n.strip(), 0) + int(c or 0)
+    for v in db.query(PurchaseVendor.name).all():
+        if v[0] and v[0].strip():
+            names.setdefault(v[0].strip(), 0)
+    kw = (q or "").strip().lower()
+    items = [(n, c) for n, c in names.items() if (not kw or kw in n.lower())]
+    items.sort(key=lambda x: (-x[1], x[0]))
+    return [n for n, _ in items[:limit]]
+
+
+def suggest_items(db: Session, q: Optional[str] = None, limit: int = 30) -> list[dict]:
+    """구매일보 품목명/코드/단위/최근단가를 키워드로 제안(빈도순)."""
+    rows = db.query(
+        PurchaseRecord.item_code, PurchaseRecord.item_name, PurchaseRecord.unit,
+        PurchaseRecord.mclass, func.count(PurchaseRecord.id),
+        func.max(PurchaseRecord.pdate),
+    ).filter(PurchaseRecord.item_name.isnot(None)).group_by(
+        PurchaseRecord.item_code, PurchaseRecord.item_name, PurchaseRecord.unit, PurchaseRecord.mclass
+    ).all()
+    kw = (q or "").strip().lower()
+    agg: dict = {}
+    for code, name, unit, mclass, cnt, last_pd in rows:
+        if not name:
+            continue
+        if kw and kw not in name.lower() and kw not in str(code or "").lower():
+            continue
+        key = (code, name)
+        cur = agg.get(key)
+        if not cur:
+            agg[key] = {"item_code": code, "item_name": name, "unit": unit,
+                        "mclass": mclass, "count": int(cnt or 0), "last": last_pd}
+        else:
+            cur["count"] += int(cnt or 0)
+            if last_pd and (not cur["last"] or last_pd > cur["last"]):
+                cur["last"] = last_pd; cur["unit"] = unit
+    out = list(agg.values())
+    out.sort(key=lambda x: (-x["count"], x["item_name"]))
+    result = []
+    for it in out[:limit]:
+        # 최근 단가 조회
+        last_up = db.query(PurchaseRecord.unit_price).filter(
+            PurchaseRecord.item_name == it["item_name"]).order_by(
+            PurchaseRecord.pdate.desc()).limit(1).scalar()
+        result.append({
+            "item_code": it["item_code"], "item_name": it["item_name"],
+            "unit": it["unit"], "mclass": it["mclass"],
+            "last_price": float(last_up or 0), "count": it["count"],
+        })
+    return result

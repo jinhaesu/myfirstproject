@@ -1707,3 +1707,41 @@ class InventoryWorkerPhone(Base):
     last_sent_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class PurchaseVendorTerm(Base):
+    """거래처별 계약 정산조건 — 매입채무 만기일(정산일) 산출 기준.
+
+    term_type:
+      DAYS_AFTER   : 발주일 + term_days 일           (예: 발주 후 30일)
+      DAY_OF_MONTH : (발주월 + term_month_offset)월의 term_day 일  (예: 익월 20일 → offset=1, day=20)
+      MONTH_END    : (발주월 + term_month_offset)월 말일          (예: 월말 → offset=0)
+    """
+    __tablename__ = "purchase_vendor_term"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    vendor_name = Column(String(200), nullable=False, unique=True, index=True)  # 구매일보 거래처명 기준
+    term_type = Column(String(20), nullable=False, default="MONTH_END")
+    term_days = Column(Integer, default=30)              # DAYS_AFTER용
+    term_month_offset = Column(Integer, default=1)       # DAY_OF_MONTH/MONTH_END용 (0=당월,1=익월,2=익익월)
+    term_day = Column(Integer, default=20)               # DAY_OF_MONTH용 (1~31)
+    memo = Column(String(300), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class PurchasePayment(Base):
+    """거래처별 지급(정산) 기록 — 매입채무 잔액 = 매입 합계(VAT포함) − 지급 합계.
+
+    지급은 거래처 단위로 누적 기록하고, aging 산정 시 오래된 발주부터 FIFO로 상계한다.
+    """
+    __tablename__ = "purchase_payment"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    vendor_name = Column(String(200), nullable=False, index=True)
+    pay_date = Column(Date, nullable=False, index=True)
+    amount = Column(Float, default=0)                    # 지급액(VAT포함)
+    method = Column(String(50), nullable=True)           # 이체/어음/현금 등
+    memo = Column(String(300), nullable=True)
+    created_by = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())
