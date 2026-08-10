@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { MatrixTable } from '@/components/MatrixTable';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
+import { Combobox, localFetcher } from '@/components/Combobox';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
@@ -701,11 +702,16 @@ function InputTab({ warehouses }: { warehouses: Warehouse[] }) {
               <option value="주간">주간</option><option value="야간">야간(노무비 1.5배)</option>
             </select></div>
           <div><div className="text-xs text-text-tertiary mb-1">품목류 * (마스터 매칭)</div>
-            <input list="catlist" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} placeholder="마카롱 등" className={`${C.input} w-full`} />
-            <datalist id="catlist">{cats.map((c) => <option key={c} value={c} />)}</datalist></div>
-          <div><div className="text-xs text-text-tertiary mb-1">품목명(상세) *</div>
-            <input list="prodlist" value={f.product_name} onChange={(e) => onPickProduct(e.target.value)} placeholder="목록에서 선택" className={`${C.input} w-full ${!f.product_name ? 'border-danger/50' : ''}`} />
-            <datalist id="prodlist">{filteredCatalog.map((c) => <option key={c.product_name} value={c.product_name}>{c.category}</option>)}</datalist></div>
+            <Combobox<string> value={f.category} onChange={(v) => setF({ ...f, category: v })} placeholder="클릭 또는 키워드 입력"
+              fetcher={localFetcher(cats, (s) => s)} getLabel={(s) => s} render={(s) => <span className="text-text-primary">{s}</span>} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">품목명(상세) * <span className="text-text-quaternary">— 선택 시 단가·원가·품목류 자동</span></div>
+            <Combobox<CatalogItem> value={f.product_name} onChange={(v) => setF((p: any) => ({ ...p, product_name: v }))}
+              placeholder="클릭 또는 키워드 입력"
+              fetcher={localFetcher(filteredCatalog, (c) => c.product_name)}
+              getLabel={(c) => c.product_name}
+              onPick={(c) => onPickProduct(c.product_name)}
+              render={(c) => <div className="flex items-center justify-between gap-2"><span className="text-text-primary truncate">{c.product_name}</span><span className="text-[11px] text-text-quaternary whitespace-nowrap shrink-0">{c.category} · 단가 {Number(c.unit_price || 0).toLocaleString('ko-KR')}</span></div>}
+              className={`${C.input} w-full ${!f.product_name ? 'border-danger/50' : ''}`} /></div>
           <div><div className="text-xs text-text-tertiary mb-1">생산량(낱개) *</div><input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} className={`${C.input} w-full`} /></div>
           <div><div className="text-xs text-text-tertiary mb-1">투여시간(h) *</div><input type="number" value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} className={`${C.input} w-full ${!f.hours ? 'border-danger/50' : ''}`} /></div>
           <div><div className="text-xs text-text-tertiary mb-1">개당 생산단가 (자동)</div><input readOnly value={f.unit_price !== '' ? Number(f.unit_price).toLocaleString('ko-KR') : ''} placeholder="품목명 선택 시 자동" className={`${C.input} w-full bg-bg-2 text-text-tertiary`} /></div>

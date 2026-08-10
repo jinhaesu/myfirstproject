@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import { MatrixTable } from '@/components/MatrixTable';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
+import { Combobox, localFetcher } from '@/components/Combobox';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line, PieChart, Pie, Legend, ComposedChart,
@@ -338,8 +339,15 @@ function InputTab() {
           <div><div className="text-xs text-text-tertiary mb-1">책임자</div><input value={f.worker} onChange={(e) => setF({ ...f, worker: e.target.value })} className={`${C.input} w-full`} /></div>
           <div><div className="text-xs text-text-tertiary mb-1">소속 조</div><select value={f.team} onChange={(e) => setF({ ...f, team: e.target.value })} className={`${C.input} w-full`}><option>1조</option><option>2조</option><option>3조</option><option value="">기타</option></select></div>
           <div><div className="text-xs text-text-tertiary mb-1">주야</div><select value={f.shift} onChange={(e) => setF({ ...f, shift: e.target.value })} className={`${C.input} w-full`}><option value="주간">주간</option><option value="주간 연장">주간 연장</option><option value="야간">야간(1.5배)</option></select></div>
-          <div><div className="text-xs text-text-tertiary mb-1">작업종류 *</div><input list="wtlist" value={f.work_type} onChange={(e) => setF({ ...f, work_type: e.target.value })} placeholder="단상자/택배 등" className={`${C.input} w-full`} /><datalist id="wtlist">{types.map((t) => <option key={t} value={t} />)}</datalist></div>
-          <div><div className="text-xs text-text-tertiary mb-1">작업명 *</div><input list="wnlist" value={f.work_name} onChange={(e) => onPick(e.target.value)} className={`${C.input} w-full ${!f.work_name ? 'border-danger/50' : ''}`} /><datalist id="wnlist">{filtered.slice(0, 300).map((c) => <option key={c.work_name} value={c.work_name} />)}</datalist></div>
+          <div><div className="text-xs text-text-tertiary mb-1">작업종류 *</div>
+            <Combobox<string> value={f.work_type} onChange={(v) => setF({ ...f, work_type: v })} placeholder="클릭 또는 키워드 입력"
+              fetcher={localFetcher(types, (s) => s)} getLabel={(s) => s} render={(s) => <span className="text-text-primary">{s}</span>} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">작업명 * <span className="text-text-quaternary">— 선택 시 단가·종류 자동</span></div>
+            <Combobox<{ work_name: string; work_type: string; unit_price: number }> value={f.work_name} onChange={(v) => setF((p: any) => ({ ...p, work_name: v }))}
+              placeholder="클릭 또는 키워드 입력"
+              fetcher={localFetcher(filtered, (c) => c.work_name)} getLabel={(c) => c.work_name} onPick={(c) => onPick(c.work_name)}
+              render={(c) => <div className="flex items-center justify-between gap-2"><span className="text-text-primary truncate">{c.work_name}</span><span className="text-[11px] text-text-quaternary whitespace-nowrap shrink-0">{c.work_type} · {Number(c.unit_price || 0).toLocaleString('ko-KR')}</span></div>}
+              className={`${C.input} w-full ${!f.work_name ? 'border-danger/50' : ''}`} /></div>
           <div><div className="text-xs text-text-tertiary mb-1">작업량 *</div><input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} className={`${C.input} w-full`} /></div>
           <div><div className="text-xs text-text-tertiary mb-1">투여시간(h) *</div><input type="number" value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} className={`${C.input} w-full ${!f.hours ? 'border-danger/50' : ''}`} /></div>
           <div><div className="text-xs text-text-tertiary mb-1">작업단가(자동)</div><input readOnly value={f.unit_price !== '' ? Number(f.unit_price).toLocaleString('ko-KR') : ''} placeholder="작업명 선택 시" className={`${C.input} w-full bg-bg-2 text-text-tertiary`} /></div>
