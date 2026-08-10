@@ -620,6 +620,15 @@ def item_history(db: Session, item_code=None, item_name=None, start=None, end=No
     }
 
 
+# 일회성 제작·설비성 비용(목형비/동판비/금형/제판 등) — 반복 단가 개념이 없어
+# 단가추이에서 제외한다. 매입액/구매현황에는 그대로 남는다.
+_TOOLING_PAT = re.compile(r"(목형비|동판비|동판대|제판비|제판대|금형비|금형대|사양변경|판대금|필름비|필름대)")
+
+
+def _is_tooling_cost(name: Optional[str]) -> bool:
+    return bool(name and _TOOLING_PAT.search(name))
+
+
 def price_tracker(db: Session, start: date, end: date,
                   mclass: Optional[str] = None, vendor: Optional[str] = None,
                   q: Optional[str] = None, min_lines: int = 1,
@@ -651,6 +660,8 @@ def price_tracker(db: Session, start: date, end: date,
     for r in rows:
         base = (r.item_code or "").strip() or (r.item_name or "").strip()
         if not base:
+            continue
+        if _is_tooling_cost(r.item_name):  # 목형비/동판비 등 일회성 제작비는 단가추이 대상 아님
             continue
         unit = (r.unit or "").strip() or "-"
         key = (base, unit)
