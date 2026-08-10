@@ -641,8 +641,9 @@ function APTab() {
   const [pays, setPays] = useState<any[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [onlyBalance, setOnlyBalance] = useState(true);
+  const [start, setStart] = useState('');   // 미지급 기준 시작일(이전 발주는 지급완료 간주). 빈값=전체
 
-  const loadAging = useCallback(async () => { setLoading(true); setData(await getJSON<any>('/purchase/ap-aging', null)); setLoading(false); }, []);
+  const loadAging = useCallback(async () => { setLoading(true); setData(await getJSON<any>(`/purchase/ap-aging${start ? `?start=${start}` : ''}`, null)); setLoading(false); }, [start]);
   const loadTerms = useCallback(async () => { setTerms((await getJSON<any>('/purchase/vendor-terms', { terms: [] })).terms); }, []);
   const loadPays = useCallback(async () => { setPays((await getJSON<any>('/purchase/payments?limit=50', { payments: [] })).payments); }, []);
   useEffect(() => { loadAging(); loadTerms(); loadPays(); }, [loadAging, loadTerms, loadPays]);
@@ -681,6 +682,14 @@ function APTab() {
       <p className="text-xs text-text-quaternary">
         매입채무 = 구매일보 합계(VAT포함). 잔액 = 매입 − 지급(오래된 발주부터 상계). 만기일은 거래처 계약 정산조건으로 산출하며, 지난 만기는 연체로 집계합니다. 기준일 {data?.asof || '-'}.
       </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-text-tertiary">미지급 집계 시작일</span>
+        {[{ k: '전체', v: '' }, { k: '올해', v: `${new Date().getFullYear()}-01-01` }, { k: '최근3개월', v: iso(new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1)) }, { k: '당월', v: iso(new Date(new Date().getFullYear(), new Date().getMonth(), 1)) }].map((p) => (
+          <button key={p.k} onClick={() => setStart(p.v)} className={`${C.btn} ${start === p.v ? C.btnPrimary : C.btnGhost} text-xs py-1.5`}>{p.k}</button>
+        ))}
+        <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={`${C.input} text-xs py-1.5`} />
+        <span className="text-[11px] text-text-quaternary">이전 발주는 지급완료로 간주(지급기록 누적 전 임시 기준)</span>
+      </div>
 
       {/* 총계 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
