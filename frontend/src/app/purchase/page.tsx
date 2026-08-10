@@ -295,7 +295,18 @@ function RecordsTab() {
               <td className={C.td}><button onClick={() => openItem(r.item_code, r.item_name)} className="hover:text-accent hover:underline text-left">{r.item_name}</button></td>
               <td className={C.td}>{r.staff}</td><td className={C.td}>{fmt(r.qty)}{r.unit}</td><td className={C.td}>{won(r.unit_price)}</td><td className={`${C.td} text-warning`}>{won(r.supply)}</td><td className={C.td}>{won(r.total)}</td>
             </tr>
-          ))}</tbody></table>
+          ))}</tbody>
+          {data?.rows?.length > 0 && (
+            <tfoot><tr className="bg-bg-inset font-semibold sticky bottom-0">
+              <td className={`${C.td} text-text-primary`} colSpan={4}>합계 · {fmt(data.total)}건{data.total > (data.limit || 500) ? ` (전체 기간 기준, 표는 ${fmt(data.limit || 500)}건만 표시)` : ''}</td>
+              <td className={C.td}></td>
+              <td className={C.td}></td>
+              <td className={`${C.td} text-text-tertiary`}>부가세 {won(data.vat_total || 0)}</td>
+              <td className={`${C.td} text-warning`}>{won(data.supply_total || 0)}</td>
+              <td className={`${C.td} text-text-primary`}>{won(data.total_total || 0)}</td>
+            </tr></tfoot>
+          )}
+        </table>
       </div>
       {hist && <HistoryModal hist={hist} onClose={() => setHist(null)} />}
     </div>

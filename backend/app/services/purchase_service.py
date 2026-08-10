@@ -550,10 +550,18 @@ def records_list(db: Session, start=None, end=None, vendor=None, mclass=None,
         like = f"%{q}%"
         qry = qry.filter((PurchaseRecord.item_name.ilike(like)) | (PurchaseRecord.vendor_name.ilike(like)))
     total = qry.count()
-    supply_total = qry.with_entities(func.coalesce(func.sum(PurchaseRecord.supply_amount), 0.0)).scalar()
+    sums = qry.with_entities(
+        func.coalesce(func.sum(PurchaseRecord.supply_amount), 0.0),
+        func.coalesce(func.sum(PurchaseRecord.vat), 0.0),
+        func.coalesce(func.sum(PurchaseRecord.total_amount), 0.0),
+        func.coalesce(func.sum(PurchaseRecord.qty), 0.0),
+    ).one()
+    supply_total, vat_total, total_total, qty_total = sums
     recs = qry.order_by(PurchaseRecord.pdate.desc(), PurchaseRecord.seq.desc()).offset(offset).limit(limit).all()
     return {
-        "total": total, "supply_total": round(supply_total or 0), "offset": offset, "limit": limit,
+        "total": total, "supply_total": round(supply_total or 0),
+        "vat_total": round(vat_total or 0), "total_total": round(total_total or 0),
+        "qty_total": round(qty_total or 0), "offset": offset, "limit": limit,
         "rows": [{
             "id": r.id, "pdate": r.pdate.isoformat() if r.pdate else None, "seq": r.seq,
             "warehouse": r.warehouse, "vendor": r.vendor_name, "mclass": r.mclass, "staff": r.staff,
