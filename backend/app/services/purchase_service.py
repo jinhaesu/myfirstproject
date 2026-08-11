@@ -667,6 +667,7 @@ def records_list(db: Session, start=None, end=None, vendor=None, mclass=None,
             "supply": round(r.supply_amount or 0),
             "vat": round(r.vat or 0), "total": round(r.total_amount or 0), "note": r.note,
             "paid": bool(r.paid), "paid_date": r.paid_date.isoformat() if r.paid_date else None,
+            "created_by": r.created_by, "source": r.source,
         }
     return {
         "total": total, "supply_total": round(supply_total or 0),

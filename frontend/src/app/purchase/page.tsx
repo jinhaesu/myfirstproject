@@ -278,12 +278,18 @@ function RecordsTab() {
   useEffect(() => { load(); }, [load]);
   const openVendor = async (v: string) => setHist({ type: 'vendor', ...(await getJSON<any>(`/purchase/records/vendor-history?vendor=${encodeURIComponent(v)}`, {})) });
   const openItem = async (code: string, name: string) => setHist({ type: 'item', ...(await getJSON<any>(`/purchase/records/item-history?item_code=${encodeURIComponent(code || '')}&item_name=${encodeURIComponent(name || '')}`, {})) });
-  const settle = async (ids: number[], paid: boolean) => {
-    setData((d: any) => ({ ...d, rows: d.rows.map((x: any) => (ids.includes(x.id) ? { ...x, paid } : x)) }));
+  const [sel, setSel] = useState<Set<number>>(new Set());
+  const toggleSel = (id: number) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const applySettle = async (paid: boolean) => {
+    const ids = Array.from(sel);
+    if (!ids.length) return;
+    setData((d: any) => ({ ...d, rows: d.rows.map((x: any) => (sel.has(x.id) ? { ...x, paid, paid_date: paid ? new Date().toISOString().slice(0, 10) : null } : x)) }));
+    setSel(new Set());
     await send('/purchase/records/settle', 'POST', { ids, paid });
   };
   const rows: any[] = data?.rows || [];
-  const allPaid = rows.length > 0 && rows.every((r) => r.paid);
+  const allSel = rows.length > 0 && rows.every((r) => sel.has(r.id));
+  const toggleAll = () => setSel(allSel ? new Set() : new Set(rows.map((r) => r.id)));
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -295,16 +301,23 @@ function RecordsTab() {
         </div>
         {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가 {won(data.supply_total)} · 미지급 {won(data.unpaid_total || 0)}{data.total > 500 && ' (500건 표시)'}</span>}
       </div>
+      {/* 정산완료 처리 툴바 — 체크박스로 행 선택 후 버튼 클릭 */}
+      <div className="flex flex-wrap items-center gap-2 bg-bg-1 border border-border-primary rounded-lg px-3 py-2">
+        <span className="text-xs text-text-tertiary">체크박스로 전표 선택 후 →</span>
+        <button onClick={() => applySettle(true)} disabled={!sel.size} className={`${C.btn} ${sel.size ? C.btnPrimary : C.btnGhost} text-xs py-1.5`}>✓ 정산완료 처리{sel.size ? ` (${sel.size}건)` : ''}</button>
+        <button onClick={() => applySettle(false)} disabled={!sel.size} className={`${C.btn} ${C.btnGhost} text-xs py-1.5`}>정산 해제</button>
+        {!!sel.size && <button onClick={() => setSel(new Set())} className="text-xs text-text-quaternary hover:underline">선택 해제</button>}
+      </div>
       <div className={`${C.card} overflow-x-auto`}>
         <table className="w-full"><thead><tr>
-          <th className={`${C.th} text-center`} title="전체 정산완료 토글"><input type="checkbox" checked={allPaid} onChange={(e) => settle(rows.map((r) => r.id), e.target.checked)} /></th>
+          <th className={`${C.th} text-center`} title="전체 선택"><input type="checkbox" checked={allSel} onChange={toggleAll} /></th>
           <th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>규격</th>
           <th className={`${C.th} text-right`}>{unit === 'ea' ? '수량' : '중량(kg)'}</th><th className={`${C.th} text-right`}>{unit === 'ea' ? '단가' : 'kg당'}</th>
-          <th className={`${C.th} text-right`}>공급가</th><th className={`${C.th} text-right`}>합계</th>
+          <th className={`${C.th} text-right`}>공급가</th><th className={`${C.th} text-right`}>합계</th><th className={`${C.th} text-center`}>정산</th>
         </tr></thead>
-          <tbody>{!rows.length ? <tr><td colSpan={10} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr> : rows.map((r: any) => (
-            <tr key={r.id} className={`hover:bg-bg-1 ${r.paid ? 'opacity-55' : ''}`}>
-              <td className={`${C.td} text-center`}><input type="checkbox" checked={!!r.paid} onChange={(e) => settle([r.id], e.target.checked)} title={r.paid ? `정산완료 ${r.paid_date || ''}` : '체크 시 정산완료'} /></td>
+          <tbody>{!rows.length ? <tr><td colSpan={11} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr> : rows.map((r: any) => (
+            <tr key={r.id} className={`hover:bg-bg-1 ${sel.has(r.id) ? 'bg-brand/10' : ''}`}>
+              <td className={`${C.td} text-center`}><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleSel(r.id)} /></td>
               <td className={C.td}>{r.pdate}</td>
               <td className={`${C.td} text-text-primary`}><button onClick={() => openVendor(r.vendor)} className="hover:text-accent hover:underline text-left">{r.vendor}</button></td>
               <td className={C.td}><span className={r.mclass === '원재료' ? 'text-info' : 'text-warning'}>{r.mclass}</span></td>
@@ -314,6 +327,7 @@ function RecordsTab() {
               <td className={`${C.td} text-right tabular-nums`}>{unit === 'kg' ? (r.price_per_kg != null ? won(r.price_per_kg) : '-') : won(r.unit_price)}</td>
               <td className={`${C.td} text-right text-warning tabular-nums`}>{won(r.supply)}</td>
               <td className={`${C.td} text-right tabular-nums`}>{won(r.total)}</td>
+              <td className={`${C.td} text-center`}>{r.paid ? <span className="text-success-light text-xs" title={r.paid_date || ''}>✓ 완료</span> : <span className="text-text-quaternary text-xs">미지급</span>}</td>
             </tr>
           ))}</tbody>
           {rows.length > 0 && (
@@ -324,6 +338,7 @@ function RecordsTab() {
               <td className={`${C.td} text-right text-text-tertiary`}>VAT {wonShort(data.vat_total || 0)}</td>
               <td className={`${C.td} text-right text-warning`}>{won(data.supply_total || 0)}</td>
               <td className={`${C.td} text-right text-text-primary`}>{won(data.total_total || 0)}</td>
+              <td className={C.td}></td>
             </tr></tfoot>
           )}
         </table>
@@ -389,7 +404,7 @@ function InputTab() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [edit, setEdit] = useState<any>(null);
-  const loadRecent = useCallback(async () => { setRecent((await getJSON<any>('/purchase/records/manual-recent?limit=30', { rows: [] })).rows); }, []);
+  const loadRecent = useCallback(async () => { setRecent((await getJSON<any>('/purchase/records?limit=60', { rows: [] })).rows); }, []);
   useEffect(() => { loadRecent(); }, [loadRecent]);
 
   const setLine = (i: number, patch: any) => setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
@@ -441,7 +456,7 @@ function InputTab() {
     <div className="space-y-4">
       <div className={`${C.card} p-4`}>
         <div className="text-sm font-semibold text-text-primary mb-1">구매 실적 직접 입력 (다중 품목)</div>
-        <p className="text-xs text-text-quaternary mb-4">한 거래처에 여러 품목을 한 번에 등록합니다. 품목명은 검색·선택(없으면 그대로 입력해 신규 등록). 규격 [20kg] 등이 있으면 ea↔kg 단위 전환·자동환산됩니다. 공급가는 수량×단가 자동계산.</p>
+        <p className="text-xs text-text-quaternary mb-4">한 거래처에 여러 품목을 한 번에 등록합니다. 품목명을 검색해 선택하면 코드·규격·최근단가가 자동 채워집니다. <b className="text-info">목록에 없는 신규 품목</b>은 이름을 그대로 입력하고 <b>코드·규격</b>을 채우면 저장 시 등록됩니다(별도 화면 불필요). 규격 [20kg] 등이 있으면 ea↔kg 전환·자동환산.</p>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
           <div><L>구매일자</L><input type="date" value={common.pdate} onChange={(e) => setCommon({ ...common, pdate: e.target.value })} className={`${C.input} w-full`} /></div>
           <div><L>거래처</L><Combobox<string> value={common.vendor} onChange={(v) => setCommon({ ...common, vendor: v })} fetcher={vendorFetcherTop} getLabel={(s) => s} render={(s) => <span className="text-text-primary">{s}</span>} placeholder="클릭 또는 키워드" /></div>
@@ -449,25 +464,27 @@ function InputTab() {
           <div><L>담당자</L><input value={common.staff} onChange={(e) => setCommon({ ...common, staff: e.target.value })} placeholder="예: 이종현" className={`${C.input} w-full`} /></div>
           <div><L>전표 No.</L><input type="number" value={common.seq} onChange={(e) => setCommon({ ...common, seq: e.target.value })} className={`${C.input} w-full`} /></div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead><tr><th className={C.th}>구분</th><th className={`${C.th} min-w-[240px]`}>품목명 (검색·신규)</th><th className={C.th}>규격</th><th className={C.th}>단위</th><th className={`${C.th} text-right`}>수량</th><th className={`${C.th} text-right`}>단가</th><th className={`${C.th} text-right`}>공급가</th><th className={C.th}>VAT</th><th className={C.th}></th></tr></thead>
-            <tbody>{lines.map((l, i) => (
-              <tr key={i}>
-                <td className={C.td}><select value={l.mclass} onChange={(e) => setLine(i, { mclass: e.target.value })} className={`${C.input} py-1.5`}><option>원재료</option><option>부재료</option></select></td>
-                <td className={C.td}><Combobox<any> value={l.item_name} onChange={(v) => onNameText(i, v)} onPick={(it) => pickItem(i, it)} fetcher={itemFetcher} getLabel={(it) => it.item_name}
-                  render={(it) => <div className="flex items-center justify-between gap-2"><span className="text-text-primary truncate">{it.item_name_short || it.item_name}</span><span className="text-[11px] text-text-quaternary whitespace-nowrap shrink-0">{it.spec || ''} · 최근 {won(it.last_price)}</span></div>}
-                  placeholder="검색 또는 신규 입력" /></td>
-                <td className={C.td}><input value={l.spec} onChange={(e) => onSpecText(i, e.target.value)} placeholder="20kg" className={`${C.input} py-1.5 w-20`} title={l.boxKg ? `ea당 ${l.boxKg}kg` : 'kg 환산 없음'} /></td>
-                <td className={C.td}><button type="button" onClick={() => toggleUnit(i)} className={`${C.btn} py-1.5 ${l.unit === 'kg' ? 'bg-info/20 text-info' : C.btnGhost}`} title="ea↔kg 전환(규격 필요)">{l.unit}</button></td>
-                <td className={C.td}><input type="number" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} className={`${C.input} py-1.5 w-24 text-right`} /></td>
-                <td className={C.td}><input type="number" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} className={`${C.input} py-1.5 w-28 text-right`} /></td>
-                <td className={`${C.td} text-right text-warning tabular-nums`}>{won(lineSupply(l))}</td>
-                <td className={C.td}><select value={l.vat_mode} onChange={(e) => setLine(i, { vat_mode: e.target.value })} className={`${C.input} py-1.5`}><option value="auto">10%</option><option value="zero">면세</option></select></td>
-                <td className={C.td}>{lines.length > 1 && <button onClick={() => rmLine(i)} className="text-danger text-xs hover:underline">삭제</button>}</td>
-              </tr>
-            ))}</tbody>
-          </table>
+        <div className="space-y-2">
+          {lines.map((l, i) => {
+            const isNew = !!(l.item_name && !l.item_code);
+            return (
+              <div key={i} className="flex flex-wrap items-end gap-2 p-2 rounded-lg border border-border-primary bg-bg-0">
+                <div className="w-24"><L>구분</L><select value={l.mclass} onChange={(e) => setLine(i, { mclass: e.target.value })} className={`${C.input} py-1.5 w-full`}><option>원재료</option><option>부재료</option></select></div>
+                <div className="flex-1 min-w-[220px]"><L>품목명 {isNew && <span className="text-info">· 신규</span>}</L>
+                  <Combobox<any> value={l.item_name} onChange={(v) => onNameText(i, v)} onPick={(it) => pickItem(i, it)} fetcher={itemFetcher} getLabel={(it) => it.item_name}
+                    render={(it) => <div className="flex items-center justify-between gap-2"><span className="text-text-primary truncate">{it.item_name_short || it.item_name}</span><span className="text-[11px] text-text-quaternary whitespace-nowrap shrink-0">{it.item_code || ''} · {it.spec || ''} · {won(it.last_price)}</span></div>}
+                    placeholder="검색 또는 신규 입력" /></div>
+                <div className="w-28"><L>품목코드</L><input value={l.item_code} onChange={(e) => setLine(i, { item_code: e.target.value })} placeholder="신규 시 입력" className={`${C.input} py-1.5 w-full ${isNew ? 'border-info/50' : ''}`} /></div>
+                <div className="w-20"><L>규격</L><input value={l.spec} onChange={(e) => onSpecText(i, e.target.value)} placeholder="20kg" className={`${C.input} py-1.5 w-full`} title={l.boxKg ? `ea당 ${l.boxKg}kg` : 'kg 환산 없음'} /></div>
+                <div><L>단위</L><button type="button" onClick={() => toggleUnit(i)} className={`${C.btn} py-1.5 w-14 ${l.unit === 'kg' ? 'bg-info/20 text-info' : C.btnGhost}`} title="ea↔kg 전환(규격 필요)">{l.unit} ⇄</button></div>
+                <div className="w-24"><L>수량</L><input type="number" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} className={`${C.input} py-1.5 w-full text-right`} /></div>
+                <div className="w-28"><L>단가</L><input type="number" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} className={`${C.input} py-1.5 w-full text-right`} /></div>
+                <div className="w-28 text-right"><L>공급가</L><div className="text-warning tabular-nums text-sm py-1.5">{won(lineSupply(l))}</div></div>
+                <div className="w-20"><L>VAT</L><select value={l.vat_mode} onChange={(e) => setLine(i, { vat_mode: e.target.value })} className={`${C.input} py-1.5 w-full`}><option value="auto">10%</option><option value="zero">면세</option></select></div>
+                <div>{lines.length > 1 && <button onClick={() => rmLine(i)} className="text-danger text-xs hover:underline py-2">삭제</button>}</div>
+              </div>
+            );
+          })}
         </div>
         <div className="flex items-center gap-3 mt-3 flex-wrap">
           <button onClick={addLine} className={`${C.btn} ${C.btnGhost}`}>+ 품목 추가</button>
@@ -478,9 +495,9 @@ function InputTab() {
       </div>
 
       <div className={`${C.card} overflow-x-auto`}>
-        <div className="px-4 pt-3 text-sm font-semibold text-text-primary">최근 직접입력 ({recent.length})</div>
+        <div className="px-4 pt-3 text-sm font-semibold text-text-primary">최근 실적 (최근 {recent.length}건 · 전체)</div>
         <table className="w-full mt-2"><thead><tr><th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>규격</th><th className={`${C.th} text-right`}>수량</th><th className={`${C.th} text-right`}>단가</th><th className={`${C.th} text-right`}>공급가</th><th className={C.th}>입력자</th><th className={C.th}></th></tr></thead>
-          <tbody>{!recent.length ? <tr><td colSpan={10} className="p-6 text-center text-text-quaternary text-sm">직접 입력한 실적이 없습니다.</td></tr> : recent.map((r) => (
+          <tbody>{!recent.length ? <tr><td colSpan={10} className="p-6 text-center text-text-quaternary text-sm">실적이 없습니다.</td></tr> : recent.map((r) => (
             <tr key={r.id} className="hover:bg-bg-1">
               <td className={C.td}>{r.pdate}{r.seq ? `-${r.seq}` : ''}</td>
               <td className={`${C.td} text-text-primary`}>{r.vendor}</td>
