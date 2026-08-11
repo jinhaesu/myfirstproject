@@ -511,3 +511,20 @@ def vendor_settle(body: VendorSettleIn, db: Session = Depends(get_db), user: dic
         return pur.vendor_settle(db, body.vendor, body.done, body.amount or 0, user.get("email"))
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+@router.get("/bom-mapping")
+def bom_mapping(db: Session = Depends(get_db)):
+    """BOM 원부재료 ↔ 구매관리 매핑 점검(erp_code 기준) + 마스터↔구매가 괴리."""
+    return pur.bom_purchase_mapping(db)
+
+
+class BomSyncIn(BaseModel):
+    erp_codes: Optional[list[str]] = None
+    dry_run: bool = True
+
+
+@router.post("/bom-sync-prices")
+def bom_sync_prices(body: BomSyncIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    """자재 마스터 단가를 최신 구매가로 반영(원재료 kg당·부자재 개당)."""
+    return pur.bom_sync_prices(db, erp_codes=body.erp_codes, dry_run=body.dry_run)

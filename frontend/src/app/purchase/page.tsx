@@ -54,7 +54,7 @@ interface MatReq { materials: { type: string; name: string; erp_code: string; qt
 interface Vendor { id: number; name: string; biz_no: string; contact: string; phone: string; email: string; category: string; lead_time_days: number; is_active: boolean; raw_materials: number; sub_materials: number; }
 interface PO { id: number; po_no: string; vendor_id: number; vendor_name: string; order_date: string; expected_date: string; status: string; total_amount: number; line_count: number; lines: any[]; }
 
-type Tab = '실적 대시보드' | '실적 조회' | '실적 입력' | '단가 추이' | '매입채무' | '원부재료 소요' | '거래처' | '발주';
+type Tab = '실적 대시보드' | '실적 조회' | '실적 입력' | '단가 추이' | '매입채무' | 'BOM 매핑' | '원부재료 소요' | '거래처' | '발주';
 
 export default function PurchasePage() {
   const { user, isLoading } = useAuth();
@@ -62,7 +62,7 @@ export default function PurchasePage() {
   const [tab, setTab] = useState<Tab>('실적 대시보드');
   useEffect(() => { if (!isLoading && !user) router.replace('/login'); }, [isLoading, user, router]);
   if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
-  const tabs: Tab[] = ['실적 대시보드', '실적 조회', '실적 입력', '단가 추이', '매입채무', '원부재료 소요', '거래처', '발주'];
+  const tabs: Tab[] = ['실적 대시보드', '실적 조회', '실적 입력', '단가 추이', '매입채무', 'BOM 매핑', '원부재료 소요', '거래처', '발주'];
   return (
     <div className="min-h-screen bg-bg-0">
       <Navigation />
@@ -74,6 +74,7 @@ export default function PurchasePage() {
         {tab === '실적 입력' && <InputTab />}
         {tab === '단가 추이' && <PriceTab />}
         {tab === '매입채무' && <APTab />}
+        {tab === 'BOM 매핑' && <BomMapTab />}
         {tab === '원부재료 소요' && <MatTab />}
         {tab === '거래처' && <VendorTab />}
         {tab === '발주' && <POTab />}
@@ -927,6 +928,98 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
               ))}</tbody></table>
           </div>
         </>}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// BOM ↔ 구매관리 매핑 점검 + 마스터 단가 최신구매가 반영
+// ─────────────────────────────────────────────
+const BOM_FILTERS = [
+  { k: 'all', label: '전체' },
+  { k: 'no_purchase_used', label: '⚠ BOM사용+구매없음' },
+  { k: 'stale', label: '단가 괴리' },
+  { k: 'unit_check', label: '단위 확인' },
+  { k: 'matched', label: '정상 매칭' },
+];
+function BomMapTab() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('no_purchase_used');
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [msg, setMsg] = useState<string | null>(null);
+  const load = useCallback(async () => { setLoading(true); setData(await getJSON<any>('/purchase/bom-mapping', null)); setLoading(false); }, []);
+  useEffect(() => { load(); }, [load]);
+  const S = data?.summary || {};
+  const all: any[] = data?.items || [];
+  const ql = q.trim().toLowerCase();
+  const items = all.filter((x) => {
+    if (ql && !(x.name || '').toLowerCase().includes(ql) && !(x.erp_code || '').toLowerCase().includes(ql)) return false;
+    if (filter === 'all') return true;
+    if (filter === 'no_purchase_used') return x.flags.includes('no_purchase') && x.bom_uses > 0;
+    if (filter === 'matched') return x.matched && !x.flags.includes('stale');
+    return x.flags.includes(filter);
+  });
+  const toggle = (code: string) => setSel((s) => { const n = new Set(s); n.has(code) ? n.delete(code) : n.add(code); return n; });
+  const staleCodes = all.filter((x) => x.flags.includes('stale')).map((x) => x.erp_code);
+  const sync = async (codes: string[]) => {
+    if (!codes.length) { setMsg('반영할 자재를 선택하세요'); return; }
+    const pre = await send('/purchase/bom-sync-prices', 'POST', { erp_codes: codes, dry_run: true });
+    const n = pre.data?.changed_count || 0;
+    if (!n) { setMsg('반영할 단가 변화가 없습니다'); return; }
+    if (!confirm(`${n}개 자재 마스터 단가를 최신 구매가로 반영할까요?\n(원재료 kg당·부자재 롤/개당 기준)`)) return;
+    const r = await send('/purchase/bom-sync-prices', 'POST', { erp_codes: codes, dry_run: false });
+    setMsg(`${r.data?.changed_count || 0}개 자재 단가 반영 완료`); setSel(new Set()); load();
+  };
+  const flagBadge = (f: string[]) => {
+    if (f.includes('no_purchase')) return <span className="text-danger text-xs">구매기록 없음</span>;
+    if (f.includes('stale')) return <span className="text-warning text-xs">단가 괴리</span>;
+    if (f.includes('unit_check')) return <span className="text-info text-xs">단위 확인</span>;
+    return <span className="text-success-light text-xs">정상</span>;
+  };
+  return (
+    <div className="space-y-4">
+      <LoadingOverlay show={loading} />
+      <p className="text-xs text-text-quaternary">BOM 원부재료와 구매관리(구매일보)를 <b className="text-text-tertiary">품목코드(erp_code=item_code)</b>로 매핑합니다. 원재료는 kg당, 부자재는 롤/개당 기준으로 마스터 단가와 최신 구매가를 비교합니다. '단가 반영'을 누르면 마스터 단가가 최신 구매가로 갱신되어 BOM 원가에 반영됩니다.</p>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <StatCard label="총 자재(활성)" value={fmt(S.total || 0)} />
+        <StatCard label="구매 매칭" value={fmt(S.matched || 0)} tone="text-info" sub={`전체 ${fmt(S.total || 0)}종`} />
+        <StatCard label="BOM사용+구매없음" value={fmt(S.unused_used_gap || 0)} tone="text-danger" sub="연동 안 됨 — 점검" />
+        <StatCard label="단가 괴리(>10%)" value={fmt(S.stale || 0)} tone="text-warning" />
+        <StatCard label="단위 확인" value={fmt(S.unit_check || 0)} tone="text-text-tertiary" sub="kg환산 정보 없음" />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {BOM_FILTERS.map((f) => <button key={f.k} onClick={() => setFilter(f.k)} className={`${C.btn} ${filter === f.k ? C.btnPrimary : C.btnGhost} text-xs py-1.5`}>{f.label}</button>)}
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="자재명·코드" className={`${C.input} w-40`} />
+        <div className="ml-auto flex items-center gap-2">
+          {msg && <span className="text-xs text-accent">{msg}</span>}
+          <button onClick={() => sync(Array.from(sel))} disabled={!sel.size} className={`${C.btn} ${sel.size ? C.btnPrimary : C.btnGhost} text-xs py-1.5`}>선택 {sel.size ? `${sel.size}건 ` : ''}단가 반영</button>
+          <button onClick={() => sync(staleCodes)} className={`${C.btn} ${C.btnGhost} text-xs py-1.5`} title="괴리 자재 전체를 최신 구매가로">괴리 전체 반영</button>
+        </div>
+      </div>
+      <div className={`${C.card} overflow-x-auto`}>
+        <table className="w-full"><thead><tr>
+          <th className={`${C.th} text-center`}></th><th className={C.th}>유형</th><th className={C.th}>자재명</th><th className={C.th}>코드</th><th className={C.th}>거래처</th>
+          <th className={`${C.th} text-right`}>마스터</th><th className={`${C.th} text-right`}>최신구매</th><th className={`${C.th} text-right`}>괴리</th>
+          <th className={`${C.th} text-center`}>BOM사용</th><th className={C.th}>최근구매</th><th className={C.th}>상태</th>
+        </tr></thead>
+          <tbody>{!items.length ? <tr><td colSpan={11} className="p-6 text-center text-text-quaternary text-sm">{loading ? '조회 중…' : '해당 없음'}</td></tr> : items.map((x: any) => (
+            <tr key={x.type + x.erp_code} className={`hover:bg-bg-1 ${sel.has(x.erp_code) ? 'bg-brand/10' : ''}`}>
+              <td className={`${C.td} text-center`}>{x.matched && <input type="checkbox" checked={sel.has(x.erp_code)} onChange={() => toggle(x.erp_code)} />}</td>
+              <td className={C.td}><span className={x.type === 'raw' ? 'text-info' : 'text-warning'}>{x.type === 'raw' ? '원재료' : '부자재'}</span></td>
+              <td className={`${C.td} text-text-primary max-w-[240px] truncate`} title={x.name}>{x.name}</td>
+              <td className={`${C.td} text-text-tertiary text-xs`}>{x.erp_code}</td>
+              <td className={`${C.td} text-text-tertiary text-xs max-w-[120px] truncate`}>{x.vendor || x.supplier || '-'}</td>
+              <td className={`${C.td} text-right tabular-nums`}>{won(x.master_price)}<div className="text-[10px] text-text-quaternary">{x.basis === 'kg' ? '/kg' : x.basis === 'roll' ? '/롤' : '/개'}</div></td>
+              <td className={`${C.td} text-right tabular-nums text-text-primary`}>{x.buy_price != null ? won(x.buy_price) : '-'}</td>
+              <td className={`${C.td} text-right tabular-nums font-semibold ${x.gap_pct == null ? 'text-text-quaternary' : x.gap_pct > 0 ? 'text-danger' : 'text-info'}`}>{x.gap_pct == null ? '-' : `${x.gap_pct > 0 ? '▲' : '▼'}${Math.abs(x.gap_pct).toFixed(0)}%`}</td>
+              <td className={`${C.td} text-center tabular-nums ${x.bom_uses ? '' : 'text-text-quaternary'}`}>{x.bom_uses}</td>
+              <td className={`${C.td} text-text-tertiary text-xs`}>{x.last_date || '-'}</td>
+              <td className={C.td}>{flagBadge(x.flags)}</td>
+            </tr>
+          ))}</tbody></table>
       </div>
     </div>
   );

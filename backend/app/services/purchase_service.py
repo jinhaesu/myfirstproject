@@ -15,7 +15,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db_models import (
-    InventoryProduction, ScmProduct, ScmRawMaterial, ScmSubMaterial,
+    InventoryProduction, ScmProduct, ScmRawMaterial, ScmSubMaterial, ScmBomLine,
     PurchaseVendor, PurchaseOrder, PurchaseOrderLine, PurchaseRecord,
     ChannelSalesDailyProduct, PurchaseVendorTerm, PurchasePayment,
 )
@@ -1283,3 +1283,169 @@ def add_records_batch(db: Session, common: dict, lines: list[dict], user: Option
         else:
             fail += 1; msgs.append(f"{i + 1}행: {res.get('msg')}")
     return {"ok": fail == 0, "saved": ok, "failed": fail, "ids": ids, "errors": msgs}
+
+
+# ══════════════════════════════════════════════════════════════
+# BOM ↔ 구매관리 매핑/점검 + 마스터 단가 최신구매가 반영
+# ══════════════════════════════════════════════════════════════
+
+def _latest_purchase_by_code(db: Session) -> dict:
+    """품목코드별 최근(마지막 pdate) 구매 단가·kg환산·거래처·횟수."""
+    from sqlalchemy import distinct
+    rows = db.query(
+        PurchaseRecord.item_code, PurchaseRecord.item_name, PurchaseRecord.unit,
+        PurchaseRecord.unit_price, PurchaseRecord.kg_per_unit, PurchaseRecord.vendor_name,
+        PurchaseRecord.pdate,
+    ).filter(PurchaseRecord.item_code.isnot(None), PurchaseRecord.item_code != "").order_by(
+        PurchaseRecord.item_code, PurchaseRecord.pdate.desc(), PurchaseRecord.id.desc()
+    ).all()
+    cnt: dict = {}
+    for r in rows:
+        cnt[r.item_code] = cnt.get(r.item_code, 0) + 1
+    latest: dict = {}
+    for r in rows:
+        code = str(r.item_code).strip()
+        if code in latest:
+            continue
+        latest[code] = {
+            "item_name": r.item_name, "unit": r.unit, "unit_price": float(r.unit_price or 0),
+            "kg_per_unit": r.kg_per_unit, "vendor": r.vendor_name,
+            "last_date": r.pdate.isoformat() if r.pdate else None, "buy_count": cnt.get(r.item_code, 0),
+        }
+    return latest
+
+
+def bom_purchase_mapping(db: Session) -> dict:
+    """BOM 원부재료 ↔ 구매관리(구매일보) 매핑 점검.
+
+    - 매칭키: scm_*.erp_code == purchase_record.item_code
+    - 원재료 master=kg_price(kg당), 부자재 master=unit_price(개당)
+    - 최신 구매가: 원재료는 kg당(=unit_price/kg_per_unit), 부자재는 개당(unit_price)
+    - flags: no_purchase(BOM엔 있으나 구매기록 없음), stale(마스터↔구매 괴리>10%),
+      unit_check(원재료 kg환산 정보 없음), unused(BOM 미사용)
+    """
+    latest = _latest_purchase_by_code(db)
+    # BOM 라인 사용 건수(자재별)
+    use_cnt: dict = {}
+    for (erp, n) in db.query(ScmBomLine.material_erp_code, func.count(ScmBomLine.id)).group_by(
+            ScmBomLine.material_erp_code).all():
+        if erp:
+            use_cnt[str(erp).strip()] = int(n or 0)
+
+    out = []
+    for m in db.query(ScmRawMaterial).filter(ScmRawMaterial.is_active.is_(True)).all():
+        code = (m.erp_code or "").strip()
+        p = latest.get(code)
+        master = float(m.kg_price or 0)
+        buy_kg = None
+        if p and p["unit_price"]:
+            buy_kg = (p["unit_price"] / p["kg_per_unit"]) if p["kg_per_unit"] else None
+        gap = ((buy_kg - master) / master * 100) if (buy_kg and master) else None
+        flags = []
+        if not p:
+            flags.append("no_purchase")
+        elif buy_kg is None:
+            flags.append("unit_check")
+        elif gap is not None and abs(gap) >= 10:
+            flags.append("stale")
+        if not use_cnt.get(code):
+            flags.append("unused")
+        out.append({
+            "type": "raw", "material_id": m.id, "erp_code": code, "name": m.name,
+            "supplier": m.supplier, "basis": "kg", "master_price": round(master),
+            "buy_price": round(buy_kg) if buy_kg else None,
+            "buy_unit_price": round(p["unit_price"]) if p else None,
+            "buy_unit": p["unit"] if p else None, "kg_per_unit": p["kg_per_unit"] if p else None,
+            "gap_pct": round(gap, 1) if gap is not None else None,
+            "vendor": p["vendor"] if p else None, "last_date": p["last_date"] if p else None,
+            "buy_count": p["buy_count"] if p else 0, "bom_uses": use_cnt.get(code, 0),
+            "matched": p is not None, "flags": flags,
+        })
+    for m in db.query(ScmSubMaterial).filter(ScmSubMaterial.is_active.is_(True)).all():
+        code = (m.erp_code or "").strip()
+        p = latest.get(code)
+        # 롤지형(생산가능수량/롤단가 보유)은 롤당 기준으로 비교(구매도 롤당), 그 외는 개당.
+        is_roll = bool((m.producible_qty or 0) > 0 or (m.roll_price or 0) > 0)
+        basis = "roll" if is_roll else "ea"
+        master = float(m.roll_price or 0) if is_roll else float(m.unit_price or 0)
+        buy = p["unit_price"] if p else None   # 구매 단가(롤지=롤당, 그외=개당)
+        gap = ((buy - master) / master * 100) if (buy and master) else None
+        flags = []
+        if not p:
+            flags.append("no_purchase")
+        elif gap is not None and abs(gap) >= 10:
+            flags.append("stale")
+        if not use_cnt.get(code):
+            flags.append("unused")
+        out.append({
+            "type": "sub", "material_id": m.id, "erp_code": code, "name": m.name,
+            "supplier": m.supplier, "basis": basis, "master_price": round(master),
+            "buy_price": round(buy) if buy else None,
+            "buy_unit_price": round(buy) if buy else None,
+            "buy_unit": p["unit"] if p else None, "kg_per_unit": None,
+            "gap_pct": round(gap, 1) if gap is not None else None,
+            "vendor": p["vendor"] if p else None, "last_date": p["last_date"] if p else None,
+            "buy_count": p["buy_count"] if p else 0, "bom_uses": use_cnt.get(code, 0),
+            "matched": p is not None, "flags": flags,
+        })
+
+    summ = {
+        "total": len(out),
+        "matched": sum(1 for x in out if x["matched"]),
+        "no_purchase": sum(1 for x in out if "no_purchase" in x["flags"]),
+        "stale": sum(1 for x in out if "stale" in x["flags"]),
+        "unit_check": sum(1 for x in out if "unit_check" in x["flags"]),
+        "unused_used_gap": sum(1 for x in out if "no_purchase" in x["flags"] and x["bom_uses"] > 0),
+    }
+    # 정렬: BOM에 쓰이는데 구매기록 없음 → 괴리 큰 순 → 나머지
+    def _k(x):
+        pri = 0 if ("no_purchase" in x["flags"] and x["bom_uses"] > 0) else (1 if "stale" in x["flags"] else 2)
+        return (pri, -(abs(x["gap_pct"]) if x["gap_pct"] is not None else 0))
+    out.sort(key=_k)
+    return {"summary": summ, "items": out}
+
+
+def bom_sync_prices(db: Session, erp_codes: Optional[list[str]] = None, dry_run: bool = True) -> dict:
+    """매칭된 자재의 마스터 단가를 최신 구매가로 반영.
+    원재료 kg_price ← 최신 구매 kg당(=unit_price/kg_per_unit), 부자재 unit_price ← 최신 구매 개당.
+    erp_codes 지정 시 그 코드만, 없으면 괴리(stale)·kg환산가능한 전체.
+    """
+    latest = _latest_purchase_by_code(db)
+    want = set(str(c).strip() for c in erp_codes) if erp_codes else None
+    changed = []
+    for m in db.query(ScmRawMaterial).filter(ScmRawMaterial.is_active.is_(True)).all():
+        code = (m.erp_code or "").strip()
+        if want is not None and code not in want:
+            continue
+        p = latest.get(code)
+        if not p or not p["unit_price"] or not p["kg_per_unit"]:
+            continue
+        new_kg = round(p["unit_price"] / p["kg_per_unit"])
+        old = float(m.kg_price or 0)
+        if new_kg and abs(new_kg - old) >= 1:
+            changed.append({"type": "raw", "erp_code": code, "name": m.name, "old": round(old), "new": new_kg})
+            if not dry_run:
+                m.kg_price = new_kg
+    for m in db.query(ScmSubMaterial).filter(ScmSubMaterial.is_active.is_(True)).all():
+        code = (m.erp_code or "").strip()
+        if want is not None and code not in want:
+            continue
+        p = latest.get(code)
+        if not p or not p["unit_price"]:
+            continue
+        buy = round(p["unit_price"])   # 롤지=롤당, 그외=개당
+        is_roll = bool((m.producible_qty or 0) > 0 or (m.roll_price or 0) > 0)
+        old = float(m.roll_price or 0) if is_roll else float(m.unit_price or 0)
+        if buy and abs(buy - old) >= 1:
+            changed.append({"type": "sub", "erp_code": code, "name": m.name, "old": round(old), "new": buy,
+                            "basis": "roll" if is_roll else "ea"})
+            if not dry_run:
+                if is_roll:
+                    m.roll_price = buy
+                    if (m.producible_qty or 0) > 0:
+                        m.unit_price = round(buy / m.producible_qty, 2)   # 개당(cm/m) 재산출
+                else:
+                    m.unit_price = buy
+    if not dry_run:
+        db.commit()
+    return {"ok": True, "dry_run": dry_run, "changed_count": len(changed), "changed": changed[:200]}
