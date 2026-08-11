@@ -641,7 +641,9 @@ function InputTab({ warehouses }: { warehouses: Warehouse[] }) {
   const [cats, setCats] = useState<string[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [recent, setRecent] = useState<ProdRow[]>([]);
-  const [f, setF] = useState<any>({ prod_date: todayISO(), worker: '', location: '2층', category: '', product_name: '', qty: '', hours: '', unit_price: '', unit_cost: '', grade: '주간', warehouse_id: '' });
+  const EMPTY = { prod_date: todayISO(), worker: '', location: '2층', category: '', product_name: '', qty: '', hours: '', unit_price: '', unit_cost: '', grade: '주간', warehouse_id: '' };
+  const [f, setF] = useState<any>({ ...EMPTY });
+  const [editId, setEditId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
   const loadRecent = useCallback(async () => {
@@ -667,29 +669,43 @@ function InputTab({ warehouses }: { warehouses: Warehouse[] }) {
     if (!f.product_name) { alert('품목명(상세)을 선택/입력하세요 — 필수'); return; }
     if (!f.hours || Number(f.hours) <= 0) { alert('투여시간을 입력하세요 — 필수'); return; }
     if (!f.qty || Number(f.qty) <= 0) { alert('생산량을 입력하세요'); return; }
-    if (!f.warehouse_id) { alert('입고 창고를 선택하세요'); return; }
+    if (!editId && !f.warehouse_id) { alert('입고 창고를 선택하세요'); return; }
     setSaving(true);
     const body = { ...f, qty: Number(f.qty), hours: Number(f.hours || 0), unit_price: Number(f.unit_price || 0), unit_cost: Number(f.unit_cost || 0), warehouse_id: Number(f.warehouse_id) };
-    const r = await send('/inventory/production/manual', 'POST', body);
+    const r = editId
+      ? await send(`/inventory/production/${editId}`, 'PATCH', body)
+      : await send('/inventory/production/manual', 'POST', body);
     setSaving(false);
     if (r.ok) {
-      alert(`등록 완료 · ${r.data.matched ? '재고반영(' + r.data.matched_name + ')' : '미매칭(재고 미반영)'}`);
-      setF((p: any) => ({ ...p, product_name: '', qty: '', hours: '', unit_price: '', unit_cost: '' }));
+      alert(`${editId ? '수정' : '등록'} 완료 · ${r.data.matched ? '재고반영(' + r.data.matched_name + ')' : '미매칭(재고 미반영)'}`);
+      setEditId(null);
+      setF((p: any) => ({ ...EMPTY, warehouse_id: p.warehouse_id, prod_date: p.prod_date, location: p.location, worker: p.worker }));
       loadRecent();
     } else alert('실패: ' + (r.data?.detail || r.data?.msg || ''));
   };
+  const startEdit = (r: ProdRow) => {
+    setEditId(r.id);
+    setF((p: any) => ({
+      ...p, prod_date: r.prod_date, worker: r.worker || '', location: r.location || '2층',
+      category: r.category || '', product_name: r.product_name || '',
+      qty: r.qty ?? '', hours: r.hours ?? '', unit_price: r.unit_price ?? '',
+      unit_cost: r.unit_cost ?? '', grade: r.grade || '주간',
+    }));
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const cancelEdit = () => { setEditId(null); setF((p: any) => ({ ...EMPTY, warehouse_id: p.warehouse_id })); };
   const del = async (id: number) => {
     if (!confirm('삭제하시겠습니까? (재고 반영분도 취소됩니다)')) return;
     const r = await send(`/inventory/production/${id}`, 'DELETE');
-    if (r.ok) loadRecent();
+    if (r.ok) { if (editId === id) cancelEdit(); loadRecent(); }
   };
 
   const nightLabor = f.hours ? Math.round(15000 * Number(f.hours) * (f.grade === '야간' ? 1.5 : 1)) : 0;
 
   return (
     <div className="space-y-4">
-      <div className={`${C.card} p-4`}>
-        <div className="text-sm font-semibold text-text-primary mb-3">생산 실적 직접 입력</div>
+      <div className={`${C.card} p-4 ${editId ? 'ring-2 ring-brand/60' : ''}`}>
+        <div className="text-sm font-semibold text-text-primary mb-3">{editId ? `생산 실적 수정 (#${editId})` : '생산 실적 직접 입력'}</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div><div className="text-xs text-text-tertiary mb-1">생산일 *</div><input type="date" value={f.prod_date} onChange={(e) => setF({ ...f, prod_date: e.target.value })} className={`${C.input} w-full`} /></div>
           <div><div className="text-xs text-text-tertiary mb-1">담당자</div><input value={f.worker} onChange={(e) => setF({ ...f, worker: e.target.value })} className={`${C.input} w-full`} /></div>
@@ -720,7 +736,7 @@ function InputTab({ warehouses }: { warehouses: Warehouse[] }) {
             <select value={f.warehouse_id} onChange={(e) => setF({ ...f, warehouse_id: e.target.value })} className={`${C.input} w-full`}>
               <option value="">선택</option>{warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select></div>
-          <div className="flex items-end"><button onClick={submit} disabled={saving} className={`${C.btn} ${C.btnPrimary} w-full`}>{saving ? '저장 중…' : '실적 등록'}</button></div>
+          <div className="flex items-end gap-2"><button onClick={submit} disabled={saving} className={`${C.btn} ${C.btnPrimary} w-full`}>{saving ? '저장 중…' : editId ? '수정 저장' : '실적 등록'}</button>{editId && <button onClick={cancelEdit} className={`${C.btn} ${C.btnGhost} whitespace-nowrap`}>취소</button>}</div>
         </div>
         <p className="text-xs text-text-quaternary mt-2">예상 노무비: <span className="text-cyan">{won(nightLabor)}</span> (시급 15,000{f.grade === '야간' ? ' × 1.5(야간)' : ''} × {f.hours || 0}h)</p>
       </div>
@@ -730,15 +746,16 @@ function InputTab({ warehouses }: { warehouses: Warehouse[] }) {
         {recent.length === 0 ? <div className="text-sm text-text-quaternary">없음</div> : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead><tr><th className={C.th}>생산일</th><th className={C.th}>품목류</th><th className={C.th}>생산량</th><th className={C.th}>시간</th><th className={C.th}>노무비</th><th className={C.th}>주야</th><th className={C.th}>반영</th><th className={C.th}></th></tr></thead>
+              <thead><tr><th className={C.th}>생산일</th><th className={C.th}>품목류</th><th className={C.th}>품목명</th><th className={C.th}>생산량</th><th className={C.th}>시간</th><th className={C.th}>노무비</th><th className={C.th}>주야</th><th className={C.th}>반영</th><th className={C.th}></th></tr></thead>
               <tbody>
                 {recent.map((r) => (
-                  <tr key={r.id}>
-                    <td className={C.td}>{r.prod_date}</td><td className={`${C.td} text-text-primary`}>{r.category}</td>
+                  <tr key={r.id} className={editId === r.id ? 'bg-brand/10' : ''}>
+                    <td className={C.td}>{r.prod_date}</td><td className={`${C.td} text-text-tertiary`}>{r.category}</td>
+                    <td className={`${C.td} text-text-primary max-w-[260px] truncate`} title={r.product_name || ''}>{r.product_name || '-'}</td>
                     <td className={C.td}>{fmt(r.qty)}</td><td className={C.td}>{fmt(r.hours)}h</td>
                     <td className={`${C.td} text-cyan`}>{won(r.labor_cost)}</td><td className={C.td}>{r.grade}</td>
                     <td className={C.td}>{r.matched ? <span className="text-success-light text-xs">{r.matched_name}</span> : <span className="text-danger text-xs">미매칭</span>}</td>
-                    <td className={C.td}><button onClick={() => del(r.id)} className="text-danger text-xs hover:underline">삭제</button></td>
+                    <td className={`${C.td} whitespace-nowrap`}><button onClick={() => startEdit(r)} className="text-accent text-xs hover:underline mr-2">수정</button><button onClick={() => del(r.id)} className="text-danger text-xs hover:underline">삭제</button></td>
                   </tr>
                 ))}
               </tbody>

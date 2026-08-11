@@ -754,6 +754,28 @@ def add_production_manual(body: ProductionManualIn, db: Session = Depends(get_db
     return res
 
 
+class ProductionPatchIn(BaseModel):
+    prod_date: Optional[str] = None
+    worker: Optional[str] = None
+    location: Optional[str] = None
+    category: Optional[str] = None
+    product_name: Optional[str] = None
+    qty: Optional[float] = None
+    hours: Optional[float] = None
+    unit_price: Optional[float] = None
+    unit_cost: Optional[float] = None
+    grade: Optional[str] = None
+
+
+@router.patch("/production/{rec_id}")
+def update_production_record(rec_id: int, body: ProductionPatchIn, db: Session = Depends(get_db),
+                            user: dict = Depends(get_current_user)):
+    res = inv.update_production_record(db, rec_id, body.model_dump(exclude_none=True))
+    if not res.get("ok"):
+        raise HTTPException(400, res.get("msg") or "실패")
+    return res
+
+
 @router.delete("/production/{rec_id}")
 def delete_production_record(rec_id: int, db: Session = Depends(get_db),
                             user: dict = Depends(get_current_user)):

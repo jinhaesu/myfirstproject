@@ -1236,6 +1236,48 @@ def add_production_record(db: Session, data: dict, warehouse_id: int,
     return {"ok": True, "id": rec.id, "matched": pid is not None, "matched_name": canon}
 
 
+def update_production_record(db: Session, rec_id: int, data: dict) -> dict:
+    """생산 실적 수동입력 건 수정. 파생값(prod_amount·labor_cost·total_cost)·품목매핑·dedup_hash 재산출."""
+    rec = db.query(InventoryProduction).filter(InventoryProduction.id == rec_id).first()
+    if not rec:
+        return {"ok": False, "msg": "대상 없음"}
+    cat_map, scm_map = _production_maps(db)
+    id2name = {p.id: p.name for p in db.query(ProductMaster).all()}
+
+    def _pick(k, cur):
+        v = data.get(k)
+        return cur if v is None else v
+
+    if data.get("prod_date"):
+        rec.prod_date = date.fromisoformat(str(data["prod_date"])[:10])
+    rec.worker = _pick("worker", rec.worker) or None
+    rec.location = _pick("location", rec.location) or None
+    rec.category = _pick("category", rec.category)
+    rec.product_name = _pick("product_name", rec.product_name) or None
+    rec.qty = float(_pick("qty", rec.qty) or 0)
+    rec.hours = float(_pick("hours", rec.hours) or 0)
+    rec.unit_price = float(_pick("unit_price", rec.unit_price) or 0)
+    rec.unit_cost = float(_pick("unit_cost", rec.unit_cost) or 0)
+    rec.grade = _pick("grade", rec.grade) or "주간"
+
+    # 품목류/품목명 바뀌었을 수 있으니 매핑 재산출
+    pid = _resolve_prod(cat_map, scm_map, rec.category or "", rec.product_name or "")
+    canon = id2name.get(pid) if pid else (rec.category or None)
+    rec.product_id = pid
+    if pid:
+        rec.category = canon
+    rec.prod_amount = round(rec.qty * rec.unit_price, 2)
+    rec.total_cost = round(rec.qty * rec.unit_cost, 2)
+    rec.labor_cost = _labor_cost(rec.hours, rec.grade)
+    rec.dedup_hash = _prod_hash({
+        "prod_date": rec.prod_date.isoformat() if rec.prod_date else "",
+        "category": rec.category or "", "product_name": rec.product_name or "",
+        "qty": rec.qty, "worker": rec.worker or "", "unit_price": rec.unit_price,
+    })
+    db.commit()
+    return {"ok": True, "id": rec.id, "matched": pid is not None, "matched_name": canon}
+
+
 # ──────────────────────────────────────────────
 # 재고 월별 흐름 / 히트맵
 # ──────────────────────────────────────────────
