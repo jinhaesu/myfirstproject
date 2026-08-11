@@ -589,49 +589,49 @@ function APTab() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [terms, setTerms] = useState<any[]>([]);
-  const [pays, setPays] = useState<any[]>([]);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [start, setStart] = useState('');
   const [onlyBalance, setOnlyBalance] = useState(true);
-  const [start, setStart] = useState('');   // 미지급 기준 시작일(이전 발주는 지급완료 간주). 빈값=전체
+  const [sort, setSort] = useState<{ key: string; dir: number }>({ key: 'priority', dir: 1 });
+  const [modal, setModal] = useState<any>(null);
 
   const loadAging = useCallback(async () => { setLoading(true); setData(await getJSON<any>(`/purchase/ap-aging${start ? `?start=${start}` : ''}`, null)); setLoading(false); }, [start]);
   const loadTerms = useCallback(async () => { setTerms((await getJSON<any>('/purchase/vendor-terms', { terms: [] })).terms); }, []);
-  const loadPays = useCallback(async () => { setPays((await getJSON<any>('/purchase/payments?limit=50', { payments: [] })).payments); }, []);
-  useEffect(() => { loadAging(); loadTerms(); loadPays(); }, [loadAging, loadTerms, loadPays]);
-
-  // 정산조건 편집 폼
-  const [tf, setTf] = useState<any>({ vendor: '', term_type: 'MONTH_END', term_month_offset: 1, term_day: 20, term_days: 30, memo: '' });
-  const [tmsg, setTmsg] = useState<string | null>(null);
-  const saveTerm = async () => {
-    if (!tf.vendor) { setTmsg('거래처를 선택하세요.'); return; }
-    const r = await send('/purchase/vendor-terms', 'POST', tf);
-    if (r.ok) { setTmsg(`저장: ${r.data.vendor} → ${r.data.label}`); setTf({ ...tf, vendor: '', memo: '' }); loadTerms(); loadAging(); }
-    else setTmsg(r.data?.detail || '저장 실패');
-  };
-  const editTerm = (t: any) => setTf({ vendor: t.vendor, term_type: t.term_type, term_month_offset: t.term_month_offset ?? 1, term_day: t.term_day ?? 20, term_days: t.term_days ?? 30, memo: t.memo || '' });
-  const delTerm = async (id: number) => { if (!confirm('이 정산조건을 삭제할까요?')) return; await send(`/purchase/vendor-terms/${id}`, 'DELETE'); loadTerms(); loadAging(); };
-
-  // 지급 입력 폼
-  const [pf, setPf] = useState<any>({ vendor: '', pay_date: iso(new Date()), amount: '', method: '이체', memo: '' });
-  const [pmsg, setPmsg] = useState<string | null>(null);
-  const savePay = async () => {
-    if (!pf.vendor || !pf.amount) { setPmsg('거래처·금액을 입력하세요.'); return; }
-    const r = await send('/purchase/payments', 'POST', { ...pf, amount: Number(pf.amount) || 0 });
-    if (r.ok) { setPmsg('지급 기록 저장'); setPf({ ...pf, amount: '', memo: '' }); loadPays(); loadAging(); }
-    else setPmsg(r.data?.detail || '저장 실패');
-  };
-  const delPay = async (id: number) => { if (!confirm('이 지급 기록을 삭제할까요?')) return; await send(`/purchase/payments/${id}`, 'DELETE'); loadPays(); loadAging(); };
+  useEffect(() => { loadAging(); loadTerms(); }, [loadAging, loadTerms]);
+  const refresh = () => { loadAging(); loadTerms(); };
 
   const T = data?.totals || {};
-  const vendorFetcher = (q: string) => getJSON<{ vendors: string[] }>(`/purchase/suggest/vendors?q=${encodeURIComponent(q)}&limit=30`, { vendors: [] }).then((r) => r.vendors);
-  const vendors = (data?.vendors || []).filter((v: any) => !onlyBalance || v.balance > 0);
   const bo: string[] = data?.bucket_order || [];
+  const termByVendor: Record<string, any> = Object.fromEntries(terms.map((t) => [t.vendor, t]));
+
+  const setSortKey = (k: string) => setSort((s) => (s.key === k ? { key: k, dir: -s.dir } : { key: k, dir: 1 }));
+  let vendors = (data?.vendors || []).filter((v: any) => !onlyBalance || v.balance > 0);
+  vendors = [...vendors].sort((a: any, b: any) => {
+    const k = sort.key;
+    if (k === 'vendor') return a.vendor.localeCompare(b.vendor) * sort.dir;
+    if (k === 'earliest_due') return String(a.earliest_due || '9999').localeCompare(String(b.earliest_due || '9999')) * sort.dir;
+    return ((a[k] || 0) - (b[k] || 0)) * sort.dir;
+  });
+
+  const toggleSettle = async (v: any, checked: boolean) => {
+    if (checked) {
+      if (v.balance > 0 && !confirm(`${v.vendor} 잔액 ${won(v.balance)}을 정산완료 처리할까요? (지급기록 생성)`)) return;
+      await send('/purchase/vendor-settle', 'POST', { vendor: v.vendor, done: true, amount: v.balance });
+    } else {
+      if (!confirm(`${v.vendor} 정산완료를 해제할까요? (체크로 만든 정산기록 삭제)`)) return;
+      await send('/purchase/vendor-settle', 'POST', { vendor: v.vendor, done: false });
+    }
+    refresh();
+  };
+
+  const SortTh = ({ k, label, cls }: { k: string; label: string; cls?: string }) => (
+    <th className={`${C.th} cursor-pointer select-none hover:text-text-secondary ${cls || ''}`} onClick={() => setSortKey(k)}>{label}{sort.key === k ? (sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>
+  );
 
   return (
     <div className="space-y-5">
       <LoadingOverlay show={loading} />
       <p className="text-xs text-text-quaternary">
-        매입채무 = 구매일보 합계(VAT포함). 잔액 = 매입 − 지급(오래된 발주부터 상계). 만기일은 거래처 계약 정산조건으로 산출하며, 지난 만기는 연체로 집계합니다. 기준일 {data?.asof || '-'}.
+        매입채무 = 구매일보 합계(VAT포함). 잔액 = 매입 − 지급(오래된 발주부터 상계). 거래처명을 클릭하면 정산조건·정산이력 설정 팝업이 열립니다. 맨 앞 체크박스로 잔액을 정산완료 처리할 수 있습니다. 기준일 {data?.asof || '-'}.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-text-tertiary">미지급 집계 시작일</span>
@@ -639,10 +639,8 @@ function APTab() {
           <button key={p.k} onClick={() => setStart(p.v)} className={`${C.btn} ${start === p.v ? C.btnPrimary : C.btnGhost} text-xs py-1.5`}>{p.k}</button>
         ))}
         <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={`${C.input} text-xs py-1.5`} />
-        <span className="text-[11px] text-text-quaternary">이전 발주는 지급완료로 간주(지급기록 누적 전 임시 기준)</span>
       </div>
 
-      {/* 총계 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="총 매입(VAT포함)" value={won(T.payable || 0)} tone="text-text-primary" />
         <StatCard label="지급 완료" value={won(T.paid || 0)} tone="text-info" />
@@ -650,7 +648,6 @@ function APTab() {
         <StatCard label="연체 잔액" value={won(T.overdue || 0)} tone="text-danger" sub="계약 만기 경과분" />
       </div>
 
-      {/* 버킷 바 */}
       {data?.bucket_totals && (
         <div className={`${C.card} p-4`}>
           <div className="text-sm font-semibold text-text-primary mb-3">만기(정산일) 기준 잔액 분포</div>
@@ -672,129 +669,139 @@ function APTab() {
 
       {data?.unset_vendors?.length > 0 && (
         <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
-          정산조건 미설정 거래처 {data.unset_vendors.length}곳(잔액 보유) — 아래에서 조건을 등록하면 만기·연체가 정확히 계산됩니다: {data.unset_vendors.slice(0, 8).join(', ')}{data.unset_vendors.length > 8 ? ' 외' : ''}
+          정산조건 미설정 거래처 {data.unset_vendors.length}곳(잔액 보유) — 거래처명을 클릭해 조건을 등록하면 만기·연체가 정확히 계산됩니다: {data.unset_vendors.slice(0, 8).join(', ')}{data.unset_vendors.length > 8 ? ' 외' : ''}
         </div>
       )}
 
-      {/* 정산 우선순위 테이블 */}
       <div className={`${C.card} overflow-x-auto`}>
         <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-          <div className="text-sm font-semibold text-text-primary">거래처별 매입채무 · 정산 우선순위 (연체 → 만기임박 순)</div>
+          <div className="text-sm font-semibold text-text-primary">거래처별 매입채무 · 정산 우선순위 <span className="text-xs text-text-quaternary font-normal">(컬럼 클릭 정렬 · 거래처명 클릭 설정)</span></div>
           <label className="text-xs text-text-tertiary flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={onlyBalance} onChange={(e) => setOnlyBalance(e.target.checked)} /> 잔액 있는 곳만</label>
         </div>
         <table className="w-full">
           <thead><tr>
-            <th className={C.th}>순위</th><th className={C.th}>거래처</th><th className={C.th}>정산조건</th>
-            <th className={`${C.th} text-right`}>매입</th><th className={`${C.th} text-right`}>지급</th>
-            <th className={`${C.th} text-right`}>잔액</th><th className={`${C.th} text-right`}>연체</th>
-            <th className={C.th}>최근만기</th><th className={C.th}></th>
+            <th className={`${C.th} text-center`}>정산완료</th>
+            <SortTh k="priority" label="순위" />
+            <SortTh k="vendor" label="거래처" />
+            <th className={C.th}>정산조건</th>
+            <SortTh k="payable" label="매입" cls="text-right" />
+            <SortTh k="paid" label="지급" cls="text-right" />
+            <SortTh k="balance" label="잔액" cls="text-right" />
+            <SortTh k="overdue" label="연체" cls="text-right" />
+            <SortTh k="earliest_due" label="최근만기" />
           </tr></thead>
-          <tbody>{!vendors.length ? <tr><td colSpan={9} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr> : vendors.map((v: any) => (
-            <Fragment key={v.vendor}>
-              <tr className="hover:bg-bg-1 cursor-pointer" onClick={() => setExpanded(expanded === v.vendor ? null : v.vendor)}>
+          <tbody>{!vendors.length ? <tr><td colSpan={9} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr> : vendors.map((v: any) => {
+            const settled = v.balance <= 0.5;
+            return (
+              <tr key={v.vendor} className={`hover:bg-bg-1 ${settled ? 'opacity-60' : ''}`}>
+                <td className={`${C.td} text-center`}><input type="checkbox" checked={settled} onChange={(e) => toggleSettle(v, e.target.checked)} title="체크 시 잔액 정산완료 처리" /></td>
                 <td className={`${C.td} tabular-nums`}>{v.priority}</td>
-                <td className={`${C.td} text-text-primary font-medium max-w-[220px] truncate`} title={v.vendor}>{v.vendor}</td>
+                <td className={`${C.td} max-w-[220px] truncate`}><button onClick={() => setModal(v)} className="text-text-primary font-medium hover:text-accent hover:underline text-left" title={v.vendor}>{v.vendor}</button></td>
                 <td className={C.td}>{v.term_label || <span className="text-warning">미설정</span>}</td>
                 <td className={`${C.td} text-right tabular-nums`}>{won(v.payable)}</td>
                 <td className={`${C.td} text-right tabular-nums text-info`}>{won(v.paid)}</td>
                 <td className={`${C.td} text-right tabular-nums text-warning font-semibold`}>{won(v.balance)}</td>
                 <td className={`${C.td} text-right tabular-nums ${v.overdue > 0 ? 'text-danger font-semibold' : 'text-text-quaternary'}`}>{v.overdue > 0 ? won(v.overdue) : '-'}</td>
                 <td className={C.td}>{v.earliest_due || '-'}</td>
-                <td className={`${C.td} text-accent text-xs`}>{expanded === v.vendor ? '접기' : '상세'}</td>
               </tr>
-              {expanded === v.vendor && (
-                <tr className="bg-bg-0">
-                  <td colSpan={9} className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {Object.entries(v.buckets || {}).map(([b, amt]: any) => (
-                        <span key={b} className={`text-xs px-2 py-1 rounded-md bg-bg-inset ${BUCKET_TONE[b] || ''}`}>{b}: {won(amt)}</span>
-                      ))}
-                    </div>
-                    <div className="text-xs text-text-tertiary mb-1">미지급 발주 상세(최근 순, 만기일 기준)</div>
-                    <table className="w-full">
-                      <thead><tr><th className={C.th}>발주일</th><th className={`${C.th} text-right`}>미지급액</th><th className={C.th}>만기일</th><th className={C.th}>경과</th><th className={C.th}>구간</th></tr></thead>
-                      <tbody>{(v.open_items || []).map((o: any, i: number) => (
-                        <tr key={i}>
-                          <td className={C.td}>{o.pdate}</td>
-                          <td className={`${C.td} text-right tabular-nums`}>{won(o.amount)}</td>
-                          <td className={C.td}>{o.due || '-'}</td>
-                          <td className={`${C.td} tabular-nums ${o.days_overdue > 0 ? 'text-danger' : 'text-text-tertiary'}`}>{o.days_overdue == null ? '-' : o.days_overdue > 0 ? `+${o.days_overdue}일` : `${o.days_overdue}일`}</td>
-                          <td className={`${C.td} ${BUCKET_TONE[o.bucket] || ''}`}>{o.bucket}</td>
-                        </tr>
-                      ))}</tbody>
-                    </table>
-                  </td>
-                </tr>
-              )}
-            </Fragment>
-          ))}</tbody>
+            );
+          })}</tbody>
         </table>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-5">
-        {/* 정산조건 관리 */}
-        <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-text-primary mb-3">거래처 정산조건 등록/수정</div>
-          <div className="space-y-3">
-            <div><div className="text-xs text-text-tertiary mb-1">거래처</div>
-              <Combobox<string> value={tf.vendor} onChange={(v) => setTf({ ...tf, vendor: v })} fetcher={vendorFetcher} getLabel={(s) => s} render={(s) => <span className="text-text-primary">{s}</span>} placeholder="클릭 또는 키워드 입력" />
-            </div>
-            <div><div className="text-xs text-text-tertiary mb-1">정산 기준</div>
-              <select value={tf.term_type} onChange={(e) => setTf({ ...tf, term_type: e.target.value })} className={`${C.input} w-full`}>{TERM_TYPES.map((t) => <option key={t.k} value={t.k}>{t.label}</option>)}</select>
-            </div>
-            {tf.term_type === 'DAYS_AFTER' ? (
-              <div className="flex items-center gap-2"><span className="text-sm text-text-secondary">발주 후</span><input type="number" value={tf.term_days} onChange={(e) => setTf({ ...tf, term_days: e.target.value })} className={`${C.input} w-24`} /><span className="text-sm text-text-secondary">일</span></div>
-            ) : (
-              <div className="flex items-center gap-2 flex-wrap">
-                <select value={tf.term_month_offset} onChange={(e) => setTf({ ...tf, term_month_offset: Number(e.target.value) })} className={`${C.input}`}>{OFFSETS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}</select>
-                {tf.term_type === 'DAY_OF_MONTH' && <><input type="number" value={tf.term_day} onChange={(e) => setTf({ ...tf, term_day: e.target.value })} className={`${C.input} w-20`} min={1} max={31} /><span className="text-sm text-text-secondary">일</span></>}
-                {tf.term_type === 'MONTH_END' && <span className="text-sm text-text-secondary">말일</span>}
-              </div>
-            )}
-            <input value={tf.memo} onChange={(e) => setTf({ ...tf, memo: e.target.value })} placeholder="메모(선택)" className={`${C.input} w-full`} />
-            <div className="flex items-center gap-3"><button onClick={saveTerm} className={`${C.btn} ${C.btnPrimary}`}>정산조건 저장</button>{tmsg && <span className="text-xs text-accent">{tmsg}</span>}</div>
-          </div>
-          <div className="mt-4 max-h-56 overflow-y-auto">
-            <table className="w-full"><thead><tr><th className={C.th}>거래처</th><th className={C.th}>조건</th><th className={C.th}></th></tr></thead>
-              <tbody>{!terms.length ? <tr><td colSpan={3} className="p-4 text-center text-text-quaternary text-xs">등록된 조건 없음</td></tr> : terms.map((t) => (
-                <tr key={t.id} className="hover:bg-bg-1">
-                  <td className={`${C.td} text-text-primary max-w-[160px] truncate`} title={t.vendor}>{t.vendor}</td>
-                  <td className={C.td}>{t.label}</td>
-                  <td className={`${C.td} text-right whitespace-nowrap`}><button onClick={() => editTerm(t)} className="text-accent text-xs hover:underline mr-2">수정</button><button onClick={() => delTerm(t.id)} className="text-danger text-xs hover:underline">삭제</button></td>
-                </tr>
-              ))}</tbody></table>
-          </div>
+      {modal && <VendorModal vendor={modal} term={termByVendor[modal.vendor]} onClose={() => setModal(null)} onChanged={refresh} />}
+    </div>
+  );
+}
+
+function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: any; onClose: () => void; onChanged: () => void }) {
+  const [pays, setPays] = useState<any[]>([]);
+  const [tf, setTf] = useState<any>(() => term
+    ? { term_type: term.term_type, term_month_offset: term.term_month_offset ?? 1, term_day: term.term_day ?? 20, term_days: term.term_days ?? 30, memo: term.memo || '' }
+    : { term_type: 'MONTH_END', term_month_offset: 1, term_day: 20, term_days: 30, memo: '' });
+  const [pf, setPf] = useState<any>({ pay_date: iso(new Date()), amount: '', method: '이체', memo: '' });
+  const [msg, setMsg] = useState<string | null>(null);
+  const loadPays = useCallback(async () => { setPays((await getJSON<any>(`/purchase/payments?vendor=${encodeURIComponent(vendor.vendor)}&limit=100`, { payments: [] })).payments); }, [vendor.vendor]);
+  useEffect(() => { loadPays(); }, [loadPays]);
+
+  const saveTerm = async () => {
+    const r = await send('/purchase/vendor-terms', 'POST', { vendor: vendor.vendor, ...tf });
+    if (r.ok) { setMsg(`정산조건 저장: ${r.data.label}`); onChanged(); } else setMsg(r.data?.detail || '실패');
+  };
+  const savePay = async () => {
+    if (!pf.amount) { setMsg('지급액을 입력하세요'); return; }
+    const r = await send('/purchase/payments', 'POST', { vendor: vendor.vendor, ...pf, amount: Number(pf.amount) || 0 });
+    if (r.ok) { setPf({ ...pf, amount: '', memo: '' }); setMsg('지급 기록 저장'); loadPays(); onChanged(); } else setMsg(r.data?.detail || '실패');
+  };
+  const delPay = async (id: number) => { if (!confirm('이 지급 기록을 삭제할까요?')) return; await send(`/purchase/payments/${id}`, 'DELETE'); loadPays(); onChanged(); };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <div><div className="text-xs text-text-tertiary">거래처 정산 설정</div><div className="text-lg font-bold text-text-primary">{vendor.vendor}</div></div>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button>
+        </div>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <StatCard label="매입(VAT포함)" value={won(vendor.payable || 0)} />
+          <StatCard label="미지급 잔액" value={won(vendor.balance || 0)} tone="text-warning" />
+          <StatCard label="연체" value={won(vendor.overdue || 0)} tone={vendor.overdue > 0 ? 'text-danger' : 'text-text-tertiary'} />
         </div>
 
-        {/* 지급 기록 */}
-        <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-text-primary mb-3">거래처 지급(정산) 기록</div>
-          <div className="space-y-3">
-            <div><div className="text-xs text-text-tertiary mb-1">거래처</div>
-              <Combobox<string> value={pf.vendor} onChange={(v) => setPf({ ...pf, vendor: v })} fetcher={vendorFetcher} getLabel={(s) => s} render={(s) => <span className="text-text-primary">{s}</span>} placeholder="클릭 또는 키워드 입력" />
+        {/* 정산조건 */}
+        <div className="text-sm font-semibold text-text-primary mb-2">계약 정산조건</div>
+        <div className="space-y-2 mb-4">
+          <select value={tf.term_type} onChange={(e) => setTf({ ...tf, term_type: e.target.value })} className={`${C.input} w-full`}>{TERM_TYPES.map((t) => <option key={t.k} value={t.k}>{t.label}</option>)}</select>
+          {tf.term_type === 'DAYS_AFTER' ? (
+            <div className="flex items-center gap-2"><span className="text-sm text-text-secondary">발주 후</span><input type="number" value={tf.term_days} onChange={(e) => setTf({ ...tf, term_days: e.target.value })} className={`${C.input} w-24`} /><span className="text-sm text-text-secondary">일</span></div>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <select value={tf.term_month_offset} onChange={(e) => setTf({ ...tf, term_month_offset: Number(e.target.value) })} className={C.input}>{OFFSETS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}</select>
+              {tf.term_type === 'DAY_OF_MONTH' && <><input type="number" value={tf.term_day} onChange={(e) => setTf({ ...tf, term_day: e.target.value })} className={`${C.input} w-20`} min={1} max={31} /><span className="text-sm text-text-secondary">일</span></>}
+              {tf.term_type === 'MONTH_END' && <span className="text-sm text-text-secondary">말일</span>}
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div><div className="text-xs text-text-tertiary mb-1">지급일</div><input type="date" value={pf.pay_date} onChange={(e) => setPf({ ...pf, pay_date: e.target.value })} className={`${C.input} w-full`} /></div>
-              <div><div className="text-xs text-text-tertiary mb-1">지급액(VAT포함)</div><input type="number" value={pf.amount} onChange={(e) => setPf({ ...pf, amount: e.target.value })} className={`${C.input} w-full`} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div><div className="text-xs text-text-tertiary mb-1">수단</div><select value={pf.method} onChange={(e) => setPf({ ...pf, method: e.target.value })} className={`${C.input} w-full`}><option>이체</option><option>어음</option><option>현금</option><option>카드</option></select></div>
-              <div><div className="text-xs text-text-tertiary mb-1">메모</div><input value={pf.memo} onChange={(e) => setPf({ ...pf, memo: e.target.value })} className={`${C.input} w-full`} /></div>
-            </div>
-            <div className="flex items-center gap-3"><button onClick={savePay} className={`${C.btn} ${C.btnPrimary}`}>지급 기록 저장</button>{pmsg && <span className="text-xs text-accent">{pmsg}</span>}</div>
-          </div>
-          <div className="mt-4 max-h-56 overflow-y-auto">
-            <table className="w-full"><thead><tr><th className={C.th}>지급일</th><th className={C.th}>거래처</th><th className={`${C.th} text-right`}>금액</th><th className={C.th}></th></tr></thead>
-              <tbody>{!pays.length ? <tr><td colSpan={4} className="p-4 text-center text-text-quaternary text-xs">지급 기록 없음</td></tr> : pays.map((p) => (
-                <tr key={p.id} className="hover:bg-bg-1">
-                  <td className={C.td}>{p.pay_date}</td>
-                  <td className={`${C.td} text-text-primary max-w-[140px] truncate`} title={p.vendor}>{p.vendor}</td>
-                  <td className={`${C.td} text-right tabular-nums text-info`}>{won(p.amount)}</td>
-                  <td className={`${C.td} text-right`}><button onClick={() => delPay(p.id)} className="text-danger text-xs hover:underline">삭제</button></td>
-                </tr>
+          )}
+          <input value={tf.memo} onChange={(e) => setTf({ ...tf, memo: e.target.value })} placeholder="메모(선택)" className={`${C.input} w-full`} />
+          <button onClick={saveTerm} className={`${C.btn} ${C.btnPrimary}`}>정산조건 저장</button>
+        </div>
+
+        {/* 지급 추가 */}
+        <div className="text-sm font-semibold text-text-primary mb-2">지급(정산) 기록 추가</div>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <div><div className="text-xs text-text-tertiary mb-1">지급일</div><input type="date" value={pf.pay_date} onChange={(e) => setPf({ ...pf, pay_date: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">지급액(VAT포함)</div><input type="number" value={pf.amount} onChange={(e) => setPf({ ...pf, amount: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><div className="text-xs text-text-tertiary mb-1">수단</div><select value={pf.method} onChange={(e) => setPf({ ...pf, method: e.target.value })} className={`${C.input} w-full`}><option>이체</option><option>어음</option><option>현금</option><option>카드</option></select></div>
+          <div><div className="text-xs text-text-tertiary mb-1">메모</div><input value={pf.memo} onChange={(e) => setPf({ ...pf, memo: e.target.value })} className={`${C.input} w-full`} /></div>
+        </div>
+        <div className="flex items-center gap-3 mb-4"><button onClick={savePay} className={`${C.btn} ${C.btnPrimary}`}>지급 기록 저장</button>{msg && <span className="text-xs text-accent">{msg}</span>}</div>
+
+        {/* 정산 이력 (일자별) */}
+        <div className="text-sm font-semibold text-text-primary mb-2">정산 이력 <span className="text-xs text-text-quaternary font-normal">({pays.length}건)</span></div>
+        <div className="overflow-x-auto mb-4">
+          <table className="w-full"><thead><tr><th className={C.th}>지급일</th><th className={`${C.th} text-right`}>금액</th><th className={C.th}>수단</th><th className={C.th}>메모</th><th className={C.th}></th></tr></thead>
+            <tbody>{!pays.length ? <tr><td colSpan={5} className="p-4 text-center text-text-quaternary text-xs">정산 이력 없음</td></tr> : pays.map((p) => (
+              <tr key={p.id} className="hover:bg-bg-0">
+                <td className={C.td}>{p.pay_date}</td>
+                <td className={`${C.td} text-right tabular-nums text-info`}>{won(p.amount)}</td>
+                <td className={C.td}>{p.method || '-'}{p.method === '정산완료' && <span className="ml-1 text-[10px] text-success-light">자동</span>}</td>
+                <td className={`${C.td} max-w-[160px] truncate`} title={p.memo || ''}>{p.memo || '-'}</td>
+                <td className={`${C.td} text-right`}><button onClick={() => delPay(p.id)} className="text-danger text-xs hover:underline">삭제</button></td>
+              </tr>
+            ))}</tbody></table>
+        </div>
+
+        {/* 미지급 발주 상세 */}
+        {vendor.open_items?.length > 0 && <>
+          <div className="text-sm font-semibold text-text-primary mb-2">미지급 발주(만기 기준)</div>
+          <div className="flex flex-wrap gap-2 mb-2">{Object.entries(vendor.buckets || {}).map(([b, amt]: any) => <span key={b} className={`text-xs px-2 py-1 rounded-md bg-bg-inset ${BUCKET_TONE[b] || ''}`}>{b}: {won(amt)}</span>)}</div>
+          <div className="overflow-x-auto">
+            <table className="w-full"><thead><tr><th className={C.th}>발주일</th><th className={`${C.th} text-right`}>미지급액</th><th className={C.th}>만기일</th><th className={C.th}>경과</th></tr></thead>
+              <tbody>{vendor.open_items.map((o: any, i: number) => (
+                <tr key={i}><td className={C.td}>{o.pdate}</td><td className={`${C.td} text-right tabular-nums`}>{won(o.amount)}</td><td className={C.td}>{o.due || '-'}</td><td className={`${C.td} ${o.days_overdue > 0 ? 'text-danger' : 'text-text-tertiary'}`}>{o.days_overdue == null ? '-' : o.days_overdue > 0 ? `+${o.days_overdue}일` : `${o.days_overdue}일`}</td></tr>
               ))}</tbody></table>
           </div>
-        </div>
+        </>}
       </div>
     </div>
   );

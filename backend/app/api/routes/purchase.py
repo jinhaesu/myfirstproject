@@ -447,3 +447,17 @@ def delete_payment(pid: int, db: Session = Depends(get_db), user: dict = Depends
 def ap_aging(asof: Optional[str] = None, start: Optional[str] = None, db: Session = Depends(get_db)):
     """거래처별 매입채무 잔액 + 계약 정산일 기준 aging + 정산 우선순위."""
     return pur.ap_aging(db, asof=_pd(asof), start=_pd(start))
+
+
+class VendorSettleIn(BaseModel):
+    vendor: str
+    done: bool
+    amount: Optional[float] = 0
+
+
+@router.post("/vendor-settle")
+def vendor_settle(body: VendorSettleIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    try:
+        return pur.vendor_settle(db, body.vendor, body.done, body.amount or 0, user.get("email"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))

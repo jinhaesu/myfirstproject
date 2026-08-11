@@ -946,6 +946,27 @@ def delete_payment(db: Session, pid: int) -> dict:
     return {"ok": True}
 
 
+def vendor_settle(db: Session, vendor: str, done: bool, amount: float = 0.0,
+                  user: Optional[str] = None) -> dict:
+    """거래처 '정산완료' 체크 처리. done=True면 잔액만큼 정산완료 지급기록 생성,
+    done=False면 이 거래처의 '정산완료' 자동 지급기록만 삭제(수동 지급은 보존)."""
+    vendor = (vendor or "").strip()
+    if not vendor:
+        raise ValueError("거래처명이 필요합니다")
+    if done:
+        amt = float(amount or 0)
+        if amt > 0.5:
+            db.add(PurchasePayment(vendor_name=vendor, pay_date=date.today(), amount=amt,
+                                   method="정산완료", memo="체크 일괄정산", created_by=user))
+    else:
+        db.query(PurchasePayment).filter(
+            PurchasePayment.vendor_name == vendor,
+            PurchasePayment.method == "정산완료",
+        ).delete(synchronize_session=False)
+    db.commit()
+    return {"ok": True}
+
+
 def _aging_bucket(days_overdue: int) -> str:
     if days_overdue < 0:
         return "미도래"
