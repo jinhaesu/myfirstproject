@@ -175,6 +175,7 @@ class ManualRecordIn(BaseModel):
     note: Optional[str] = None
     spec: Optional[str] = None
     kg_per_unit: Optional[float] = None
+    team: Optional[str] = "구매팀"
 
 
 @router.post("/records/manual")
@@ -204,13 +205,14 @@ class ManualBatchIn(BaseModel):
     warehouse: Optional[str] = None
     vendor: Optional[str] = None
     staff: Optional[str] = None
+    team: Optional[str] = "구매팀"
     lines: list[ManualLineIn] = []
 
 
 @router.post("/records/manual-batch")
 def add_records_batch(body: ManualBatchIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     common = {"pdate": body.pdate, "seq": body.seq, "warehouse": body.warehouse,
-              "vendor": body.vendor, "staff": body.staff}
+              "vendor": body.vendor, "staff": body.staff, "team": body.team or "구매팀"}
     lines = [ln.model_dump() for ln in body.lines]
     if not lines:
         raise HTTPException(400, "품목 라인이 없습니다")
@@ -254,6 +256,7 @@ class RecordPatchIn(BaseModel):
     spec: Optional[str] = None
     kg_per_unit: Optional[float] = None
     paid: Optional[bool] = None
+    team: Optional[str] = None
     recompute: bool = True
 
 
@@ -295,19 +298,20 @@ def purge_records(db: Session = Depends(get_db), user: dict = Depends(get_curren
 def list_records(start: Optional[str] = None, end: Optional[str] = None,
                  vendor: Optional[str] = None, mclass: Optional[str] = None,
                  item_code: Optional[str] = None, q: Optional[str] = None,
+                 team: Optional[str] = None,
                  limit: int = 500, offset: int = 0, db: Session = Depends(get_db)):
     return pur.records_list(db, start=_pd(start), end=_pd(end), vendor=vendor,
-                            mclass=mclass, item_code=item_code, q=q, limit=limit, offset=offset)
+                            mclass=mclass, item_code=item_code, q=q, team=team, limit=limit, offset=offset)
 
 
 @router.get("/records/dashboard")
 def records_dashboard(start: str, end: str, vendor: Optional[str] = None,
                       mclass: Optional[str] = None, q: Optional[str] = None,
-                      db: Session = Depends(get_db)):
+                      team: Optional[str] = None, db: Session = Depends(get_db)):
     s, e = _pd(start), _pd(end)
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
-    return pur.records_dashboard(db, s, e, vendor=vendor, mclass=mclass, q=q)
+    return pur.records_dashboard(db, s, e, vendor=vendor, mclass=mclass, q=q, team=team)
 
 
 @router.get("/records/gap-trend")
@@ -351,13 +355,13 @@ def item_history(item_code: Optional[str] = None, item_name: Optional[str] = Non
 def price_tracker(start: str, end: str, mclass: Optional[str] = None,
                   vendor: Optional[str] = None, q: Optional[str] = None,
                   min_lines: int = Query(1, ge=1), sort: str = "abs_change",
-                  db: Session = Depends(get_db)):
+                  team: Optional[str] = None, db: Session = Depends(get_db)):
     """품목별 매입 단가 변동 개요 — 기간 내 최초/최근/최저/최고 단가 + 변동률."""
     s, e = _pd(start), _pd(end)
     if not s or not e:
         raise HTTPException(400, "start/end 날짜가 필요합니다.")
     return pur.price_tracker(db, s, e, mclass=mclass, vendor=vendor, q=q,
-                             min_lines=min_lines, sort=sort)
+                             min_lines=min_lines, sort=sort, team=team)
 
 
 # ── 발주서 이메일 발행 ──

@@ -28,6 +28,16 @@ const thisMonth = () => { const n = new Date(); return { start: iso(new Date(n.g
 function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return <div className={`${C.card} p-4`}><div className="text-[11px] text-text-tertiary mb-1 truncate">{label}</div><div className={`text-lg font-bold tabular-nums ${tone || 'text-text-primary'}`}>{value}</div>{sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}</div>;
 }
+// 담당팀 필터 — 전체/구매팀/물류팀
+function TeamFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex rounded-lg overflow-hidden border border-border-primary">
+      {[{ k: '', l: '전체팀' }, { k: '구매팀', l: '구매팀' }, { k: '물류팀', l: '물류팀' }].map((t) => (
+        <button key={t.k} onClick={() => onChange(t.k)} className={`px-2.5 py-2 text-xs font-semibold ${value === t.k ? (t.k === '물류팀' ? 'bg-info text-white' : 'bg-brand text-white') : 'bg-bg-inset text-text-tertiary'}`}>{t.l}</button>
+      ))}
+    </div>
+  );
+}
 // 구매 관리 공통 기간 토글 — 프리셋 즉시 적용 + 날짜는 '조회' 버튼으로만 반영.
 // value = 적용된 기간, onApply = 조회 시 부모에 반영. 날짜 편집은 내부 draft에만 반영된다.
 function PeriodBar({ value, onApply }: { value: any; onApply: (r: any) => void }) {
@@ -117,8 +127,8 @@ const presets = () => {
 function DashTab() {
   const [gran, setGran] = useState<'day' | 'week' | 'month'>('month');
   // 입력(draft)과 적용(applied) 분리 — 조회 버튼으로만 반영
-  const [dr, setDr] = useState({ ...thisMonth(), vendor: '', mclass: '', q: '' });
-  const [ap, setAp] = useState({ ...thisMonth(), vendor: '', mclass: '', q: '' });
+  const [dr, setDr] = useState({ ...thisMonth(), vendor: '', mclass: '', q: '', team: '' });
+  const [ap, setAp] = useState({ ...thisMonth(), vendor: '', mclass: '', q: '', team: '' });
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [d, setD] = useState<any>(null);
   const [ratio, setRatio] = useState<any>(null);
@@ -128,7 +138,7 @@ function DashTab() {
   const P = presets();
   const applyDraft = () => setAp(dr);
   const applyPreset = (v: { start: string; end: string }) => { const nx = { ...dr, ...v }; setDr(nx); setAp(nx); };
-  const qs = () => { const p = new URLSearchParams({ start: ap.start, end: ap.end }); if (ap.vendor) p.set('vendor', ap.vendor); if (ap.mclass) p.set('mclass', ap.mclass); if (ap.q) p.set('q', ap.q); return p.toString(); };
+  const qs = () => { const p = new URLSearchParams({ start: ap.start, end: ap.end }); if (ap.vendor) p.set('vendor', ap.vendor); if (ap.mclass) p.set('mclass', ap.mclass); if (ap.q) p.set('q', ap.q); if (ap.team) p.set('team', ap.team); return p.toString(); };
   useEffect(() => { getJSON<{ vendors: Vendor[] }>('/purchase/vendors', { vendors: [] }).then((r) => setVendors(r.vendors)); }, []);
   useEffect(() => { setLoading(true); getJSON<any>(`/purchase/records/dashboard?${qs()}`, null).then((r) => { setD(r); setLoading(false); }); }, [ap]);
   useEffect(() => { getJSON<any>(`/purchase/records/sales-ratio?start=${ap.start}&end=${ap.end}&granularity=${gran}`, null).then(setRatio); }, [ap, gran]);
@@ -144,6 +154,7 @@ function DashTab() {
         <input type="date" value={dr.start} onChange={(e) => setDr({ ...dr, start: e.target.value })} className={C.input} />
         <span className="text-text-quaternary">~</span>
         <input type="date" value={dr.end} onChange={(e) => setDr({ ...dr, end: e.target.value })} className={C.input} />
+        <TeamFilter value={ap.team} onChange={(v) => { setDr({ ...dr, team: v }); setAp({ ...ap, team: v }); }} />
         <button onClick={applyDraft} className={`${C.btn} ${C.btnPrimary} ${dirty ? 'ring-2 ring-brand/50' : ''}`}>조회</button>
         <div className="flex gap-1 ml-auto"><span className="text-xs text-text-quaternary self-center mr-1">추이 단위</span>{(['day', 'week', 'month'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} ${gran === g ? C.btnPrimary : C.btnGhost}`}>{g === 'day' ? '일' : g === 'week' ? '주' : '월'}</button>)}</div>
       </div>
@@ -270,12 +281,14 @@ function RecordsTab() {
   const [data, setData] = useState<any>(null);
   const [hist, setHist] = useState<any>(null);
   const [unit, setUnit] = useState<'ea' | 'kg'>('ea');   // 수량 표시 단위
+  const [team, setTeam] = useState('');
   const load = useCallback(async () => {
     const p = new URLSearchParams({ start: range.start, end: range.end, limit: '500' });
     if (mclass) p.set('mclass', mclass);
     if (q) p.set('q', q);
+    if (team) p.set('team', team);
     setData(await getJSON<any>(`/purchase/records?${p.toString()}`, null));
-  }, [range, mclass, q]);
+  }, [range, mclass, q, team]);
   useEffect(() => { load(); }, [load]);
   const openVendor = async (v: string) => setHist({ type: 'vendor', ...(await getJSON<any>(`/purchase/records/vendor-history?vendor=${encodeURIComponent(v)}`, {})) });
   const openItem = async (code: string, name: string) => setHist({ type: 'item', ...(await getJSON<any>(`/purchase/records/item-history?item_code=${encodeURIComponent(code || '')}&item_name=${encodeURIComponent(name || '')}`, {})) });
@@ -295,6 +308,7 @@ function RecordsTab() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <PeriodBar value={range} onApply={setRange} />
+        <TeamFilter value={team} onChange={setTeam} />
         <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·거래처 검색" className={`${C.input} w-48`} />
         <div className="flex rounded-lg overflow-hidden border border-border-primary">
@@ -399,7 +413,7 @@ const itemFetcher = (q: string) => getJSON<{ items: any[] }>(`/purchase/suggest/
 const vendorFetcherTop = (q: string) => getJSON<{ vendors: string[] }>(`/purchase/suggest/vendors?q=${encodeURIComponent(q)}&limit=30`, { vendors: [] }).then((r) => r.vendors);
 
 function InputTab() {
-  const [common, setCommon] = useState<any>({ pdate: iso(new Date()), seq: 0, warehouse: '공장_조인앤조인(F3)', staff: '', vendor: '' });
+  const [common, setCommon] = useState<any>({ pdate: iso(new Date()), seq: 0, warehouse: '공장_조인앤조인(F3)', staff: '', vendor: '', team: '구매팀' });
   const [lines, setLines] = useState<any[]>([emptyLine()]);
   const [recent, setRecent] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
@@ -458,7 +472,8 @@ function InputTab() {
       <div className={`${C.card} p-4`}>
         <div className="text-sm font-semibold text-text-primary mb-1">구매 실적 직접 입력 (다중 품목)</div>
         <p className="text-xs text-text-quaternary mb-4">한 거래처에 여러 품목을 한 번에 등록합니다. 품목명을 검색해 선택하면 코드·규격·최근단가가 자동 채워집니다. <b className="text-info">목록에 없는 신규 품목</b>은 이름을 그대로 입력하고 <b>코드·규격</b>을 채우면 저장 시 등록됩니다(별도 화면 불필요). 규격 [20kg] 등이 있으면 ea↔kg 전환·자동환산.</p>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
+          <div><L>담당팀</L><select value={common.team} onChange={(e) => setCommon({ ...common, team: e.target.value })} className={`${C.input} w-full ${common.team === '물류팀' ? 'text-info font-semibold' : ''}`}><option>구매팀</option><option>물류팀</option></select></div>
           <div><L>구매일자</L><input type="date" value={common.pdate} onChange={(e) => setCommon({ ...common, pdate: e.target.value })} className={`${C.input} w-full`} /></div>
           <div><L>거래처</L><Combobox<string> value={common.vendor} onChange={(v) => setCommon({ ...common, vendor: v })} fetcher={vendorFetcherTop} getLabel={(s) => s} render={(s) => <span className="text-text-primary">{s}</span>} placeholder="클릭 또는 키워드" /></div>
           <div><L>창고</L><input value={common.warehouse} onChange={(e) => setCommon({ ...common, warehouse: e.target.value })} className={`${C.input} w-full`} /></div>
@@ -576,6 +591,7 @@ function PriceTab() {
   const [minLines, setMinLines] = useState(2);
   const [sort, setSort] = useState('abs_change');
   const [pu, setPu] = useState<'ea' | 'kg'>('ea');   // 단가 표시 기준
+  const [team, setTeam] = useState('');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [hist, setHist] = useState<any>(null);
@@ -583,9 +599,10 @@ function PriceTab() {
     setLoading(true);
     const p = new URLSearchParams({ start: range.start, end: range.end, min_lines: String(minLines), sort });
     if (mclass) p.set('mclass', mclass);
+    if (team) p.set('team', team);
     setData(await getJSON<any>(`/purchase/records/price-tracker?${p.toString()}`, null));
     setLoading(false);
-  }, [range, mclass, minLines, sort]);
+  }, [range, mclass, minLines, sort, team]);
   useEffect(() => { load(); }, [load]);
   const openItem = async (code: string, name: string) => setHist({ type: 'item', ...(await getJSON<any>(`/purchase/records/item-history?item_code=${encodeURIComponent(code || '')}&item_name=${encodeURIComponent(name || '')}&start=${range.start}&end=${range.end}`, {})) });
   const allItems = data?.items || [];
@@ -600,6 +617,7 @@ function PriceTab() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <PeriodBar value={range} onApply={setRange} />
+        <TeamFilter value={team} onChange={setTeam} />
         <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·코드 검색" className={`${C.input} w-40`} />
         <label className="text-xs text-text-tertiary flex items-center gap-1">최소 매입<select value={minLines} onChange={(e) => setMinLines(Number(e.target.value))} className={C.input}>{[1, 2, 3, 5].map((n) => <option key={n} value={n}>{n}회+</option>)}</select></label>

@@ -317,7 +317,7 @@ def ingest_records(db: Session, rows: list[dict]) -> dict:
             qty=float(r.get("qty") or 0), unit_price=float(r.get("unit_price") or 0),
             supply_amount=float(r.get("supply") or 0), vat=float(r.get("vat") or 0),
             total_amount=float(r.get("total") or 0), note=(r.get("note") or "")[:300],
-            spec=_spec, kg_per_unit=_kgpu,
+            spec=_spec, kg_per_unit=_kgpu, team=(r.get("team") or "구매팀")[:20],
         ))
         added += 1
         if len(buf) >= 500:
@@ -365,7 +365,7 @@ def add_manual_record(db: Session, r: dict, user: Optional[str] = None) -> dict:
         unit=(r.get("unit") or "")[:30],
         qty=qty, unit_price=unit_price, supply_amount=supply, vat=vat,
         total_amount=total, note=(r.get("note") or "")[:300],
-        spec=_spec, kg_per_unit=_kgpu,
+        spec=_spec, kg_per_unit=_kgpu, team=(r.get("team") or "구매팀")[:20],
         source="manual", created_by=user,
     )
     # 동일 전표 중복 방지
@@ -393,7 +393,7 @@ def _rec_dict(x) -> dict:
         "unit_price": x.unit_price,
         "price_per_kg": round(x.unit_price / kgpu) if (kgpu and x.unit_price) else None,
         "supply": round(x.supply_amount or 0), "vat": round(x.vat or 0), "total": round(x.total_amount or 0),
-        "note": x.note, "created_by": x.created_by,
+        "note": x.note, "created_by": x.created_by, "team": x.team or "구매팀",
         "paid": bool(x.paid), "paid_date": x.paid_date.isoformat() if x.paid_date else None,
     }
 
@@ -423,7 +423,7 @@ def delete_record(db: Session, rec_id: int) -> dict:
 
 _EDITABLE = {"qty", "unit_price", "supply", "vat", "total", "unit", "vendor",
              "mclass", "staff", "item_code", "item_name", "warehouse", "note", "pdate", "seq",
-             "spec", "kg_per_unit", "paid"}
+             "spec", "kg_per_unit", "paid", "team"}
 _FIELD_MAP = {"vendor": "vendor_name", "supply": "supply_amount", "total": "total_amount"}
 
 
@@ -528,14 +528,16 @@ def _sales_sum(db: Session, start: date, end: date) -> float:
 
 def records_dashboard(db: Session, start: date, end: date,
                       vendor: Optional[str] = None, mclass: Optional[str] = None,
-                      q: Optional[str] = None) -> dict:
-    """구매 실적 종합 대시보드 — 원/부재료·거래처·품목·일별·매출대비 누적비율. 거래처·구분·검색 필터."""
+                      q: Optional[str] = None, team: Optional[str] = None) -> dict:
+    """구매 실적 종합 대시보드 — 원/부재료·거래처·품목·일별·매출대비 누적비율. 거래처·구분·팀·검색 필터."""
     base = db.query(PurchaseRecord).filter(
         PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
     if vendor:
         base = base.filter(PurchaseRecord.vendor_name == vendor)
     if mclass:
         base = base.filter(PurchaseRecord.mclass == _mclass_norm(mclass))
+    if team:
+        base = base.filter(PurchaseRecord.team == team)
     if q:
         like = f"%{q}%"
         base = base.filter((PurchaseRecord.item_name.ilike(like)) | (PurchaseRecord.vendor_name.ilike(like)))
@@ -620,7 +622,7 @@ def sales_vs_purchase(db: Session, start: date, end: date, granularity: str = "d
 
 
 def records_list(db: Session, start=None, end=None, vendor=None, mclass=None,
-                 item_code=None, q=None, limit: int = 500, offset: int = 0) -> dict:
+                 item_code=None, q=None, team=None, limit: int = 500, offset: int = 0) -> dict:
     qry = db.query(PurchaseRecord)
     if start:
         qry = qry.filter(PurchaseRecord.pdate >= start)
@@ -630,6 +632,8 @@ def records_list(db: Session, start=None, end=None, vendor=None, mclass=None,
         qry = qry.filter(PurchaseRecord.vendor_name == vendor)
     if mclass:
         qry = qry.filter(PurchaseRecord.mclass == _mclass_norm(mclass))
+    if team:
+        qry = qry.filter(PurchaseRecord.team == team)
     if item_code:
         qry = qry.filter(PurchaseRecord.item_code == item_code)
     if q:
@@ -667,7 +671,7 @@ def records_list(db: Session, start=None, end=None, vendor=None, mclass=None,
             "supply": round(r.supply_amount or 0),
             "vat": round(r.vat or 0), "total": round(r.total_amount or 0), "note": r.note,
             "paid": bool(r.paid), "paid_date": r.paid_date.isoformat() if r.paid_date else None,
-            "created_by": r.created_by, "source": r.source,
+            "created_by": r.created_by, "source": r.source, "team": r.team or "구매팀",
         }
     return {
         "total": total, "supply_total": round(supply_total or 0),
@@ -747,7 +751,7 @@ def _is_tooling_cost(name: Optional[str]) -> bool:
 def price_tracker(db: Session, start: date, end: date,
                   mclass: Optional[str] = None, vendor: Optional[str] = None,
                   q: Optional[str] = None, min_lines: int = 1,
-                  sort: str = "abs_change") -> dict:
+                  sort: str = "abs_change", team: Optional[str] = None) -> dict:
     """기간 내 품목별 매입 단가 변동 개요.
 
     품목(item_code 우선, 없으면 item_name)별로 기간 내 최초/최근 단가, 최저/최고,
@@ -760,6 +764,8 @@ def price_tracker(db: Session, start: date, end: date,
     )
     if mclass:
         qry = qry.filter(PurchaseRecord.mclass == _mclass_norm(mclass))
+    if team:
+        qry = qry.filter(PurchaseRecord.team == team)
     if vendor:
         qry = qry.filter(PurchaseRecord.vendor_name == vendor)
     if q:
