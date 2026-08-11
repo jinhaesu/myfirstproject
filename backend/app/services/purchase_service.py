@@ -40,6 +40,38 @@ def _norm(s) -> str:
     return re.sub(r"\s+", "", s).lower()
 
 
+_SPEC_RE = re.compile(r"\[([^\]]+)\]")
+_WEIGHT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(kg|g)\b", re.IGNORECASE)
+# N kg * M ea  (박스당 M개 × 개당 Nkg) — 멀티팩
+_MULTI_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(kg|g)\s*\*\s*(\d+)\s*ea", re.IGNORECASE)
+
+
+def parse_spec(item_name: str) -> tuple[Optional[str], Optional[float]]:
+    """품목명의 마지막 [ ] 규격 텍스트와 ea(=구매단위)당 kg를 추출.
+
+    예) '아몬드분말 [20kg]' → ('20kg', 20.0), '이스트 [500g]' → ('500g', 0.5),
+        '리플잼 [(1kg*6ea/box)]' → 6.0(=1kg×6), '위생가운 [XL*50ea/box]' → (spec, None),
+        규격 없음/무게 아님 → (spec 또는 None, None).
+    """
+    if not item_name:
+        return None, None
+    specs = _SPEC_RE.findall(item_name)
+    if not specs:
+        return None, None
+    spec = specs[-1].strip()   # 마지막 대괄호를 규격으로
+    mm = _MULTI_RE.search(spec)
+    if mm:
+        w = float(mm.group(1)); w = w / 1000.0 if mm.group(2).lower() == "g" else w
+        kg = w * int(mm.group(3))
+        return spec, (kg if kg > 0 else None)
+    m = _WEIGHT_RE.search(spec)
+    if not m:
+        return spec, None
+    val = float(m.group(1))
+    kg = val / 1000.0 if m.group(2).lower() == "g" else val
+    return spec, (kg if kg > 0 else None)
+
+
 # ──────────────────────────────────────────────
 # 거래처
 # ──────────────────────────────────────────────
@@ -272,6 +304,7 @@ def ingest_records(db: Session, rows: list[dict]) -> dict:
         except Exception:
             skipped += 1
             continue
+        _spec, _kgpu = parse_spec(r.get("item_name") or "")
         buf.append(PurchaseRecord(
             row_hash=h, pdate=pd, seq=int(r.get("seq") or 0),
             warehouse=(r.get("warehouse") or "")[:100],
@@ -284,6 +317,7 @@ def ingest_records(db: Session, rows: list[dict]) -> dict:
             qty=float(r.get("qty") or 0), unit_price=float(r.get("unit_price") or 0),
             supply_amount=float(r.get("supply") or 0), vat=float(r.get("vat") or 0),
             total_amount=float(r.get("total") or 0), note=(r.get("note") or "")[:300],
+            spec=_spec, kg_per_unit=_kgpu,
         ))
         added += 1
         if len(buf) >= 500:
@@ -308,6 +342,15 @@ def add_manual_record(db: Session, r: dict, user: Optional[str] = None) -> dict:
     vat = r.get("vat")
     vat = float(vat) if vat not in (None, "") else round(supply * 0.1)
     total = float(r.get("total") or 0) or round(supply + vat)
+    _spec, _kgpu = parse_spec(r.get("item_name") or "")
+    # kg_per_unit 수동 지정값이 오면 우선
+    if r.get("kg_per_unit") not in (None, ""):
+        try:
+            _kgpu = float(r["kg_per_unit"]) or None
+        except Exception:
+            pass
+    if r.get("spec"):
+        _spec = str(r["spec"])[:60]
     rec = PurchaseRecord(
         row_hash=_rec_hash({"pdate": pd.isoformat(), "seq": r.get("seq") or 0,
                             "item_code": r.get("item_code"), "item_name": r.get("item_name"),
@@ -322,6 +365,7 @@ def add_manual_record(db: Session, r: dict, user: Optional[str] = None) -> dict:
         unit=(r.get("unit") or "")[:30],
         qty=qty, unit_price=unit_price, supply_amount=supply, vat=vat,
         total_amount=total, note=(r.get("note") or "")[:300],
+        spec=_spec, kg_per_unit=_kgpu,
         source="manual", created_by=user,
     )
     # 동일 전표 중복 방지
@@ -331,18 +375,44 @@ def add_manual_record(db: Session, r: dict, user: Optional[str] = None) -> dict:
     return {"ok": True, "id": rec.id, "supply": supply, "vat": vat, "total": total}
 
 
+def _rec_dict(x) -> dict:
+    """실적 행 공통 직렬화 — 규격/kg/정산 포함."""
+    kgpu = x.kg_per_unit
+    spec = x.spec
+    if spec is None and x.item_name:
+        spec, kgpu2 = parse_spec(x.item_name)
+        kgpu = kgpu if kgpu is not None else kgpu2
+    name_wo = _SPEC_RE.sub("", x.item_name or "").strip() if spec else (x.item_name or "")
+    return {
+        "id": x.id, "pdate": x.pdate.isoformat() if x.pdate else None, "seq": x.seq,
+        "warehouse": x.warehouse, "vendor": x.vendor_name, "mclass": x.mclass,
+        "staff": x.staff, "item_code": x.item_code, "item_name": x.item_name,
+        "item_name_short": name_wo, "spec": spec, "kg_per_unit": kgpu,
+        "unit": x.unit, "qty": x.qty,
+        "kg": round((x.qty or 0) * kgpu, 2) if kgpu else None,
+        "unit_price": x.unit_price,
+        "price_per_kg": round(x.unit_price / kgpu) if (kgpu and x.unit_price) else None,
+        "supply": round(x.supply_amount or 0), "vat": round(x.vat or 0), "total": round(x.total_amount or 0),
+        "note": x.note, "created_by": x.created_by,
+        "paid": bool(x.paid), "paid_date": x.paid_date.isoformat() if x.paid_date else None,
+    }
+
+
 def manual_recent(db: Session, limit: int = 30) -> dict:
     """최근 화면 직접입력분(수동) 목록."""
     q = (db.query(PurchaseRecord).filter(PurchaseRecord.source == "manual")
          .order_by(PurchaseRecord.id.desc()).limit(limit).all())
-    return {"rows": [{
-        "id": x.id, "pdate": x.pdate.isoformat() if x.pdate else None, "seq": x.seq,
-        "warehouse": x.warehouse, "vendor": x.vendor_name, "mclass": x.mclass,
-        "staff": x.staff, "item_code": x.item_code, "item_name": x.item_name,
-        "unit": x.unit, "qty": x.qty, "unit_price": x.unit_price,
-        "supply": x.supply_amount, "vat": x.vat, "total": x.total_amount,
-        "note": x.note, "created_by": x.created_by,
-    } for x in q]}
+    return {"rows": [_rec_dict(x) for x in q]}
+
+
+def settle_records(db: Session, ids: list[int], paid: bool) -> dict:
+    """전표(행) 단위 정산완료 토글. paid=True면 paid_date=today."""
+    if not ids:
+        return {"ok": True, "updated": 0}
+    vals = {"paid": paid, "paid_date": (date.today() if paid else None)}
+    n = db.query(PurchaseRecord).filter(PurchaseRecord.id.in_(ids)).update(vals, synchronize_session=False)
+    db.commit()
+    return {"ok": True, "updated": n}
 
 
 def delete_record(db: Session, rec_id: int) -> dict:
@@ -352,7 +422,8 @@ def delete_record(db: Session, rec_id: int) -> dict:
 
 
 _EDITABLE = {"qty", "unit_price", "supply", "vat", "total", "unit", "vendor",
-             "mclass", "staff", "item_code", "item_name", "warehouse", "note", "pdate", "seq"}
+             "mclass", "staff", "item_code", "item_name", "warehouse", "note", "pdate", "seq",
+             "spec", "kg_per_unit", "paid"}
 _FIELD_MAP = {"vendor": "vendor_name", "supply": "supply_amount", "total": "total_amount"}
 
 
@@ -375,7 +446,22 @@ def update_record(db: Session, rec_id: int, fields: dict, recompute: bool = True
             continue
         if k == "mclass":
             rec.mclass = _mclass_norm(v); continue
+        if k == "paid":
+            rec.paid = bool(v)
+            rec.paid_date = date.today() if v else None
+            continue
+        if k == "kg_per_unit":
+            try:
+                rec.kg_per_unit = float(v) or None
+            except Exception:
+                pass
+            continue
         setattr(rec, _FIELD_MAP.get(k, k), v)
+    # 품목명이 바뀌었는데 규격/kg 미지정이면 재파싱
+    if "item_name" in fields and "spec" not in fields:
+        rec.spec, _kgpu = parse_spec(rec.item_name or "")
+        if "kg_per_unit" not in fields:
+            rec.kg_per_unit = _kgpu
     # 금액 재계산: supply/total이 명시 안 됐고 recompute면 수량×단가로.
     if recompute and "supply" not in fields:
         rec.supply_amount = round((rec.qty or 0) * (rec.unit_price or 0))
@@ -555,20 +641,40 @@ def records_list(db: Session, start=None, end=None, vendor=None, mclass=None,
         func.coalesce(func.sum(PurchaseRecord.vat), 0.0),
         func.coalesce(func.sum(PurchaseRecord.total_amount), 0.0),
         func.coalesce(func.sum(PurchaseRecord.qty), 0.0),
+        func.coalesce(func.sum(PurchaseRecord.qty * PurchaseRecord.kg_per_unit), 0.0),
+        func.coalesce(func.sum(PurchaseRecord.total_amount).filter(PurchaseRecord.paid.is_(True)), 0.0),
     ).one()
-    supply_total, vat_total, total_total, qty_total = sums
+    supply_total, vat_total, total_total, qty_total, kg_total, paid_total = sums
     recs = qry.order_by(PurchaseRecord.pdate.desc(), PurchaseRecord.seq.desc()).offset(offset).limit(limit).all()
+
+    def _row(r):
+        kg = round((r.qty or 0) * r.kg_per_unit, 2) if r.kg_per_unit else None
+        # 이름에서 규격 대괄호를 떼어 별도 표시(spec 없으면 파싱)
+        nm = r.item_name or ""
+        spec = r.spec
+        kgpu = r.kg_per_unit
+        if spec is None and nm:
+            spec, kgpu2 = parse_spec(nm)
+            kgpu = kgpu if kgpu is not None else kgpu2
+        name_wo = _SPEC_RE.sub("", nm).strip() if spec else nm
+        return {
+            "id": r.id, "pdate": r.pdate.isoformat() if r.pdate else None, "seq": r.seq,
+            "warehouse": r.warehouse, "vendor": r.vendor_name, "mclass": r.mclass, "staff": r.staff,
+            "item_code": r.item_code, "item_name": r.item_name, "item_name_short": name_wo,
+            "spec": spec, "kg_per_unit": kgpu, "unit": r.unit,
+            "qty": r.qty, "kg": kg, "unit_price": r.unit_price,
+            "price_per_kg": round(r.unit_price / kgpu) if (kgpu and r.unit_price) else None,
+            "supply": round(r.supply_amount or 0),
+            "vat": round(r.vat or 0), "total": round(r.total_amount or 0), "note": r.note,
+            "paid": bool(r.paid), "paid_date": r.paid_date.isoformat() if r.paid_date else None,
+        }
     return {
         "total": total, "supply_total": round(supply_total or 0),
         "vat_total": round(vat_total or 0), "total_total": round(total_total or 0),
-        "qty_total": round(qty_total or 0), "offset": offset, "limit": limit,
-        "rows": [{
-            "id": r.id, "pdate": r.pdate.isoformat() if r.pdate else None, "seq": r.seq,
-            "warehouse": r.warehouse, "vendor": r.vendor_name, "mclass": r.mclass, "staff": r.staff,
-            "item_code": r.item_code, "item_name": r.item_name, "unit": r.unit,
-            "qty": r.qty, "unit_price": r.unit_price, "supply": round(r.supply_amount or 0),
-            "vat": round(r.vat or 0), "total": round(r.total_amount or 0), "note": r.note,
-        } for r in recs],
+        "qty_total": round(qty_total or 0), "kg_total": round(kg_total or 0),
+        "paid_total": round(paid_total or 0), "unpaid_total": round((total_total or 0) - (paid_total or 0)),
+        "offset": offset, "limit": limit,
+        "rows": [_row(r) for r in recs],
     }
 
 
@@ -1142,9 +1248,25 @@ def suggest_items(db: Session, q: Optional[str] = None, limit: int = 30) -> list
         last_up = db.query(PurchaseRecord.unit_price).filter(
             PurchaseRecord.item_name == it["item_name"]).order_by(
             PurchaseRecord.pdate.desc()).limit(1).scalar()
+        spec, kgpu = parse_spec(it["item_name"])
         result.append({
             "item_code": it["item_code"], "item_name": it["item_name"],
+            "item_name_short": _SPEC_RE.sub("", it["item_name"]).strip() if spec else it["item_name"],
+            "spec": spec, "kg_per_unit": kgpu,
             "unit": it["unit"], "mclass": it["mclass"],
             "last_price": float(last_up or 0), "count": it["count"],
         })
     return result
+
+
+def add_records_batch(db: Session, common: dict, lines: list[dict], user: Optional[str] = None) -> dict:
+    """한 거래처 여러 품목 동시 입력. 공통(거래처·일자·창고·담당·전표No)을 각 라인에 병합."""
+    ok, fail, ids, msgs = 0, 0, [], []
+    for i, ln in enumerate(lines):
+        rec = {**common, **ln}
+        res = add_manual_record(db, rec, user=user)
+        if res.get("ok"):
+            ok += 1; ids.append(res["id"])
+        else:
+            fail += 1; msgs.append(f"{i + 1}행: {res.get('msg')}")
+    return {"ok": fail == 0, "saved": ok, "failed": fail, "ids": ids, "errors": msgs}

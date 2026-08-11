@@ -268,6 +268,7 @@ function RecordsTab() {
   const [q, setQ] = useState('');
   const [data, setData] = useState<any>(null);
   const [hist, setHist] = useState<any>(null);
+  const [unit, setUnit] = useState<'ea' | 'kg'>('ea');   // 수량 표시 단위
   const load = useCallback(async () => {
     const p = new URLSearchParams({ start: range.start, end: range.end, limit: '500' });
     if (mclass) p.set('mclass', mclass);
@@ -277,33 +278,52 @@ function RecordsTab() {
   useEffect(() => { load(); }, [load]);
   const openVendor = async (v: string) => setHist({ type: 'vendor', ...(await getJSON<any>(`/purchase/records/vendor-history?vendor=${encodeURIComponent(v)}`, {})) });
   const openItem = async (code: string, name: string) => setHist({ type: 'item', ...(await getJSON<any>(`/purchase/records/item-history?item_code=${encodeURIComponent(code || '')}&item_name=${encodeURIComponent(name || '')}`, {})) });
+  const settle = async (ids: number[], paid: boolean) => {
+    setData((d: any) => ({ ...d, rows: d.rows.map((x: any) => (ids.includes(x.id) ? { ...x, paid } : x)) }));
+    await send('/purchase/records/settle', 'POST', { ids, paid });
+  };
+  const rows: any[] = data?.rows || [];
+  const allPaid = rows.length > 0 && rows.every((r) => r.paid);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <PeriodBar value={range} onApply={setRange} />
         <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·거래처 검색" className={`${C.input} w-48`} />
-        {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가 {won(data.supply_total)}{data.total > 500 && ' (500건 표시)'}</span>}
+        <div className="flex rounded-lg overflow-hidden border border-border-primary">
+          {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setUnit(u)} className={`px-2.5 py-2 text-xs font-semibold ${unit === u ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`}>{u === 'ea' ? '수량(ea)' : '중량(kg)'}</button>)}
+        </div>
+        {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가 {won(data.supply_total)} · 미지급 {won(data.unpaid_total || 0)}{data.total > 500 && ' (500건 표시)'}</span>}
       </div>
       <div className={`${C.card} overflow-x-auto`}>
-        <table className="w-full"><thead><tr><th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>담당</th><th className={C.th}>수량</th><th className={C.th}>단가</th><th className={C.th}>공급가</th><th className={C.th}>합계</th></tr></thead>
-          <tbody>{!data?.rows?.length ? <tr><td colSpan={9} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr> : data.rows.map((r: any) => (
-            <tr key={r.id} className="hover:bg-bg-1">
+        <table className="w-full"><thead><tr>
+          <th className={`${C.th} text-center`} title="전체 정산완료 토글"><input type="checkbox" checked={allPaid} onChange={(e) => settle(rows.map((r) => r.id), e.target.checked)} /></th>
+          <th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>규격</th>
+          <th className={`${C.th} text-right`}>{unit === 'ea' ? '수량' : '중량(kg)'}</th><th className={`${C.th} text-right`}>{unit === 'ea' ? '단가' : 'kg당'}</th>
+          <th className={`${C.th} text-right`}>공급가</th><th className={`${C.th} text-right`}>합계</th>
+        </tr></thead>
+          <tbody>{!rows.length ? <tr><td colSpan={10} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr> : rows.map((r: any) => (
+            <tr key={r.id} className={`hover:bg-bg-1 ${r.paid ? 'opacity-55' : ''}`}>
+              <td className={`${C.td} text-center`}><input type="checkbox" checked={!!r.paid} onChange={(e) => settle([r.id], e.target.checked)} title={r.paid ? `정산완료 ${r.paid_date || ''}` : '체크 시 정산완료'} /></td>
               <td className={C.td}>{r.pdate}</td>
               <td className={`${C.td} text-text-primary`}><button onClick={() => openVendor(r.vendor)} className="hover:text-accent hover:underline text-left">{r.vendor}</button></td>
               <td className={C.td}><span className={r.mclass === '원재료' ? 'text-info' : 'text-warning'}>{r.mclass}</span></td>
-              <td className={C.td}><button onClick={() => openItem(r.item_code, r.item_name)} className="hover:text-accent hover:underline text-left">{r.item_name}</button></td>
-              <td className={C.td}>{r.staff}</td><td className={C.td}>{fmt(r.qty)}{r.unit}</td><td className={C.td}>{won(r.unit_price)}</td><td className={`${C.td} text-warning`}>{won(r.supply)}</td><td className={C.td}>{won(r.total)}</td>
+              <td className={`${C.td} max-w-[240px] truncate`} title={r.item_name}><button onClick={() => openItem(r.item_code, r.item_name)} className="hover:text-accent hover:underline text-left">{r.item_name_short || r.item_name}</button></td>
+              <td className={`${C.td} text-text-tertiary text-xs`}>{r.spec || '-'}</td>
+              <td className={`${C.td} text-right tabular-nums`}>{unit === 'kg' ? (r.kg != null ? fmt(r.kg) + 'kg' : '-') : fmt(r.qty) + (r.unit || '')}</td>
+              <td className={`${C.td} text-right tabular-nums`}>{unit === 'kg' ? (r.price_per_kg != null ? won(r.price_per_kg) : '-') : won(r.unit_price)}</td>
+              <td className={`${C.td} text-right text-warning tabular-nums`}>{won(r.supply)}</td>
+              <td className={`${C.td} text-right tabular-nums`}>{won(r.total)}</td>
             </tr>
           ))}</tbody>
-          {data?.rows?.length > 0 && (
+          {rows.length > 0 && (
             <tfoot><tr className="bg-bg-inset font-semibold sticky bottom-0">
-              <td className={`${C.td} text-text-primary`} colSpan={4}>합계 · {fmt(data.total)}건{data.total > (data.limit || 500) ? ` (전체 기간 기준, 표는 ${fmt(data.limit || 500)}건만 표시)` : ''}</td>
               <td className={C.td}></td>
-              <td className={`${C.td} text-text-primary`} title="단위 혼재 — 단순 합">{fmt(data.qty_total || 0)}</td>
-              <td className={`${C.td} text-text-tertiary`}>부가세 {won(data.vat_total || 0)}</td>
-              <td className={`${C.td} text-warning`}>{won(data.supply_total || 0)}</td>
-              <td className={`${C.td} text-text-primary`}>{won(data.total_total || 0)}</td>
+              <td className={`${C.td} text-text-primary`} colSpan={5}>합계 · {fmt(data.total)}건{data.total > (data.limit || 500) ? ` (전체 기간 기준, 표는 ${fmt(data.limit || 500)}건 표시)` : ''} · 미지급 {won(data.unpaid_total || 0)}</td>
+              <td className={`${C.td} text-right text-text-primary`} title="단위 혼재 단순합">{unit === 'kg' ? fmt(data.kg_total || 0) + 'kg' : fmt(data.qty_total || 0)}</td>
+              <td className={`${C.td} text-right text-text-tertiary`}>VAT {wonShort(data.vat_total || 0)}</td>
+              <td className={`${C.td} text-right text-warning`}>{won(data.supply_total || 0)}</td>
+              <td className={`${C.td} text-right text-text-primary`}>{won(data.total_total || 0)}</td>
             </tr></tfoot>
           )}
         </table>
@@ -343,93 +363,175 @@ function HistoryModal({ hist, onClose }: { hist: any; onClose: () => void }) {
 }
 
 // ─────────────────────────────────────────────
-// 실적 입력 — 구매일보 1건 직접 입력 (엑셀 없이)
+// 실적 입력 — 한 거래처 여러 품목 동시 입력 + ea/kg 단위 + 즉석 품목등록
 // ─────────────────────────────────────────────
-const EMPTY_FORM = { pdate: iso(new Date()), seq: 0, warehouse: '공장_조인앤조인(F3)', vendor: '', mclass: '원재료', staff: '', item_code: '', item_name: '', unit: 'ea', qty: 0, unit_price: 0, vat_mode: 'auto' as 'auto' | 'zero', note: '' };
+// 품목명/규격에서 ea당 kg 추출 (백엔드 parse_spec과 동일 규칙)
+function parseSpecJS(name: string): { spec: string | null; kg: number | null } {
+  const specs = Array.from(String(name || '').matchAll(/\[([^\]]+)\]/g)).map((m) => m[1]);
+  if (!specs.length) return { spec: null, kg: null };
+  const spec = specs[specs.length - 1].trim();
+  const mm = spec.match(/(\d+(?:\.\d+)?)\s*(kg|g)\s*\*\s*(\d+)\s*ea/i);
+  if (mm) { let w = parseFloat(mm[1]); if (mm[2].toLowerCase() === 'g') w /= 1000; const kg = w * parseInt(mm[3]); return { spec, kg: kg > 0 ? kg : null }; }
+  const m = spec.match(/(\d+(?:\.\d+)?)\s*(kg|g)\b/i);
+  if (!m) return { spec, kg: null };
+  let v = parseFloat(m[1]); if (m[2].toLowerCase() === 'g') v /= 1000;
+  return { spec, kg: v > 0 ? v : null };
+}
+const specToKg = (specText: string): number => parseSpecJS(`[${specText}]`).kg || 0;
+const emptyLine = () => ({ mclass: '원재료', item_code: '', item_name: '', spec: '', boxKg: 0, unit: 'ea' as 'ea' | 'kg', qty: '', unit_price: '', vat_mode: 'auto' as 'auto' | 'zero' });
+const itemFetcher = (q: string) => getJSON<{ items: any[] }>(`/purchase/suggest/items?q=${encodeURIComponent(q)}&limit=30`, { items: [] }).then((r) => r.items);
+const vendorFetcherTop = (q: string) => getJSON<{ vendors: string[] }>(`/purchase/suggest/vendors?q=${encodeURIComponent(q)}&limit=30`, { vendors: [] }).then((r) => r.vendors);
+
 function InputTab() {
-  const [f, setF] = useState({ ...EMPTY_FORM });
+  const [common, setCommon] = useState<any>({ pdate: iso(new Date()), seq: 0, warehouse: '공장_조인앤조인(F3)', staff: '', vendor: '' });
+  const [lines, setLines] = useState<any[]>([emptyLine()]);
   const [recent, setRecent] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [edit, setEdit] = useState<any>(null);
   const loadRecent = useCallback(async () => { setRecent((await getJSON<any>('/purchase/records/manual-recent?limit=30', { rows: [] })).rows); }, []);
   useEffect(() => { loadRecent(); }, [loadRecent]);
-  const supply = Math.round((Number(f.qty) || 0) * (Number(f.unit_price) || 0));
-  const vat = f.vat_mode === 'zero' ? 0 : Math.round(supply * 0.1);
-  const total = supply + vat;
-  const set = (k: string, v: any) => setF({ ...f, [k]: v });
+
+  const setLine = (i: number, patch: any) => setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  const addLine = () => setLines((ls) => [...ls, emptyLine()]);
+  const rmLine = (i: number) => setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls));
+
+  const pickItem = (i: number, it: any) => {
+    const p = parseSpecJS(it.item_name);
+    setLine(i, { item_name: it.item_name, item_code: it.item_code || '', spec: it.spec || p.spec || '', boxKg: it.kg_per_unit || p.kg || 0, mclass: it.mclass || '원재료', unit_price: it.last_price ? String(Math.round(it.last_price)) : '', unit: 'ea' });
+  };
+  const onNameText = (i: number, v: string) => { const p = parseSpecJS(v); setLine(i, { item_name: v, spec: p.spec || lines[i].spec, boxKg: p.kg || lines[i].boxKg }); };
+  const onSpecText = (i: number, v: string) => setLine(i, { spec: v, boxKg: specToKg(v) });
+
+  const toggleUnit = (i: number) => {
+    const l = lines[i];
+    if (!l.boxKg) { setMsg('kg 환산정보(규격 [Nkg])가 없어 kg 입력 불가 — 규격을 입력하면 활성화됩니다'); return; }
+    const to = l.unit === 'ea' ? 'kg' : 'ea';
+    const q = Number(l.qty) || 0, up = Number(l.unit_price) || 0;
+    const nq = to === 'kg' ? q * l.boxKg : q / l.boxKg;
+    const nup = to === 'kg' ? up / l.boxKg : up * l.boxKg;
+    setLine(i, { unit: to, qty: q ? String(+nq.toFixed(3)) : '', unit_price: up ? String(Math.round(nup)) : '' });
+  };
+
+  const lineSupply = (l: any) => Math.round((Number(l.qty) || 0) * (Number(l.unit_price) || 0));
+  const totalSupply = lines.reduce((s, l) => s + lineSupply(l), 0);
+
   const save = async () => {
-    if (!f.item_name && !f.item_code) { setMsg('품목명 또는 품목코드를 입력하세요.'); return; }
-    if (!f.vendor) { setMsg('거래처를 선택/입력하세요.'); return; }
+    if (!common.vendor) { setMsg('거래처를 입력하세요'); return; }
+    const valid = lines.filter((l) => (l.item_name || l.item_code) && Number(l.qty) > 0);
+    if (!valid.length) { setMsg('품목·수량이 입력된 라인이 없습니다'); return; }
     setSaving(true); setMsg(null);
-    const body = { pdate: f.pdate, seq: Number(f.seq) || 0, warehouse: f.warehouse, vendor: f.vendor, mclass: f.mclass, staff: f.staff, item_code: f.item_code, item_name: f.item_name, unit: f.unit, qty: Number(f.qty) || 0, unit_price: Number(f.unit_price) || 0, vat, note: f.note };
-    const r = await send('/purchase/records/manual', 'POST', body);
+    const body = {
+      ...common, seq: Number(common.seq) || 0,
+      lines: valid.map((l) => {
+        const supply = lineSupply(l);
+        const vat = l.vat_mode === 'zero' ? 0 : Math.round(supply * 0.1);
+        return { mclass: l.mclass, item_code: l.item_code, item_name: l.item_name, spec: l.spec || null, unit: l.unit, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, kg_per_unit: l.unit === 'kg' ? 1 : (l.boxKg || null), vat };
+      }),
+    };
+    const r = await send('/purchase/records/manual-batch', 'POST', body);
     setSaving(false);
-    if (r.ok) { setMsg(`저장 완료 (공급가 ${won(r.data.supply)})`); setF({ ...EMPTY_FORM, pdate: f.pdate, warehouse: f.warehouse, staff: f.staff, mclass: f.mclass }); loadRecent(); }
+    if (r.ok) { setMsg(`저장 완료 · ${r.data.saved}건${r.data.failed ? ` (실패 ${r.data.failed})` : ''}`); setLines([emptyLine()]); loadRecent(); }
     else setMsg(r.data?.detail || '저장 실패');
   };
   const del = async (id: number) => { if (!confirm('이 입력 건을 삭제할까요?')) return; const r = await send(`/purchase/records/${id}`, 'DELETE'); if (r.ok) loadRecent(); };
   const L = ({ children }: { children: any }) => <div className="text-xs text-text-tertiary mb-1">{children}</div>;
+
   return (
     <div className="space-y-4">
       <div className={`${C.card} p-4`}>
-        <div className="text-sm font-semibold text-text-primary mb-1">구매 실적 직접 입력</div>
-        <p className="text-xs text-text-quaternary mb-4">구매일보 엑셀 없이 1건씩 입력합니다. 공급가·부가세·합계는 수량×단가로 자동 계산됩니다. (매출연동·재고 분석에 즉시 반영)</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div><L>구매일자</L><input type="date" value={f.pdate} onChange={(e) => set('pdate', e.target.value)} className={`${C.input} w-full`} /></div>
-          <div><L>전표 No.(일자내)</L><input type="number" value={f.seq} onChange={(e) => set('seq', e.target.value)} className={`${C.input} w-full`} /></div>
-          <div><L>창고</L><input value={f.warehouse} onChange={(e) => set('warehouse', e.target.value)} className={`${C.input} w-full`} /></div>
-          <div><L>담당자</L><input value={f.staff} onChange={(e) => set('staff', e.target.value)} placeholder="예: 이종현" className={`${C.input} w-full`} /></div>
-          <div><L>거래처</L><Combobox<string>
-            value={f.vendor} onChange={(v) => set('vendor', v)} placeholder="클릭 또는 키워드 입력"
-            fetcher={(q) => getJSON<{ vendors: string[] }>(`/purchase/suggest/vendors?q=${encodeURIComponent(q)}&limit=30`, { vendors: [] }).then((r) => r.vendors)}
-            getLabel={(s) => s}
-            render={(s) => <span className="text-text-primary">{s}</span>}
-          /></div>
-          <div><L>구분</L><select value={f.mclass} onChange={(e) => set('mclass', e.target.value)} className={`${C.input} w-full`}><option>원재료</option><option>부재료</option></select></div>
-          <div><L>품목코드</L><input value={f.item_code} onChange={(e) => set('item_code', e.target.value)} placeholder="예: 4130130" className={`${C.input} w-full`} /></div>
-          <div><L>단위</L><input value={f.unit} onChange={(e) => set('unit', e.target.value)} className={`${C.input} w-full`} /></div>
-          <div className="col-span-2 md:col-span-4"><L>품목명 [규격] <span className="text-text-quaternary">— 클릭 또는 키워드 입력 시 선택하면 코드·단위·구분·최근단가 자동 채움</span></L><Combobox<any>
-            value={f.item_name} onChange={(v) => set('item_name', v)} placeholder="예: 아몬드분말 (키워드 입력)"
-            fetcher={(q) => getJSON<{ items: any[] }>(`/purchase/suggest/items?q=${encodeURIComponent(q)}&limit=30`, { items: [] }).then((r) => r.items)}
-            getLabel={(it) => it.item_name}
-            onPick={(it) => setF((prev) => ({ ...prev, item_name: it.item_name, item_code: it.item_code || prev.item_code, unit: it.unit || prev.unit, mclass: it.mclass || prev.mclass, unit_price: it.last_price ? Math.round(it.last_price) : prev.unit_price }))}
-            render={(it) => (
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-text-primary truncate">{it.item_name}</span>
-                <span className="text-[11px] text-text-quaternary whitespace-nowrap shrink-0">{it.item_code || ''} · {it.unit || '-'} · 최근 {won(it.last_price)} · {it.count}건</span>
-              </div>
-            )}
-          /></div>
-          <div><L>수량</L><input type="number" value={f.qty} onChange={(e) => set('qty', e.target.value)} className={`${C.input} w-full`} /></div>
-          <div><L>단가</L><input type="number" value={f.unit_price} onChange={(e) => set('unit_price', e.target.value)} className={`${C.input} w-full`} /></div>
-          <div><L>부가세</L><select value={f.vat_mode} onChange={(e) => set('vat_mode', e.target.value)} className={`${C.input} w-full`}><option value="auto">10% 자동</option><option value="zero">면세(0)</option></select></div>
-          <div><L>적요</L><input value={f.note} onChange={(e) => set('note', e.target.value)} className={`${C.input} w-full`} /></div>
+        <div className="text-sm font-semibold text-text-primary mb-1">구매 실적 직접 입력 (다중 품목)</div>
+        <p className="text-xs text-text-quaternary mb-4">한 거래처에 여러 품목을 한 번에 등록합니다. 품목명은 검색·선택(없으면 그대로 입력해 신규 등록). 규격 [20kg] 등이 있으면 ea↔kg 단위 전환·자동환산됩니다. 공급가는 수량×단가 자동계산.</p>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+          <div><L>구매일자</L><input type="date" value={common.pdate} onChange={(e) => setCommon({ ...common, pdate: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><L>거래처</L><Combobox<string> value={common.vendor} onChange={(v) => setCommon({ ...common, vendor: v })} fetcher={vendorFetcherTop} getLabel={(s) => s} render={(s) => <span className="text-text-primary">{s}</span>} placeholder="클릭 또는 키워드" /></div>
+          <div><L>창고</L><input value={common.warehouse} onChange={(e) => setCommon({ ...common, warehouse: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><L>담당자</L><input value={common.staff} onChange={(e) => setCommon({ ...common, staff: e.target.value })} placeholder="예: 이종현" className={`${C.input} w-full`} /></div>
+          <div><L>전표 No.</L><input type="number" value={common.seq} onChange={(e) => setCommon({ ...common, seq: e.target.value })} className={`${C.input} w-full`} /></div>
         </div>
-        <div className="flex items-center gap-4 mt-4 flex-wrap">
-          <div className="flex gap-4 text-sm">
-            <span className="text-text-tertiary">공급가 <b className="text-warning tabular-nums">{won(supply)}</b></span>
-            <span className="text-text-tertiary">부가세 <b className="text-text-secondary tabular-nums">{won(vat)}</b></span>
-            <span className="text-text-tertiary">합계 <b className="text-text-primary tabular-nums">{won(total)}</b></span>
-          </div>
-          <button onClick={save} disabled={saving} className={`${C.btn} ${C.btnPrimary} ml-auto`}>{saving ? '저장 중…' : '+ 실적 저장'}</button>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr><th className={C.th}>구분</th><th className={`${C.th} min-w-[240px]`}>품목명 (검색·신규)</th><th className={C.th}>규격</th><th className={C.th}>단위</th><th className={`${C.th} text-right`}>수량</th><th className={`${C.th} text-right`}>단가</th><th className={`${C.th} text-right`}>공급가</th><th className={C.th}>VAT</th><th className={C.th}></th></tr></thead>
+            <tbody>{lines.map((l, i) => (
+              <tr key={i}>
+                <td className={C.td}><select value={l.mclass} onChange={(e) => setLine(i, { mclass: e.target.value })} className={`${C.input} py-1.5`}><option>원재료</option><option>부재료</option></select></td>
+                <td className={C.td}><Combobox<any> value={l.item_name} onChange={(v) => onNameText(i, v)} onPick={(it) => pickItem(i, it)} fetcher={itemFetcher} getLabel={(it) => it.item_name}
+                  render={(it) => <div className="flex items-center justify-between gap-2"><span className="text-text-primary truncate">{it.item_name_short || it.item_name}</span><span className="text-[11px] text-text-quaternary whitespace-nowrap shrink-0">{it.spec || ''} · 최근 {won(it.last_price)}</span></div>}
+                  placeholder="검색 또는 신규 입력" /></td>
+                <td className={C.td}><input value={l.spec} onChange={(e) => onSpecText(i, e.target.value)} placeholder="20kg" className={`${C.input} py-1.5 w-20`} title={l.boxKg ? `ea당 ${l.boxKg}kg` : 'kg 환산 없음'} /></td>
+                <td className={C.td}><button type="button" onClick={() => toggleUnit(i)} className={`${C.btn} py-1.5 ${l.unit === 'kg' ? 'bg-info/20 text-info' : C.btnGhost}`} title="ea↔kg 전환(규격 필요)">{l.unit}</button></td>
+                <td className={C.td}><input type="number" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} className={`${C.input} py-1.5 w-24 text-right`} /></td>
+                <td className={C.td}><input type="number" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} className={`${C.input} py-1.5 w-28 text-right`} /></td>
+                <td className={`${C.td} text-right text-warning tabular-nums`}>{won(lineSupply(l))}</td>
+                <td className={C.td}><select value={l.vat_mode} onChange={(e) => setLine(i, { vat_mode: e.target.value })} className={`${C.input} py-1.5`}><option value="auto">10%</option><option value="zero">면세</option></select></td>
+                <td className={C.td}>{lines.length > 1 && <button onClick={() => rmLine(i)} className="text-danger text-xs hover:underline">삭제</button>}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+        <div className="flex items-center gap-3 mt-3 flex-wrap">
+          <button onClick={addLine} className={`${C.btn} ${C.btnGhost}`}>+ 품목 추가</button>
+          <span className="text-sm text-text-tertiary ml-auto">총 공급가 <b className="text-warning tabular-nums">{won(totalSupply)}</b> · {lines.filter((l) => (l.item_name || l.item_code) && Number(l.qty) > 0).length}품목</span>
+          <button onClick={save} disabled={saving} className={`${C.btn} ${C.btnPrimary}`}>{saving ? '저장 중…' : '실적 저장'}</button>
         </div>
         {msg && <div className="mt-2 text-xs text-accent">{msg}</div>}
       </div>
 
       <div className={`${C.card} overflow-x-auto`}>
         <div className="px-4 pt-3 text-sm font-semibold text-text-primary">최근 직접입력 ({recent.length})</div>
-        <table className="w-full mt-2"><thead><tr><th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>수량</th><th className={C.th}>단가</th><th className={C.th}>공급가</th><th className={C.th}>입력자</th><th className={C.th}></th></tr></thead>
-          <tbody>{!recent.length ? <tr><td colSpan={9} className="p-6 text-center text-text-quaternary text-sm">직접 입력한 실적이 없습니다.</td></tr> : recent.map((r) => (
+        <table className="w-full mt-2"><thead><tr><th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>규격</th><th className={`${C.th} text-right`}>수량</th><th className={`${C.th} text-right`}>단가</th><th className={`${C.th} text-right`}>공급가</th><th className={C.th}>입력자</th><th className={C.th}></th></tr></thead>
+          <tbody>{!recent.length ? <tr><td colSpan={10} className="p-6 text-center text-text-quaternary text-sm">직접 입력한 실적이 없습니다.</td></tr> : recent.map((r) => (
             <tr key={r.id} className="hover:bg-bg-1">
               <td className={C.td}>{r.pdate}{r.seq ? `-${r.seq}` : ''}</td>
               <td className={`${C.td} text-text-primary`}>{r.vendor}</td>
               <td className={C.td}><span className={r.mclass === '원재료' ? 'text-info' : 'text-warning'}>{r.mclass}</span></td>
-              <td className={`${C.td} max-w-[280px] truncate`} title={r.item_name}>{r.item_name}</td>
-              <td className={C.td}>{fmt(r.qty)}{r.unit}</td><td className={C.td}>{won(r.unit_price)}</td><td className={`${C.td} text-warning`}>{won(r.supply)}</td>
+              <td className={`${C.td} max-w-[220px] truncate`} title={r.item_name}>{r.item_name_short || r.item_name}</td>
+              <td className={`${C.td} text-text-tertiary text-xs`}>{r.spec || '-'}</td>
+              <td className={`${C.td} text-right`}>{fmt(r.qty)}{r.unit}{r.kg != null ? ` (${fmt(r.kg)}kg)` : ''}</td>
+              <td className={`${C.td} text-right`}>{won(r.unit_price)}</td><td className={`${C.td} text-right text-warning`}>{won(r.supply)}</td>
               <td className={C.td}>{r.created_by || '-'}</td>
-              <td className={C.td}><button onClick={() => del(r.id)} className="text-danger text-xs hover:underline">삭제</button></td>
+              <td className={`${C.td} whitespace-nowrap`}><button onClick={() => setEdit(r)} className="text-accent text-xs hover:underline mr-2">수정</button><button onClick={() => del(r.id)} className="text-danger text-xs hover:underline">삭제</button></td>
             </tr>
           ))}</tbody></table>
+      </div>
+      {edit && <RecordEditModal rec={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); loadRecent(); }} />}
+    </div>
+  );
+}
+
+function RecordEditModal({ rec, onClose, onSaved }: { rec: any; onClose: () => void; onSaved: () => void }) {
+  const [f, setF] = useState<any>({
+    pdate: rec.pdate, vendor: rec.vendor || '', mclass: rec.mclass || '원재료',
+    item_name: rec.item_name || '', spec: rec.spec || '', unit: rec.unit || 'ea',
+    qty: rec.qty ?? '', unit_price: rec.unit_price ?? '', vat: rec.vat ?? '',
+  });
+  const [msg, setMsg] = useState<string | null>(null);
+  const supply = Math.round((Number(f.qty) || 0) * (Number(f.unit_price) || 0));
+  const save = async () => {
+    const body: any = { pdate: f.pdate, vendor: f.vendor, mclass: f.mclass, item_name: f.item_name, spec: f.spec || null, unit: f.unit, qty: Number(f.qty) || 0, unit_price: Number(f.unit_price) || 0, recompute: true };
+    if (f.vat !== '' && f.vat != null) body.vat = Number(f.vat);
+    const r = await send(`/purchase/records/${rec.id}`, 'PATCH', body);
+    if (r.ok) onSaved(); else setMsg(r.data?.detail || '저장 실패');
+  };
+  const L = ({ children }: { children: any }) => <div className="text-xs text-text-tertiary mb-1">{children}</div>;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4"><div className="text-lg font-bold text-text-primary">실적 수정 (#{rec.id})</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><L>구매일자</L><input type="date" value={f.pdate} onChange={(e) => setF({ ...f, pdate: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><L>거래처</L><Combobox<string> value={f.vendor} onChange={(v) => setF({ ...f, vendor: v })} fetcher={vendorFetcherTop} getLabel={(s) => s} render={(s) => <span className="text-text-primary">{s}</span>} /></div>
+          <div className="col-span-2"><L>품목명</L><Combobox<any> value={f.item_name} onChange={(v) => setF({ ...f, item_name: v, ...(parseSpecJS(v).spec ? { spec: parseSpecJS(v).spec } : {}) })} onPick={(it) => setF({ ...f, item_name: it.item_name, spec: it.spec || parseSpecJS(it.item_name).spec || f.spec, mclass: it.mclass || f.mclass })} fetcher={itemFetcher} getLabel={(it) => it.item_name} render={(it) => <span className="text-text-primary">{it.item_name}</span>} /></div>
+          <div><L>구분</L><select value={f.mclass} onChange={(e) => setF({ ...f, mclass: e.target.value })} className={`${C.input} w-full`}><option>원재료</option><option>부재료</option></select></div>
+          <div><L>규격</L><input value={f.spec} onChange={(e) => setF({ ...f, spec: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><L>단위</L><select value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} className={`${C.input} w-full`}><option value="ea">ea</option><option value="kg">kg</option></select></div>
+          <div><L>수량</L><input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><L>단가</L><input type="number" value={f.unit_price} onChange={(e) => setF({ ...f, unit_price: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div><L>부가세(빈칸=자동10%)</L><input type="number" value={f.vat} onChange={(e) => setF({ ...f, vat: e.target.value })} className={`${C.input} w-full`} /></div>
+        </div>
+        <div className="flex items-center gap-3 mt-4"><span className="text-sm text-text-tertiary">공급가 <b className="text-warning">{won(supply)}</b></span><button onClick={save} className={`${C.btn} ${C.btnPrimary} ml-auto`}>수정 저장</button></div>
+        {msg && <div className="mt-2 text-xs text-danger">{msg}</div>}
       </div>
     </div>
   );

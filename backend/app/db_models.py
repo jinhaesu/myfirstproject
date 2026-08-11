@@ -1659,6 +1659,10 @@ class PurchaseRecord(Base):
     note = Column(String(300), nullable=True)                # 적요
     source = Column(String(20), default="import", index=True)  # import=엑셀/시트 적재, manual=화면 직접입력
     created_by = Column(String(200), nullable=True)          # 수동입력자 이메일
+    spec = Column(String(60), nullable=True)                 # 품목명 [ ] 규격 텍스트 (예: 20kg)
+    kg_per_unit = Column(Float, nullable=True)               # ea 1개당 kg (규격에서 파싱, 수동보정 가능). null=무게환산 미지원
+    paid = Column(Boolean, default=False, index=True)        # 전표별 정산완료 여부
+    paid_date = Column(Date, nullable=True)                  # 정산완료 일자
     created_at = Column(DateTime, default=func.now())
 
 

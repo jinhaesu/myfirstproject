@@ -173,6 +173,8 @@ class ManualRecordIn(BaseModel):
     vat: Optional[float] = None
     total: Optional[float] = None
     note: Optional[str] = None
+    spec: Optional[str] = None
+    kg_per_unit: Optional[float] = None
 
 
 @router.post("/records/manual")
@@ -183,9 +185,54 @@ def add_manual_record(body: ManualRecordIn, db: Session = Depends(get_db), user:
     return res
 
 
+class ManualLineIn(BaseModel):
+    mclass: Optional[str] = None
+    item_code: Optional[str] = None
+    item_name: Optional[str] = None
+    unit: Optional[str] = "ea"
+    qty: float = 0
+    unit_price: float = 0
+    vat: Optional[float] = None
+    spec: Optional[str] = None
+    kg_per_unit: Optional[float] = None
+    note: Optional[str] = None
+
+
+class ManualBatchIn(BaseModel):
+    pdate: str
+    seq: int = 0
+    warehouse: Optional[str] = None
+    vendor: Optional[str] = None
+    staff: Optional[str] = None
+    lines: list[ManualLineIn] = []
+
+
+@router.post("/records/manual-batch")
+def add_records_batch(body: ManualBatchIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    common = {"pdate": body.pdate, "seq": body.seq, "warehouse": body.warehouse,
+              "vendor": body.vendor, "staff": body.staff}
+    lines = [ln.model_dump() for ln in body.lines]
+    if not lines:
+        raise HTTPException(400, "품목 라인이 없습니다")
+    res = pur.add_records_batch(db, common, lines, user=user.get("email"))
+    if not res.get("saved"):
+        raise HTTPException(400, "; ".join(res.get("errors") or ["저장 실패"]))
+    return res
+
+
 @router.get("/records/manual-recent")
 def manual_recent(limit: int = 30, db: Session = Depends(get_db)):
     return pur.manual_recent(db, limit=limit)
+
+
+class SettleRecordsIn(BaseModel):
+    ids: list[int]
+    paid: bool
+
+
+@router.post("/records/settle")
+def settle_records(body: SettleRecordsIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return pur.settle_records(db, body.ids, body.paid)
 
 
 class RecordPatchIn(BaseModel):
@@ -204,6 +251,9 @@ class RecordPatchIn(BaseModel):
     note: Optional[str] = None
     pdate: Optional[str] = None
     seq: Optional[int] = None
+    spec: Optional[str] = None
+    kg_per_unit: Optional[float] = None
+    paid: Optional[bool] = None
     recompute: bool = True
 
 

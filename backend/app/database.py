@@ -180,6 +180,10 @@ def init_db():
                 conn.execute(text(
                     "ALTER TABLE purchase_record ADD COLUMN IF NOT EXISTS created_by VARCHAR(200)"
                 ))
+                conn.execute(text("ALTER TABLE purchase_record ADD COLUMN IF NOT EXISTS spec VARCHAR(60)"))
+                conn.execute(text("ALTER TABLE purchase_record ADD COLUMN IF NOT EXISTS kg_per_unit DOUBLE PRECISION"))
+                conn.execute(text("ALTER TABLE purchase_record ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE"))
+                conn.execute(text("ALTER TABLE purchase_record ADD COLUMN IF NOT EXISTS paid_date DATE"))
                 conn.commit()
         except Exception:
             pass
