@@ -557,6 +557,7 @@ function PriceTab() {
   const [q, setQ] = useState('');
   const [minLines, setMinLines] = useState(2);
   const [sort, setSort] = useState('abs_change');
+  const [pu, setPu] = useState<'ea' | 'kg'>('ea');   // 단가 표시 기준
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [hist, setHist] = useState<any>(null);
@@ -575,6 +576,8 @@ function PriceTab() {
   // 점도표 데이터: x=변동률(%), y=누적공급가, 크기=매입횟수. 상승(빨강)/하락(파랑)/보합.
   const scatter = items.filter((it: any) => it.change_pct != null).map((it: any) => ({ ...it, x: it.change_pct, y: it.total_supply, z: it.buy_count }));
   const rising = scatter.filter((d: any) => d.x > 0), falling = scatter.filter((d: any) => d.x < 0), flat = scatter.filter((d: any) => d.x === 0);
+  // 표시 단가: pu에 따라 단위당/kg당 전환 (kg당인데 규격 없으면 '-')
+  const V = (it: any, k: string) => { const v = pu === 'kg' ? it[k + '_kg'] : it[k]; return v == null ? '-' : won(v); };
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -582,9 +585,12 @@ function PriceTab() {
         <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·코드 검색" className={`${C.input} w-40`} />
         <label className="text-xs text-text-tertiary flex items-center gap-1">최소 매입<select value={minLines} onChange={(e) => setMinLines(Number(e.target.value))} className={C.input}>{[1, 2, 3, 5].map((n) => <option key={n} value={n}>{n}회+</option>)}</select></label>
+        <div className="flex rounded-lg overflow-hidden border border-border-primary">
+          {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setPu(u)} className={`px-2.5 py-2 text-xs font-semibold ${pu === u ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`} title={u === 'kg' ? '규격 [Nkg] 기준 kg당 단가' : '전표상 단위(ea/box)당 단가'}>{u === 'ea' ? '단위당' : 'kg당'}</button>)}
+        </div>
         <select value={sort} onChange={(e) => setSort(e.target.value)} className={`${C.input} ml-auto`}>{SORTS.map((s) => <option key={s.k} value={s.k}>{s.label}</option>)}</select>
       </div>
-      <p className="text-xs text-text-quaternary">기간 내 각 품목의 <b className="text-text-tertiary">매입 단가(전표상 단가, 품목×단위별)</b> 최초→최근 변동입니다. 상승=<span className="text-danger">빨강</span>, 하락=<span className="text-info">파랑</span>. 점/행 클릭 시 단가 추이 그래프.</p>
+      <p className="text-xs text-text-quaternary">기간 내 각 품목의 <b className="text-text-tertiary">매입 단가(전표상 단가, 품목×단위별)</b> 최초→최근 변동입니다. 상승=<span className="text-danger">빨강</span>, 하락=<span className="text-info">파랑</span>. 점/행 클릭 시 단가 추이 그래프. <b className="text-text-tertiary">kg당</b> 토글 시 규격 [Nkg] 기준 kg당 단가로 환산(규격 없는 품목은 '-').</p>
       {data && <>
         {/* 기간 총 단가효과 (인하 절감 − 인상 부담) — 총액 관점 순효과 */}
         <div className={`${C.card} p-4 border-l-4 ${(data.net_savings ?? 0) >= 0 ? 'border-l-success' : 'border-l-danger'}`}>
@@ -632,7 +638,7 @@ function PriceTab() {
               <Tooltip contentStyle={TT} cursor={{ strokeDasharray: '3 3' }} formatter={(v: any, n: any) => n === '누적공급가' ? won(v) : n === '변동률' ? `${v}%` : v}
                 labelFormatter={() => ''} content={({ payload }: any) => {
                   const d = payload?.[0]?.payload; if (!d) return null;
-                  return <div style={TT as any} className="p-2 text-xs"><div className="font-semibold text-text-primary mb-0.5">{d.item_name} <span className="text-text-quaternary">[{d.unit}]</span></div><div className={pctTone(d.change_pct)}>{pctStr(d.change_pct)} · {won(d.first_price)}→{won(d.last_price)}</div><div className="text-text-tertiary">누적 {won(d.total_supply)} · {d.buy_count}회</div></div>;
+                  return <div style={TT as any} className="p-2 text-xs"><div className="font-semibold text-text-primary mb-0.5">{d.item_name} <span className="text-text-quaternary">[{pu === 'kg' ? 'kg당' : d.unit}]</span></div><div className={pctTone(d.change_pct)}>{pctStr(d.change_pct)} · {V(d, 'first_price')}→{V(d, 'last_price')}</div><div className="text-text-tertiary">누적 {won(d.total_supply)} · {d.buy_count}회</div></div>;
                 }} />
               <Scatter name="상승" data={rising} fill="var(--color-danger)" fillOpacity={0.7} onClick={(d: any) => openItem(d.item_code, d.item_name)} cursor="pointer" />
               <Scatter name="하락" data={falling} fill="var(--color-info)" fillOpacity={0.7} onClick={(d: any) => openItem(d.item_code, d.item_name)} cursor="pointer" />
@@ -646,24 +652,24 @@ function PriceTab() {
         {loading && <div className="absolute inset-0 bg-bg-0/40 z-10" />}
         <table className="w-full">
           <thead><tr>
-            <th className={C.th}>품목</th><th className={C.th}>구분</th><th className={C.th}>단위</th><th className={`${C.th} text-right`}>매입</th>
-            <th className={`${C.th} text-right`}>최초단가</th><th className={`${C.th} text-right`}>최근단가</th>
+            <th className={C.th}>품목</th><th className={C.th}>규격</th><th className={C.th}>구분</th><th className={`${C.th} text-right`}>매입</th>
+            <th className={`${C.th} text-right`}>최초{pu === 'kg' ? '(kg당)' : ''}</th><th className={`${C.th} text-right`}>최근{pu === 'kg' ? '(kg당)' : ''}</th>
             <th className={`${C.th} text-right`}>변동률</th><th className={`${C.th} text-right`}>최저~최고</th>
-            <th className={`${C.th} text-right`}>편차</th><th className={`${C.th} text-right`}>가중평균</th><th className={`${C.th} text-right`}>누적공급가</th>
+            <th className={`${C.th} text-right`}>편차</th><th className={`${C.th} text-right`}>가중평균</th><th className={`${C.th} text-right`}>{pu === 'kg' ? '누적kg' : '누적공급가'}</th>
           </tr></thead>
           <tbody>{!items.length ? <tr><td colSpan={11} className="p-6 text-center text-text-quaternary text-sm">{loading ? '조회 중…' : '데이터 없음'}</td></tr> : items.map((it: any, i: number) => (
             <tr key={i} className="hover:bg-bg-1 cursor-pointer" onClick={() => openItem(it.item_code, it.item_name)}>
-              <td className={`${C.td} text-text-primary max-w-[280px] truncate`} title={it.item_name}>{it.item_name}{it.vendor_count > 1 && <span className="text-text-quaternary text-[11px] ml-1">·{it.vendor_count}처</span>}</td>
+              <td className={`${C.td} text-text-primary max-w-[260px] truncate`} title={it.item_name}>{it.item_name_short || it.item_name}{it.vendor_count > 1 && <span className="text-text-quaternary text-[11px] ml-1">·{it.vendor_count}처</span>}</td>
+              <td className={`${C.td} text-text-tertiary text-xs`}>{it.spec || (pu === 'kg' ? <span className="text-warning">규격없음</span> : '-')}</td>
               <td className={C.td}><span className={it.mclass === '원재료' ? 'text-info' : 'text-warning'}>{it.mclass || '-'}</span></td>
-              <td className={`${C.td} text-text-tertiary`}>{it.unit || '-'}</td>
               <td className={`${C.td} text-right tabular-nums`}>{it.buy_count}회</td>
-              <td className={`${C.td} text-right tabular-nums`}>{won(it.first_price)}<div className="text-[10px] text-text-quaternary">{it.first_date?.slice(2)}</div></td>
-              <td className={`${C.td} text-right tabular-nums text-text-primary`}>{won(it.last_price)}<div className="text-[10px] text-text-quaternary">{it.last_date?.slice(2)}</div></td>
+              <td className={`${C.td} text-right tabular-nums`}>{V(it, 'first_price')}<div className="text-[10px] text-text-quaternary">{it.first_date?.slice(2)}</div></td>
+              <td className={`${C.td} text-right tabular-nums text-text-primary`}>{V(it, 'last_price')}<div className="text-[10px] text-text-quaternary">{it.last_date?.slice(2)}</div></td>
               <td className={`${C.td} text-right tabular-nums font-semibold ${pctTone(it.change_pct)}`}>{pctStr(it.change_pct)}</td>
-              <td className={`${C.td} text-right tabular-nums text-text-tertiary text-xs`}>{won(it.min_price)}~{won(it.max_price)}</td>
+              <td className={`${C.td} text-right tabular-nums text-text-tertiary text-xs`}>{V(it, 'min_price')}~{V(it, 'max_price')}</td>
               <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{it.spread_pct != null ? `${it.spread_pct.toFixed(0)}%` : '-'}</td>
-              <td className={`${C.td} text-right tabular-nums`}>{it.avg_price != null ? won(it.avg_price) : '-'}</td>
-              <td className={`${C.td} text-right tabular-nums text-warning`}>{wonShort(it.total_supply)}</td>
+              <td className={`${C.td} text-right tabular-nums`}>{V(it, 'avg_price')}</td>
+              <td className={`${C.td} text-right tabular-nums text-warning`}>{pu === 'kg' ? (it.total_kg != null ? fmt(it.total_kg) + 'kg' : '-') : wonShort(it.total_supply)}</td>
             </tr>
           ))}</tbody>
         </table>

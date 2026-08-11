@@ -782,8 +782,10 @@ def price_tracker(db: Session, start: date, end: date,
         it = items.setdefault(key, {
             "item_code": r.item_code, "item_name": r.item_name,
             "mclass": r.mclass, "unit": unit, "points": [], "vendors": set(),
-            "total_qty": 0.0, "total_supply": 0.0,
+            "total_qty": 0.0, "total_supply": 0.0, "kg_per_unit": None,
         })
+        if it["kg_per_unit"] is None:
+            it["kg_per_unit"] = r.kg_per_unit if r.kg_per_unit else parse_spec(r.item_name or "")[1]
         it["total_qty"] += (r.qty or 0)
         it["total_supply"] += (r.supply_amount or 0)
         if r.vendor_name:
@@ -809,8 +811,13 @@ def price_tracker(db: Session, start: date, end: date,
         spread_pct = ((hi - lo) / lo * 100) if lo else None
         # 단가효과(총액) = 단가변동분 × 기간 발주량. +면 인상 부담, −면 인하 절감.
         cost_impact = change * it["total_qty"]
+        kgpu = it["kg_per_unit"]
+        _kg = (lambda p: round(p / kgpu, 2)) if kgpu else (lambda p: None)
+        spec, _ = parse_spec(it["item_name"] or "")
         out.append({
             "item_code": it["item_code"], "item_name": it["item_name"],
+            "item_name_short": _SPEC_RE.sub("", it["item_name"] or "").strip() if spec else it["item_name"],
+            "spec": spec, "kg_per_unit": kgpu,
             "mclass": it["mclass"], "unit": it["unit"], "vendor_count": len(it["vendors"]),
             "vendors": sorted(it["vendors"])[:5],
             "buy_count": len(pts),
@@ -818,10 +825,15 @@ def price_tracker(db: Session, start: date, end: date,
             "last_date": last_d.isoformat(), "last_price": round(last_p, 2),
             "min_price": round(lo, 2), "max_price": round(hi, 2),
             "avg_price": round(wavg, 2) if wavg is not None else None,
+            # per-kg 환산 (kg_per_unit 있을 때만)
+            "first_price_kg": _kg(first_p), "last_price_kg": _kg(last_p),
+            "min_price_kg": _kg(lo), "max_price_kg": _kg(hi),
+            "avg_price_kg": _kg(wavg) if wavg is not None else None,
             "change": round(change, 2),
             "change_pct": round(change_pct, 1) if change_pct is not None else None,
             "spread_pct": round(spread_pct, 1) if spread_pct is not None else None,
             "total_qty": round(it["total_qty"], 1),
+            "total_kg": round(it["total_qty"] * kgpu, 1) if kgpu else None,
             "total_supply": round(it["total_supply"]),
             "cost_impact": round(cost_impact),
         })
