@@ -865,6 +865,13 @@ function APTab() {
     const k = sort.key;
     if (k === 'vendor') return a.vendor.localeCompare(b.vendor) * sort.dir;
     if (k === 'earliest_due') return String(a.earliest_due || '9999').localeCompare(String(b.earliest_due || '9999')) * sort.dir;
+    if (k === 'avg_pay_days' || k === 'max_days_overdue') {   // null(이력없음/연체없음)은 방향 무관 항상 하단
+      const av = a[k], bv = b[k];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return (av - bv) * sort.dir;
+    }
     return ((a[k] || 0) - (b[k] || 0)) * sort.dir;
   });
 
@@ -887,7 +894,7 @@ function APTab() {
     <div className="space-y-5">
       <LoadingOverlay show={loading} />
       <p className="text-xs text-text-quaternary">
-        매입채무 = 구매일보 합계(VAT포함). 잔액 = 매입 − 지급(오래된 발주부터 상계). 거래처명을 클릭하면 정산조건·정산이력 설정 팝업이 열립니다. 맨 앞 체크박스로 잔액을 정산완료 처리할 수 있습니다. 기준일 {data?.asof || '-'}.
+        매입채무 = 구매일보 합계(VAT포함). 잔액 = 매입 − 지급(오래된 발주부터 상계). <b className="text-text-tertiary">연체일수</b>=잔액 중 가장 오래 연체된 발주의 만기 경과일, <b className="text-text-tertiary">평균지급소요</b>=실제 지급기록 기준 발주→지급 금액가중 평균(체크박스 자동정산분 제외). 컬럼 클릭 정렬·거래처명 클릭 설정. 맨 앞 체크박스로 잔액을 정산완료 처리. 기준일 {data?.asof || '-'}.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-text-tertiary">미지급 집계 시작일</span>
@@ -944,11 +951,14 @@ function APTab() {
             <SortTh k="payable" label="매입" cls="text-right" />
             <SortTh k="paid" label="지급" cls="text-right" />
             <SortTh k="balance" label="잔액" cls="text-right" />
-            <SortTh k="overdue" label="연체" cls="text-right" />
+            <SortTh k="overdue" label="연체액" cls="text-right" />
+            <SortTh k="max_days_overdue" label="연체일수" cls="text-right" />
+            <SortTh k="avg_pay_days" label="평균지급소요" cls="text-right" />
             <SortTh k="earliest_due" label="최근만기" />
           </tr></thead>
-          <tbody>{!vendors.length ? <tr><td colSpan={9} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr> : vendors.map((v: any) => {
+          <tbody>{!vendors.length ? <tr><td colSpan={11} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr> : vendors.map((v: any) => {
             const settled = v.balance <= 0.5;
+            const od = v.max_days_overdue;
             return (
               <tr key={v.vendor} className={`hover:bg-bg-1 ${settled ? 'opacity-60' : ''}`}>
                 <td className={`${C.td} text-center`}><input type="checkbox" checked={settled} onChange={(e) => toggleSettle(v, e.target.checked)} title="체크 시 잔액 정산완료 처리" /></td>
@@ -959,10 +969,25 @@ function APTab() {
                 <td className={`${C.td} text-right tabular-nums text-info`}>{won(v.paid)}</td>
                 <td className={`${C.td} text-right tabular-nums text-warning font-semibold`}>{won(v.balance)}</td>
                 <td className={`${C.td} text-right tabular-nums ${v.overdue > 0 ? 'text-danger font-semibold' : 'text-text-quaternary'}`}>{v.overdue > 0 ? won(v.overdue) : '-'}</td>
+                <td className={`${C.td} text-right tabular-nums ${od != null ? (od > 60 ? 'text-danger font-bold' : od > 30 ? 'text-danger' : 'text-warning') : 'text-text-quaternary'}`} title={od != null ? '잔액 중 가장 오래 연체된 발주 경과일' : '연체 없음'}>{od != null ? `${fmt(od)}일` : '-'}</td>
+                <td className={`${C.td} text-right tabular-nums ${v.avg_pay_days != null ? 'text-text-secondary' : 'text-text-quaternary'}`} title="실제 지급기록 기준 발주→지급 평균(FIFO·금액가중)">{v.avg_pay_days != null ? `${fmt(v.avg_pay_days)}일` : '-'}</td>
                 <td className={C.td}>{v.earliest_due || '-'}</td>
               </tr>
             );
           })}</tbody>
+          {vendors.length > 0 && data?.totals && (
+            <tfoot><tr className="bg-bg-inset font-semibold sticky bottom-0">
+              <td className={C.td}></td>
+              <td className={`${C.td} text-text-primary`} colSpan={3}>합계 · {fmt(data.totals.balance_vendor_count ?? vendors.length)}개 거래처(잔액){data.totals.vendor_count ? ` / 전체 ${fmt(data.totals.vendor_count)}` : ''}</td>
+              <td className={`${C.td} text-right tabular-nums text-text-primary`}>{won(data.totals.payable)}</td>
+              <td className={`${C.td} text-right tabular-nums text-info`}>{won(data.totals.paid)}</td>
+              <td className={`${C.td} text-right tabular-nums text-warning`}>{won(data.totals.balance)}</td>
+              <td className={`${C.td} text-right tabular-nums text-danger`}>{data.totals.overdue > 0 ? won(data.totals.overdue) : '-'}</td>
+              <td className={C.td}></td>
+              <td className={`${C.td} text-right tabular-nums text-text-secondary`} title="전체 가중 평균 지급소요일">{data.totals.avg_pay_days != null ? `평균 ${fmt(data.totals.avg_pay_days)}일` : '-'}</td>
+              <td className={C.td}></td>
+            </tr></tfoot>
+          )}
         </table>
       </div>
 

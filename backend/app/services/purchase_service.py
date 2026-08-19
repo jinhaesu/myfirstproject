@@ -1197,8 +1197,20 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
         PurchasePayment.vendor_name).all()
     paid_by_vendor = {v: float(a or 0) for v, a in pay_rows}
 
+    # 평균 지급소요일(발주→지급) 계산용 개별 지급기록.
+    # 체크박스 자동정산(method='정산완료')은 지급일=오늘의 합성기록이라 소요일을 왜곡 → 제외.
+    pay_detail: dict = {}
+    for vn, pdt, amt, mth in db.query(
+            PurchasePayment.vendor_name, PurchasePayment.pay_date,
+            PurchasePayment.amount, PurchasePayment.method).all():
+        if not pdt or (mth == "정산완료"):
+            continue
+        pay_detail.setdefault(vn, []).append((pdt, float(amt or 0)))
+
     vendors_out = []
     totals = {"payable": 0.0, "paid": 0.0, "balance": 0.0, "overdue": 0.0}
+    _lead_wsum = 0.0   # 전체 가중 평균 지급소요일 누적(일수×금액)
+    _lead_wamt = 0.0
     bucket_totals = {b: 0.0 for b in _BUCKET_ORDER}
 
     for vname, buys in by_vendor.items():
@@ -1215,6 +1227,7 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
         open_items = []
         overdue_amt = 0.0
         earliest_due = None
+        max_days_overdue = None      # 잔액 중 가장 오래 연체된 발주의 경과일수
         vbuckets = {b: 0.0 for b in _BUCKET_ORDER}
         for b in reversed(buys):
             if remaining <= 0.5:
@@ -1230,6 +1243,8 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
                 bucket_totals[bucket] += take
             if due is not None and days_over is not None and days_over > 0:
                 overdue_amt += take
+                if max_days_overdue is None or days_over > max_days_overdue:
+                    max_days_overdue = days_over
             if due is not None and (earliest_due is None or due < earliest_due):
                 earliest_due = due
             open_items.append({
@@ -1240,6 +1255,32 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
                 "bucket": bucket,
             })
         totals["overdue"] += overdue_amt
+
+        # 평균 지급소요일: 실제 지급기록을 오래된 발주부터 FIFO로 상계, (지급일−발주일) 금액가중 평균.
+        avg_pay_days = None
+        vpays = sorted(pay_detail.get(vname, []), key=lambda x: x[0])
+        if vpays:
+            buy_q = [[bb["pdate"], bb["total"]] for bb in buys]  # 오래된 발주부터
+            i = 0
+            wsum = wamt = 0.0
+            for pdt, pamt in vpays:
+                rem_pay = pamt
+                while rem_pay > 0.5 and i < len(buy_q):
+                    bd, brem = buy_q[i]
+                    if brem <= 0.5:
+                        i += 1; continue
+                    chunk = min(brem, rem_pay)
+                    days = max(0, (pdt - bd).days)
+                    wsum += days * chunk
+                    wamt += chunk
+                    buy_q[i][1] -= chunk
+                    rem_pay -= chunk
+                    if buy_q[i][1] <= 0.5:
+                        i += 1
+            if wamt > 0.5:
+                avg_pay_days = round(wsum / wamt)
+                _lead_wsum += wsum
+                _lead_wamt += wamt
         vendors_out.append({
             "vendor": vname,
             "payable": round(payable),
@@ -1249,6 +1290,8 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
             "term_label": term_label(term) if term else None,
             "has_term": term is not None,
             "earliest_due": earliest_due.isoformat() if earliest_due else None,
+            "max_days_overdue": max_days_overdue,
+            "avg_pay_days": avg_pay_days,
             "buckets": {k: round(v) for k, v in vbuckets.items() if v > 0.5},
             "open_items": open_items[:12],
         })
@@ -1260,9 +1303,13 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
     for i, v in enumerate(vendors_out, 1):
         v["priority"] = i
 
+    totals_out = {k: round(val) for k, val in totals.items()}
+    totals_out["avg_pay_days"] = round(_lead_wsum / _lead_wamt) if _lead_wamt > 0.5 else None
+    totals_out["vendor_count"] = len(vendors_out)
+    totals_out["balance_vendor_count"] = sum(1 for v in vendors_out if v["balance"] > 0.5)
     return {
         "asof": today.isoformat(),
-        "totals": {k: round(val) for k, val in totals.items()},
+        "totals": totals_out,
         "bucket_totals": {k: round(bucket_totals[k]) for k in _BUCKET_ORDER},
         "bucket_order": _BUCKET_ORDER,
         "vendors": vendors_out,

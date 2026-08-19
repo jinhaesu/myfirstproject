@@ -186,19 +186,20 @@ def _sheet_ap(wb, db, params, first=False):
     d = pur.ap_aging(db, asof=params.get("asof"), start=params.get("start"))
     buckets = d["bucket_order"]
     headers = ["우선순위", "거래처", "정산조건", "매입액", "지급액", "잔액", "연체액",
-               "최초만기"] + buckets
+               "연체일수", "평균지급소요일", "최초만기"] + buckets
     rows = []
     for v in d["vendors"]:
         vb = v.get("buckets", {})
         rows.append([
             v.get("priority"), v.get("vendor"), v.get("term_label") or "미설정",
             v.get("payable"), v.get("paid"), v.get("balance"), v.get("overdue"),
-            v.get("earliest_due"),
+            v.get("max_days_overdue"), v.get("avg_pay_days"), v.get("earliest_due"),
         ] + [vb.get(b, 0) for b in buckets])
     t = d["totals"]
-    sum_row = ["", "합계", "", t["payable"], t["paid"], t["balance"], t["overdue"], ""] + \
+    sum_row = ["", "합계", "", t["payable"], t["paid"], t["balance"], t["overdue"],
+               "", t.get("avg_pay_days"), ""] + \
               [d["bucket_totals"].get(b, 0) for b in buckets]
-    money_cols = set(range(3, 7)) | set(range(8, 8 + len(buckets)))
+    money_cols = set(range(3, 7)) | set(range(10, 10 + len(buckets)))
     _sheet(wb, "매입채무", headers, rows, money_cols=money_cols, sum_row=sum_row, first=first)
 
 
