@@ -5,6 +5,8 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi.responses import StreamingResponse
+from urllib.parse import quote
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -312,6 +314,45 @@ def records_dashboard(start: str, end: str, vendor: Optional[str] = None,
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
     return pur.records_dashboard(db, s, e, vendor=vendor, mclass=mclass, q=q, team=team)
+
+
+@router.get("/records/monthly-matrix")
+def records_monthly_matrix(year: int, by: str = "vendor",
+                           team: Optional[str] = None, mclass: Optional[str] = None,
+                           top: int = 0, db: Session = Depends(get_db)):
+    """지정 연도 1~12월 × 거래처(또는 원부재료)별 구매 공급가 매트릭스 + 합계."""
+    if by not in ("vendor", "material"):
+        by = "vendor"
+    return pur.records_monthly_matrix(db, year, by=by, team=team, mclass=mclass, top=top)
+
+
+@router.get("/export")
+def export_excel(kind: str = "records",
+                 start: Optional[str] = None, end: Optional[str] = None,
+                 vendor: Optional[str] = None, mclass: Optional[str] = None,
+                 item_code: Optional[str] = None, q: Optional[str] = None,
+                 team: Optional[str] = None, year: Optional[int] = None,
+                 by: str = "vendor", asof: Optional[str] = None,
+                 min_lines: int = 1, sort: str = "abs_change",
+                 db: Session = Depends(get_db)):
+    """구매 관리 각 메뉴(또는 kind=all 전체)를 엑셀(.xlsx)로 내려받기."""
+    from app.services import purchase_export as pex
+    params = {
+        "start": _pd(start), "end": _pd(end), "vendor": vendor, "mclass": mclass,
+        "item_code": item_code, "q": q, "team": team,
+        "year": year, "by": by, "asof": _pd(asof),
+        "min_lines": min_lines, "sort": sort,
+    }
+    try:
+        bio = pex.build_workbook(db, kind, params)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    fname = quote(pex.filename_for(kind))
+    return StreamingResponse(
+        bio,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fname}"},
+    )
 
 
 @router.get("/records/gap-trend")

@@ -17,6 +17,31 @@ const getAuthHeaders = (): Record<string, string> => {
 const getJSON = async <T,>(path: string, def: T): Promise<T> => { try { const r = await fetch(`/api${path}`, { headers: getAuthHeaders() }); if (!r.ok) throw new Error(); return await r.json(); } catch { return def; } };
 const send = async (path: string, method: string, body?: any) => { try { const r = await fetch(`/api${path}`, { method, headers: getAuthHeaders(), body: body !== undefined ? JSON.stringify(body) : undefined }); const data = await r.json().catch(() => ({})); return { ok: r.ok, data }; } catch { return { ok: false, data: {} }; } };
 
+// 엑셀 다운로드 — 백엔드 /purchase/export(openpyxl xlsx)를 auth 헤더로 받아 저장
+const downloadExcel = async (kind: string, params: Record<string, any> = {}) => {
+  const q: Record<string, string> = { kind };
+  for (const [k, v] of Object.entries(params)) { if (v !== undefined && v !== null && v !== '') q[k] = String(v); }
+  const r = await fetch(`/api/purchase/export?${new URLSearchParams(q).toString()}`, { headers: getAuthHeaders() });
+  if (!r.ok) { alert('엑셀 다운로드 실패'); return; }
+  const blob = await r.blob();
+  let name = `구매관리_${kind}.xlsx`;
+  const cd = r.headers.get('Content-Disposition') || '';
+  const mm = cd.match(/filename\*=UTF-8''([^;]+)/);
+  if (mm) { try { name = decodeURIComponent(mm[1]); } catch {} }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+};
+function XlsxBtn({ kind, params, label }: { kind: string; params?: Record<string, any>; label?: string }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button disabled={busy} onClick={async () => { setBusy(true); try { await downloadExcel(kind, params || {}); } finally { setBusy(false); } }}
+      className="px-3 py-2 rounded-lg text-sm font-semibold bg-success/10 text-success border border-success/30 hover:bg-success/20 whitespace-nowrap disabled:opacity-50">
+      {busy ? '생성 중…' : (label || '⬇ 엑셀')}
+    </button>
+  );
+}
+
 const C = { card: 'bg-bg-1 border border-border-primary rounded-xl', input: 'bg-bg-0 border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-brand', btn: 'px-3 py-2 rounded-lg text-sm font-semibold transition-colors', btnPrimary: 'bg-brand hover:bg-brand-hover text-white', btnGhost: 'bg-bg-inset hover:bg-border-primary text-text-secondary border border-border-primary', th: 'text-left text-xs font-semibold text-text-tertiary px-3 py-2 border-b border-border-primary whitespace-nowrap', td: 'px-3 py-2 text-sm text-text-secondary border-b border-bg-inset whitespace-nowrap' };
 const fmt = (n: number) => Number(n || 0).toLocaleString('ko-KR');
 const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
@@ -164,6 +189,10 @@ function DashTab() {
         <input value={dr.q} onChange={(e) => setDr({ ...dr, q: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') applyDraft(); }} placeholder="품목명 검색" className={`${C.input} w-40`} />
         {(dr.vendor || dr.mclass || dr.q) && <button onClick={() => { const nx = { ...dr, vendor: '', mclass: '', q: '' }; setDr(nx); setAp(nx); }} className={`${C.btn} ${C.btnGhost}`}>필터 해제</button>}
         {dirty && <span className="text-xs text-warning">변경됨 — 조회를 누르세요</span>}
+        <div className="ml-auto flex gap-1.5">
+          <XlsxBtn kind="dashboard" label="⬇ 대시보드 엑셀" params={{ start: ap.start, end: ap.end, vendor: ap.vendor || undefined, mclass: ap.mclass || undefined, q: ap.q || undefined, team: ap.team || undefined }} />
+          <XlsxBtn kind="all" label="⬇ 구매관리 전체" params={{ start: ap.start, end: ap.end, team: ap.team || undefined, year: Number(ap.start.slice(0, 4)) }} />
+        </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard label="구매액(공급가)" value={wonShort(d?.total_supply || 0)} tone="text-warning" sub={`${fmt(d?.line_count || 0)}건`} />
@@ -266,10 +295,73 @@ function DashTab() {
           </table>
         </div>
       </div>
+
+      <MonthlyMatrix defaultYear={Number((ap.start || '').slice(0, 4)) || new Date().getFullYear()} team={ap.team} />
     </div>
   );
 }
 function Empty() { return <div className="h-[200px] flex items-center justify-center text-sm text-text-quaternary">데이터 없음</div>; }
+
+// 연도별 월별(1~12월) × 거래처(또는 원부재료) 구매 합계 매트릭스 — 설정 기간과 무관
+function MonthlyMatrix({ defaultYear, team }: { defaultYear: number; team: string }) {
+  const [year, setYear] = useState(defaultYear);
+  const [by, setBy] = useState<'vendor' | 'material'>('vendor');
+  const [d, setD] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => { setYear(defaultYear); }, [defaultYear]);
+  useEffect(() => {
+    setLoading(true);
+    const p = new URLSearchParams({ year: String(year), by });
+    if (team) p.set('team', team);
+    getJSON<any>(`/purchase/records/monthly-matrix?${p.toString()}`, null).then((r) => { setD(r); setLoading(false); });
+  }, [year, by, team]);
+  const nowY = new Date().getFullYear();
+  const years = [nowY, nowY - 1, nowY - 2];
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const rows: any[] = d?.rows || [];
+  return (
+    <div className={`${C.card} p-4`}>
+      <div className="flex flex-wrap items-center gap-2 mb-1">
+        <div className="text-sm font-semibold text-text-primary">연도별 월별 구매 합계 매트릭스</div>
+        <div className="flex rounded-lg overflow-hidden border border-border-primary ml-2">
+          {years.map((y) => <button key={y} onClick={() => setYear(y)} className={`px-2.5 py-1.5 text-xs font-semibold ${year === y ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`}>{y}년</button>)}
+        </div>
+        <div className="flex rounded-lg overflow-hidden border border-border-primary">
+          {([['vendor', '거래처별'], ['material', '원부재료별']] as const).map(([k, l]) => <button key={k} onClick={() => setBy(k)} className={`px-2.5 py-1.5 text-xs font-semibold ${by === k ? 'bg-info text-white' : 'bg-bg-inset text-text-tertiary'}`}>{l}</button>)}
+        </div>
+        {team && <span className="text-xs text-info">· {team}</span>}
+        <div className="ml-auto"><XlsxBtn kind="monthly" params={{ year, by, team: team || undefined }} /></div>
+      </div>
+      <p className="text-xs text-text-quaternary mb-3">위 조회기간과 무관하게 <b>{year}년 1~12월</b> {by === 'vendor' ? '거래처' : '원부재료'}별 구매 공급가(VAT별도)입니다. 행·열·총계 포함, 상위 금액순.</p>
+      <div className="relative overflow-x-auto">
+        <LoadingOverlay show={loading} />
+        <table className="w-full text-xs">
+          <thead><tr>
+            <th className="sticky left-0 bg-bg-1 text-left font-semibold text-text-tertiary px-2 py-2 border-b border-border-primary whitespace-nowrap z-10">{by === 'vendor' ? '거래처' : '원부재료'}</th>
+            {months.map((m) => <th key={m} className="text-right font-semibold text-text-tertiary px-2 py-2 border-b border-border-primary whitespace-nowrap">{m}월</th>)}
+            <th className="text-right font-semibold text-text-primary px-2 py-2 border-b border-border-primary whitespace-nowrap">합계</th>
+          </tr></thead>
+          <tbody>
+            {!rows.length ? <tr><td colSpan={14} className="p-6 text-center text-text-quaternary">데이터 없음</td></tr> : rows.map((r, i) => (
+              <tr key={i} className="hover:bg-bg-1">
+                <td className="sticky left-0 bg-bg-1 text-text-primary px-2 py-1.5 border-b border-bg-inset max-w-[200px] truncate whitespace-nowrap z-10" title={r.label}>{r.label}{r.code ? <span className="text-text-quaternary"> · {r.code}</span> : ''}</td>
+                {r.months.map((v: number, mi: number) => <td key={mi} className={`text-right tabular-nums px-2 py-1.5 border-b border-bg-inset ${v ? 'text-text-secondary' : 'text-text-quaternary'}`}>{v ? wonShort(v) : '·'}</td>)}
+                <td className="text-right tabular-nums px-2 py-1.5 border-b border-bg-inset text-warning font-semibold">{won(r.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+          {rows.length > 0 && d && (
+            <tfoot><tr className="bg-bg-inset font-semibold sticky bottom-0">
+              <td className="sticky left-0 bg-bg-inset text-text-primary px-2 py-2 whitespace-nowrap z-10">합계 · {fmt(d.row_count)}{by === 'vendor' ? '개 거래처' : '개 품목'}</td>
+              {d.month_totals.map((v: number, mi: number) => <td key={mi} className="text-right tabular-nums px-2 py-2 text-text-primary">{v ? wonShort(v) : '·'}</td>)}
+              <td className="text-right tabular-nums px-2 py-2 text-warning">{won(d.grand_total)}</td>
+            </tr></tfoot>
+          )}
+        </table>
+      </div>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────
 // 실적 조회
@@ -314,6 +406,7 @@ function RecordsTab() {
         <div className="flex rounded-lg overflow-hidden border border-border-primary">
           {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setUnit(u)} className={`px-2.5 py-2 text-xs font-semibold ${unit === u ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`}>{u === 'ea' ? '수량(ea)' : '중량(kg)'}</button>)}
         </div>
+        <XlsxBtn kind="records" params={{ start: range.start, end: range.end, mclass: mclass || undefined, q: q || undefined, team: team || undefined }} />
         {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가 {won(data.supply_total)} · 미지급 {won(data.unpaid_total || 0)}{data.total > 500 && ' (500건 표시)'}</span>}
       </div>
       {/* 정산완료 처리 툴바 — 체크박스로 행 선택 후 버튼 클릭 */}
@@ -408,7 +501,7 @@ function parseSpecJS(name: string): { spec: string | null; kg: number | null } {
   return { spec, kg: v > 0 ? v : null };
 }
 const specToKg = (specText: string): number => parseSpecJS(`[${specText}]`).kg || 0;
-const emptyLine = () => ({ mclass: '원재료', item_code: '', item_name: '', spec: '', boxKg: 0, unit: 'ea' as 'ea' | 'kg', qty: '', unit_price: '', vat_mode: 'auto' as 'auto' | 'zero' });
+const emptyLine = () => ({ mclass: '원재료', item_code: '', item_name: '', spec: '', boxKg: 0, unit: 'ea' as 'ea' | 'kg', qty: '', unit_price: '', vat_mode: 'auto' as 'auto' | 'zero', note: '' });
 const itemFetcher = (q: string) => getJSON<{ items: any[] }>(`/purchase/suggest/items?q=${encodeURIComponent(q)}&limit=30`, { items: [] }).then((r) => r.items);
 const vendorFetcherTop = (q: string) => getJSON<{ vendors: string[] }>(`/purchase/suggest/vendors?q=${encodeURIComponent(q)}&limit=30`, { vendors: [] }).then((r) => r.vendors);
 
@@ -419,7 +512,13 @@ function InputTab() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [edit, setEdit] = useState<any>(null);
-  const loadRecent = useCallback(async () => { setRecent((await getJSON<any>('/purchase/records?limit=60', { rows: [] })).rows); }, []);
+  const [rq, setRq] = useState('');        // 최근 실적 검색어(품목·거래처)
+  const [rqApplied, setRqApplied] = useState('');
+  const loadRecent = useCallback(async () => {
+    const p = new URLSearchParams({ limit: rqApplied ? '300' : '60' });
+    if (rqApplied) p.set('q', rqApplied);
+    setRecent((await getJSON<any>(`/purchase/records?${p.toString()}`, { rows: [] })).rows);
+  }, [rqApplied]);
   useEffect(() => { loadRecent(); }, [loadRecent]);
 
   const setLine = (i: number, patch: any) => setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
@@ -456,7 +555,7 @@ function InputTab() {
       lines: valid.map((l) => {
         const supply = lineSupply(l);
         const vat = l.vat_mode === 'zero' ? 0 : Math.round(supply * 0.1);
-        return { mclass: l.mclass, item_code: l.item_code, item_name: l.item_name, spec: l.spec || null, unit: l.unit, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, kg_per_unit: l.unit === 'kg' ? 1 : (l.boxKg || null), vat };
+        return { mclass: l.mclass, item_code: l.item_code, item_name: l.item_name, spec: l.spec || null, unit: l.unit, qty: Number(l.qty) || 0, unit_price: Number(l.unit_price) || 0, kg_per_unit: l.unit === 'kg' ? 1 : (l.boxKg || null), vat, note: l.note || null };
       }),
     };
     const r = await send('/purchase/records/manual-batch', 'POST', body);
@@ -497,6 +596,7 @@ function InputTab() {
                 <div className="w-28"><L>단가</L><input type="number" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} className={`${C.input} py-1.5 w-full text-right`} /></div>
                 <div className="w-28 text-right"><L>공급가</L><div className="text-warning tabular-nums text-sm py-1.5">{won(lineSupply(l))}</div></div>
                 <div className="w-20"><L>VAT</L><select value={l.vat_mode} onChange={(e) => setLine(i, { vat_mode: e.target.value })} className={`${C.input} py-1.5 w-full`}><option value="auto">10%</option><option value="zero">면세</option></select></div>
+                <div className="w-36"><L>비고</L><input value={l.note} onChange={(e) => setLine(i, { note: e.target.value })} placeholder="적요·메모" className={`${C.input} py-1.5 w-full`} /></div>
                 <div>{lines.length > 1 && <button onClick={() => rmLine(i)} className="text-danger text-xs hover:underline py-2">삭제</button>}</div>
               </div>
             );
@@ -511,9 +611,18 @@ function InputTab() {
       </div>
 
       <div className={`${C.card} overflow-x-auto`}>
-        <div className="px-4 pt-3 text-sm font-semibold text-text-primary">최근 실적 (최근 {recent.length}건 · 전체)</div>
-        <table className="w-full mt-2"><thead><tr><th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>규격</th><th className={`${C.th} text-right`}>수량</th><th className={`${C.th} text-right`}>단가</th><th className={`${C.th} text-right`}>공급가</th><th className={C.th}>입력자</th><th className={C.th}></th></tr></thead>
-          <tbody>{!recent.length ? <tr><td colSpan={10} className="p-6 text-center text-text-quaternary text-sm">실적이 없습니다.</td></tr> : recent.map((r) => (
+        <div className="flex flex-wrap items-center gap-2 px-4 pt-3">
+          <div className="text-sm font-semibold text-text-primary">최근 실적 {rqApplied ? <span className="text-accent">· "{rqApplied}" 검색 {recent.length}건</span> : `(최근 ${recent.length}건 · 전체)`}</div>
+          <div className="flex items-center gap-1 ml-auto">
+            <input value={rq} onChange={(e) => setRq(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') setRqApplied(rq.trim()); }} placeholder="과거 내역 검색(품목·거래처)" className={`${C.input} w-56`} />
+            <button onClick={() => setRqApplied(rq.trim())} className={`${C.btn} ${C.btnPrimary}`}>검색</button>
+            {rqApplied && <button onClick={() => { setRq(''); setRqApplied(''); }} className={`${C.btn} ${C.btnGhost}`}>해제</button>}
+            <XlsxBtn kind="records" params={{ q: rqApplied || undefined }} />
+          </div>
+        </div>
+        <p className="px-4 pt-1 text-xs text-text-quaternary">과거에 잘못 입력한 건은 검색해서 우측 <b>수정</b> 버튼으로 바로잡을 수 있습니다.</p>
+        <table className="w-full mt-2"><thead><tr><th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>규격</th><th className={`${C.th} text-right`}>수량</th><th className={`${C.th} text-right`}>단가</th><th className={`${C.th} text-right`}>공급가</th><th className={C.th}>비고</th><th className={C.th}>입력자</th><th className={C.th}></th></tr></thead>
+          <tbody>{!recent.length ? <tr><td colSpan={11} className="p-6 text-center text-text-quaternary text-sm">{rqApplied ? '검색 결과가 없습니다.' : '실적이 없습니다.'}</td></tr> : recent.map((r) => (
             <tr key={r.id} className="hover:bg-bg-1">
               <td className={C.td}>{r.pdate}{r.seq ? `-${r.seq}` : ''}</td>
               <td className={`${C.td} text-text-primary`}>{r.vendor}</td>
@@ -522,6 +631,7 @@ function InputTab() {
               <td className={`${C.td} text-text-tertiary text-xs`}>{r.spec || '-'}</td>
               <td className={`${C.td} text-right`}>{fmt(r.qty)}{r.unit}{r.kg != null ? ` (${fmt(r.kg)}kg)` : ''}</td>
               <td className={`${C.td} text-right`}>{won(r.unit_price)}</td><td className={`${C.td} text-right text-warning`}>{won(r.supply)}</td>
+              <td className={`${C.td} max-w-[160px] truncate text-text-tertiary text-xs`} title={r.note || ''}>{r.note || '-'}</td>
               <td className={C.td}>{r.created_by || '-'}</td>
               <td className={`${C.td} whitespace-nowrap`}><button onClick={() => setEdit(r)} className="text-accent text-xs hover:underline mr-2">수정</button><button onClick={() => del(r.id)} className="text-danger text-xs hover:underline">삭제</button></td>
             </tr>
@@ -536,12 +646,12 @@ function RecordEditModal({ rec, onClose, onSaved }: { rec: any; onClose: () => v
   const [f, setF] = useState<any>({
     pdate: rec.pdate, vendor: rec.vendor || '', mclass: rec.mclass || '원재료',
     item_name: rec.item_name || '', spec: rec.spec || '', unit: rec.unit || 'ea',
-    qty: rec.qty ?? '', unit_price: rec.unit_price ?? '', vat: rec.vat ?? '',
+    qty: rec.qty ?? '', unit_price: rec.unit_price ?? '', vat: rec.vat ?? '', note: rec.note || '',
   });
   const [msg, setMsg] = useState<string | null>(null);
   const supply = Math.round((Number(f.qty) || 0) * (Number(f.unit_price) || 0));
   const save = async () => {
-    const body: any = { pdate: f.pdate, vendor: f.vendor, mclass: f.mclass, item_name: f.item_name, spec: f.spec || null, unit: f.unit, qty: Number(f.qty) || 0, unit_price: Number(f.unit_price) || 0, recompute: true };
+    const body: any = { pdate: f.pdate, vendor: f.vendor, mclass: f.mclass, item_name: f.item_name, spec: f.spec || null, unit: f.unit, qty: Number(f.qty) || 0, unit_price: Number(f.unit_price) || 0, note: f.note || '', recompute: true };
     if (f.vat !== '' && f.vat != null) body.vat = Number(f.vat);
     const r = await send(`/purchase/records/${rec.id}`, 'PATCH', body);
     if (r.ok) onSaved(); else setMsg(r.data?.detail || '저장 실패');
@@ -562,6 +672,7 @@ function RecordEditModal({ rec, onClose, onSaved }: { rec: any; onClose: () => v
           <div><L>수량</L><input type="number" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} className={`${C.input} w-full`} /></div>
           <div><L>단가</L><input type="number" value={f.unit_price} onChange={(e) => setF({ ...f, unit_price: e.target.value })} className={`${C.input} w-full`} /></div>
           <div><L>부가세(빈칸=자동10%)</L><input type="number" value={f.vat} onChange={(e) => setF({ ...f, vat: e.target.value })} className={`${C.input} w-full`} /></div>
+          <div className="col-span-2"><L>비고</L><input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="적요·메모" className={`${C.input} w-full`} /></div>
         </div>
         <div className="flex items-center gap-3 mt-4"><span className="text-sm text-text-tertiary">공급가 <b className="text-warning">{won(supply)}</b></span><button onClick={save} className={`${C.btn} ${C.btnPrimary} ml-auto`}>수정 저장</button></div>
         {msg && <div className="mt-2 text-xs text-danger">{msg}</div>}
@@ -625,6 +736,7 @@ function PriceTab() {
           {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setPu(u)} className={`px-2.5 py-2 text-xs font-semibold ${pu === u ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`} title={u === 'kg' ? '규격 [Nkg] 기준 kg당 단가' : '전표상 단위(ea/box)당 단가'}>{u === 'ea' ? '단위당' : 'kg당'}</button>)}
         </div>
         <select value={sort} onChange={(e) => setSort(e.target.value)} className={`${C.input} ml-auto`}>{SORTS.map((s) => <option key={s.k} value={s.k}>{s.label}</option>)}</select>
+        <XlsxBtn kind="price" params={{ start: range.start, end: range.end, mclass: mclass || undefined, min_lines: minLines, sort, team: team || undefined }} />
       </div>
       <p className="text-xs text-text-quaternary">기간 내 각 품목의 <b className="text-text-tertiary">매입 단가(전표상 단가, 품목×단위별)</b> 최초→최근 변동입니다. 상승=<span className="text-danger">빨강</span>, 하락=<span className="text-info">파랑</span>. 점/행 클릭 시 단가 추이 그래프. <b className="text-text-tertiary">kg당</b> 토글 시 규격 [Nkg] 기준 kg당 단가로 환산(규격 없는 품목은 '-').</p>
       {data && <>
@@ -783,6 +895,7 @@ function APTab() {
           <button key={p.k} onClick={() => setStart(p.v)} className={`${C.btn} ${start === p.v ? C.btnPrimary : C.btnGhost} text-xs py-1.5`}>{p.k}</button>
         ))}
         <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={`${C.input} text-xs py-1.5`} />
+        <div className="ml-auto"><XlsxBtn kind="ap" params={{ start: start || undefined }} /></div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1015,6 +1128,7 @@ function BomMapTab() {
           {msg && <span className="text-xs text-accent">{msg}</span>}
           <button onClick={() => sync(Array.from(sel))} disabled={!sel.size} className={`${C.btn} ${sel.size ? C.btnPrimary : C.btnGhost} text-xs py-1.5`}>선택 {sel.size ? `${sel.size}건 ` : ''}단가 반영</button>
           <button onClick={() => sync(staleCodes)} className={`${C.btn} ${C.btnGhost} text-xs py-1.5`} title="괴리 자재 전체를 최신 구매가로">괴리 전체 반영</button>
+          <XlsxBtn kind="bom" />
         </div>
       </div>
       <div className={`${C.card} overflow-x-auto`}>

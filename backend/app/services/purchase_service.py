@@ -583,6 +583,63 @@ def records_dashboard(db: Session, start: date, end: date,
     }
 
 
+def records_monthly_matrix(db: Session, year: int, by: str = "vendor",
+                           team: Optional[str] = None, mclass: Optional[str] = None,
+                           top: int = 0) -> dict:
+    """지정 연도 1~12월 × (거래처|원부재료) 구매 공급가 매트릭스.
+
+    설정 기간과 무관하게 해당 연도 전체(1~12월)를 대상으로 한다.
+    by='vendor'(거래처별) 또는 'material'(품목별). 행별 합계·월별 합계·총계 포함.
+    """
+    start = date(year, 1, 1)
+    end = date(year, 12, 31)
+    qry = db.query(PurchaseRecord).filter(
+        PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
+    if team:
+        qry = qry.filter(PurchaseRecord.team == team)
+    if mclass:
+        qry = qry.filter(PurchaseRecord.mclass == _mclass_norm(mclass))
+
+    # key -> {label, code, months[12], total}
+    grid: dict = {}
+    month_totals = [0.0] * 12
+    grand = 0.0
+    for r in qry.all():
+        if not r.pdate:
+            continue
+        mi = r.pdate.month - 1
+        amt = r.supply_amount or 0
+        if by == "material":
+            code = (r.item_code or "").strip()
+            label = _SPEC_RE.sub("", r.item_name or "").strip() or r.item_name or "(품목미상)"
+            key = code or label
+        else:
+            code = None
+            label = (r.vendor_name or "").strip() or "(거래처미상)"
+            key = label
+        g = grid.setdefault(key, {"label": label, "code": code, "months": [0.0] * 12, "total": 0.0})
+        g["months"][mi] += amt
+        g["total"] += amt
+        month_totals[mi] += amt
+        grand += amt
+
+    rows = sorted(grid.values(), key=lambda x: -x["total"])
+    if top and top > 0:
+        rows = rows[:top]
+    out_rows = [{
+        "label": g["label"], "code": g["code"],
+        "months": [round(v) for v in g["months"]],
+        "total": round(g["total"]),
+    } for g in rows]
+    return {
+        "year": year, "by": by,
+        "month_totals": [round(v) for v in month_totals],
+        "grand_total": round(grand),
+        "row_count": len(grid),
+        "rows": out_rows,
+    }
+
+
 def sales_vs_purchase(db: Session, start: date, end: date, granularity: str = "day") -> dict:
     """기간 내 매출 대비 구매 누적비율 시계열(일/주/월)."""
     def bucket(d: date) -> str:
