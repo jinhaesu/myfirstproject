@@ -1003,8 +1003,11 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
     : { term_type: 'MONTH_END', term_month_offset: 1, term_day: 20, term_days: 30, memo: '' });
   const [pf, setPf] = useState<any>({ pay_date: iso(new Date()), amount: '', method: '이체', memo: '' });
   const [msg, setMsg] = useState<string | null>(null);
+  const [orders, setOrders] = useState<any>(null);
+  const [showPaid, setShowPaid] = useState(false);   // 완료건 포함 토글
   const loadPays = useCallback(async () => { setPays((await getJSON<any>(`/purchase/payments?vendor=${encodeURIComponent(vendor.vendor)}&limit=100`, { payments: [] })).payments); }, [vendor.vendor]);
-  useEffect(() => { loadPays(); }, [loadPays]);
+  const loadOrders = useCallback(async () => { setOrders(await getJSON<any>(`/purchase/vendor-orders?vendor=${encodeURIComponent(vendor.vendor)}`, null)); }, [vendor.vendor]);
+  useEffect(() => { loadPays(); loadOrders(); }, [loadPays, loadOrders]);
 
   const saveTerm = async () => {
     const r = await send('/purchase/vendor-terms', 'POST', { vendor: vendor.vendor, ...tf });
@@ -1013,9 +1016,9 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
   const savePay = async () => {
     if (!pf.amount) { setMsg('지급액을 입력하세요'); return; }
     const r = await send('/purchase/payments', 'POST', { vendor: vendor.vendor, ...pf, amount: Number(pf.amount) || 0 });
-    if (r.ok) { setPf({ ...pf, amount: '', memo: '' }); setMsg('지급 기록 저장'); loadPays(); onChanged(); } else setMsg(r.data?.detail || '실패');
+    if (r.ok) { setPf({ ...pf, amount: '', memo: '' }); setMsg('지급 기록 저장'); loadPays(); loadOrders(); onChanged(); } else setMsg(r.data?.detail || '실패');
   };
-  const delPay = async (id: number) => { if (!confirm('이 지급 기록을 삭제할까요?')) return; await send(`/purchase/payments/${id}`, 'DELETE'); loadPays(); onChanged(); };
+  const delPay = async (id: number) => { if (!confirm('이 지급 기록을 삭제할까요?')) return; await send(`/purchase/payments/${id}`, 'DELETE'); loadPays(); loadOrders(); onChanged(); };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -1073,17 +1076,33 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
             ))}</tbody></table>
         </div>
 
-        {/* 미지급 발주 상세 */}
-        {vendor.open_items?.length > 0 && <>
-          <div className="text-sm font-semibold text-text-primary mb-2">미지급 발주(만기 기준)</div>
-          <div className="flex flex-wrap gap-2 mb-2">{Object.entries(vendor.buckets || {}).map(([b, amt]: any) => <span key={b} className={`text-xs px-2 py-1 rounded-md bg-bg-inset ${BUCKET_TONE[b] || ''}`}>{b}: {won(amt)}</span>)}</div>
-          <div className="overflow-x-auto">
-            <table className="w-full"><thead><tr><th className={C.th}>발주일</th><th className={`${C.th} text-right`}>미지급액</th><th className={C.th}>만기일</th><th className={C.th}>경과</th></tr></thead>
-              <tbody>{vendor.open_items.map((o: any, i: number) => (
-                <tr key={i}><td className={C.td}>{o.pdate}</td><td className={`${C.td} text-right tabular-nums`}>{won(o.amount)}</td><td className={C.td}>{o.due || '-'}</td><td className={`${C.td} ${o.days_overdue > 0 ? 'text-danger' : 'text-text-tertiary'}`}>{o.days_overdue == null ? '-' : o.days_overdue > 0 ? `+${o.days_overdue}일` : `${o.days_overdue}일`}</td></tr>
-              ))}</tbody></table>
-          </div>
-        </>}
+        {/* 발주 상세 — 미지급/완료 토글 */}
+        {(orders?.orders?.length > 0) && (() => {
+          const allOrders: any[] = orders.orders;
+          const shown = showPaid ? allOrders : allOrders.filter((o) => o.status !== '완료');
+          const hiddenPaid = allOrders.length - allOrders.filter((o) => o.status !== '완료').length;
+          return <>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-semibold text-text-primary">발주 상세 <span className="text-xs text-text-quaternary font-normal">(총 {orders.order_count}건 · 미지급 {orders.unpaid_count + orders.partial_count} / 완료 {orders.paid_count})</span></div>
+              <label className="text-xs text-text-tertiary flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={showPaid} onChange={(e) => setShowPaid(e.target.checked)} /> 지급완료 포함{!showPaid && hiddenPaid > 0 ? ` (숨김 ${hiddenPaid})` : ''}</label>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-2">{Object.entries(vendor.buckets || {}).map(([b, amt]: any) => <span key={b} className={`text-xs px-2 py-1 rounded-md bg-bg-inset ${BUCKET_TONE[b] || ''}`}>{b}: {won(amt)}</span>)}</div>
+            <div className="overflow-x-auto">
+              <table className="w-full"><thead><tr><th className={C.th}>발주일</th><th className={C.th}>상태</th><th className={`${C.th} text-right`}>발주액</th><th className={`${C.th} text-right`}>미지급액</th><th className={C.th}>만기일</th><th className={C.th}>경과</th></tr></thead>
+                <tbody>{!shown.length ? <tr><td colSpan={6} className="p-4 text-center text-text-quaternary text-xs">{showPaid ? '발주 없음' : '미지급 발주 없음 — 전부 정산 완료'}</td></tr> : shown.map((o: any, i: number) => {
+                  const stTone = o.status === '완료' ? 'text-success-light' : o.status === '부분' ? 'text-warning' : 'text-danger';
+                  return <tr key={i} className={o.status === '완료' ? 'opacity-60' : ''}>
+                    <td className={C.td}>{o.pdate}{o.lines > 1 ? <span className="text-text-quaternary text-[11px]"> ·{o.lines}건</span> : ''}</td>
+                    <td className={`${C.td} ${stTone} text-xs font-medium`}>{o.status}</td>
+                    <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{won(o.total)}</td>
+                    <td className={`${C.td} text-right tabular-nums ${o.unpaid > 0 ? 'text-warning' : 'text-text-quaternary'}`}>{o.unpaid > 0 ? won(o.unpaid) : '-'}</td>
+                    <td className={C.td}>{o.due || '-'}</td>
+                    <td className={`${C.td} ${o.unpaid > 0 && o.days_overdue > 0 ? 'text-danger' : 'text-text-tertiary'}`}>{o.days_overdue == null ? '-' : o.days_overdue > 0 ? `+${o.days_overdue}일` : `${o.days_overdue}일`}</td>
+                  </tr>;
+                })}</tbody></table>
+            </div>
+          </>;
+        })()}
       </div>
     </div>
   );

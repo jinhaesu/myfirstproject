@@ -1317,6 +1317,58 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
     }
 
 
+def vendor_orders(db: Session, vendor: str, asof: Optional[date] = None) -> dict:
+    """거래처의 발주(일자 그룹) 전체 목록 + 지급상태.
+
+    지급총액을 오래된 발주부터 FIFO로 상계 → 각 발주의 지급/미지급액과
+    상태(완료/부분/미지급), 만기·연체경과일을 계산. 표시는 최신 발주 우선.
+    """
+    today = asof or date.today()
+    term = db.query(PurchaseVendorTerm).filter(PurchaseVendorTerm.vendor_name == vendor).first()
+    rows = db.query(
+        PurchaseRecord.pdate, func.sum(PurchaseRecord.total_amount), func.count(PurchaseRecord.id)
+    ).filter(PurchaseRecord.vendor_name == vendor).group_by(PurchaseRecord.pdate).all()
+    buys = sorted([{"pdate": pd, "total": float(t or 0), "lines": int(c or 0)}
+                   for pd, t, c in rows if pd], key=lambda x: x["pdate"])
+    paid_total = float(db.query(func.coalesce(func.sum(PurchasePayment.amount), 0.0)).filter(
+        PurchasePayment.vendor_name == vendor).scalar() or 0.0)
+
+    remaining_paid = paid_total
+    out = []
+    payable = paid_alloc = 0.0
+    paid_cnt = partial_cnt = unpaid_cnt = 0
+    for b in buys:  # 오래된 발주부터 지급 상계
+        pay = min(b["total"], remaining_paid)
+        remaining_paid -= pay
+        unpaid = b["total"] - pay
+        due = compute_due_date(b["pdate"], term)
+        days_over = (today - due).days if due else None
+        bucket = _aging_bucket(days_over) if due is not None else "미설정"
+        if unpaid <= 0.5:
+            status = "완료"; paid_cnt += 1
+        elif pay <= 0.5:
+            status = "미지급"; unpaid_cnt += 1
+        else:
+            status = "부분"; partial_cnt += 1
+        payable += b["total"]; paid_alloc += pay
+        out.append({
+            "pdate": b["pdate"].isoformat(), "lines": b["lines"],
+            "total": round(b["total"]), "paid": round(pay), "unpaid": round(unpaid),
+            "due": due.isoformat() if due else None,
+            "days_overdue": days_over, "bucket": bucket, "status": status,
+        })
+    out.reverse()  # 최신 발주 우선 표시
+    return {
+        "vendor": vendor,
+        "term_label": term_label(term) if term else None,
+        "order_count": len(out), "paid_count": paid_cnt,
+        "partial_count": partial_cnt, "unpaid_count": unpaid_cnt,
+        "payable": round(payable), "paid": round(paid_alloc),
+        "balance": round(max(0.0, payable - paid_alloc)),
+        "orders": out,
+    }
+
+
 # ──────────────────────────────────────────────
 # 실적 입력 자동완성(거래처/품목 제안)
 # ──────────────────────────────────────────────

@@ -538,6 +538,12 @@ def delete_payment(pid: int, db: Session = Depends(get_db), user: dict = Depends
     return pur.delete_payment(db, pid)
 
 
+@router.get("/vendor-orders")
+def vendor_orders(vendor: str, asof: Optional[str] = None, db: Session = Depends(get_db)):
+    """거래처 발주 전체 목록(지급완료/부분/미지급 상태 포함)."""
+    return pur.vendor_orders(db, vendor, asof=_pd(asof))
+
+
 @router.get("/ap-aging")
 def ap_aging(asof: Optional[str] = None, start: Optional[str] = None, db: Session = Depends(get_db)):
     """거래처별 매입채무 잔액 + 계약 정산일 기준 aging + 정산 우선순위."""
