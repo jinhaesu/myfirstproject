@@ -1211,6 +1211,9 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
     totals = {"payable": 0.0, "paid": 0.0, "balance": 0.0, "overdue": 0.0}
     _lead_wsum = 0.0   # 전체 가중 평균 지급소요일 누적(일수×금액)
     _lead_wamt = 0.0
+    _od_wsum_all = 0.0  # 전체 연체 가중 평균 경과일 누적
+    _od_wamt_all = 0.0
+    _max_od_all = 0
     bucket_totals = {b: 0.0 for b in _BUCKET_ORDER}
 
     for vname, buys in by_vendor.items():
@@ -1228,6 +1231,7 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
         overdue_amt = 0.0
         earliest_due = None
         max_days_overdue = None      # 잔액 중 가장 오래 연체된 발주의 경과일수
+        od_wsum = od_wamt = 0.0      # 연체 금액가중 평균 경과일 계산용
         vbuckets = {b: 0.0 for b in _BUCKET_ORDER}
         for b in reversed(buys):
             if remaining <= 0.5:
@@ -1243,6 +1247,8 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
                 bucket_totals[bucket] += take
             if due is not None and days_over is not None and days_over > 0:
                 overdue_amt += take
+                od_wsum += days_over * take
+                od_wamt += take
                 if max_days_overdue is None or days_over > max_days_overdue:
                     max_days_overdue = days_over
             if due is not None and (earliest_due is None or due < earliest_due):
@@ -1255,6 +1261,11 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
                 "bucket": bucket,
             })
         totals["overdue"] += overdue_amt
+        avg_days_overdue = round(od_wsum / od_wamt) if od_wamt > 0.5 else None
+        _od_wsum_all += od_wsum
+        _od_wamt_all += od_wamt
+        if max_days_overdue and max_days_overdue > _max_od_all:
+            _max_od_all = max_days_overdue
 
         # 평균 지급소요일: 실제 지급기록을 오래된 발주부터 FIFO로 상계, (지급일−발주일) 금액가중 평균.
         avg_pay_days = None
@@ -1291,6 +1302,7 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
             "has_term": term is not None,
             "earliest_due": earliest_due.isoformat() if earliest_due else None,
             "max_days_overdue": max_days_overdue,
+            "avg_days_overdue": avg_days_overdue,
             "avg_pay_days": avg_pay_days,
             "buckets": {k: round(v) for k, v in vbuckets.items() if v > 0.5},
             "open_items": open_items[:12],
@@ -1305,6 +1317,8 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
 
     totals_out = {k: round(val) for k, val in totals.items()}
     totals_out["avg_pay_days"] = round(_lead_wsum / _lead_wamt) if _lead_wamt > 0.5 else None
+    totals_out["avg_days_overdue"] = round(_od_wsum_all / _od_wamt_all) if _od_wamt_all > 0.5 else None
+    totals_out["max_days_overdue"] = _max_od_all or None
     totals_out["vendor_count"] = len(vendors_out)
     totals_out["balance_vendor_count"] = sum(1 for v in vendors_out if v["balance"] > 0.5)
     return {
