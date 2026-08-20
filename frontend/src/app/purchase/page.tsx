@@ -14,8 +14,18 @@ const getAuthHeaders = (): Record<string, string> => {
   if (token) h['Authorization'] = `Bearer ${token}`;
   return h;
 };
-const getJSON = async <T,>(path: string, def: T): Promise<T> => { try { const r = await fetch(`/api${path}`, { headers: getAuthHeaders() }); if (!r.ok) throw new Error(); return await r.json(); } catch { return def; } };
-const send = async (path: string, method: string, body?: any) => { try { const r = await fetch(`/api${path}`, { method, headers: getAuthHeaders(), body: body !== undefined ? JSON.stringify(body) : undefined }); const data = await r.json().catch(() => ({})); return { ok: r.ok, data }; } catch { return { ok: false, data: {} }; } };
+// 세션 만료(401) 처리 — 조회는 auth-free지만 수정/입력/삭제는 토큰 필요.
+// 토큰이 만료되면 재로그인 유도(백엔드 원문 "유효하지 않거나 만료된 토큰" 대신).
+let _authExpiredHandled = false;
+const onAuthExpired = () => {
+  if (typeof window === 'undefined' || _authExpiredHandled) return;
+  _authExpiredHandled = true;
+  try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch {}
+  alert('로그인 세션이 만료되었습니다. 다시 로그인해 주세요. (작업 내용은 저장되지 않았습니다)');
+  window.location.href = '/login';
+};
+const getJSON = async <T,>(path: string, def: T): Promise<T> => { try { const r = await fetch(`/api${path}`, { headers: getAuthHeaders() }); if (r.status === 401) { onAuthExpired(); return def; } if (!r.ok) throw new Error(); return await r.json(); } catch { return def; } };
+const send = async (path: string, method: string, body?: any) => { try { const r = await fetch(`/api${path}`, { method, headers: getAuthHeaders(), body: body !== undefined ? JSON.stringify(body) : undefined }); if (r.status === 401) { onAuthExpired(); return { ok: false, data: { detail: '세션이 만료되어 다시 로그인이 필요합니다' } }; } const data = await r.json().catch(() => ({})); return { ok: r.ok, data }; } catch { return { ok: false, data: {} }; } };
 
 // 엑셀 다운로드 — 백엔드 /purchase/export(openpyxl xlsx)를 auth 헤더로 받아 저장
 const downloadExcel = async (kind: string, params: Record<string, any> = {}) => {

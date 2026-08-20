@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # JWT 설정
     JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
     JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRATION_HOURS: int = 24
+    JWT_EXPIRATION_HOURS: int = 720  # 30일 — 사내 ERP 일상 사용 중 토큰 만료로 수정 실패하던 문제 완화(2026-08-20)
 
     # 사용자 설정 (JSON 형식: [{"email":"admin@example.com","password":"hashed","name":"Admin"}])
     USERS_JSON: str = "[]"
