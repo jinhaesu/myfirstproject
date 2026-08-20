@@ -1321,6 +1321,25 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
     totals_out["max_days_overdue"] = _max_od_all or None
     totals_out["vendor_count"] = len(vendors_out)
     totals_out["balance_vendor_count"] = sum(1 for v in vendors_out if v["balance"] > 0.5)
+
+    # 미지급 잔액 목표치 = 최근 3개월(완결 월) 매출(공급가) 월평균 × 0.35 × 2.5
+    # (0.35=구매/매출 비율, 2.5=정상 매입채무 회전 개월수 가정)
+    def _minus_months(d: date, n: int) -> date:
+        y, m = d.year, d.month - n
+        while m <= 0:
+            m += 12; y -= 1
+        return date(y, m, 1)
+    cur_first = today.replace(day=1)
+    s3 = _minus_months(cur_first, 3)
+    sale3 = db.query(func.coalesce(func.sum(ChannelSalesDailyProduct.net_sales), 0.0)).filter(
+        ChannelSalesDailyProduct.sale_date >= s3,
+        ChannelSalesDailyProduct.sale_date < cur_first,
+    ).scalar() or 0.0
+    avg_monthly_sales = float(sale3) / 3.0
+    totals_out["avg_monthly_sales_3m"] = round(avg_monthly_sales)
+    totals_out["balance_target"] = round(avg_monthly_sales * 0.35 * 2.5)
+    totals_out["balance_target_period"] = f"{s3.isoformat()}~{(cur_first - timedelta(days=1)).isoformat()}"
+    totals_out["balance_target_formula"] = "3개월 월평균매출(공급가)×0.35×2.5"
     return {
         "asof": today.isoformat(),
         "totals": totals_out,

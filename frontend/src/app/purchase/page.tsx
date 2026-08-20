@@ -908,7 +908,23 @@ function APTab() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="총 매입(VAT포함)" value={won(T.payable || 0)} tone="text-text-primary" />
         <StatCard label="지급 완료" value={won(T.paid || 0)} tone="text-info" />
-        <StatCard label="미지급 잔액" value={won(T.balance || 0)} tone="text-warning" sub="현재 갚아야 할 총액" />
+        {(() => {
+          const bal = T.balance || 0; const bt = T.balance_target || 0;
+          const ratio = bt > 0 ? Math.round((bal / bt) * 100) : null;
+          const rtone = ratio == null ? 'text-text-quaternary' : ratio > 130 ? 'text-danger' : ratio > 110 ? 'text-warning' : 'text-success-light';
+          return (
+            <div className={`${C.card} p-4`} title={T.balance_target_period ? `목표 기준: ${T.balance_target_period} 매출(공급가)` : ''}>
+              <div className="text-[11px] text-text-tertiary mb-1 truncate">미지급 잔액</div>
+              <div className="text-lg font-bold tabular-nums text-warning">{won(bal)}</div>
+              {bt > 0 ? (
+                <div className="text-[11px] text-text-quaternary mt-1 leading-tight">
+                  목표 {won(bt)}{ratio != null && <span className={`ml-1 font-semibold ${rtone}`}>· 목표대비 {ratio}%</span>}
+                  <div className="text-[10px] text-text-quaternary leading-tight">3개월 월평균매출×0.35×2.5</div>
+                </div>
+              ) : <div className="text-[11px] text-text-quaternary mt-1 truncate">현재 갚아야 할 총액</div>}
+            </div>
+          );
+        })()}
         <StatCard label="연체 잔액" value={won(T.overdue || 0)} tone="text-danger" sub="계약 만기 경과분" />
       </div>
 
@@ -985,7 +1001,7 @@ function APTab() {
               <td className={`${C.td} text-text-primary`} colSpan={3}>합계 · {fmt(data.totals.balance_vendor_count ?? vendors.length)}개 거래처(잔액){data.totals.vendor_count ? ` / 전체 ${fmt(data.totals.vendor_count)}` : ''}</td>
               <td className={`${C.td} text-right tabular-nums text-text-primary`}>{won(data.totals.payable)}</td>
               <td className={`${C.td} text-right tabular-nums text-info`}>{won(data.totals.paid)}</td>
-              <td className={`${C.td} text-right tabular-nums text-warning`}>{won(data.totals.balance)}</td>
+              <td className={`${C.td} text-right tabular-nums text-warning`}>{won(data.totals.balance)}{data.totals.balance_target > 0 && <div className="text-[10px] font-normal text-text-quaternary leading-tight" title={data.totals.balance_target_period ? `목표 기준: ${data.totals.balance_target_period} 매출` : ''}>목표 {won(data.totals.balance_target)}{data.totals.balance_target > 0 && <span className="ml-1">({Math.round((data.totals.balance / data.totals.balance_target) * 100)}%)</span>}</div>}</td>
               <td className={`${C.td} text-right tabular-nums text-danger`}>{data.totals.overdue > 0 ? won(data.totals.overdue) : '-'}</td>
               <td className={`${C.td} text-right tabular-nums text-text-secondary`} title="전체 연체 가중 평균 경과일">{data.totals.avg_days_overdue != null ? `평균 ${fmt(data.totals.avg_days_overdue)}일` : '-'}</td>
               <td className={`${C.td} text-right tabular-nums text-text-secondary`} title="전체 최장 연체일">{data.totals.max_days_overdue != null ? `최장 ${fmt(data.totals.max_days_overdue)}일` : '-'}</td>
