@@ -1750,3 +1750,64 @@ class PurchasePayment(Base):
     memo = Column(String(300), nullable=True)
     created_by = Column(String(200), nullable=True)
     created_at = Column(DateTime, default=func.now())
+
+
+# ══════════════════════════════════════════════════════════════
+# 자산형 재고 (구매관리) — 공장 층별 품목 등록 + 입출고/조정 재고관리
+#   매출연동 재고(inventory_*)와 완전 분리. 자산성 물품(부자재/소모품/
+#   설비·비품 등)을 층(위치)별로 등록하고 수량·평가금액을 관리한다.
+# ══════════════════════════════════════════════════════════════
+
+class PurchaseAssetLocation(Base):
+    """자산형 재고 위치(층). 공장 1층/2층/3층 등. 자유롭게 추가 가능."""
+    __tablename__ = "purchase_asset_location"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)   # 공장 1층 등
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class PurchaseAssetItem(Base):
+    """자산형 재고 품목 마스터. 재고는 위치별로 원장(ledger)에서 집계.
+    unit_cost = 평가 기준 단가(자산가치 = 현재고 × unit_cost)."""
+    __tablename__ = "purchase_asset_item"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(80), unique=True, index=True, nullable=True)  # 자체 관리코드(선택)
+    name = Column(String(200), nullable=False, index=True)
+    category = Column(String(100), nullable=True, index=True)  # 부자재/소모품/비품/설비 등
+    spec = Column(String(200), nullable=True)                  # 규격
+    unit = Column(String(30), default="ea")                    # 단위(ea/box/kg...)
+    unit_cost = Column(Float, default=0)                       # 평가단가(원)
+    min_qty = Column(Float, default=0)                         # 안전재고(하회 시 알림)
+    default_location_id = Column(Integer, ForeignKey("purchase_asset_location.id"), nullable=True, index=True)
+    vendor = Column(String(200), nullable=True)                # 주 구매처(참고)
+    is_active = Column(Boolean, default=True)
+    notes = Column(Text, nullable=True)
+    created_by = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class PurchaseAssetLedger(Base):
+    """자산형 재고 이동 원장. 현재고 = Σ qty_delta (품목×위치).
+    movement_type: in(입고) / out(출고) / adjust(조정) /
+                   transfer_in / transfer_out(위치이동). qty_delta 부호 포함(입고 +, 출고 −).
+    adjust는 reason 권장. 위치이동은 out/in 두 줄로 기록."""
+    __tablename__ = "purchase_asset_ledger"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    item_id = Column(Integer, ForeignKey("purchase_asset_item.id"), nullable=False, index=True)
+    location_id = Column(Integer, ForeignKey("purchase_asset_location.id"), nullable=False, index=True)
+    movement_date = Column(Date, nullable=False, index=True)
+    movement_type = Column(String(30), nullable=False, index=True)
+    qty_delta = Column(Float, nullable=False, default=0)
+    unit_cost = Column(Float, nullable=True)   # 입고 시점 단가(평가 이력용, 미입력 시 품목 unit_cost)
+    reason = Column(Text, nullable=True)
+    ref = Column(String(120), nullable=True)   # 발주번호/전표 등 참조(선택)
+    created_by = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())

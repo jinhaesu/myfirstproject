@@ -99,7 +99,7 @@ interface MatReq { materials: { type: string; name: string; erp_code: string; qt
 interface Vendor { id: number; name: string; biz_no: string; contact: string; phone: string; email: string; category: string; lead_time_days: number; is_active: boolean; raw_materials: number; sub_materials: number; }
 interface PO { id: number; po_no: string; vendor_id: number; vendor_name: string; order_date: string; expected_date: string; status: string; total_amount: number; line_count: number; lines: any[]; }
 
-type Tab = '실적 대시보드' | '실적 조회' | '실적 입력' | '단가 추이' | '매입채무' | 'BOM 매핑' | '원부재료 소요' | '거래처' | '발주';
+type Tab = '실적 대시보드' | '실적 조회' | '실적 입력' | '단가 추이' | '매입채무' | '자산형 재고' | 'BOM 매핑' | '원부재료 소요' | '거래처' | '발주';
 
 export default function PurchasePage() {
   const { user, isLoading } = useAuth();
@@ -107,7 +107,7 @@ export default function PurchasePage() {
   const [tab, setTab] = useState<Tab>('실적 대시보드');
   useEffect(() => { if (!isLoading && !user) router.replace('/login'); }, [isLoading, user, router]);
   if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
-  const tabs: Tab[] = ['실적 대시보드', '실적 조회', '실적 입력', '단가 추이', '매입채무', 'BOM 매핑', '원부재료 소요', '거래처', '발주'];
+  const tabs: Tab[] = ['실적 대시보드', '실적 조회', '실적 입력', '단가 추이', '매입채무', '자산형 재고', 'BOM 매핑', '원부재료 소요', '거래처', '발주'];
   return (
     <div className="min-h-screen bg-bg-0">
       <Navigation />
@@ -119,6 +119,7 @@ export default function PurchasePage() {
         {tab === '실적 입력' && <InputTab />}
         {tab === '단가 추이' && <PriceTab />}
         {tab === '매입채무' && <APTab />}
+        {tab === '자산형 재고' && <AssetTab />}
         {tab === 'BOM 매핑' && <BomMapTab />}
         {tab === '원부재료 소요' && <MatTab />}
         {tab === '거래처' && <VendorTab />}
@@ -1368,6 +1369,362 @@ function POTab() {
               {open === p.id && <tr key={`${p.id}-d`} className="bg-bg-0"><td colSpan={6} className="px-4 py-2 border-b border-bg-inset"><table className="w-full"><thead><tr><th className={C.th}>자재</th><th className={C.th}>소요량</th><th className={C.th}>단가</th><th className={C.th}>금액</th></tr></thead><tbody>{p.lines.map((l: any) => (<tr key={l.id}><td className={C.td}>{l.material_name}</td><td className={C.td}>{fmt(l.qty)}{l.unit}</td><td className={C.td}>{won(l.unit_price)}</td><td className={C.td}>{won(l.amount)}</td></tr>))}</tbody></table></td></tr>}
             </>
           ))}</tbody></table>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// 자산형 재고 — 공장 층별 품목 등록 + 입출고/조정 재고관리
+// ══════════════════════════════════════════════════════════════
+interface AssetLoc { id: number; name: string; sort_order: number; is_active: boolean; notes?: string; }
+interface AssetItem {
+  id: number; code?: string; name: string; category?: string; spec?: string; unit: string;
+  unit_cost: number; min_qty: number; vendor?: string; default_location_id?: number;
+  default_location_name?: string; is_active: boolean; notes?: string;
+  stock_by_location: { location_id: number; location_name: string; qty: number }[];
+  total_qty: number; shown_qty: number; asset_value: number; below_min: boolean;
+}
+const MOVE_LABEL: Record<string, string> = { in: '입고', out: '출고', adjust: '조정', transfer_in: '이동입고', transfer_out: '이동출고', transfer: '이동' };
+
+function AssetTab() {
+  const [locs, setLocs] = useState<AssetLoc[]>([]);
+  const [items, setItems] = useState<AssetItem[]>([]);
+  const [dash, setDash] = useState<any>(null);
+  const [moves, setMoves] = useState<any[]>([]);
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState('');
+  const [locFilter, setLocFilter] = useState<number | ''>('');
+  const [lowOnly, setLowOnly] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [itemModal, setItemModal] = useState<AssetItem | null | 'new'>(null);
+  const [moveModal, setMoveModal] = useState<{ item: AssetItem; type: string } | null>(null);
+  const [locModal, setLocModal] = useState(false);
+
+  const load = useCallback(async () => {
+    setBusy(true);
+    try {
+      const [lr, ir, dr, mr] = await Promise.all([
+        getJSON<{ locations: AssetLoc[] }>('/purchase/assets/locations', { locations: [] }),
+        getJSON<{ rows: AssetItem[] }>(`/purchase/assets/items?${new URLSearchParams({
+          ...(q ? { q } : {}), ...(cat ? { category: cat } : {}),
+          ...(locFilter ? { location_id: String(locFilter) } : {}),
+          ...(lowOnly ? { low_only: 'true' } : {}),
+        }).toString()}`, { rows: [] }),
+        getJSON<any>('/purchase/assets/dashboard', null),
+        getJSON<{ rows: any[] }>('/purchase/assets/movements?limit=40', { rows: [] }),
+      ]);
+      setLocs(lr.locations || []);
+      setItems(ir.rows || []);
+      setDash(dr);
+      setMoves(mr.rows || []);
+    } finally { setBusy(false); }
+  }, [q, cat, locFilter, lowOnly]);
+  useEffect(() => { load(); }, [load]);
+
+  const cats = Array.from(new Set(items.map((i) => i.category).filter(Boolean))) as string[];
+  const noLoc = locs.length === 0;
+
+  const seedLocs = async () => {
+    const r = await send('/purchase/assets/locations/seed', 'POST');
+    if (r.ok) load(); else alert(r.data?.detail || '실패');
+  };
+  const removeItem = async (it: AssetItem) => {
+    if (!confirm(`'${it.name}' 품목을 삭제할까요?\n(재고 이동 이력이 있으면 비활성 처리됩니다)`)) return;
+    const r = await send(`/purchase/assets/items/${it.id}`, 'DELETE');
+    if (r.ok) load(); else alert(r.data?.detail || '실패');
+  };
+  const removeMove = async (id: number) => {
+    if (!confirm('이 재고 이동 기록을 삭제할까요? (현재고가 되돌아갑니다)')) return;
+    const r = await send(`/purchase/assets/movements/${id}`, 'DELETE');
+    if (r.ok) load(); else alert(r.data?.detail || '실패');
+  };
+
+  return (
+    <div className="space-y-5">
+      <LoadingOverlay show={busy} />
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-base font-bold text-text-primary">자산형 재고</h2>
+          <p className="text-xs text-text-tertiary mt-0.5">공장 층별로 자산성 물품(부자재·소모품·비품 등)을 등록하고 입고·출고·조정으로 재고를 관리합니다. 자산가치 = 현재고 × 평가단가.</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setLocModal(true)} className={`${C.btn} ${C.btnGhost}`}>🏭 위치 관리</button>
+          <button onClick={() => setItemModal('new')} disabled={noLoc} className={`${C.btn} ${C.btnPrimary} disabled:opacity-50`}>+ 품목 등록</button>
+        </div>
+      </div>
+
+      {noLoc && (
+        <div className={`${C.card} p-5 text-center`}>
+          <p className="text-sm text-text-secondary mb-3">아직 재고 위치(층)가 없습니다. 공장 1·2·3층을 먼저 생성하세요.</p>
+          <button onClick={seedLocs} className={`${C.btn} ${C.btnPrimary}`}>공장 1·2·3층 생성</button>
+        </div>
+      )}
+
+      {/* 요약 */}
+      {dash && !noLoc && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatCard label="등록 품목" value={`${fmt(dash.item_count)}종`} />
+          <StatCard label="총 자산가치" value={won(dash.total_value)} sub={`기준 ${dash.as_of}`} tone="text-brand" />
+          <StatCard label="안전재고 미달" value={`${fmt(dash.low_count)}종`} tone={dash.low_count > 0 ? 'text-danger' : 'text-success'} />
+          <div className={`${C.card} p-4`}>
+            <div className="text-[11px] text-text-tertiary mb-1">위치별 자산가치</div>
+            <div className="space-y-0.5">
+              {(dash.by_location || []).map((b: any) => (
+                <div key={b.location_id} className="flex justify-between text-[11px]"><span className="text-text-tertiary truncate">{b.location_name}</span><span className="tabular-nums font-semibold text-text-secondary">{wonShort(b.value)}</span></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 필터 */}
+      {!noLoc && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목명·코드·규격 검색" className={`${C.input} w-52`} />
+          <select value={cat} onChange={(e) => setCat(e.target.value)} className={C.input}>
+            <option value="">전체 분류</option>
+            {cats.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select value={locFilter} onChange={(e) => setLocFilter(e.target.value ? Number(e.target.value) : '')} className={C.input}>
+            <option value="">전체 위치</option>
+            {locs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
+          <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer select-none">
+            <input type="checkbox" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} /> 재고 부족만
+          </label>
+          <div className="ml-auto text-xs text-text-tertiary">{items.length}종</div>
+        </div>
+      )}
+
+      {/* 품목 테이블 */}
+      {!noLoc && (
+        <div className={`${C.card} overflow-x-auto`}>
+          <table className="w-full text-sm">
+            <thead><tr>
+              <th className={C.th}>품목</th><th className={C.th}>분류</th><th className={C.th}>규격</th>
+              <th className={`${C.th} text-right`}>평가단가</th>
+              <th className={C.th}>위치별 재고</th>
+              <th className={`${C.th} text-right`}>총재고</th>
+              <th className={`${C.th} text-right`}>자산가치</th>
+              <th className={`${C.th} text-right`}>안전</th>
+              <th className={C.th}></th>
+            </tr></thead>
+            <tbody>
+              {items.length === 0 && <tr><td colSpan={9} className="text-center text-text-tertiary py-8 text-sm">등록된 품목이 없습니다. ‘+ 품목 등록’으로 추가하세요.</td></tr>}
+              {items.map((it) => (
+                <tr key={it.id} className={it.is_active ? '' : 'opacity-50'}>
+                  <td className={C.td}>
+                    <div className="font-semibold text-text-primary">{it.name}{!it.is_active && <span className="ml-1 text-[10px] text-text-quaternary">(비활성)</span>}</div>
+                    {(it.code || it.vendor) && <div className="text-[10px] text-text-quaternary">{it.code}{it.code && it.vendor ? ' · ' : ''}{it.vendor}</div>}
+                  </td>
+                  <td className={C.td}>{it.category || '-'}</td>
+                  <td className={C.td}>{it.spec || '-'}</td>
+                  <td className={`${C.td} text-right tabular-nums`}>{won(it.unit_cost)}<span className="text-[10px] text-text-quaternary">/{it.unit}</span></td>
+                  <td className={C.td}>
+                    <div className="flex flex-wrap gap-1">
+                      {it.stock_by_location.length === 0 && <span className="text-[11px] text-text-quaternary">-</span>}
+                      {it.stock_by_location.map((s) => (
+                        <span key={s.location_id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-bg-inset text-[11px]"><span className="text-text-quaternary">{s.location_name}</span><span className="tabular-nums font-semibold text-text-secondary">{fmt(s.qty)}</span></span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className={`${C.td} text-right tabular-nums font-semibold ${it.below_min ? 'text-danger' : 'text-text-primary'}`}>{fmt(it.total_qty)} {it.unit}</td>
+                  <td className={`${C.td} text-right tabular-nums`}>{won(it.asset_value)}</td>
+                  <td className={`${C.td} text-right tabular-nums text-text-quaternary`}>{it.min_qty ? fmt(it.min_qty) : '-'}</td>
+                  <td className={C.td}>
+                    <div className="flex gap-1">
+                      <button onClick={() => setMoveModal({ item: it, type: 'in' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-success/10 text-success border border-success/30 hover:bg-success/20">입고</button>
+                      <button onClick={() => setMoveModal({ item: it, type: 'out' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20">출고</button>
+                      <button onClick={() => setMoveModal({ item: it, type: 'adjust' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20">조정</button>
+                      <button onClick={() => setMoveModal({ item: it, type: 'transfer' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-info/10 text-info border border-info/30 hover:bg-info/20">이동</button>
+                      <button onClick={() => setItemModal(it)} className="px-2 py-1 rounded text-[11px] text-text-tertiary hover:text-text-primary hover:bg-bg-inset">수정</button>
+                      <button onClick={() => removeItem(it)} className="px-2 py-1 rounded text-[11px] text-text-quaternary hover:text-danger hover:bg-danger/10">삭제</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 최근 이동 이력 */}
+      {!noLoc && (
+        <div className={`${C.card} p-4`}>
+          <div className="text-sm font-bold text-text-primary mb-2">최근 재고 이동</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr>
+                <th className={C.th}>일자</th><th className={C.th}>구분</th><th className={C.th}>품목</th>
+                <th className={C.th}>위치</th><th className={`${C.th} text-right`}>수량</th>
+                <th className={C.th}>사유/참조</th><th className={C.th}>담당</th><th className={C.th}></th>
+              </tr></thead>
+              <tbody>
+                {moves.length === 0 && <tr><td colSpan={8} className="text-center text-text-tertiary py-6 text-sm">이동 이력 없음</td></tr>}
+                {moves.map((m) => {
+                  const inc = (m.qty_delta || 0) >= 0;
+                  return (
+                    <tr key={m.id}>
+                      <td className={C.td}>{m.movement_date}</td>
+                      <td className={C.td}><span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${inc ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>{MOVE_LABEL[m.movement_type] || m.movement_type}</span></td>
+                      <td className={`${C.td} text-text-primary`}>{m.item_name}</td>
+                      <td className={C.td}>{m.location_name}</td>
+                      <td className={`${C.td} text-right tabular-nums font-semibold ${inc ? 'text-success' : 'text-danger'}`}>{inc ? '+' : ''}{fmt(m.qty_delta)} {m.item_unit || ''}</td>
+                      <td className={`${C.td} text-[11px] text-text-tertiary max-w-[220px] truncate`}>{[m.reason, m.ref].filter(Boolean).join(' · ') || '-'}</td>
+                      <td className={`${C.td} text-[11px] text-text-quaternary`}>{(m.created_by || '').split('@')[0]}</td>
+                      <td className={C.td}><button onClick={() => removeMove(m.id)} className="text-[11px] text-text-quaternary hover:text-danger">삭제</button></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {itemModal && <AssetItemModal item={itemModal === 'new' ? null : itemModal} locs={locs} onClose={() => setItemModal(null)} onSaved={() => { setItemModal(null); load(); }} />}
+      {moveModal && <AssetMoveModal item={moveModal.item} type={moveModal.type} locs={locs} onClose={() => setMoveModal(null)} onSaved={() => { setMoveModal(null); load(); }} />}
+      {locModal && <AssetLocationModal locs={locs} onClose={() => setLocModal(false)} onChanged={load} />}
+    </div>
+  );
+}
+
+function AssetItemModal({ item, locs, onClose, onSaved }: { item: AssetItem | null; locs: AssetLoc[]; onClose: () => void; onSaved: () => void }) {
+  const [f, setF] = useState<any>({
+    id: item?.id, name: item?.name || '', code: item?.code || '', category: item?.category || '',
+    spec: item?.spec || '', unit: item?.unit || 'ea', unit_cost: item?.unit_cost || 0,
+    min_qty: item?.min_qty || 0, vendor: item?.vendor || '',
+    default_location_id: item?.default_location_id || (locs[0]?.id ?? null),
+    is_active: item?.is_active ?? true, notes: item?.notes || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const up = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+  const save = async () => {
+    if (!f.name.trim()) { alert('품목명을 입력하세요'); return; }
+    setSaving(true);
+    const r = await send('/purchase/assets/items', 'POST', { ...f, unit_cost: Number(f.unit_cost) || 0, min_qty: Number(f.min_qty) || 0 });
+    setSaving(false);
+    if (r.ok) onSaved(); else alert(r.data?.detail || '저장 실패');
+  };
+  const F = 'text-[11px] text-text-tertiary mb-1';
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className={`${C.card} p-5 w-full max-w-lg`} onClick={(e) => e.stopPropagation()}>
+        <div className="text-base font-bold text-text-primary mb-4">{item ? '품목 수정' : '품목 등록'}</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2"><div className={F}>품목명 *</div><input value={f.name} onChange={(e) => up('name', e.target.value)} className={`${C.input} w-full`} placeholder="예: 라벨지 60mm" /></div>
+          <div><div className={F}>관리코드</div><input value={f.code} onChange={(e) => up('code', e.target.value)} className={`${C.input} w-full`} placeholder="선택" /></div>
+          <div><div className={F}>분류</div><input value={f.category} onChange={(e) => up('category', e.target.value)} className={`${C.input} w-full`} placeholder="부자재/소모품/비품…" /></div>
+          <div><div className={F}>규격</div><input value={f.spec} onChange={(e) => up('spec', e.target.value)} className={`${C.input} w-full`} /></div>
+          <div><div className={F}>단위</div><input value={f.unit} onChange={(e) => up('unit', e.target.value)} className={`${C.input} w-full`} placeholder="ea/box/kg" /></div>
+          <div><div className={F}>평가단가(원)</div><input type="number" value={f.unit_cost} onChange={(e) => up('unit_cost', e.target.value)} className={`${C.input} w-full text-right`} /></div>
+          <div><div className={F}>안전재고</div><input type="number" value={f.min_qty} onChange={(e) => up('min_qty', e.target.value)} className={`${C.input} w-full text-right`} placeholder="0=미설정" /></div>
+          <div><div className={F}>기본 위치</div><select value={f.default_location_id ?? ''} onChange={(e) => up('default_location_id', e.target.value ? Number(e.target.value) : null)} className={`${C.input} w-full`}><option value="">-</option>{locs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></div>
+          <div><div className={F}>주 구매처</div><input value={f.vendor} onChange={(e) => up('vendor', e.target.value)} className={`${C.input} w-full`} placeholder="참고" /></div>
+          <div className="col-span-2"><div className={F}>메모</div><input value={f.notes} onChange={(e) => up('notes', e.target.value)} className={`${C.input} w-full`} /></div>
+          {item && <label className="col-span-2 flex items-center gap-2 text-sm text-text-secondary cursor-pointer"><input type="checkbox" checked={f.is_active} onChange={(e) => up('is_active', e.target.checked)} /> 활성</label>}
+        </div>
+        <div className="flex justify-end gap-2 mt-5">
+          <button onClick={onClose} className={`${C.btn} ${C.btnGhost}`}>취소</button>
+          <button onClick={save} disabled={saving} className={`${C.btn} ${C.btnPrimary} disabled:opacity-50`}>{saving ? '저장 중…' : '저장'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AssetMoveModal({ item, type, locs, onClose, onSaved }: { item: AssetItem; type: string; locs: AssetLoc[]; onClose: () => void; onSaved: () => void }) {
+  const stockLocs = item.stock_by_location;
+  const defLoc = (type === 'in' ? (item.default_location_id || stockLocs[0]?.location_id) : (stockLocs[0]?.location_id || item.default_location_id)) || locs[0]?.id;
+  const [f, setF] = useState<any>({
+    location_id: defLoc, to_location_id: locs.find((l) => l.id !== defLoc)?.id ?? null,
+    qty: '', movement_date: iso(new Date()), unit_cost: item.unit_cost || '', reason: '', ref: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const up = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+  const title = MOVE_LABEL[type] || type;
+  const curStock = (lid: number) => stockLocs.find((s) => s.location_id === lid)?.qty ?? 0;
+  const save = async () => {
+    const qn = Number(f.qty);
+    if (!qn) { alert('수량을 입력하세요'); return; }
+    if (type === 'transfer' && f.location_id === f.to_location_id) { alert('출발/도착 위치가 같습니다'); return; }
+    setSaving(true);
+    const r = await send('/purchase/assets/movements', 'POST', {
+      item_id: item.id, location_id: f.location_id, movement_type: type,
+      qty: qn, to_location_id: type === 'transfer' ? f.to_location_id : undefined,
+      movement_date: f.movement_date,
+      unit_cost: type === 'in' && f.unit_cost !== '' ? Number(f.unit_cost) : undefined,
+      reason: f.reason || undefined, ref: f.ref || undefined,
+    });
+    setSaving(false);
+    if (r.ok) onSaved(); else alert(r.data?.detail || '실패');
+  };
+  const F = 'text-[11px] text-text-tertiary mb-1';
+  const tone = type === 'in' ? 'text-success' : type === 'out' ? 'text-danger' : type === 'adjust' ? 'text-warning' : 'text-info';
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className={`${C.card} p-5 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
+        <div className="text-base font-bold mb-1"><span className={tone}>{title}</span> <span className="text-text-primary">— {item.name}</span></div>
+        <div className="text-[11px] text-text-tertiary mb-4">현재 총재고 {fmt(item.total_qty)} {item.unit}</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><div className={F}>{type === 'transfer' ? '출발 위치' : '위치'}</div><select value={f.location_id ?? ''} onChange={(e) => up('location_id', Number(e.target.value))} className={`${C.input} w-full`}>{locs.map((l) => <option key={l.id} value={l.id}>{l.name} ({fmt(curStock(l.id))})</option>)}</select></div>
+          {type === 'transfer' && <div><div className={F}>도착 위치</div><select value={f.to_location_id ?? ''} onChange={(e) => up('to_location_id', Number(e.target.value))} className={`${C.input} w-full`}>{locs.filter((l) => l.id !== f.location_id).map((l) => <option key={l.id} value={l.id}>{l.name} ({fmt(curStock(l.id))})</option>)}</select></div>}
+          <div><div className={F}>수량 {type === 'adjust' ? '(±)' : ''}</div><input type="number" value={f.qty} onChange={(e) => up('qty', e.target.value)} className={`${C.input} w-full text-right`} placeholder={type === 'adjust' ? '증가+/감소−' : '수량'} autoFocus /></div>
+          <div><div className={F}>일자</div><input type="date" value={f.movement_date} onChange={(e) => up('movement_date', e.target.value)} className={`${C.input} w-full`} /></div>
+          {type === 'in' && <div className="col-span-2"><div className={F}>입고 단가(원, 선택)</div><input type="number" value={f.unit_cost} onChange={(e) => up('unit_cost', e.target.value)} className={`${C.input} w-full text-right`} placeholder="미입력 시 품목 평가단가" /></div>}
+          <div className="col-span-2"><div className={F}>사유{type === 'adjust' ? ' (권장)' : ''}</div><input value={f.reason} onChange={(e) => up('reason', e.target.value)} className={`${C.input} w-full`} placeholder={type === 'adjust' ? '실사 보정 등' : '선택'} /></div>
+          <div className="col-span-2"><div className={F}>참조</div><input value={f.ref} onChange={(e) => up('ref', e.target.value)} className={`${C.input} w-full`} placeholder="발주번호/전표 등 (선택)" /></div>
+        </div>
+        <div className="flex justify-end gap-2 mt-5">
+          <button onClick={onClose} className={`${C.btn} ${C.btnGhost}`}>취소</button>
+          <button onClick={save} disabled={saving} className={`${C.btn} ${C.btnPrimary} disabled:opacity-50`}>{saving ? '처리 중…' : `${title} 기록`}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AssetLocationModal({ locs, onClose, onChanged }: { locs: AssetLoc[]; onClose: () => void; onChanged: () => void }) {
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const add = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    const r = await send('/purchase/assets/locations', 'POST', { name: name.trim(), sort_order: locs.length });
+    setSaving(false);
+    if (r.ok) { setName(''); onChanged(); } else alert(r.data?.detail || '실패');
+  };
+  const toggle = async (l: AssetLoc) => {
+    const r = await send('/purchase/assets/locations', 'POST', { id: l.id, name: l.name, sort_order: l.sort_order, is_active: !l.is_active });
+    if (r.ok) onChanged(); else alert(r.data?.detail || '실패');
+  };
+  const remove = async (l: AssetLoc) => {
+    if (!confirm(`'${l.name}' 위치를 삭제할까요?\n(재고 이력이 있으면 비활성 처리됩니다)`)) return;
+    const r = await send(`/purchase/assets/locations/${l.id}`, 'DELETE');
+    if (r.ok) onChanged(); else alert(r.data?.detail || '실패');
+  };
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className={`${C.card} p-5 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
+        <div className="text-base font-bold text-text-primary mb-4">재고 위치(층) 관리</div>
+        <div className="flex gap-2 mb-4">
+          <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="예: 공장 4층 / 외부창고" className={`${C.input} flex-1`} />
+          <button onClick={add} disabled={saving} className={`${C.btn} ${C.btnPrimary} disabled:opacity-50`}>추가</button>
+        </div>
+        <div className="space-y-1.5">
+          {locs.length === 0 && <div className="text-sm text-text-tertiary text-center py-4">위치 없음</div>}
+          {locs.map((l) => (
+            <div key={l.id} className={`flex items-center justify-between px-3 py-2 rounded-lg bg-bg-inset ${l.is_active ? '' : 'opacity-50'}`}>
+              <span className="text-sm text-text-primary">{l.name}{!l.is_active && <span className="ml-1 text-[10px] text-text-quaternary">(비활성)</span>}</span>
+              <div className="flex gap-2">
+                <button onClick={() => toggle(l)} className="text-[11px] text-text-tertiary hover:text-text-primary">{l.is_active ? '비활성화' : '활성화'}</button>
+                <button onClick={() => remove(l)} className="text-[11px] text-text-quaternary hover:text-danger">삭제</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end mt-5"><button onClick={onClose} className={`${C.btn} ${C.btnGhost}`}>닫기</button></div>
       </div>
     </div>
   );

@@ -87,6 +87,7 @@ def init_db():
             InventoryProduction, InventoryWorkerPhone, AppSetting,
             InventoryLogisticsWork,
             PurchaseVendor, PurchaseOrder, PurchaseOrderLine, PurchaseRecord,
+            PurchaseAssetLocation, PurchaseAssetItem, PurchaseAssetLedger,
             UserDirectory, UserMenuPermission,
         )
         from app.models.auto_rule import AutoRule, AutoRuleLog  # noqa: F401

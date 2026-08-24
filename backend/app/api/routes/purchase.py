@@ -579,3 +579,129 @@ class BomSyncIn(BaseModel):
 def bom_sync_prices(body: BomSyncIn, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     """자재 마스터 단가를 최신 구매가로 반영(원재료 kg당·부자재 개당)."""
     return pur.bom_sync_prices(db, erp_codes=body.erp_codes, dry_run=body.dry_run)
+
+
+# ══════════════════════════════════════════════════════════════
+# 자산형 재고 — 공장 층별 품목 등록 + 입출고/조정 재고관리
+# ══════════════════════════════════════════════════════════════
+from app.services import purchase_asset_service as pas
+
+
+# ── 위치(층) ──
+@router.get("/assets/locations")
+def asset_locations(only_active: bool = False, db: Session = Depends(get_db)):
+    return {"locations": pas.location_list(db, only_active=only_active)}
+
+
+@router.post("/assets/locations/seed")
+def asset_seed_locations(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    return pas.seed_locations(db)
+
+
+class AssetLocationIn(BaseModel):
+    id: Optional[int] = None
+    name: str
+    sort_order: int = 0
+    is_active: bool = True
+    notes: Optional[str] = None
+
+
+@router.post("/assets/locations")
+def upsert_asset_location(body: AssetLocationIn, db: Session = Depends(get_db),
+                          user: dict = Depends(get_current_user)):
+    try:
+        return pas.upsert_location(db, body.model_dump())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/assets/locations/{lid}")
+def delete_asset_location(lid: int, db: Session = Depends(get_db),
+                          user: dict = Depends(get_current_user)):
+    try:
+        return pas.delete_location(db, lid)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+# ── 품목 ──
+@router.get("/assets/items")
+def asset_items(q: Optional[str] = None, category: Optional[str] = None,
+                location_id: Optional[int] = None, only_active: bool = True,
+                low_only: bool = False, db: Session = Depends(get_db)):
+    return pas.item_list(db, q=q, category=category, location_id=location_id,
+                         only_active=only_active, low_only=low_only)
+
+
+class AssetItemIn(BaseModel):
+    id: Optional[int] = None
+    code: Optional[str] = None
+    name: str
+    category: Optional[str] = None
+    spec: Optional[str] = None
+    unit: str = "ea"
+    unit_cost: float = 0
+    min_qty: float = 0
+    default_location_id: Optional[int] = None
+    vendor: Optional[str] = None
+    is_active: bool = True
+    notes: Optional[str] = None
+
+
+@router.post("/assets/items")
+def upsert_asset_item(body: AssetItemIn, db: Session = Depends(get_db),
+                      user: dict = Depends(get_current_user)):
+    try:
+        return pas.upsert_item(db, body.model_dump(), user=user.get("email"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/assets/items/{iid}")
+def delete_asset_item(iid: int, db: Session = Depends(get_db),
+                      user: dict = Depends(get_current_user)):
+    try:
+        return pas.delete_item(db, iid)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+# ── 재고 이동(입고/출고/조정/이동) ──
+class AssetMovementIn(BaseModel):
+    item_id: int
+    location_id: int
+    movement_date: Optional[str] = None
+    movement_type: str  # in / out / adjust / transfer
+    qty: float
+    to_location_id: Optional[int] = None
+    unit_cost: Optional[float] = None
+    reason: Optional[str] = None
+    ref: Optional[str] = None
+
+
+@router.post("/assets/movements")
+def add_asset_movement(body: AssetMovementIn, db: Session = Depends(get_db),
+                       user: dict = Depends(get_current_user)):
+    try:
+        return pas.add_movement(db, body.model_dump(), user=user.get("email"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/assets/movements")
+def list_asset_movements(item_id: Optional[int] = None, location_id: Optional[int] = None,
+                         start: Optional[str] = None, end: Optional[str] = None,
+                         limit: int = 300, db: Session = Depends(get_db)):
+    return pas.ledger_list(db, item_id=item_id, location_id=location_id,
+                           start=_pd(start), end=_pd(end), limit=limit)
+
+
+@router.delete("/assets/movements/{rec_id}")
+def delete_asset_movement(rec_id: int, db: Session = Depends(get_db),
+                          user: dict = Depends(get_current_user)):
+    return pas.delete_movement(db, rec_id)
+
+
+@router.get("/assets/dashboard")
+def asset_dashboard(db: Session = Depends(get_db)):
+    return pas.dashboard(db)

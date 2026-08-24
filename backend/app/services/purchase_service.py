@@ -1182,8 +1182,9 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
         func.sum(PurchaseRecord.total_amount),
         func.sum(PurchaseRecord.supply_amount),
     ).filter(PurchaseRecord.vendor_name.isnot(None))
-    if start:
-        q = q.filter(PurchaseRecord.pdate >= start)
+    # 주의: start로 발주를 여기서 필터하지 않는다. 전량을 가져와 파이썬에서 pre/post 분할해야
+    # 지급액을 pre-start 발주에 먼저 배정(지급완료 간주)하고 남은 금액만 당기 발주에서 상계할 수 있다.
+    # (예전엔 발주만 start로 줄이고 지급은 전체를 상계 → '올해' 잔액이 과소·0, 지급완료>총매입 왜곡)
     q = q.group_by(PurchaseRecord.vendor_name, PurchaseRecord.pdate)
     rows = q.all()
 
@@ -1216,13 +1217,22 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
     _max_od_all = 0
     bucket_totals = {b: 0.0 for b in _BUCKET_ORDER}
 
-    for vname, buys in by_vendor.items():
-        buys.sort(key=lambda x: x["pdate"])
-        payable = sum(b["total"] for b in buys)
+    for vname, all_buys in by_vendor.items():
+        all_buys.sort(key=lambda x: x["pdate"])
         paid = paid_by_vendor.get(vname, 0.0)
-        balance = max(0.0, payable - paid)
+        if start:
+            # start 이전 발주 = 지급완료 간주. 지급액을 그 발주에 먼저 배정하고, 남은 금액만 당기 상계.
+            pre_payable = sum(b["total"] for b in all_buys if b["pdate"] < start)
+            buys = [b for b in all_buys if b["pdate"] >= start]
+            leftover_paid = max(0.0, paid - pre_payable)
+        else:
+            buys = all_buys
+            leftover_paid = paid
+        payable = sum(b["total"] for b in buys)
+        eff_paid = min(leftover_paid, payable)   # 카드 정합(당기매입 = 지급 + 잔액) 위해 당기매입 한도로 표시
+        balance = max(0.0, payable - leftover_paid)
         totals["payable"] += payable
-        totals["paid"] += paid
+        totals["paid"] += eff_paid
         totals["balance"] += balance
 
         term = terms.get(vname)
@@ -1271,7 +1281,7 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
         avg_pay_days = None
         vpays = sorted(pay_detail.get(vname, []), key=lambda x: x[0])
         if vpays:
-            buy_q = [[bb["pdate"], bb["total"]] for bb in buys]  # 오래된 발주부터
+            buy_q = [[bb["pdate"], bb["total"]] for bb in all_buys]  # 오래된 발주부터(전체, 기간무관 이력지표)
             i = 0
             wsum = wamt = 0.0
             for pdt, pamt in vpays:
@@ -1295,7 +1305,7 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
         vendors_out.append({
             "vendor": vname,
             "payable": round(payable),
-            "paid": round(paid),
+            "paid": round(eff_paid),
             "balance": round(balance),
             "overdue": round(overdue_amt),
             "term_label": term_label(term) if term else None,
