@@ -1382,10 +1382,10 @@ interface AssetItem {
   id: number; code?: string; name: string; category?: string; spec?: string; unit: string;
   unit_cost: number; min_qty: number; vendor?: string; default_location_id?: number;
   default_location_name?: string; is_active: boolean; notes?: string;
-  stock_by_location: { location_id: number; location_name: string; qty: number }[];
-  total_qty: number; shown_qty: number; asset_value: number; below_min: boolean;
+  stock_by_location: { location_id: number; location_name: string; qty: number; defect_qty: number }[];
+  total_qty: number; shown_qty: number; defect_qty: number; good_qty: number; asset_value: number; below_min: boolean;
 }
-const MOVE_LABEL: Record<string, string> = { in: '입고', out: '출고', adjust: '조정', transfer_in: '이동입고', transfer_out: '이동출고', transfer: '이동' };
+const MOVE_LABEL: Record<string, string> = { in: '입고', out: '출고', adjust: '조정', transfer_in: '이동입고', transfer_out: '이동출고', transfer: '이동', defect: '고장등록', repair: '수리완료' };
 
 function AssetTab() {
   const [locs, setLocs] = useState<AssetLoc[]>([]);
@@ -1466,7 +1466,14 @@ function AssetTab() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard label="등록 품목" value={`${fmt(dash.item_count)}종`} />
           <StatCard label="총 자산가치" value={won(dash.total_value)} sub={`기준 ${dash.as_of}`} tone="text-brand" />
-          <StatCard label="안전재고 미달" value={`${fmt(dash.low_count)}종`} tone={dash.low_count > 0 ? 'text-danger' : 'text-success'} />
+          <div className={`${C.card} p-4`}>
+            <div className="text-[11px] text-text-tertiary mb-1">안전재고 미달 · 고장</div>
+            <div className="flex items-baseline gap-3">
+              <div><span className={`text-lg font-bold tabular-nums ${dash.low_count > 0 ? 'text-danger' : 'text-success'}`}>{fmt(dash.low_count)}</span><span className="text-[11px] text-text-tertiary ml-0.5">종 미달</span></div>
+              <div className="border-l border-border-subtle pl-3"><span className={`text-lg font-bold tabular-nums ${dash.defect_total > 0 ? 'text-warning' : 'text-success'}`}>{fmt(dash.defect_total || 0)}</span><span className="text-[11px] text-text-tertiary ml-0.5">🔧 고장</span></div>
+            </div>
+            {(dash.defect_items || []).length > 0 && <div className="text-[10px] text-text-quaternary mt-1 truncate">{(dash.defect_items || []).map((d: any) => `${d.name} ${fmt(d.defect_qty)}${d.unit}`).join(', ')}</div>}
+          </div>
           <div className={`${C.card} p-4`}>
             <div className="text-[11px] text-text-tertiary mb-1">위치별 자산가치</div>
             <div className="space-y-0.5">
@@ -1525,11 +1532,14 @@ function AssetTab() {
                     <div className="flex flex-wrap gap-1">
                       {it.stock_by_location.length === 0 && <span className="text-[11px] text-text-quaternary">-</span>}
                       {it.stock_by_location.map((s) => (
-                        <span key={s.location_id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-bg-inset text-[11px]"><span className="text-text-quaternary">{s.location_name}</span><span className="tabular-nums font-semibold text-text-secondary">{fmt(s.qty)}</span></span>
+                        <span key={s.location_id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-bg-inset text-[11px]"><span className="text-text-quaternary">{s.location_name}</span><span className="tabular-nums font-semibold text-text-secondary">{fmt(s.qty)}</span>{(s.defect_qty || 0) > 0 && <span className="tabular-nums font-semibold text-warning" title="고장">🔧{fmt(s.defect_qty)}</span>}</span>
                       ))}
                     </div>
                   </td>
-                  <td className={`${C.td} text-right tabular-nums font-semibold ${it.below_min ? 'text-danger' : 'text-text-primary'}`}>{fmt(it.total_qty)} {it.unit}</td>
+                  <td className={`${C.td} text-right`}>
+                    <div className={`tabular-nums font-semibold ${it.below_min ? 'text-danger' : 'text-text-primary'}`}>{fmt(it.total_qty)} {it.unit}</div>
+                    {(it.defect_qty || 0) > 0 && <div className="text-[10px] text-warning tabular-nums">정상 {fmt(it.good_qty)} · 🔧고장 {fmt(it.defect_qty)}</div>}
+                  </td>
                   <td className={`${C.td} text-right tabular-nums`}>{won(it.asset_value)}</td>
                   <td className={`${C.td} text-right tabular-nums text-text-quaternary`}>{it.min_qty ? fmt(it.min_qty) : '-'}</td>
                   <td className={C.td}>
@@ -1538,6 +1548,8 @@ function AssetTab() {
                       <button onClick={() => setMoveModal({ item: it, type: 'out' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20">출고</button>
                       <button onClick={() => setMoveModal({ item: it, type: 'adjust' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20">조정</button>
                       <button onClick={() => setMoveModal({ item: it, type: 'transfer' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-info/10 text-info border border-info/30 hover:bg-info/20">이동</button>
+                      <button onClick={() => setMoveModal({ item: it, type: 'defect' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20">고장</button>
+                      {(it.defect_qty || 0) > 0 && <button onClick={() => setMoveModal({ item: it, type: 'repair' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-success/10 text-success border border-success/30 hover:bg-success/20">수리</button>}
                       <button onClick={() => setItemModal(it)} className="px-2 py-1 rounded text-[11px] text-text-tertiary hover:text-text-primary hover:bg-bg-inset">수정</button>
                       <button onClick={() => removeItem(it)} className="px-2 py-1 rounded text-[11px] text-text-quaternary hover:text-danger hover:bg-danger/10">삭제</button>
                     </div>
@@ -1564,13 +1576,18 @@ function AssetTab() {
                 {moves.length === 0 && <tr><td colSpan={8} className="text-center text-text-tertiary py-6 text-sm">이동 이력 없음</td></tr>}
                 {moves.map((m) => {
                   const inc = (m.qty_delta || 0) >= 0;
+                  const isDef = m.movement_type === 'defect' || m.movement_type === 'repair';
+                  const badgeCls = m.movement_type === 'defect' ? 'bg-warning/10 text-warning'
+                    : m.movement_type === 'repair' ? 'bg-success/10 text-success'
+                    : inc ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger';
+                  const qtyCls = isDef ? 'text-warning' : inc ? 'text-success' : 'text-danger';
                   return (
                     <tr key={m.id}>
                       <td className={C.td}>{m.movement_date}</td>
-                      <td className={C.td}><span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${inc ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>{MOVE_LABEL[m.movement_type] || m.movement_type}</span></td>
+                      <td className={C.td}><span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${badgeCls}`}>{MOVE_LABEL[m.movement_type] || m.movement_type}</span></td>
                       <td className={`${C.td} text-text-primary`}>{m.item_name}</td>
                       <td className={C.td}>{m.location_name}</td>
-                      <td className={`${C.td} text-right tabular-nums font-semibold ${inc ? 'text-success' : 'text-danger'}`}>{inc ? '+' : ''}{fmt(m.qty_delta)} {m.item_unit || ''}</td>
+                      <td className={`${C.td} text-right tabular-nums font-semibold ${qtyCls}`}>{isDef ? '🔧' : inc ? '+' : ''}{fmt(m.qty_delta)} {m.item_unit || ''}</td>
                       <td className={`${C.td} text-[11px] text-text-tertiary max-w-[220px] truncate`}>{[m.reason, m.ref].filter(Boolean).join(' · ') || '-'}</td>
                       <td className={`${C.td} text-[11px] text-text-quaternary`}>{(m.created_by || '').split('@')[0]}</td>
                       <td className={C.td}><button onClick={() => removeMove(m.id)} className="text-[11px] text-text-quaternary hover:text-danger">삭제</button></td>
@@ -1636,7 +1653,10 @@ function AssetItemModal({ item, locs, onClose, onSaved }: { item: AssetItem | nu
 
 function AssetMoveModal({ item, type, locs, onClose, onSaved }: { item: AssetItem; type: string; locs: AssetLoc[]; onClose: () => void; onSaved: () => void }) {
   const stockLocs = item.stock_by_location;
-  const defLoc = (type === 'in' ? (item.default_location_id || stockLocs[0]?.location_id) : (stockLocs[0]?.location_id || item.default_location_id)) || locs[0]?.id;
+  const defectLoc = stockLocs.find((s) => (s.defect_qty || 0) > 0)?.location_id;
+  const defLoc = (type === 'repair' ? (defectLoc || stockLocs[0]?.location_id)
+    : type === 'in' ? (item.default_location_id || stockLocs[0]?.location_id)
+    : (stockLocs[0]?.location_id || item.default_location_id)) || locs[0]?.id;
   const [f, setF] = useState<any>({
     location_id: defLoc, to_location_id: locs.find((l) => l.id !== defLoc)?.id ?? null,
     qty: '', movement_date: iso(new Date()), unit_cost: item.unit_cost || '', reason: '', ref: '',
@@ -1644,7 +1664,9 @@ function AssetMoveModal({ item, type, locs, onClose, onSaved }: { item: AssetIte
   const [saving, setSaving] = useState(false);
   const up = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
   const title = MOVE_LABEL[type] || type;
+  const isDefectMove = type === 'defect' || type === 'repair';
   const curStock = (lid: number) => stockLocs.find((s) => s.location_id === lid)?.qty ?? 0;
+  const curDefect = (lid: number) => stockLocs.find((s) => s.location_id === lid)?.defect_qty ?? 0;
   const save = async () => {
     const qn = Number(f.qty);
     if (!qn) { alert('수량을 입력하세요'); return; }
@@ -1661,19 +1683,19 @@ function AssetMoveModal({ item, type, locs, onClose, onSaved }: { item: AssetIte
     if (r.ok) onSaved(); else alert(r.data?.detail || '실패');
   };
   const F = 'text-[11px] text-text-tertiary mb-1';
-  const tone = type === 'in' ? 'text-success' : type === 'out' ? 'text-danger' : type === 'adjust' ? 'text-warning' : 'text-info';
+  const tone = type === 'in' ? 'text-success' : type === 'out' ? 'text-danger' : (type === 'adjust' || type === 'defect') ? 'text-warning' : type === 'repair' ? 'text-success' : 'text-info';
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className={`${C.card} p-5 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
         <div className="text-base font-bold mb-1"><span className={tone}>{title}</span> <span className="text-text-primary">— {item.name}</span></div>
-        <div className="text-[11px] text-text-tertiary mb-4">현재 총재고 {fmt(item.total_qty)} {item.unit}</div>
+        <div className="text-[11px] text-text-tertiary mb-4">현재 총재고 {fmt(item.total_qty)} {item.unit}{(item.defect_qty || 0) > 0 && <span className="text-warning"> · 🔧고장 {fmt(item.defect_qty)}</span>}{isDefectMove && <span className="block text-text-quaternary mt-0.5">※ 고장/수리는 총 보유수량은 그대로 두고 고장수량만 조정합니다(현장 존치).</span>}</div>
         <div className="grid grid-cols-2 gap-3">
-          <div><div className={F}>{type === 'transfer' ? '출발 위치' : '위치'}</div><select value={f.location_id ?? ''} onChange={(e) => up('location_id', Number(e.target.value))} className={`${C.input} w-full`}>{locs.map((l) => <option key={l.id} value={l.id}>{l.name} ({fmt(curStock(l.id))})</option>)}</select></div>
+          <div><div className={F}>{type === 'transfer' ? '출발 위치' : '위치'}</div><select value={f.location_id ?? ''} onChange={(e) => up('location_id', Number(e.target.value))} className={`${C.input} w-full`}>{locs.map((l) => <option key={l.id} value={l.id}>{l.name} {isDefectMove ? `(재고 ${fmt(curStock(l.id))} · 고장 ${fmt(curDefect(l.id))})` : `(${fmt(curStock(l.id))})`}</option>)}</select></div>
           {type === 'transfer' && <div><div className={F}>도착 위치</div><select value={f.to_location_id ?? ''} onChange={(e) => up('to_location_id', Number(e.target.value))} className={`${C.input} w-full`}>{locs.filter((l) => l.id !== f.location_id).map((l) => <option key={l.id} value={l.id}>{l.name} ({fmt(curStock(l.id))})</option>)}</select></div>}
-          <div><div className={F}>수량 {type === 'adjust' ? '(±)' : ''}</div><input type="number" value={f.qty} onChange={(e) => up('qty', e.target.value)} className={`${C.input} w-full text-right`} placeholder={type === 'adjust' ? '증가+/감소−' : '수량'} autoFocus /></div>
+          <div><div className={F}>수량 {type === 'adjust' ? '(±)' : type === 'defect' ? '(고장 대수)' : type === 'repair' ? '(수리 대수)' : ''}</div><input type="number" value={f.qty} onChange={(e) => up('qty', e.target.value)} className={`${C.input} w-full text-right`} placeholder={type === 'adjust' ? '증가+/감소−' : '수량'} autoFocus /></div>
           <div><div className={F}>일자</div><input type="date" value={f.movement_date} onChange={(e) => up('movement_date', e.target.value)} className={`${C.input} w-full`} /></div>
           {type === 'in' && <div className="col-span-2"><div className={F}>입고 단가(원, 선택)</div><input type="number" value={f.unit_cost} onChange={(e) => up('unit_cost', e.target.value)} className={`${C.input} w-full text-right`} placeholder="미입력 시 품목 평가단가" /></div>}
-          <div className="col-span-2"><div className={F}>사유{type === 'adjust' ? ' (권장)' : ''}</div><input value={f.reason} onChange={(e) => up('reason', e.target.value)} className={`${C.input} w-full`} placeholder={type === 'adjust' ? '실사 보정 등' : '선택'} /></div>
+          <div className="col-span-2"><div className={F}>사유{(type === 'adjust' || isDefectMove) ? ' (권장)' : ''}</div><input value={f.reason} onChange={(e) => up('reason', e.target.value)} className={`${C.input} w-full`} placeholder={type === 'adjust' ? '실사 보정 등' : type === 'defect' ? '고장 증상·세부위치 등' : type === 'repair' ? '수리 내용·교체 등' : '선택'} /></div>
           <div className="col-span-2"><div className={F}>참조</div><input value={f.ref} onChange={(e) => up('ref', e.target.value)} className={`${C.input} w-full`} placeholder="발주번호/전표 등 (선택)" /></div>
         </div>
         <div className="flex justify-end gap-2 mt-5">

@@ -92,13 +92,30 @@ def delete_location(db: Session, lid: int) -> dict:
 # 재고 집계 헬퍼
 # ──────────────────────────────────────────────
 
+# 총 보유수량에 영향을 주는 이동유형(입고/출고/조정/이동). 고장 관련은 제외.
+_DEFECT_MOVE_TYPES = ("defect", "repair")
+
+
 def _stock_map(db: Session, item_id: Optional[int] = None) -> dict[tuple[int, int], float]:
-    """(item_id, location_id) → 현재고."""
+    """(item_id, location_id) → 총 보유수량. 고장/수리 이동은 총량에 영향 없음(현장 존치)."""
     q = db.query(
         PurchaseAssetLedger.item_id,
         PurchaseAssetLedger.location_id,
         func.coalesce(func.sum(PurchaseAssetLedger.qty_delta), 0.0),
-    )
+    ).filter(~PurchaseAssetLedger.movement_type.in_(_DEFECT_MOVE_TYPES))
+    if item_id is not None:
+        q = q.filter(PurchaseAssetLedger.item_id == item_id)
+    q = q.group_by(PurchaseAssetLedger.item_id, PurchaseAssetLedger.location_id)
+    return {(iid, lid): float(qty or 0) for iid, lid, qty in q.all()}
+
+
+def _defect_map(db: Session, item_id: Optional[int] = None) -> dict[tuple[int, int], float]:
+    """(item_id, location_id) → 현재 고장수량. defect(+)/repair(−) 누계."""
+    q = db.query(
+        PurchaseAssetLedger.item_id,
+        PurchaseAssetLedger.location_id,
+        func.coalesce(func.sum(PurchaseAssetLedger.qty_delta), 0.0),
+    ).filter(PurchaseAssetLedger.movement_type.in_(_DEFECT_MOVE_TYPES))
     if item_id is not None:
         q = q.filter(PurchaseAssetLedger.item_id == item_id)
     q = q.group_by(PurchaseAssetLedger.item_id, PurchaseAssetLedger.location_id)
@@ -129,16 +146,24 @@ def item_list(db: Session, q: Optional[str] = None, category: Optional[str] = No
     locs = location_list(db)
     loc_name = {l["id"]: l["name"] for l in locs}
     smap = _stock_map(db)
+    dmap = _defect_map(db)
 
     rows = []
     for it in items:
         by_loc = {}
+        defect_by_loc = {}
         total = 0.0
+        defect_total = 0.0
         for (iid, lid), qty in smap.items():
             if iid != it.id:
                 continue
             by_loc[lid] = qty
             total += qty
+        for (iid, lid), dq in dmap.items():
+            if iid != it.id or abs(dq) < 1e-9:
+                continue
+            defect_by_loc[lid] = dq
+            defect_total += dq
         if location_id is not None:
             # 특정 위치 재고만 관심 — 그 위치 재고 0이라도 표기(품목 자체는 유지)
             shown_qty = by_loc.get(location_id, 0.0)
@@ -156,12 +181,15 @@ def item_list(db: Session, q: Optional[str] = None, category: Optional[str] = No
             "is_active": it.is_active, "notes": it.notes,
             "stock_by_location": [
                 {"location_id": lid, "location_name": loc_name.get(lid, f"#{lid}"),
-                 "qty": round(by_loc[lid], 2)}
+                 "qty": round(by_loc[lid], 2),
+                 "defect_qty": round(defect_by_loc.get(lid, 0.0), 2)}
                 for lid in sorted(by_loc.keys(), key=lambda x: (loc_name.get(x) or ""))
-                if abs(by_loc[lid]) > 1e-9
+                if abs(by_loc[lid]) > 1e-9 or abs(defect_by_loc.get(lid, 0.0)) > 1e-9
             ],
             "total_qty": round(total, 2),
             "shown_qty": round(shown_qty, 2),
+            "defect_qty": round(defect_total, 2),
+            "good_qty": round(total - defect_total, 2),
             "asset_value": round(total * float(it.unit_cost or 0)),
             "below_min": bool(below),
         })
@@ -218,14 +246,17 @@ def delete_item(db: Session, iid: int) -> dict:
 # 재고 이동(입고/출고/조정/이동)
 # ──────────────────────────────────────────────
 
-_MOVE_TYPES = {"in", "out", "adjust", "transfer"}
+_MOVE_TYPES = {"in", "out", "adjust", "transfer", "defect", "repair"}
 
 
 def add_movement(db: Session, body: dict, user: Optional[str] = None) -> dict:
-    """입고/출고/조정/이동 기록.
-    body: item_id, location_id, movement_date, movement_type(in/out/adjust/transfer),
+    """입고/출고/조정/이동/고장/수리 기록.
+    body: item_id, location_id, movement_date,
+          movement_type(in/out/adjust/transfer/defect/repair),
           qty(양수), unit_cost?, reason?, ref?, to_location_id?(transfer 시)
     - in: +qty / out: −qty / adjust: qty를 부호그대로(±) / transfer: 출발 −qty, 도착 +qty
+    - defect(고장등록): 총 보유량 불변, 고장수량 +qty (현장 존치)
+    - repair(수리완료): 총 보유량 불변, 고장수량 −qty
     """
     item_id = body.get("item_id")
     location_id = body.get("location_id")
@@ -266,6 +297,15 @@ def add_movement(db: Session, body: dict, user: Optional[str] = None) -> dict:
             raise ValueError("출발/도착 위치가 같습니다")
         ledgers.append(("transfer_out", -abs(qty), location_id))
         ledgers.append(("transfer_in", abs(qty), to_loc))
+    elif mtype == "defect":
+        # 고장 등록: 총 보유량 불변, 고장수량 +qty
+        ledgers.append(("defect", abs(qty), location_id))
+    elif mtype == "repair":
+        # 수리 완료: 고장수량 −qty (해당 위치 고장수량 초과 방지)
+        cur_defect = _defect_map(db, item_id).get((item_id, location_id), 0.0)
+        if abs(qty) > cur_defect + 1e-9:
+            raise ValueError(f"수리 수량이 현재 고장수량({cur_defect:g})을 초과합니다")
+        ledgers.append(("repair", -abs(qty), location_id))
 
     created_ids = []
     for mt, delta, lid in ledgers:
@@ -330,6 +370,7 @@ def dashboard(db: Session) -> dict:
     locs = location_list(db, only_active=False)
     loc_name = {l["id"]: l["name"] for l in locs}
     smap = _stock_map(db)
+    dmap = _defect_map(db)
 
     total_by_item: dict[int, float] = {}
     value_by_loc: dict[int, float] = {}
@@ -339,6 +380,18 @@ def dashboard(db: Session) -> dict:
             continue
         total_by_item[iid] = total_by_item.get(iid, 0.0) + qty
         value_by_loc[lid] = value_by_loc.get(lid, 0.0) + qty * float(it.unit_cost or 0)
+
+    defect_by_item: dict[int, float] = {}
+    for (iid, lid), dq in dmap.items():
+        if iid not in items:
+            continue
+        defect_by_item[iid] = defect_by_item.get(iid, 0.0) + dq
+    defect_total = round(sum(v for v in defect_by_item.values()))
+    defect_items = sorted(
+        [{"id": iid, "name": items[iid].name, "unit": items[iid].unit,
+          "defect_qty": round(dq, 2)}
+         for iid, dq in defect_by_item.items() if dq > 1e-9],
+        key=lambda x: -x["defect_qty"])
 
     total_value = sum(t * float(items[i].unit_cost or 0) for i, t in total_by_item.items())
     low = []
@@ -357,6 +410,8 @@ def dashboard(db: Session) -> dict:
         "total_value": round(total_value),
         "low_count": len(low),
         "low_items": low[:50],
+        "defect_total": defect_total,
+        "defect_items": defect_items[:50],
         "by_location": [
             {"location_id": l["id"], "location_name": l["name"],
              "value": round(value_by_loc.get(l["id"], 0.0))}
@@ -372,6 +427,11 @@ def dashboard(db: Session) -> dict:
 
 _AIRCURTAIN_CODE = "AC-1200"
 _AIRCURTAIN_SURVEY_DATE = "2026-08-25"
+_AIRCURTAIN_UNIT_COST = 268000  # 실제 구매단가(2026-08 확인)
+# 조사표상 고장(교체필요) 라인: (조사 No., 층, 세부위치, 고장수량)
+_AIRCURTAIN_DEFECTS = [
+    (4, "공장 1층", "물류 입구", 1),
+]
 # (조사 No., 층, 세부위치, 설치수량) — 설치완료분만. 추가설치 예정분은 현재고 아님 → 제외.
 _AIRCURTAIN_LINES = [
     # 1층 (합 19)
@@ -413,6 +473,10 @@ def seed_aircurtain(db: Session, user: Optional[str] = None) -> dict:
     """
     seed_locations(db)
     loc_by_name = {l.name: l for l in db.query(PurchaseAssetLocation).all()}
+    notes = ("에어커튼 현장 수량 조사표(2026-08-25, 조사자 이선영) 기준. "
+             "설치완료 48대(1층19·2층15·3층14). 1층 물류입구 1대 고장(교체필요). "
+             "추가설치 예정분은 미반영(담당자가 발주 후 입고 처리). "
+             "단가 268,000원(실제 구매단가).")
 
     item = db.query(PurchaseAssetItem).filter(
         PurchaseAssetItem.code == _AIRCURTAIN_CODE).first()
@@ -423,25 +487,35 @@ def seed_aircurtain(db: Session, user: Optional[str] = None) -> dict:
             category="설비",
             spec="가로 1200mm",
             unit="대",
-            unit_cost=250000,  # 1200mm급 상업용 에어커튼 추정 단가 — 실제 구매가로 수정 요망
-            min_qty=2,         # 고장 대비 예비 안전재고(가정)
+            unit_cost=_AIRCURTAIN_UNIT_COST,
+            min_qty=2,  # 고장 대비 예비 안전재고(가정)
             default_location_id=(loc_by_name.get("공장 1층").id if loc_by_name.get("공장 1층") else None),
             vendor=None,
             is_active=True,
-            notes="에어커튼 현장 수량 조사표(2026-08-25, 조사자 이선영) 기준. "
-                  "설치완료 48대(1층19·2층15·3층14). 1층 물류입구 1대 고장(교체필요). "
-                  "추가설치 예정분은 미반영(발주 후 입고 처리). 단가는 추정치.",
+            notes=notes,
             created_by=user,
         )
         db.add(item)
         db.commit()
         db.refresh(item)
+    else:
+        # 재호출 시 단가/비고 최신화
+        item.unit_cost = _AIRCURTAIN_UNIT_COST
+        item.notes = notes
+        db.commit()
 
     existing_refs = {
         r.ref for r in db.query(PurchaseAssetLedger.ref).filter(
             PurchaseAssetLedger.item_id == item.id).all()
         if r.ref
     }
+    # 기존 입고 원장 단가도 실제 구매단가로 백필
+    db.query(PurchaseAssetLedger).filter(
+        PurchaseAssetLedger.item_id == item.id,
+        PurchaseAssetLedger.movement_type == "in",
+    ).update({PurchaseAssetLedger.unit_cost: _AIRCURTAIN_UNIT_COST},
+             synchronize_session=False)
+    db.commit()
 
     mdate = _to_date(_AIRCURTAIN_SURVEY_DATE)
     created = 0
@@ -458,18 +532,42 @@ def seed_aircurtain(db: Session, user: Optional[str] = None) -> dict:
             continue
         db.add(PurchaseAssetLedger(
             item_id=item.id, location_id=loc.id, movement_date=mdate,
-            movement_type="in", qty_delta=float(qty), unit_cost=250000,
+            movement_type="in", qty_delta=float(qty),
+            unit_cost=_AIRCURTAIN_UNIT_COST,
             reason=sub, ref=ref, created_by=user,
         ))
         created += 1
+    db.commit()
+
+    # 고장(교체필요) 라인 표기 — 멱등(ref 기준)
+    defect_created = 0
+    defect_total = 0.0
+    for no, floor, sub, dqty in _AIRCURTAIN_DEFECTS:
+        ref = f"AC-{_AIRCURTAIN_SURVEY_DATE}-DEFECT-No.{no}"
+        loc = loc_by_name.get(floor)
+        if not loc:
+            continue
+        defect_total += dqty
+        if ref in existing_refs:
+            continue
+        db.add(PurchaseAssetLedger(
+            item_id=item.id, location_id=loc.id, movement_date=mdate,
+            movement_type="defect", qty_delta=float(dqty),
+            unit_cost=_AIRCURTAIN_UNIT_COST,
+            reason=f"{sub} 고장(교체필요)", ref=ref, created_by=user,
+        ))
+        defect_created += 1
     db.commit()
 
     return {
         "ok": True,
         "item_id": item.id,
         "item_name": item.name,
+        "unit_cost": _AIRCURTAIN_UNIT_COST,
         "created": created,
         "skipped": skipped,
+        "defect_created": defect_created,
+        "defect_total": round(defect_total),
         "per_floor": {k: round(v) for k, v in per_floor.items()},
         "total_qty": round(sum(per_floor.values())),
         "already_seeded": created == 0 and skipped > 0,
