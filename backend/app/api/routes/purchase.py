@@ -705,3 +705,9 @@ def delete_asset_movement(rec_id: int, db: Session = Depends(get_db),
 @router.get("/assets/dashboard")
 def asset_dashboard(db: Session = Depends(get_db)):
     return pas.dashboard(db)
+
+
+@router.post("/assets/seed-aircurtain")
+def asset_seed_aircurtain(db: Session = Depends(get_db)):
+    """에어커튼 현장 수량 조사표(2026-08-25) 1회 시딩. 멱등 — 반복 호출해도 이중 등록 안 됨."""
+    return pas.seed_aircurtain(db, user="system:aircurtain-survey")

@@ -366,6 +366,116 @@ def dashboard(db: Session) -> dict:
     }
 
 
+# ──────────────────────────────────────────────
+# 1회용 시딩: 에어커튼 현장 수량 조사표(2026-08-25, 조사자 이선영)
+# ──────────────────────────────────────────────
+
+_AIRCURTAIN_CODE = "AC-1200"
+_AIRCURTAIN_SURVEY_DATE = "2026-08-25"
+# (조사 No., 층, 세부위치, 설치수량) — 설치완료분만. 추가설치 예정분은 현재고 아님 → 제외.
+_AIRCURTAIN_LINES = [
+    # 1층 (합 19)
+    (1, "공장 1층", "사무실 입구", 2),
+    (2, "공장 1층", "사무실 입구", 2),
+    (3, "공장 1층", "물류 입구", 4),
+    (4, "공장 1층", "물류 입구 (1대 고장·교체필요)", 2),
+    (5, "공장 1층", "물류 입구", 4),
+    (6, "공장 1층", "신축동 입구", 2),
+    (7, "공장 1층", "승강기 입구", 3),
+    # 2층 (합 15)
+    (8, "공장 2층", "신축동 출입구", 1),
+    (9, "공장 2층", "신축동 승강기 출입구", 3),
+    (10, "공장 2층", "승강기", 2),
+    (11, "공장 2층", "중앙계단", 2),
+    (12, "공장 2층", "원재료실", 2),
+    (13, "공장 2층", "제조실 입구", 2),
+    (14, "공장 2층", "위생전실 퇴실구", 1),
+    (15, "공장 2층", "외포장실 입구", 2),
+    # 3층 (합 14)
+    (16, "공장 3층", "승강기", 2),
+    (17, "공장 3층", "중앙계단", 2),
+    (18, "공장 3층", "위생전실 퇴실구", 1),
+    (19, "공장 3층", "제조실 입구", 2),
+    (20, "공장 3층", "원재료실 입구", 2),
+    (21, "공장 3층", "방화문 입구", 1),
+    (22, "공장 3층", "신축동 승강기 출입구", 3),
+    (23, "공장 3층", "신축동 입구", 1),
+]
+
+
+def seed_aircurtain(db: Session, user: Optional[str] = None) -> dict:
+    """에어커튼 현장 수량 조사표를 자산형 재고로 1회 등록(멱등).
+
+    - 공장 1/2/3층 위치가 없으면 먼저 생성.
+    - 품목 '에어커튼 1200'(code=AC-1200)이 없으면 생성.
+    - 각 조사 라인을 입고(in) 원장으로 기록. ref='AC-2026-08-25-No.{n}'.
+    - 이미 시딩된 라인(ref 중복)은 건너뜀 → 반복 호출해도 이중 등록 안 됨.
+    """
+    seed_locations(db)
+    loc_by_name = {l.name: l for l in db.query(PurchaseAssetLocation).all()}
+
+    item = db.query(PurchaseAssetItem).filter(
+        PurchaseAssetItem.code == _AIRCURTAIN_CODE).first()
+    if not item:
+        item = PurchaseAssetItem(
+            code=_AIRCURTAIN_CODE,
+            name="에어커튼 1200",
+            category="설비",
+            spec="가로 1200mm",
+            unit="대",
+            unit_cost=250000,  # 1200mm급 상업용 에어커튼 추정 단가 — 실제 구매가로 수정 요망
+            min_qty=2,         # 고장 대비 예비 안전재고(가정)
+            default_location_id=(loc_by_name.get("공장 1층").id if loc_by_name.get("공장 1층") else None),
+            vendor=None,
+            is_active=True,
+            notes="에어커튼 현장 수량 조사표(2026-08-25, 조사자 이선영) 기준. "
+                  "설치완료 48대(1층19·2층15·3층14). 1층 물류입구 1대 고장(교체필요). "
+                  "추가설치 예정분은 미반영(발주 후 입고 처리). 단가는 추정치.",
+            created_by=user,
+        )
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+
+    existing_refs = {
+        r.ref for r in db.query(PurchaseAssetLedger.ref).filter(
+            PurchaseAssetLedger.item_id == item.id).all()
+        if r.ref
+    }
+
+    mdate = _to_date(_AIRCURTAIN_SURVEY_DATE)
+    created = 0
+    skipped = 0
+    per_floor: dict[str, float] = {}
+    for no, floor, sub, qty in _AIRCURTAIN_LINES:
+        ref = f"AC-{_AIRCURTAIN_SURVEY_DATE}-No.{no}"
+        loc = loc_by_name.get(floor)
+        if not loc:
+            continue
+        per_floor[floor] = per_floor.get(floor, 0.0) + qty
+        if ref in existing_refs:
+            skipped += 1
+            continue
+        db.add(PurchaseAssetLedger(
+            item_id=item.id, location_id=loc.id, movement_date=mdate,
+            movement_type="in", qty_delta=float(qty), unit_cost=250000,
+            reason=sub, ref=ref, created_by=user,
+        ))
+        created += 1
+    db.commit()
+
+    return {
+        "ok": True,
+        "item_id": item.id,
+        "item_name": item.name,
+        "created": created,
+        "skipped": skipped,
+        "per_floor": {k: round(v) for k, v in per_floor.items()},
+        "total_qty": round(sum(per_floor.values())),
+        "already_seeded": created == 0 and skipped > 0,
+    }
+
+
 def _to_date(s) -> Optional[date]:
     if not s:
         return None
