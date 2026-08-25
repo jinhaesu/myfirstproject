@@ -246,7 +246,7 @@ def delete_item(db: Session, iid: int) -> dict:
 # 재고 이동(입고/출고/조정/이동)
 # ──────────────────────────────────────────────
 
-_MOVE_TYPES = {"in", "out", "adjust", "transfer", "defect", "repair"}
+_MOVE_TYPES = {"in", "out", "adjust", "transfer", "defect", "repair", "defect_discard"}
 
 
 def add_movement(db: Session, body: dict, user: Optional[str] = None) -> dict:
@@ -257,6 +257,7 @@ def add_movement(db: Session, body: dict, user: Optional[str] = None) -> dict:
     - in: +qty / out: −qty / adjust: qty를 부호그대로(±) / transfer: 출발 −qty, 도착 +qty
     - defect(고장등록): 총 보유량 불변, 고장수량 +qty (현장 존치)
     - repair(수리완료): 총 보유량 불변, 고장수량 −qty
+    - defect_discard(고장폐기): 총 보유량 −qty(반출) + 고장수량 −qty 동시
     """
     item_id = body.get("item_id")
     location_id = body.get("location_id")
@@ -305,6 +306,14 @@ def add_movement(db: Session, body: dict, user: Optional[str] = None) -> dict:
         cur_defect = _defect_map(db, item_id).get((item_id, location_id), 0.0)
         if abs(qty) > cur_defect + 1e-9:
             raise ValueError(f"수리 수량이 현재 고장수량({cur_defect:g})을 초과합니다")
+        ledgers.append(("repair", -abs(qty), location_id))
+    elif mtype == "defect_discard":
+        # 고장폐기: 총 보유량 −qty(반출) + 고장수량 −qty 동시 차감
+        cur_defect = _defect_map(db, item_id).get((item_id, location_id), 0.0)
+        if abs(qty) > cur_defect + 1e-9:
+            raise ValueError(f"폐기 수량이 현재 고장수량({cur_defect:g})을 초과합니다")
+        reason = ("[고장폐기] " + (reason or "")).strip()
+        ledgers.append(("out", -abs(qty), location_id))
         ledgers.append(("repair", -abs(qty), location_id))
 
     created_ids = []

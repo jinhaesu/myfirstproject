@@ -1385,7 +1385,7 @@ interface AssetItem {
   stock_by_location: { location_id: number; location_name: string; qty: number; defect_qty: number }[];
   total_qty: number; shown_qty: number; defect_qty: number; good_qty: number; asset_value: number; below_min: boolean;
 }
-const MOVE_LABEL: Record<string, string> = { in: '입고', out: '출고', adjust: '조정', transfer_in: '이동입고', transfer_out: '이동출고', transfer: '이동', defect: '고장등록', repair: '수리완료' };
+const MOVE_LABEL: Record<string, string> = { in: '입고', out: '출고', adjust: '조정', transfer_in: '이동입고', transfer_out: '이동출고', transfer: '이동', defect: '고장등록', repair: '수리완료', defect_discard: '고장폐기' };
 
 function AssetTab() {
   const [locs, setLocs] = useState<AssetLoc[]>([]);
@@ -1550,6 +1550,7 @@ function AssetTab() {
                       <button onClick={() => setMoveModal({ item: it, type: 'transfer' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-info/10 text-info border border-info/30 hover:bg-info/20">이동</button>
                       <button onClick={() => setMoveModal({ item: it, type: 'defect' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20">고장</button>
                       {(it.defect_qty || 0) > 0 && <button onClick={() => setMoveModal({ item: it, type: 'repair' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-success/10 text-success border border-success/30 hover:bg-success/20">수리</button>}
+                      {(it.defect_qty || 0) > 0 && <button onClick={() => setMoveModal({ item: it, type: 'defect_discard' })} className="px-2 py-1 rounded text-[11px] font-semibold bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20">고장폐기</button>}
                       <button onClick={() => setItemModal(it)} className="px-2 py-1 rounded text-[11px] text-text-tertiary hover:text-text-primary hover:bg-bg-inset">수정</button>
                       <button onClick={() => removeItem(it)} className="px-2 py-1 rounded text-[11px] text-text-quaternary hover:text-danger hover:bg-danger/10">삭제</button>
                     </div>
@@ -1654,7 +1655,7 @@ function AssetItemModal({ item, locs, onClose, onSaved }: { item: AssetItem | nu
 function AssetMoveModal({ item, type, locs, onClose, onSaved }: { item: AssetItem; type: string; locs: AssetLoc[]; onClose: () => void; onSaved: () => void }) {
   const stockLocs = item.stock_by_location;
   const defectLoc = stockLocs.find((s) => (s.defect_qty || 0) > 0)?.location_id;
-  const defLoc = (type === 'repair' ? (defectLoc || stockLocs[0]?.location_id)
+  const defLoc = ((type === 'repair' || type === 'defect_discard') ? (defectLoc || stockLocs[0]?.location_id)
     : type === 'in' ? (item.default_location_id || stockLocs[0]?.location_id)
     : (stockLocs[0]?.location_id || item.default_location_id)) || locs[0]?.id;
   const [f, setF] = useState<any>({
@@ -1664,7 +1665,7 @@ function AssetMoveModal({ item, type, locs, onClose, onSaved }: { item: AssetIte
   const [saving, setSaving] = useState(false);
   const up = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
   const title = MOVE_LABEL[type] || type;
-  const isDefectMove = type === 'defect' || type === 'repair';
+  const isDefectMove = type === 'defect' || type === 'repair' || type === 'defect_discard';
   const curStock = (lid: number) => stockLocs.find((s) => s.location_id === lid)?.qty ?? 0;
   const curDefect = (lid: number) => stockLocs.find((s) => s.location_id === lid)?.defect_qty ?? 0;
   const save = async () => {
@@ -1683,19 +1684,19 @@ function AssetMoveModal({ item, type, locs, onClose, onSaved }: { item: AssetIte
     if (r.ok) onSaved(); else alert(r.data?.detail || '실패');
   };
   const F = 'text-[11px] text-text-tertiary mb-1';
-  const tone = type === 'in' ? 'text-success' : type === 'out' ? 'text-danger' : (type === 'adjust' || type === 'defect') ? 'text-warning' : type === 'repair' ? 'text-success' : 'text-info';
+  const tone = (type === 'in' || type === 'repair') ? 'text-success' : (type === 'out' || type === 'defect_discard') ? 'text-danger' : (type === 'adjust' || type === 'defect') ? 'text-warning' : 'text-info';
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className={`${C.card} p-5 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
         <div className="text-base font-bold mb-1"><span className={tone}>{title}</span> <span className="text-text-primary">— {item.name}</span></div>
-        <div className="text-[11px] text-text-tertiary mb-4">현재 총재고 {fmt(item.total_qty)} {item.unit}{(item.defect_qty || 0) > 0 && <span className="text-warning"> · 🔧고장 {fmt(item.defect_qty)}</span>}{isDefectMove && <span className="block text-text-quaternary mt-0.5">※ 고장/수리는 총 보유수량은 그대로 두고 고장수량만 조정합니다(현장 존치).</span>}</div>
+        <div className="text-[11px] text-text-tertiary mb-4">현재 총재고 {fmt(item.total_qty)} {item.unit}{(item.defect_qty || 0) > 0 && <span className="text-warning"> · 🔧고장 {fmt(item.defect_qty)}</span>}{isDefectMove && <span className="block text-text-quaternary mt-0.5">{type === 'defect_discard' ? '※ 고장폐기: 총 보유수량과 고장수량을 함께 차감(반출)합니다.' : '※ 고장/수리는 총 보유수량은 그대로 두고 고장수량만 조정합니다(현장 존치).'}</span>}</div>
         <div className="grid grid-cols-2 gap-3">
           <div><div className={F}>{type === 'transfer' ? '출발 위치' : '위치'}</div><select value={f.location_id ?? ''} onChange={(e) => up('location_id', Number(e.target.value))} className={`${C.input} w-full`}>{locs.map((l) => <option key={l.id} value={l.id}>{l.name} {isDefectMove ? `(재고 ${fmt(curStock(l.id))} · 고장 ${fmt(curDefect(l.id))})` : `(${fmt(curStock(l.id))})`}</option>)}</select></div>
           {type === 'transfer' && <div><div className={F}>도착 위치</div><select value={f.to_location_id ?? ''} onChange={(e) => up('to_location_id', Number(e.target.value))} className={`${C.input} w-full`}>{locs.filter((l) => l.id !== f.location_id).map((l) => <option key={l.id} value={l.id}>{l.name} ({fmt(curStock(l.id))})</option>)}</select></div>}
-          <div><div className={F}>수량 {type === 'adjust' ? '(±)' : type === 'defect' ? '(고장 대수)' : type === 'repair' ? '(수리 대수)' : ''}</div><input type="number" value={f.qty} onChange={(e) => up('qty', e.target.value)} className={`${C.input} w-full text-right`} placeholder={type === 'adjust' ? '증가+/감소−' : '수량'} autoFocus /></div>
+          <div><div className={F}>수량 {type === 'adjust' ? '(±)' : type === 'defect' ? '(고장 대수)' : type === 'repair' ? '(수리 대수)' : type === 'defect_discard' ? '(폐기 대수)' : ''}</div><input type="number" value={f.qty} onChange={(e) => up('qty', e.target.value)} className={`${C.input} w-full text-right`} placeholder={type === 'adjust' ? '증가+/감소−' : '수량'} autoFocus /></div>
           <div><div className={F}>일자</div><input type="date" value={f.movement_date} onChange={(e) => up('movement_date', e.target.value)} className={`${C.input} w-full`} /></div>
           {type === 'in' && <div className="col-span-2"><div className={F}>입고 단가(원, 선택)</div><input type="number" value={f.unit_cost} onChange={(e) => up('unit_cost', e.target.value)} className={`${C.input} w-full text-right`} placeholder="미입력 시 품목 평가단가" /></div>}
-          <div className="col-span-2"><div className={F}>사유{(type === 'adjust' || isDefectMove) ? ' (권장)' : ''}</div><input value={f.reason} onChange={(e) => up('reason', e.target.value)} className={`${C.input} w-full`} placeholder={type === 'adjust' ? '실사 보정 등' : type === 'defect' ? '고장 증상·세부위치 등' : type === 'repair' ? '수리 내용·교체 등' : '선택'} /></div>
+          <div className="col-span-2"><div className={F}>사유{(type === 'adjust' || isDefectMove) ? ' (권장)' : ''}</div><input value={f.reason} onChange={(e) => up('reason', e.target.value)} className={`${C.input} w-full`} placeholder={type === 'adjust' ? '실사 보정 등' : type === 'defect' ? '고장 증상·세부위치 등' : type === 'repair' ? '수리 내용·교체 등' : type === 'defect_discard' ? '폐기 사유·교체 여부 등' : '선택'} /></div>
           <div className="col-span-2"><div className={F}>참조</div><input value={f.ref} onChange={(e) => up('ref', e.target.value)} className={`${C.input} w-full`} placeholder="발주번호/전표 등 (선택)" /></div>
         </div>
         <div className="flex justify-end gap-2 mt-5">
