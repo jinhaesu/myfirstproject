@@ -981,6 +981,13 @@ def labor_compare(start: str, end: str, granularity: str = "day", db: Session = 
         return {"error": str(ex)[:200], "series": []}
 
 
+@router.get("/labor-health")
+def labor_health(year: int | None = None, month: int | None = None):
+    """mysixthproject 근태 연동 상태 점검(주소·생산팀 인원수·최근 오류)."""
+    from app.services import mysixth_client
+    return mysixth_client.health(year=year, month=month)
+
+
 # ──────────────────────────────────────────────
 # 생산 담당자 핸드폰 리스트 + 실적입력 요청 문자
 # ──────────────────────────────────────────────

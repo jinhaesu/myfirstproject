@@ -1483,6 +1483,8 @@ def labor_compare(db: Session, start: date, end: date, granularity: str = "day")
         "total_hours_ratio": round(tot_ph / tot_ah, 2) if tot_ah else 0,
         "total_prod_labor": round(tot_pl), "total_att_cost": tot_att_cost,
         "total_regular_pay": round(tot_reg_pay),
+        "att_ok": tot_ah > 0,
+        "att_errors": list(getattr(mysixth_client, "_ERRORS", [])[-5:]),
         "note": "근태 노무시간 = 생산팀만(정규직 생산부서 실근태 clock in/out + 파견/알바 생산사업장). 물류·카페 제외. 노무비 = 정규직 실지급 + 파견/알바 환산(시간×15,000). 비율(생산일보÷근태) 1에 근접할수록 정합.",
     }
 
