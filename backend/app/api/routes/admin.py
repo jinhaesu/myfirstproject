@@ -32,7 +32,6 @@ MENUS = [
     {"key": "sales", "label": "영업부 매출 관리·분석"},
     {"key": "scm", "label": "SCM 관리"},
     {"key": "logistics", "label": "물류·생산 관리"},
-    {"key": "mes", "label": "MES 생산현장"},
     {"key": "mapping", "label": "매핑 관리"},
     {"key": "purchase", "label": "구매 관리"},
     {"key": "management", "label": "경영관리"},

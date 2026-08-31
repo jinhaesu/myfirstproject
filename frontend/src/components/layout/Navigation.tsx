@@ -59,24 +59,6 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    key: 'mes',
-    label: 'MES 생산현장',
-    icon: 'mes',
-    pathPrefix: ['/mes'],
-    items: [
-      { href: '/mes', label: 'MES 홈', icon: 'target' },
-      { href: '/mes/pop', label: 'POP 현장단말', icon: 'production', section: '현장' },
-      { href: '/mes/monitoring', label: '모니터링 보드', icon: 'inventory' },
-      { href: '/mes/work-orders', label: '작업지시', icon: 'orders', section: '생산관리' },
-      { href: '/mes/production', label: '생산일보·OEE·계획', icon: 'production' },
-      { href: '/mes/haccp/ccp', label: 'CCP 점검일지', icon: 'settlement', section: 'SMART HACCP' },
-      { href: '/mes/haccp/checklists', label: '선행점검일지', icon: 'settlement' },
-      { href: '/mes/haccp/deviations', label: '이탈·개선조치', icon: 'cs' },
-      { href: '/mes/equipment', label: '설비관리', icon: 'mapping', section: '기준·설비' },
-      { href: '/mes/master', label: '기준정보', icon: 'products' },
-    ],
-  },
-  {
     key: 'mapping',
     label: '매핑 관리',
     icon: 'mapping',
@@ -174,11 +156,6 @@ const iconMap: Record<string, JSX.Element> = {
   inventory: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-    </svg>
-  ),
-  mes: (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
     </svg>
   ),
   sales: (
