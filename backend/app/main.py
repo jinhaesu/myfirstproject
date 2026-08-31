@@ -289,6 +289,8 @@ app.include_router(inventory.router, prefix="/api", tags=["inventory"])
 app.include_router(admin.router, prefix="/api", tags=["admin"])
 app.include_router(purchase.router, prefix="/api", tags=["purchase"])
 app.include_router(management.router, prefix="/api", tags=["management"])
+from app.api.routes import mes as _mes_routes  # noqa: E402
+app.include_router(_mes_routes.router, prefix="/api", tags=["mes"])
 
 
 @app.get("/")
