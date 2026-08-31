@@ -94,7 +94,6 @@ def init_db():
         from app.models.scheduled_report import ScheduledReport  # noqa: F401
         from app.models.keyword_monitor import MonitoredKeyword, KeywordMetrics, KeywordSentiment  # noqa: F401
         from app.models.campaign_plan import CampaignPlan  # noqa: F401
-        import app.models.mes  # noqa: F401  (MES 테이블 mes_* 등록)
         try:
             Base.metadata.create_all(bind=engine)
         except Exception as e:
