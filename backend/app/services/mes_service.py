@@ -209,15 +209,30 @@ DEFAULT_FREEZING_MAX = -18.0
 DEFAULT_MIXING_MAX_MIN = 30.0
 
 
-def find_limit(db: Session, process_id: int, family_code: Optional[str]) -> Optional[MesCcpLimit]:
-    """(process_id, family_code) 우선, 없으면 (process_id, family_code=None)."""
-    q = db.query(MesCcpLimit).filter(
-        MesCcpLimit.process_id == process_id, MesCcpLimit.is_active.is_(True))
-    row = None
-    if family_code:
-        row = q.filter(MesCcpLimit.family_code == family_code).first()
+PREFERRED_PARAM_BY_KIND = {"mixing": "time", "heating": "temp", "freezing": "temp", "metal": "metal"}
+
+
+def find_limit(db: Session, process_id: int, family_code: Optional[str],
+               pop_kind: Optional[str] = None) -> Optional[MesCcpLimit]:
+    """(process_id, family_code) 우선, 없으면 (process_id, family_code=None).
+    같은 공정에 한계기준이 여러 개(배합: 시간·주정비율)면 공정 종류에 맞는 param을 우선한다."""
+    rows = db.query(MesCcpLimit).filter(
+        MesCcpLimit.process_id == process_id, MesCcpLimit.is_active.is_(True)).order_by(MesCcpLimit.id).all()
+    if not rows:
+        return None
+    pref = PREFERRED_PARAM_BY_KIND.get(pop_kind or "")
+
+    def pick(cands):
+        if not cands:
+            return None
+        if pref:
+            for c in cands:
+                if c.param == pref:
+                    return c
+        return cands[0]
+    row = pick([r for r in rows if family_code and r.family_code == family_code])
     if not row:
-        row = q.filter(MesCcpLimit.family_code.is_(None)).first()
+        row = pick([r for r in rows if r.family_code is None])
     return row
 
 
@@ -314,9 +329,9 @@ def ser_run(r: MesProcessRun, process_name=None, equipment_name=None, worker_nam
     }
 
 
-def ser_deviation(d: MesDeviation, process_name=None, equipment_name=None) -> dict:
+def ser_deviation(d: MesDeviation, process_name=None, equipment_name=None, deviation_name=None) -> dict:
     return {
-        "id": d.id, "run_id": d.run_id, "work_order_id": d.work_order_id,
+        "deviation_name": deviation_name, "id": d.id, "run_id": d.run_id, "work_order_id": d.work_order_id,
         "process_id": d.process_id, "process_name": process_name, "equipment_id": d.equipment_id,
         "equipment_name": equipment_name, "occurred_at": iso(d.occurred_at),
         "deviation_code": d.deviation_code, "description": d.description,
