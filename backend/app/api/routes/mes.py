@@ -979,7 +979,7 @@ def create_run(body: RunIn, db: Session = Depends(get_db), user: dict = Depends(
     process = db.get(MesProcess, body.process_id)
     if not process:
         raise HTTPException(404, "공정 없음")
-    limit_row = svc.find_limit(db, body.process_id, body.family_code)
+    limit_row = svc.find_limit(db, body.process_id, body.family_code, process.pop_kind if process else None)
     limit_value = body.limit_value
     if limit_value is None:
         limit_value = svc.auto_limit_value(process, limit_row)
@@ -1026,7 +1026,7 @@ def end_run(rid: int, body: RunEndIn, db: Session = Depends(get_db), user: dict 
     if body.notes is not None:
         r.notes = body.notes
     r.status = "done"
-    limit_row = svc.find_limit(db, r.process_id, r.family_code)
+    limit_row = svc.find_limit(db, r.process_id, r.family_code, process.pop_kind if process else None)
     r.judgment = svc.judge_run(process, limit_row, r.minutes, r.measured_value, r.test_result)
     svc.record_sensor_from_run(db, r, process)
     if r.judgment == "부":
@@ -1164,8 +1164,10 @@ def list_deviations(start: Optional[str] = None, end: Optional[str] = None, stat
     rows = q.order_by(MesDeviation.id.desc()).all()
     procs = svc.process_map(db)
     eqs = svc.equipment_map(db)
+    dnames = svc.code_name_map(db, "DEVIATION")
     return {"items": [svc.ser_deviation(d, procs.get(d.process_id).name if d.process_id in procs else None,
-                                        eqs.get(d.equipment_id).name if d.equipment_id in eqs else None)
+                                        eqs.get(d.equipment_id).name if d.equipment_id in eqs else None,
+                                        dnames.get(d.deviation_code, d.deviation_code))
                       for d in rows]}
 
 
@@ -1193,8 +1195,10 @@ def upsert_deviation(body: DeviationIn, db: Session = Depends(get_db), user: dic
     db.refresh(row)
     procs = svc.process_map(db)
     eqs = svc.equipment_map(db)
+    dnames = svc.code_name_map(db, "DEVIATION")
     return svc.ser_deviation(row, procs.get(row.process_id).name if row.process_id in procs else None,
-                             eqs.get(row.equipment_id).name if row.equipment_id in eqs else None)
+                             eqs.get(row.equipment_id).name if row.equipment_id in eqs else None,
+                             dnames.get(row.deviation_code, row.deviation_code))
 
 
 class DeviationCloseIn(BaseModel):
@@ -1334,8 +1338,14 @@ def generate_ccp_logs(body: CcpGenerateIn, db: Session = Depends(get_db), user: 
             db.add(MesCcpLog(log_date=d, process_id=pid, equipment_id=eid, status="draft",
                              author=_uemail(user), summary_json=svc.jdumps(summary)))
             created += 1
+    # 실행이 모두 삭제돼 0건이 된 초안(draft) 로그는 정리
+    removed = 0
+    for stale in db.query(MesCcpLog).filter(MesCcpLog.log_date == d, MesCcpLog.status == "draft").all():
+        if (stale.process_id, stale.equipment_id) not in groups:
+            db.delete(stale)
+            removed += 1
     db.commit()
-    return {"created": created, "updated": updated}
+    return {"created": created, "updated": updated, "removed": removed}
 
 
 @router.get("/ccp-logs/{lid}")
@@ -1752,7 +1762,7 @@ def monitoring_board(floor: str, db: Session = Depends(get_db), user: dict = Dep
         reading = last_reading.get(e.id)
         run = running_run.get(e.id)
         process = procs.get(e.process_id) if e.process_id else None
-        limit_row = svc.find_limit(db, e.process_id, run.family_code if run else None) if e.process_id else None
+        limit_row = svc.find_limit(db, e.process_id, run.family_code if run else None, procs.get(e.process_id).pop_kind if e.process_id in procs else None) if e.process_id else None
         if process and process.pop_kind == "freezing":
             boundary = (limit_row.max_value if limit_row else None) or svc.DEFAULT_FREEZING_MAX
             is_min = False
