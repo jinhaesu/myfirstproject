@@ -1001,13 +1001,13 @@ def run_seed(db: Session) -> dict:
         upsert_code("EQ_EVENT", code, name, i)
     db.flush()
 
-    limit_rows = {(l.process_id, l.family_code): l for l in db.query(MesCcpLimit).all()}
+    limit_rows = {(l.process_id, l.family_code, l.param): l for l in db.query(MesCcpLimit).all()}
 
     def upsert_limit(process_code: str, family_code: Optional[str], name: str, param: str,
                      min_v: Optional[float], max_v: Optional[float], unit: str,
                      notes: Optional[str] = None) -> None:
         pid = proc_by_code[process_code].id
-        key = (pid, family_code)
+        key = (pid, family_code, param)
         row = limit_rows.get(key)
         is_new = row is None
         if is_new:
