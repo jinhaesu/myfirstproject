@@ -174,6 +174,7 @@ class ManualRecordIn(BaseModel):
     supply: Optional[float] = None
     vat: Optional[float] = None
     total: Optional[float] = None
+    price_incl_vat: Optional[bool] = False
     note: Optional[str] = None
     spec: Optional[str] = None
     kg_per_unit: Optional[float] = None
@@ -196,6 +197,7 @@ class ManualLineIn(BaseModel):
     qty: float = 0
     unit_price: float = 0
     vat: Optional[float] = None
+    price_incl_vat: Optional[bool] = False
     spec: Optional[str] = None
     kg_per_unit: Optional[float] = None
     note: Optional[str] = None
@@ -259,6 +261,7 @@ class RecordPatchIn(BaseModel):
     kg_per_unit: Optional[float] = None
     paid: Optional[bool] = None
     team: Optional[str] = None
+    price_incl_vat: Optional[bool] = None
     recompute: bool = True
 
 
@@ -284,6 +287,20 @@ def normalize_unit(body: NormalizeUnitIn, db: Session = Depends(get_db), user: d
     """kg당 단가(초기 입력분)를 박스당 단가로 정규화 (단위기준 혼재 교정)."""
     return pur.normalize_unit_basis(db, body.item_code, body.box_kg,
                                     threshold=body.threshold, dry_run=body.dry_run)
+
+
+@router.get("/records/vat-audit")
+def records_vat_audit(start: Optional[str] = None, end: Optional[str] = None,
+                      db: Session = Depends(get_db)):
+    """합계 ≠ 공급가+부가세 인 실적 집계(읽기전용). 부가세 미재계산 버그로 틀어진 건 파악용."""
+    return pur.vat_audit(db, start=_pd(start), end=_pd(end), fix=False)
+
+
+@router.post("/records/vat-audit/fix")
+def records_vat_audit_fix(start: Optional[str] = None, end: Optional[str] = None,
+                          db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    """합계 불일치 건을 합계=공급가+부가세로 보정(면세 vat=0건 제외). 쓰기 — 인증 필요."""
+    return pur.vat_audit(db, start=_pd(start), end=_pd(end), fix=True)
 
 
 @router.delete("/records/{rec_id}")

@@ -337,11 +337,19 @@ def add_manual_record(db: Session, r: dict, user: Optional[str] = None) -> dict:
         return {"ok": False, "msg": "품목명 또는 품목코드는 필수입니다"}
     qty = float(r.get("qty") or 0)
     unit_price = float(r.get("unit_price") or 0)
-    supply = float(r.get("supply") or 0) or round(qty * unit_price)
-    # vat: 명시적으로 넘어오면(0 포함) 존중, 없으면 공급가의 10%
-    vat = r.get("vat")
-    vat = float(vat) if vat not in (None, "") else round(supply * 0.1)
-    total = float(r.get("total") or 0) or round(supply + vat)
+    incl_vat = bool(r.get("price_incl_vat"))
+    _v = r.get("vat")
+    if incl_vat:
+        # 단가가 부가세 포함 → 합계(=수량×포함단가)에서 공급가(÷1.1)·부가세 역산.
+        incl_total = float(r.get("total") or 0) or round(qty * unit_price)
+        supply = float(r.get("supply") or 0) or round(incl_total / 1.1)
+        vat = float(_v) if _v not in (None, "") else round(incl_total) - round(supply)
+        total = round(incl_total)
+    else:
+        supply = float(r.get("supply") or 0) or round(qty * unit_price)
+        # vat: 명시적으로 넘어오면(0 포함) 존중, 없으면 공급가의 10%
+        vat = float(_v) if _v not in (None, "") else round(supply * 0.1)
+        total = float(r.get("total") or 0) or round(supply + vat)
     _spec, _kgpu = parse_spec(r.get("item_name") or "")
     # kg_per_unit 수동 지정값이 오면 우선
     if r.get("kg_per_unit") not in (None, ""):
@@ -364,7 +372,7 @@ def add_manual_record(db: Session, r: dict, user: Optional[str] = None) -> dict:
         item_name=(r.get("item_name") or "")[:400],
         unit=(r.get("unit") or "")[:30],
         qty=qty, unit_price=unit_price, supply_amount=supply, vat=vat,
-        total_amount=total, note=(r.get("note") or "")[:300],
+        total_amount=total, price_incl_vat=incl_vat, note=(r.get("note") or "")[:300],
         spec=_spec, kg_per_unit=_kgpu, team=(r.get("team") or "구매팀")[:20],
         source="manual", created_by=user,
     )
@@ -393,6 +401,7 @@ def _rec_dict(x) -> dict:
         "unit_price": x.unit_price,
         "price_per_kg": round(x.unit_price / kgpu) if (kgpu and x.unit_price) else None,
         "supply": round(x.supply_amount or 0), "vat": round(x.vat or 0), "total": round(x.total_amount or 0),
+        "price_incl_vat": bool(x.price_incl_vat),
         "note": x.note, "created_by": x.created_by, "team": x.team or "구매팀",
         "paid": bool(x.paid), "paid_date": x.paid_date.isoformat() if x.paid_date else None,
     }
@@ -423,7 +432,7 @@ def delete_record(db: Session, rec_id: int) -> dict:
 
 _EDITABLE = {"qty", "unit_price", "supply", "vat", "total", "unit", "vendor",
              "mclass", "staff", "item_code", "item_name", "warehouse", "note", "pdate", "seq",
-             "spec", "kg_per_unit", "paid", "team"}
+             "spec", "kg_per_unit", "paid", "team", "price_incl_vat"}
 _FIELD_MAP = {"vendor": "vendor_name", "supply": "supply_amount", "total": "total_amount"}
 
 
@@ -462,13 +471,27 @@ def update_record(db: Session, rec_id: int, fields: dict, recompute: bool = True
         rec.spec, _kgpu = parse_spec(rec.item_name or "")
         if "kg_per_unit" not in fields:
             rec.kg_per_unit = _kgpu
-    # 금액 재계산: supply/total이 명시 안 됐고 recompute면 수량×단가로.
-    if recompute and "supply" not in fields:
-        rec.supply_amount = round((rec.qty or 0) * (rec.unit_price or 0))
-    if recompute and "vat" not in fields and "total" not in fields:
-        rec.total_amount = round((rec.supply_amount or 0) + (rec.vat or 0))
-    elif "total" not in fields:
-        rec.total_amount = round((rec.supply_amount or 0) + (rec.vat or 0))
+    # 금액 재계산. money_touched=공급가/수량/단가/부가세포함여부 중 하나라도 바뀐 수정.
+    #  - 면세(0)는 사용자가 vat=0을 명시하면 존중, paid 토글 등 금액 무관 수정에선 vat 불변.
+    money_touched = any(k in fields for k in ("supply", "qty", "unit_price", "price_incl_vat"))
+    if bool(rec.price_incl_vat):
+        # 단가가 부가세 포함 → 합계(=수량×포함단가)에서 공급가(÷1.1)·부가세 역산.
+        if recompute and "supply" not in fields and "total" not in fields:
+            incl_total = round((rec.qty or 0) * (rec.unit_price or 0))
+            rec.supply_amount = round(incl_total / 1.1)
+            if "vat" not in fields:
+                rec.vat = incl_total - round(rec.supply_amount)
+            rec.total_amount = incl_total
+        elif "total" not in fields:
+            rec.total_amount = round((rec.supply_amount or 0) + (rec.vat or 0))
+    else:
+        # 부가세 별도(기본): 공급가=수량×단가, vat 미입력이면 공급가×10%(프론트 '빈칸=자동10%' 약속).
+        if recompute and "supply" not in fields:
+            rec.supply_amount = round((rec.qty or 0) * (rec.unit_price or 0))
+        if money_touched and "vat" not in fields and "total" not in fields:
+            rec.vat = round((rec.supply_amount or 0) * 0.1)
+        if "total" not in fields:
+            rec.total_amount = round((rec.supply_amount or 0) + (rec.vat or 0))
     rec.row_hash = _rec_hash({
         "pdate": rec.pdate.isoformat() if rec.pdate else None, "seq": rec.seq,
         "item_code": rec.item_code, "item_name": rec.item_name,
@@ -476,7 +499,49 @@ def update_record(db: Session, rec_id: int, fields: dict, recompute: bool = True
     })
     db.commit()
     return {"ok": True, "id": rec.id, "qty": rec.qty, "unit_price": rec.unit_price,
-            "supply": rec.supply_amount, "vat": rec.vat, "total": rec.total_amount}
+            "supply": rec.supply_amount, "vat": rec.vat, "total": rec.total_amount,
+            "price_incl_vat": bool(rec.price_incl_vat)}
+
+
+def vat_audit(db: Session, start: Optional[date] = None, end: Optional[date] = None,
+              fix: bool = False, limit: int = 200) -> dict:
+    """부가세/합계 정합성 감사. 합계 ≠ 공급가+부가세 인 건을 집계(수정 버그로 틀어진 건).
+
+    fix=True면 vat가 0이 아닌 건에 한해 합계=공급가+부가세로 보정(면세 0건은 제외).
+    vat 자체가 stale인지까지는 판단 불가하므로 '합계 불일치'만 안전 보정한다.
+    """
+    q = db.query(PurchaseRecord)
+    if start:
+        q = q.filter(PurchaseRecord.pdate >= start)
+    if end:
+        q = q.filter(PurchaseRecord.pdate <= end)
+    rows = q.all()
+    bad, fixed = [], 0
+    for r in rows:
+        s = round(r.supply_amount or 0)
+        v = round(r.vat or 0)
+        t = round(r.total_amount or 0)
+        if s + v == t:
+            continue
+        item = {
+            "id": r.id, "pdate": r.pdate.isoformat() if r.pdate else None,
+            "vendor": r.vendor_name, "item_name": r.item_name,
+            "supply": s, "vat": v, "total": t, "expected_total": s + v, "diff": t - (s + v),
+            "zero_vat": v == 0,
+        }
+        if fix and v != 0:
+            r.total_amount = s + v
+            fixed += 1
+        bad.append(item)
+    if fix and fixed:
+        db.commit()
+    total_diff = sum(b["diff"] for b in bad)
+    return {
+        "scanned": len(rows), "inconsistent_count": len(bad),
+        "zero_vat_inconsistent": sum(1 for b in bad if b["zero_vat"]),
+        "total_diff": total_diff, "fixed": fixed if fix else 0,
+        "sample": sorted(bad, key=lambda x: -abs(x["diff"]))[:limit],
+    }
 
 
 def normalize_unit_basis(db: Session, item_code: str, box_kg: float,

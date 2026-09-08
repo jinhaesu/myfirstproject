@@ -1656,6 +1656,7 @@ class PurchaseRecord(Base):
     supply_amount = Column(Float, default=0)                 # 공급가액
     vat = Column(Float, default=0)
     total_amount = Column(Float, default=0)                  # 합계(VAT포함)
+    price_incl_vat = Column(Boolean, default=False)          # True면 unit_price를 부가세포함 단가로 해석(공급가=합계÷1.1)
     note = Column(String(300), nullable=True)                # 적요
     source = Column(String(20), default="import", index=True)  # import=엑셀/시트 적재, manual=화면 직접입력
     created_by = Column(String(200), nullable=True)          # 수동입력자 이메일
