@@ -516,31 +516,47 @@ def vat_audit(db: Session, start: Optional[date] = None, end: Optional[date] = N
     if end:
         q = q.filter(PurchaseRecord.pdate <= end)
     rows = q.all()
-    bad, fixed = [], 0
+    bad, fixed = [], 0            # 합계 ≠ 공급가+부가세 (내부 불일치)
+    rate_anomaly = []            # 부가세 ≠ 공급가×10% (면세 0·포함단가 제외) — '10%가 아닌 vat' 버그 흔적
+    zero_vat = 0
     for r in rows:
         s = round(r.supply_amount or 0)
         v = round(r.vat or 0)
         t = round(r.total_amount or 0)
-        if s + v == t:
-            continue
-        item = {
-            "id": r.id, "pdate": r.pdate.isoformat() if r.pdate else None,
-            "vendor": r.vendor_name, "item_name": r.item_name,
-            "supply": s, "vat": v, "total": t, "expected_total": s + v, "diff": t - (s + v),
-            "zero_vat": v == 0,
-        }
-        if fix and v != 0:
-            r.total_amount = s + v
-            fixed += 1
-        bad.append(item)
+        if v == 0:
+            zero_vat += 1
+        # ① 합계 정합
+        if s + v != t:
+            item = {
+                "id": r.id, "pdate": r.pdate.isoformat() if r.pdate else None,
+                "vendor": r.vendor_name, "item_name": r.item_name,
+                "supply": s, "vat": v, "total": t, "expected_total": s + v, "diff": t - (s + v),
+                "zero_vat": v == 0,
+            }
+            if fix and v != 0:
+                r.total_amount = s + v
+                fixed += 1
+            bad.append(item)
+        # ② 부가세율 이상: vat가 0도 아니고 포함단가도 아닌데 공급가×10%와 다른 건
+        exp_vat = round(s * 0.1)
+        if v != 0 and not bool(r.price_incl_vat) and abs(v - exp_vat) > 1:
+            rate_anomaly.append({
+                "id": r.id, "pdate": r.pdate.isoformat() if r.pdate else None,
+                "vendor": r.vendor_name, "item_name": r.item_name,
+                "supply": s, "vat": v, "expected_vat": exp_vat,
+                "vat_rate": round(v / s * 100, 1) if s else None, "vat_gap": v - exp_vat,
+            })
     if fix and fixed:
         db.commit()
-    total_diff = sum(b["diff"] for b in bad)
     return {
-        "scanned": len(rows), "inconsistent_count": len(bad),
-        "zero_vat_inconsistent": sum(1 for b in bad if b["zero_vat"]),
-        "total_diff": total_diff, "fixed": fixed if fix else 0,
+        "scanned": len(rows),
+        "inconsistent_count": len(bad),
+        "zero_vat_count": zero_vat,
+        "rate_anomaly_count": len(rate_anomaly),
+        "total_diff": sum(b["diff"] for b in bad),
+        "fixed": fixed if fix else 0,
         "sample": sorted(bad, key=lambda x: -abs(x["diff"]))[:limit],
+        "rate_anomaly_sample": sorted(rate_anomaly, key=lambda x: -abs(x["vat_gap"]))[:limit],
     }
 
 
