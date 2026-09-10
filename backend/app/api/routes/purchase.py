@@ -231,6 +231,33 @@ def manual_recent(limit: int = 30, db: Session = Depends(get_db)):
     return pur.manual_recent(db, limit=limit)
 
 
+class PackagingRowIn(BaseModel):
+    pdate: str
+    vendor: str
+    item_name: str
+    qty: float = 0
+    supply: Optional[float] = None
+    vat: Optional[float] = None
+    total: Optional[float] = None
+
+
+class PackagingImportIn(BaseModel):
+    rows: list[PackagingRowIn] = []
+    team: str = "물류팀"
+    mclass: str = "부재료"
+    dedup: bool = True
+
+
+@router.post("/records/import-packaging")
+def import_packaging(body: PackagingImportIn, db: Session = Depends(get_db)):
+    """물류팀 포장비 raw 벌크 등록(멱등). (거래처+일자+공급가+수량) 중복은 건너뜀."""
+    if not body.rows:
+        raise HTTPException(400, "rows가 비었습니다")
+    rows = [r.model_dump() for r in body.rows]
+    return pur.import_packaging_records(db, rows, team=body.team, mclass=body.mclass,
+                                        dedup=body.dedup, user="system:packaging-raw")
+
+
 class SettleRecordsIn(BaseModel):
     ids: list[int]
     paid: bool

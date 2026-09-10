@@ -1558,6 +1558,91 @@ def suggest_items(db: Session, q: Optional[str] = None, limit: int = 30) -> list
     return result
 
 
+def import_packaging_records(db: Session, rows: list[dict], team: str = "물류팀",
+                             mclass: str = "부재료", source: str = "packaging_raw",
+                             dedup: bool = True, user: Optional[str] = None) -> dict:
+    """물류팀 포장비 raw(거래처별·품목별 집계) 실적 벌크 등록 — 멱등.
+
+    각 row: pdate, vendor, item_name, qty, supply?, vat?, total?
+    중복판정(dedup=True): 동일 (거래처, 일자, 공급가round, 수량round) 레코드가 이미 있으면
+    출처 불문 건너뜀 → 기존 구매일보와의 이중계상(특히 다다피엔씨) 방지. 재실행 안전.
+    금액 미기재 행(supply None)은 0으로 넣고 note에 표기.
+    """
+    from collections import defaultdict
+    vendors = {(r.get("vendor") or "").strip() for r in rows if r.get("vendor")}
+
+    # 기존 DB에서 대상 거래처 레코드의 (일자,공급가round,수량round) 키 선적재
+    existing_keys: set = set()
+    if dedup and vendors:
+        ex = db.query(
+            PurchaseRecord.vendor_name, PurchaseRecord.pdate,
+            PurchaseRecord.supply_amount, PurchaseRecord.qty,
+        ).filter(PurchaseRecord.vendor_name.in_(vendors)).all()
+        for vn, pd_, s_, q_ in ex:
+            existing_keys.add((vn, pd_.isoformat() if pd_ else None,
+                               round(s_ or 0), round(q_ or 0)))
+
+    inserted = 0
+    skipped_dup = 0
+    zero_amt = 0
+    seen_batch: set = set()
+    by_vendor = defaultdict(lambda: {"ins": 0, "dup": 0})
+    for r in rows:
+        vendor = (r.get("vendor") or "").strip()
+        iname = (r.get("item_name") or "").strip()
+        try:
+            pd = date.fromisoformat(str(r.get("pdate"))[:10])
+        except Exception:
+            continue
+        if not (vendor and iname):
+            continue
+        qty = float(r.get("qty") or 0)
+        s = r.get("supply")
+        has_amt = s not in (None, "")
+        supply = round(float(s)) if has_amt else 0
+        v = r.get("vat")
+        vat = round(float(v)) if v not in (None, "") else (round(supply * 0.1) if has_amt else 0)
+        t = r.get("total")
+        total = round(float(t)) if t not in (None, "") else (supply + vat)
+        if not has_amt:
+            zero_amt += 1
+
+        key = (vendor, pd.isoformat(), supply, round(qty))
+        if dedup and (key in existing_keys or key in seen_batch):
+            skipped_dup += 1
+            by_vendor[vendor]["dup"] += 1
+            continue
+        seen_batch.add(key)
+
+        _spec, _kgpu = parse_spec(iname)
+        note = "포장비raw" + ("" if has_amt else " · 원자료 금액미기재")
+        rec = PurchaseRecord(
+            row_hash=_rec_hash({"pdate": pd.isoformat(), "seq": 0, "item_code": None,
+                                "item_name": iname, "supply": supply, "total": total, "qty": qty}),
+            pdate=pd, seq=0, vendor_name=vendor[:200], mclass=_mclass_norm(mclass),
+            item_name=iname[:400], unit="ea", qty=qty,
+            unit_price=(round(supply / qty) if qty else 0),
+            supply_amount=supply, vat=vat, total_amount=total,
+            note=note, spec=_spec, kg_per_unit=_kgpu, team=team[:20],
+            source=source, created_by=user,
+        )
+        if db.query(PurchaseRecord.id).filter(PurchaseRecord.row_hash == rec.row_hash).first():
+            skipped_dup += 1
+            by_vendor[vendor]["dup"] += 1
+            continue
+        db.add(rec)
+        inserted += 1
+        by_vendor[vendor]["ins"] += 1
+        if inserted % 200 == 0:
+            db.commit()
+    db.commit()
+    return {
+        "ok": True, "inserted": inserted, "skipped_dup": skipped_dup,
+        "zero_amount_rows": zero_amt, "vendors": len(vendors),
+        "by_vendor": {k: v for k, v in sorted(by_vendor.items(), key=lambda x: -x[1]["ins"])},
+    }
+
+
 def add_records_batch(db: Session, common: dict, lines: list[dict], user: Optional[str] = None) -> dict:
     """한 거래처 여러 품목 동시 입력. 공통(거래처·일자·창고·담당·전표No)을 각 라인에 병합."""
     ok, fail, ids, msgs = 0, 0, [], []
