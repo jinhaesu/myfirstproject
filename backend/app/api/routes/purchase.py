@@ -402,29 +402,32 @@ def export_excel(kind: str = "records",
 
 
 @router.get("/records/gap-trend")
-def gap_trend(start: str, end: str, granularity: str = "month", db: Session = Depends(get_db)):
+def gap_trend(start: str, end: str, granularity: str = "month",
+              team: Optional[str] = None, db: Session = Depends(get_db)):
     """월별 BOM이론소요 vs 실제구매 · 매출원가추정 vs 실제구매 추이."""
     s, e = _pd(start), _pd(end)
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
     from app.services import management_service as mgmt
-    return mgmt.trend(db, s, e, granularity=granularity)
+    return mgmt.trend(db, s, e, granularity=granularity, team=team)
 
 
 @router.get("/records/req-vs-actual")
-def req_vs_actual(start: str, end: str, top: int = 40, db: Session = Depends(get_db)):
+def req_vs_actual(start: str, end: str, top: int = 40,
+                  team: Optional[str] = None, db: Session = Depends(get_db)):
     s, e = _pd(start), _pd(end)
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
-    return pur.req_vs_actual(db, s, e, top=top)
+    return pur.req_vs_actual(db, s, e, top=top, team=team)
 
 
 @router.get("/records/sales-ratio")
-def sales_ratio(start: str, end: str, granularity: str = "day", db: Session = Depends(get_db)):
+def sales_ratio(start: str, end: str, granularity: str = "day",
+                team: Optional[str] = None, db: Session = Depends(get_db)):
     s, e = _pd(start), _pd(end)
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
-    return pur.sales_vs_purchase(db, s, e, granularity=granularity)
+    return pur.sales_vs_purchase(db, s, e, granularity=granularity, team=team)
 
 
 @router.get("/records/vendor-history")

@@ -721,8 +721,10 @@ def records_monthly_matrix(db: Session, year: int, by: str = "vendor",
     }
 
 
-def sales_vs_purchase(db: Session, start: date, end: date, granularity: str = "day") -> dict:
-    """기간 내 매출 대비 구매 누적비율 시계열(일/주/월)."""
+def sales_vs_purchase(db: Session, start: date, end: date, granularity: str = "day",
+                      team: Optional[str] = None) -> dict:
+    """기간 내 매출 대비 구매 누적비율 시계열(일/주/월).
+    team 지정 시 구매 측만 해당 팀으로 필터(매출은 전사 기준 유지)."""
     def bucket(d: date) -> str:
         if granularity == "month":
             return f"{d.year}-{d.month:02d}"
@@ -731,9 +733,12 @@ def sales_vs_purchase(db: Session, start: date, end: date, granularity: str = "d
             return monday.isoformat()
         return d.isoformat()
 
+    pq = db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount).filter(
+        PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
+    if team:
+        pq = pq.filter(PurchaseRecord.team == team)
     pur: dict = {}
-    for r in db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount).filter(
-            PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end).all():
+    for r in pq.all():
         if r[0]:
             pur[bucket(r[0])] = pur.get(bucket(r[0]), 0) + (r[1] or 0)
     sal: dict = {}
@@ -1031,10 +1036,12 @@ def price_tracker(db: Session, start: date, end: date,
     }
 
 
-def req_vs_actual(db: Session, start: date, end: date, top: int = 40) -> dict:
+def req_vs_actual(db: Session, start: date, end: date, top: int = 40,
+                  team: Optional[str] = None) -> dict:
     """생산 BOM 이론소요 vs 실제 구매를 품목(erp_code)별로 대조 — 히트맵/비교용.
 
     매칭키: BOM 자재 erp_code ↔ 구매 item_code. 금액=원가/공급가, 수량=소요량/구매량.
+    team 지정 시 실제구매 측만 해당 팀으로 필터(BOM 소요는 전사 기준 유지).
     """
     try:
         mr = material_requirement(db, start, end)
@@ -1050,12 +1057,14 @@ def req_vs_actual(db: Session, start: date, end: date, top: int = 40) -> dict:
         r["req_cost"] += m.get("cost", 0) or 0
 
     act: dict = {}
-    rows = db.query(
+    aq = db.query(
         PurchaseRecord.item_code, PurchaseRecord.item_name,
         func.coalesce(func.sum(PurchaseRecord.qty), 0.0),
         func.coalesce(func.sum(PurchaseRecord.supply_amount), 0.0),
-    ).filter(PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end).group_by(
-        PurchaseRecord.item_code, PurchaseRecord.item_name).all()
+    ).filter(PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
+    if team:
+        aq = aq.filter(PurchaseRecord.team == team)
+    rows = aq.group_by(PurchaseRecord.item_code, PurchaseRecord.item_name).all()
     for code, name, q, amt in rows:
         code = (str(code) or "").strip()
         key = code or name

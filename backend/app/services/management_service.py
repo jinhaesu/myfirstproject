@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -176,10 +177,12 @@ def pur_won(n) -> str:
     return f"{round(n):,}원"
 
 
-def trend(db: Session, start: date, end: date, granularity: str = "month") -> dict:
+def trend(db: Session, start: date, end: date, granularity: str = "month",
+          team: Optional[str] = None) -> dict:
     """기간 내 월/주/일별 추이 — 실제구매·매출원가추정(cost_cogs)·BOM이론소요·매출.
 
     BOM 이론소요는 동기화된 ScmProduct.default_cost(개당원가)×생산량으로 고속 계산.
+    team 지정 시 실제구매 측만 해당 팀으로 필터(매출·원가·BOM 소요는 전사 기준 유지).
     """
     import re
     from datetime import timedelta
@@ -196,8 +199,11 @@ def trend(db: Session, start: date, end: date, granularity: str = "month") -> di
 
     # 실제 구매(공급가)
     pur: dict = {}
-    for pd, amt in db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount).filter(
-            PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end).all():
+    _pq = db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount).filter(
+        PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
+    if team:
+        _pq = _pq.filter(PurchaseRecord.team == team)
+    for pd, amt in _pq.all():
         if pd:
             pur[bucket(pd)] = pur.get(bucket(pd), 0) + (amt or 0)
 
