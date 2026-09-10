@@ -246,16 +246,18 @@ class PackagingImportIn(BaseModel):
     team: str = "물류팀"
     mclass: str = "부재료"
     dedup: bool = True
+    purge_first: bool = True
 
 
 @router.post("/records/import-packaging")
 def import_packaging(body: PackagingImportIn, db: Session = Depends(get_db)):
-    """물류팀 포장비 raw 벌크 등록(멱등). (거래처+일자+공급가+수량) 중복은 건너뜀."""
+    """물류팀 포장비 raw 벌크 등록(멱등 full-replace). 멀티셋 중복제거로 이중계상·오탈락 방지."""
     if not body.rows:
         raise HTTPException(400, "rows가 비었습니다")
     rows = [r.model_dump() for r in body.rows]
     return pur.import_packaging_records(db, rows, team=body.team, mclass=body.mclass,
-                                        dedup=body.dedup, user="system:packaging-raw")
+                                        dedup=body.dedup, purge_first=body.purge_first,
+                                        user="system:packaging-raw")
 
 
 class SettleRecordsIn(BaseModel):

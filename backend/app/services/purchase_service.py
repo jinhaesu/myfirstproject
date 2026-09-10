@@ -1560,32 +1560,38 @@ def suggest_items(db: Session, q: Optional[str] = None, limit: int = 30) -> list
 
 def import_packaging_records(db: Session, rows: list[dict], team: str = "물류팀",
                              mclass: str = "부재료", source: str = "packaging_raw",
-                             dedup: bool = True, user: Optional[str] = None) -> dict:
-    """물류팀 포장비 raw(거래처별·품목별 집계) 실적 벌크 등록 — 멱등.
+                             dedup: bool = True, purge_first: bool = True,
+                             user: Optional[str] = None) -> dict:
+    """물류팀 포장비 raw(거래처별·품목별 집계) 실적 벌크 등록 — 멱등(full-replace).
 
     각 row: pdate, vendor, item_name, qty, supply?, vat?, total?
-    중복판정(dedup=True): 동일 (거래처, 일자, 공급가round, 수량round) 레코드가 이미 있으면
-    출처 불문 건너뜀 → 기존 구매일보와의 이중계상(특히 다다피엔씨) 방지. 재실행 안전.
+    멀티셋 중복제거(dedup=True): 기존(비 packaging_raw) DB에 같은
+    (거래처,일자,공급가round,수량round)이 N건이면 raw에서 딱 N건만 스킵, 나머지
+    distinct 품목은 모두 등록 → 이중계상(다다피엔씨 등)도 오탈락(같은 금액 다른 맛)도 방지.
+    purge_first=True면 기존 source=packaging_raw를 먼저 삭제 후 재적재(재실행 안전).
     금액 미기재 행(supply None)은 0으로 넣고 note에 표기.
     """
-    from collections import defaultdict
-    vendors = {(r.get("vendor") or "").strip() for r in rows if r.get("vendor")}
+    from collections import defaultdict, Counter
 
-    # 기존 DB에서 대상 거래처 레코드의 (일자,공급가round,수량round) 키 선적재
-    existing_keys: set = set()
+    purged = 0
+    if purge_first:
+        purged = db.query(PurchaseRecord).filter(PurchaseRecord.source == source).delete(
+            synchronize_session=False)
+        db.commit()
+
+    vendors = {(r.get("vendor") or "").strip() for r in rows if r.get("vendor")}
+    # 기존(비 raw) DB의 (거래처,일자,공급가round,수량round) 멀티셋 — 이미 있는 만큼만 스킵
+    existing = Counter()
     if dedup and vendors:
         ex = db.query(
             PurchaseRecord.vendor_name, PurchaseRecord.pdate,
             PurchaseRecord.supply_amount, PurchaseRecord.qty,
-        ).filter(PurchaseRecord.vendor_name.in_(vendors)).all()
+        ).filter(PurchaseRecord.vendor_name.in_(vendors),
+                 PurchaseRecord.source != source).all()
         for vn, pd_, s_, q_ in ex:
-            existing_keys.add((vn, pd_.isoformat() if pd_ else None,
-                               round(s_ or 0), round(q_ or 0)))
+            existing[(vn, pd_.isoformat() if pd_ else None, round(s_ or 0), round(q_ or 0))] += 1
 
-    inserted = 0
-    skipped_dup = 0
-    zero_amt = 0
-    seen_batch: set = set()
+    inserted = skipped_dup = zero_amt = 0
     by_vendor = defaultdict(lambda: {"ins": 0, "dup": 0})
     for r in rows:
         vendor = (r.get("vendor") or "").strip()
@@ -1608,17 +1614,18 @@ def import_packaging_records(db: Session, rows: list[dict], team: str = "물류�
             zero_amt += 1
 
         key = (vendor, pd.isoformat(), supply, round(qty))
-        if dedup and (key in existing_keys or key in seen_batch):
+        if dedup and existing.get(key, 0) > 0:
+            existing[key] -= 1          # 기존 DB에 있는 만큼만 상쇄 → 나머지는 등록
             skipped_dup += 1
             by_vendor[vendor]["dup"] += 1
             continue
-        seen_batch.add(key)
 
         _spec, _kgpu = parse_spec(iname)
         note = "포장비raw" + ("" if has_amt else " · 원자료 금액미기재")
         rec = PurchaseRecord(
             row_hash=_rec_hash({"pdate": pd.isoformat(), "seq": 0, "item_code": None,
-                                "item_name": iname, "supply": supply, "total": total, "qty": qty}),
+                                "item_name": iname, "supply": supply, "total": total,
+                                "qty": qty, "src": source}),
             pdate=pd, seq=0, vendor_name=vendor[:200], mclass=_mclass_norm(mclass),
             item_name=iname[:400], unit="ea", qty=qty,
             unit_price=(round(supply / qty) if qty else 0),
@@ -1626,10 +1633,6 @@ def import_packaging_records(db: Session, rows: list[dict], team: str = "물류�
             note=note, spec=_spec, kg_per_unit=_kgpu, team=team[:20],
             source=source, created_by=user,
         )
-        if db.query(PurchaseRecord.id).filter(PurchaseRecord.row_hash == rec.row_hash).first():
-            skipped_dup += 1
-            by_vendor[vendor]["dup"] += 1
-            continue
         db.add(rec)
         inserted += 1
         by_vendor[vendor]["ins"] += 1
@@ -1637,7 +1640,7 @@ def import_packaging_records(db: Session, rows: list[dict], team: str = "물류�
             db.commit()
     db.commit()
     return {
-        "ok": True, "inserted": inserted, "skipped_dup": skipped_dup,
+        "ok": True, "purged_prev": purged, "inserted": inserted, "skipped_dup": skipped_dup,
         "zero_amount_rows": zero_amt, "vendors": len(vendors),
         "by_vendor": {k: v for k, v in sorted(by_vendor.items(), key=lambda x: -x[1]["ins"])},
     }
