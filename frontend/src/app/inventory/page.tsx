@@ -260,6 +260,8 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
             <StatCard label="품절" value={fmt(d.out_of_stock_count)} tone="text-danger" sub="현재고 0 이하" />
           </div>
 
+          <StockValuationPanel />
+
           {(() => {
             const oos = d.out_of_stock_count, short = d.shortage_count;
             const normal = Math.max(d.product_count - oos - short, 0);
@@ -767,6 +769,7 @@ function MaterialInventoryTab() {
   const [modal, setModal] = useState<any>(null);       // null | 'new' | prefill obj
   const [openings, setOpenings] = useState<any[]>([]);
   const [showOpen, setShowOpen] = useState(false);
+  const [showReg, setShowReg] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -802,10 +805,13 @@ function MaterialInventoryTab() {
         </select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·코드 검색" className={`${C.input} w-40`} />
         <div className="ml-auto flex gap-1.5">
+          <button onClick={() => setShowReg(!showReg)} className={`${C.btn} ${showReg ? C.btnPrimary : C.btnGhost}`}>미등록 자재 등록</button>
           <button onClick={() => setShowOpen(!showOpen)} className={`${C.btn} ${C.btnGhost}`}>기초앵커 {openings.length}건</button>
-          <button onClick={() => setModal('new')} className={`${C.btn} ${C.btnPrimary}`}>+ 기초재고 입력</button>
+          <button onClick={() => setModal('new')} className={`${C.btn} ${C.btnGhost}`}>+ 기초재고</button>
         </div>
       </div>
+
+      {showReg && <MaterialRegisterPanel range={range} onDone={() => load()} />}
 
       {d && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -913,6 +919,74 @@ function MaterialInventoryTab() {
       </div>
 
       {modal && <MaterialOpeningModal prefill={modal === 'new' ? null : modal} onClose={() => setModal(null)} onSaved={() => { setModal(null); loadOpenings(); load(); }} />}
+    </div>
+  );
+}
+
+function MaterialRegisterPanel({ range, onDone }: { range: { start: string; end: string }; onDone: () => void }) {
+  const [d, setD] = useState<any>(null);
+  const [sel, setSel] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [onlyRaw, setOnlyRaw] = useState(true);
+  const load = useCallback(async () => {
+    setD(await getJSON<any>(`/inventory/material-unregistered?start=${range.start}&end=${range.end}&limit=120`, null));
+  }, [range]);
+  useEffect(() => { load(); }, [load]);
+  if (!d) return <div className={`${C.card} p-4 text-sm text-text-quaternary`}>미등록 자재 분석 중…</div>;
+  const rows = (d.rows || []).filter((r: any) => !onlyRaw || r.suggested_type === 'raw');
+  const selRows = rows.filter((r: any) => sel[r.material_key]);
+  const toggle = (k: string) => setSel((s) => ({ ...s, [k]: !s[k] }));
+  const allOn = rows.length > 0 && rows.every((r: any) => sel[r.material_key]);
+  const toggleAll = () => { const n: Record<string, boolean> = {}; if (!allOn) rows.forEach((r: any) => { n[r.material_key] = true; }); setSel(n); };
+  const register = async () => {
+    if (!selRows.length) { setMsg('등록할 자재를 선택하세요'); return; }
+    setSaving(true); setMsg(null);
+    const items = selRows.map((r: any) => ({ name: r.name, erp_code: r.code, type: r.suggested_type, mclass: r.mclass, vendor: r.vendor, unit: r.unit, last_price: r.last_price, kg_price: r.kg_price }));
+    const res = await send('/inventory/material-register', 'POST', { items });
+    setSaving(false);
+    if (res.ok) { setMsg(`등록 ${res.data.created}건 (중복 ${res.data.skipped})`); setSel({}); await load(); onDone(); }
+    else setMsg(res.data?.detail || '등록 실패');
+  };
+  return (
+    <div className={`${C.card} p-4 space-y-3 border border-warning/30`}>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <div className="text-sm font-bold text-text-primary">BOM 미등록 매입 자재 <span className="text-warning">{fmt(d.count)}건</span></div>
+          <div className="text-[11px] text-text-quaternary">미등록 매입액 합 {won(d.total_unregistered_value)} · 유사 마스터 있음 {fmt(d.has_similar_master)}건(코드/이름 불일치)</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1 text-xs text-text-secondary cursor-pointer"><input type="checkbox" checked={onlyRaw} onChange={(e) => setOnlyRaw(e.target.checked)} /> 원재료만</label>
+          <button onClick={register} disabled={saving || selRows.length === 0} className={`${C.btn} ${C.btnPrimary} disabled:opacity-40`}>{saving ? '등록 중…' : `선택 ${selRows.length}건 SCM 등록`}</button>
+        </div>
+      </div>
+      <p className="text-[11px] text-text-quaternary">※ 자재 <b>마스터(이름·단가·거래처)만</b> 등록합니다. 실제 소모 차감은 이후 <b>SCM › BOM 화면에서 레시피(배합비) 연결</b> 시 반영됩니다(배합비는 여기서 다루지 않음). ‘유사 마스터 있음’은 이미 등록됐으니 그 마스터의 코드/별칭 보정이 우선입니다.</p>
+      <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-bg-1"><tr>
+            <th className={`${C.th} w-8`}><input type="checkbox" checked={allOn} onChange={toggleAll} /></th>
+            <th className={C.th}>품목</th><th className={C.th}>구분·팀</th>
+            <th className={`${C.th} text-right`}>매입액</th><th className={`${C.th} text-right`}>최근단가</th>
+            <th className={`${C.th} text-right`}>kg단가</th><th className={C.th}>거래처</th><th className={C.th}>유사 마스터</th>
+          </tr></thead>
+          <tbody>
+            {rows.length === 0 && <tr><td colSpan={8} className="p-4 text-center text-text-quaternary text-sm">미등록 자재 없음</td></tr>}
+            {rows.map((r: any) => (
+              <tr key={r.material_key} className={`hover:bg-bg-1 ${sel[r.material_key] ? 'bg-brand/5' : ''}`}>
+                <td className={C.td}><input type="checkbox" checked={!!sel[r.material_key]} onChange={() => toggle(r.material_key)} /></td>
+                <td className={`${C.td} text-text-primary max-w-[240px] truncate`} title={r.name}>{r.name}{r.code && <span className="ml-1 text-[10px] text-text-quaternary">{r.code}</span>}</td>
+                <td className={C.td}><span className={`text-xs ${r.suggested_type === 'raw' ? 'text-info' : 'text-warning'}`}>{r.mclass || (r.suggested_type === 'raw' ? '원재료' : '부자재')}</span>{r.team && <span className="text-[10px] text-text-quaternary ml-1">· {r.team.replace('팀', '')}</span>}</td>
+                <td className={`${C.td} text-right tabular-nums text-warning`}>{won(r.purchase_value)}</td>
+                <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{r.last_price ? won(r.last_price) : '-'}<span className="text-[10px] text-text-quaternary">{r.unit ? `/${r.unit}` : ''}</span></td>
+                <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{r.kg_price ? won(r.kg_price) : '-'}</td>
+                <td className={`${C.td} text-xs text-text-tertiary max-w-[120px] truncate`} title={r.vendor}>{r.vendor || '-'}</td>
+                <td className={C.td}>{r.master_suggestion ? <span className="text-[10px] text-success-light" title={r.master_suggestion.name}>있음: {r.master_suggestion.name.slice(0, 12)}</span> : <span className="text-[10px] text-text-quaternary">신규</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {msg && <div className="text-xs text-accent">{msg}</div>}
     </div>
   );
 }

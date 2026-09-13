@@ -500,6 +500,29 @@ def delete_material_opening(oid: int, db: Session = Depends(get_db),
     return {"ok": True, "deleted": n}
 
 
+@router.get("/material-unregistered")
+def get_material_unregistered(start: str, end: str, limit: int = 80,
+                              db: Session = Depends(get_db)):
+    """BOM 마스터 미등록(구매만) 매입 자재 진단 — 등록 우선순위."""
+    s, e = _parse_date(start), _parse_date(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return inv.material_unregistered(db, s, e, limit=limit)
+
+
+class MaterialRegisterIn(BaseModel):
+    items: list[dict] = []
+
+
+@router.post("/material-register")
+def post_material_register(body: MaterialRegisterIn, db: Session = Depends(get_db),
+                           user: dict = Depends(get_current_user)):
+    """선택 자재를 SCM 자재 마스터에 등록(마스터만, 배합비 제외)."""
+    if not body.items:
+        raise HTTPException(400, "items 비었음")
+    return inv.register_materials(db, body.items, user=user.get("email"))
+
+
 @router.get("/report.xlsx")
 def report_xlsx(as_of: Optional[str] = None, warehouse_id: Optional[int] = None,
                 category: Optional[str] = None, db: Session = Depends(get_db)):

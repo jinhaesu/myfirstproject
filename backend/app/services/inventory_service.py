@@ -994,6 +994,124 @@ def material_inventory(db: Session, start: date, end: date,
     }
 
 
+def material_unregistered(db: Session, start: date, end: date, limit: int = 80) -> dict:
+    """BOM 자재 마스터에 없는(미매칭·구매만) 매입 자재 진단 — 등록 우선순위 워크리스트.
+
+    각 후보: 매입액·수량·최근단가·거래처·팀·구분 + 유사 마스터 추정(코드/별칭 불일치 여부).
+    배합비(레시피)는 다루지 않음 — 마스터 등록만 지원.
+    """
+    from app.services import purchase_service as pur
+    erp_set, name2key, meta = _bom_material_index(db)
+
+    # 마스터 이름 인덱스(유사매칭 제안용)
+    master_names = []
+    from app.db_models import ScmRawMaterial, ScmSubMaterial
+    for m in db.query(ScmRawMaterial).all():
+        master_names.append((_matchnorm(m.name), m.name, "raw"))
+    for m in db.query(ScmSubMaterial).all():
+        master_names.append((_matchnorm(m.name), m.name, "sub"))
+
+    rows = db.query(
+        PurchaseRecord.item_code, PurchaseRecord.item_name, PurchaseRecord.mclass,
+        PurchaseRecord.team, PurchaseRecord.vendor_name, PurchaseRecord.qty,
+        PurchaseRecord.supply_amount, PurchaseRecord.unit_price, PurchaseRecord.unit,
+        PurchaseRecord.kg_per_unit, PurchaseRecord.pdate,
+    ).filter(PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end).all()
+
+    cand: dict[str, dict] = {}
+    for code, name, mc, tm, vend, qty, sup, up, unit, kgpu, pd in rows:
+        k, in_bom = _resolve_material(code, name, erp_set, name2key)
+        if in_bom:
+            continue   # 이미 마스터에 매칭됨
+        c = cand.setdefault(k, {"name": name, "code": (str(code).strip() if code else None),
+                                "team": tm, "mclass": mc, "unit": unit,
+                                "value": 0.0, "qty": 0.0, "last_price": 0.0, "last_date": None,
+                                "kg_per_unit": kgpu, "vendors": {}})
+        c["value"] += float(sup or 0)
+        c["qty"] += float(qty or 0)
+        c["vendors"][vend or "미지정"] = c["vendors"].get(vend or "미지정", 0.0) + float(sup or 0)
+        if pd and (c["last_date"] is None or pd.isoformat() > c["last_date"]):
+            c["last_date"] = pd.isoformat()
+            c["last_price"] = float(up or 0)
+            c["unit"] = unit
+            c["kg_per_unit"] = kgpu
+            c["team"] = tm
+            c["mclass"] = mc
+
+    out = []
+    for k, c in cand.items():
+        cn = _matchnorm(c["name"])
+        sug = None
+        for mn, orig, typ in master_names:
+            if mn and len(mn) >= 2 and (mn in cn or cn in mn):
+                sug = {"name": orig, "type": typ}
+                break
+        vendor = max(c["vendors"].items(), key=lambda x: x[1])[0] if c["vendors"] else None
+        stype = "raw" if (c["mclass"] == "원재료") else "sub"
+        kgpu = c.get("kg_per_unit")
+        kg_price = round(c["last_price"] / kgpu) if (stype == "raw" and kgpu) else None
+        out.append({
+            "material_key": k, "name": c["name"], "code": c["code"],
+            "team": c["team"], "mclass": c["mclass"], "unit": c["unit"],
+            "purchase_value": round(c["value"]), "purchase_qty": round(c["qty"], 2),
+            "last_price": round(c["last_price"]), "kg_per_unit": kgpu,
+            "kg_price": kg_price, "vendor": vendor,
+            "suggested_type": stype,
+            "master_suggestion": sug,   # 이미 유사 마스터 존재(코드/별칭 불일치)면 이름
+        })
+    out.sort(key=lambda x: -x["purchase_value"])
+    total_unreg = round(sum(x["purchase_value"] for x in out))
+    return {
+        "count": len(out), "total_unregistered_value": total_unreg,
+        "has_similar_master": sum(1 for x in out if x["master_suggestion"]),
+        "rows": out[:limit],
+        "note": "여기 자재를 SCM 자재 마스터에 등록하면 이후 BOM 레시피 연결 시 소모가 재고에서 차감됩니다. "
+                "‘유사 마스터 있음’은 이미 등록됐으나 코드/이름이 달라 매칭 안 된 경우 — 그 마스터에 코드/별칭 보정이 우선.",
+    }
+
+
+def register_materials(db: Session, items: list[dict], user: Optional[str] = None) -> dict:
+    """선택 자재를 SCM 자재 마스터에 등록(멱등). raw→scm_raw_materials, sub→scm_sub_materials.
+    배합비(레시피)는 생성하지 않음 — 마스터만."""
+    from app.db_models import ScmRawMaterial, ScmSubMaterial
+    created = skipped = 0
+    for it in items:
+        name = (it.get("name") or "").strip()
+        if not name:
+            continue
+        code = (str(it.get("erp_code") or it.get("code") or "").strip()) or None
+        typ = it.get("type") or ("raw" if it.get("mclass") == "원재료" else "sub")
+        supplier = it.get("vendor") or it.get("supplier")
+        unit = it.get("unit")
+        if typ == "raw":
+            exists = db.query(ScmRawMaterial.id).filter(
+                (ScmRawMaterial.erp_code == code) if code else (ScmRawMaterial.name == name)).first()
+            if exists:
+                skipped += 1
+                continue
+            db.add(ScmRawMaterial(
+                erp_code=code, name=name[:300], supplier=supplier,
+                material_class="원재료", unit=unit,
+                kg_price=float(it.get("kg_price") or 0),
+                spec_price=float(it.get("last_price") or 0),
+                is_active=True, notes="구매실적 기반 자동등록(배합비 미설정)"))
+            created += 1
+        else:
+            exists = db.query(ScmSubMaterial.id).filter(
+                (ScmSubMaterial.erp_code == code) if code else (ScmSubMaterial.name == name)).first()
+            if exists:
+                skipped += 1
+                continue
+            db.add(ScmSubMaterial(
+                erp_code=code, name=name[:300], supplier=supplier,
+                material_class="부자재", unit=unit,
+                unit_price=float(it.get("last_price") or 0),
+                is_active=True, notes="구매실적 기반 자동등록(배합비 미설정)"))
+            created += 1
+    db.commit()
+    return {"ok": True, "created": created, "skipped": skipped}
+
+
 # ──────────────────────────────────────────────
 # 생산 실적 (RAW-DATA 엑셀 → 재고 보충)
 # ──────────────────────────────────────────────
