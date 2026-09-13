@@ -729,40 +729,50 @@ def stock_valuation(db: Session, as_of: Optional[date] = None,
         prod_total[pid] = prod_total.get(pid, 0.0) + qty
 
     rows = []
-    total_value = 0.0
+    pos_value = 0.0        # 실보유 재고가액(양수 재고만) — CEO용 헤드라인
+    net_value = 0.0        # 순 장부가액(음수재고 포함)
     total_qty = 0.0
     no_cost = 0
+    neg_count = 0          # 음수 재고(초과판매·생산 미기록) 품목수 — 데이터 점검 대상
     by_cat: dict[str, dict] = {}
     for pid, qty in prod_total.items():
         prod = products.get(pid)
         if prod is None:
             continue
         uc = float(cost.get(pid, 0) or 0)
-        val = qty * uc
-        total_value += val
+        val = qty * uc                       # 음수 가능(음수재고)
+        pv = max(qty, 0.0) * uc              # 양수 재고만
+        net_value += val
+        pos_value += pv
         total_qty += qty
         if uc <= 0 and abs(qty) > 1e-9:
             no_cost += 1
+        if qty < -1e-9:
+            neg_count += 1
         cat = prod.get("category") or "미분류"
         bc = by_cat.setdefault(cat, {"category": cat, "qty": 0.0, "value": 0.0})
         bc["qty"] += qty
-        bc["value"] += val
+        bc["value"] += pv                    # 카테고리도 양수 재고 기준
         safety = _resolve_safety(smap, warehouse_id, pid)
         rows.append({
             "product_id": pid, "product_code": prod["code"], "product_name": prod["name"],
             "category": cat, "qty": round(qty, 2), "unit": prod.get("unit"),
-            "unit_cost": round(uc), "value": round(val),
+            "unit_cost": round(uc), "value": round(pv),
             "status": stock_status(qty, safety), "has_cost": uc > 0,
+            "negative": qty < -1e-9,
         })
-    rows.sort(key=lambda r: -r["value"])
+    # 양수 재고가액 큰 순, 음수재고는 뒤로
+    rows.sort(key=lambda r: (r["negative"], -r["value"] if not r["negative"] else r["qty"]))
     return {
         "as_of": eff.isoformat(),
         "basis": basis,                       # count=마지막실사일 / as_of=지정일 / today=오늘
         "last_count_date": last_count.isoformat() if last_count else None,
-        "total_value": round(total_value),
+        "total_value": round(pos_value),      # 실보유 재고가액(양수만)
+        "net_value": round(net_value),        # 순 장부가액(음수 포함) — 참고
         "total_qty": round(total_qty, 2),
-        "product_count": sum(1 for r in rows if abs(r["qty"]) > 1e-9),
+        "product_count": sum(1 for r in rows if r["qty"] > 1e-9),
         "no_cost_count": no_cost,
+        "negative_count": neg_count,
         "by_category": sorted(
             [{"category": k, "qty": round(v["qty"], 2), "value": round(v["value"])}
              for k, v in by_cat.items()], key=lambda x: -x["value"]),

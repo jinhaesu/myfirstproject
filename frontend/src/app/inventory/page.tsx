@@ -730,11 +730,18 @@ function StockValuationPanel() {
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="총 재고가액" value={won(v.total_value)} tone="text-brand" sub={`기준일 ${v.as_of}`} />
-        <StatCard label="총 재고수량" value={numShort(v.total_qty)} sub="낱개" />
-        <StatCard label="평가 품목수" value={fmt(v.product_count)} />
+        <StatCard label="실보유 재고가액" value={won(v.total_value)} tone="text-brand" sub={v.net_value !== v.total_value ? `순장부 ${wonShort(v.net_value)}` : `기준일 ${v.as_of}`} />
+        <StatCard label="평가 품목수" value={fmt(v.product_count)} sub={`총 ${numShort(v.total_qty)}낱개`} />
         <StatCard label="원가 미상" value={fmt(v.no_cost_count)} tone={v.no_cost_count > 0 ? 'text-warning' : 'text-success'} sub="가액 미반영" />
+        <StatCard label="음수 재고" value={fmt(v.negative_count)} tone={v.negative_count > 0 ? 'text-danger' : 'text-success'} sub="초과판매·생산누락" />
       </div>
+      {(v.no_cost_count > 0 || v.negative_count > 0) && (
+        <p className="text-[11px] text-text-quaternary">
+          ※ 실보유 가액 = 양수 재고 × 개당원가(SCM default_cost) 합산.
+          {v.no_cost_count > 0 && ` 원가 미상 ${v.no_cost_count}품목은 SCM 원가 등록 시 반영됩니다.`}
+          {v.negative_count > 0 && ` 음수 재고 ${v.negative_count}품목은 실사·생산실적 보정이 필요합니다.`}
+        </p>
+      )}
       {(v.by_category || []).length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {v.by_category.map((b: any) => (
@@ -758,9 +765,9 @@ function StockValuationPanel() {
               <tr key={r.product_id} className="hover:bg-bg-1">
                 <td className={`${C.td} text-text-primary`}>{r.product_name}{!r.has_cost && <span className="ml-1 text-[10px] text-warning" title="개당원가 미상 — 가액 0">원가?</span>}</td>
                 <td className={`${C.td} text-text-tertiary text-xs`}>{r.category}</td>
-                <td className={`${C.td} text-right tabular-nums`}>{numShort(r.qty)}{r.unit ? ` ${r.unit}` : ''}</td>
+                <td className={`${C.td} text-right tabular-nums ${r.negative ? 'text-danger' : ''}`}>{numShort(r.qty)}{r.unit ? ` ${r.unit}` : ''}</td>
                 <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{r.unit_cost ? won(r.unit_cost) : '-'}</td>
-                <td className={`${C.td} text-right tabular-nums font-semibold text-brand`}>{won(r.value)}</td>
+                <td className={`${C.td} text-right tabular-nums font-semibold ${r.negative ? 'text-danger' : 'text-brand'}`}>{r.negative ? '음수재고' : won(r.value)}</td>
                 <td className={C.td}><span className={`text-[11px] ${r.status === '품절' ? 'text-danger' : r.status === '부족' ? 'text-warning' : r.status === '주의' ? 'text-warning' : 'text-success-light'}`}>{r.status}</span></td>
               </tr>
             ))}
