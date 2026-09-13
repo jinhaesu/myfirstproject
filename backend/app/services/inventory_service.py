@@ -672,6 +672,105 @@ def dashboard(db: Session, as_of: Optional[date] = None) -> dict:
 
 
 # ──────────────────────────────────────────────
+# 재고 가액 (마지막 실사일 기준 잔여 재고가액 + 품목별)
+# ──────────────────────────────────────────────
+
+def _product_cost_map(db: Session) -> dict[int, float]:
+    """{csa_product_id: 개당원가}. SCM 동기화 default_cost 기준, csa_product_id 우선·이름 폴백."""
+    from app.db_models import ScmProduct
+    by_id: dict[int, float] = {}
+    by_norm: dict[str, float] = {}
+    for s in db.query(ScmProduct).all():
+        c = float(s.default_cost or 0)
+        if not c:
+            continue
+        if s.csa_product_id:
+            by_id.setdefault(s.csa_product_id, c)
+        if s.product_name:
+            by_norm.setdefault(_norm(s.product_name), c)
+    # 이름 폴백 매핑
+    out = dict(by_id)
+    for p in db.query(ProductMaster).all():
+        if p.id in out:
+            continue
+        c = by_norm.get(_norm(p.name or ""))
+        if c:
+            out[p.id] = c
+    return out
+
+
+def last_confirmed_count_date(db: Session) -> Optional[date]:
+    """가장 최근 확정(confirmed)된 재고 실사일. 없으면 None."""
+    from app.db_models import InventoryCountSession
+    row = db.query(InventoryCountSession.count_date).filter(
+        InventoryCountSession.status == "confirmed").order_by(
+        InventoryCountSession.count_date.desc(),
+        InventoryCountSession.id.desc()).first()
+    return row[0] if row else None
+
+
+def stock_valuation(db: Session, as_of: Optional[date] = None,
+                    warehouse_id: Optional[int] = None) -> dict:
+    """재고 가액 = Σ(현재고 × 개당원가). as_of 미지정 시 '마지막 확정 실사일' 기준.
+
+    반환: 기준일·실사기반여부·총재고가액·총수량·품목수·원가미상품목수·카테고리별·품목별(top).
+    """
+    last_count = last_confirmed_count_date(db)
+    basis = "count" if (as_of is None and last_count) else ("as_of" if as_of else "today")
+    eff = as_of or last_count or date.today()
+
+    products = load_products(db)
+    cost = _product_cost_map(db)
+    smap = _safety_map(db)
+    stock = current_stock_map(db, as_of=eff, warehouse_id=warehouse_id)
+
+    prod_total: dict[int, float] = {}
+    for (_wid, pid), qty in stock.items():
+        prod_total[pid] = prod_total.get(pid, 0.0) + qty
+
+    rows = []
+    total_value = 0.0
+    total_qty = 0.0
+    no_cost = 0
+    by_cat: dict[str, dict] = {}
+    for pid, qty in prod_total.items():
+        prod = products.get(pid)
+        if prod is None:
+            continue
+        uc = float(cost.get(pid, 0) or 0)
+        val = qty * uc
+        total_value += val
+        total_qty += qty
+        if uc <= 0 and abs(qty) > 1e-9:
+            no_cost += 1
+        cat = prod.get("category") or "미분류"
+        bc = by_cat.setdefault(cat, {"category": cat, "qty": 0.0, "value": 0.0})
+        bc["qty"] += qty
+        bc["value"] += val
+        safety = _resolve_safety(smap, warehouse_id, pid)
+        rows.append({
+            "product_id": pid, "product_code": prod["code"], "product_name": prod["name"],
+            "category": cat, "qty": round(qty, 2), "unit": prod.get("unit"),
+            "unit_cost": round(uc), "value": round(val),
+            "status": stock_status(qty, safety), "has_cost": uc > 0,
+        })
+    rows.sort(key=lambda r: -r["value"])
+    return {
+        "as_of": eff.isoformat(),
+        "basis": basis,                       # count=마지막실사일 / as_of=지정일 / today=오늘
+        "last_count_date": last_count.isoformat() if last_count else None,
+        "total_value": round(total_value),
+        "total_qty": round(total_qty, 2),
+        "product_count": sum(1 for r in rows if abs(r["qty"]) > 1e-9),
+        "no_cost_count": no_cost,
+        "by_category": sorted(
+            [{"category": k, "qty": round(v["qty"], 2), "value": round(v["value"])}
+             for k, v in by_cat.items()], key=lambda x: -x["value"]),
+        "rows": rows,
+    }
+
+
+# ──────────────────────────────────────────────
 # 생산 실적 (RAW-DATA 엑셀 → 재고 보충)
 # ──────────────────────────────────────────────
 

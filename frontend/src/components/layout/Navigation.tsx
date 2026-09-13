@@ -49,13 +49,21 @@ const navGroups: NavGroup[] = [
   },
   {
     key: 'logistics',
-    label: '물류·생산 관리',
+    label: '작업 관리',
+    icon: 'production',
+    pathPrefix: ['/inventory/logistics', '/inventory/production'],
+    items: [
+      { href: '/inventory/logistics', label: '물류 작업 실적', icon: 'orders' },
+      { href: '/inventory/production', label: '생산 작업 실적', icon: 'production' },
+    ],
+  },
+  {
+    key: 'inventory',
+    label: '재고 관리',
     icon: 'inventory',
     pathPrefix: ['/inventory'],
     items: [
-      { href: '/inventory', label: '물류/재고 실적', icon: 'inventory' },
-      { href: '/inventory/logistics', label: '물류 작업 실적', icon: 'orders' },
-      { href: '/inventory/production', label: '생산 실적', icon: 'production' },
+      { href: '/inventory', label: '재고 현황·실사', icon: 'inventory' },
     ],
   },
   {
@@ -83,16 +91,6 @@ const navGroups: NavGroup[] = [
     pathPrefix: ['/management'],
     items: [
       { href: '/management', label: '경영 교차분석', icon: 'target' },
-    ],
-  },
-  {
-    key: 'cs',
-    label: 'CS 관리',
-    icon: 'voiceCs',
-    pathPrefix: ['/sabangnet/cs', '/sabangnet/voice-cs'],
-    items: [
-      { href: '/sabangnet/cs', label: '게시판 CS 대응', icon: 'cs' },
-      { href: '/sabangnet/voice-cs', label: '음성 CS 대응', icon: 'voiceCs' },
     ],
   },
   {
@@ -237,9 +235,14 @@ export function Navigation() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // 가장 구체적인(긴) pathPrefix를 가진 그룹만 활성 — /inventory vs /inventory/logistics 중복 강조 방지
+  const _matchLen = (group: NavGroup) =>
+    Math.max(0, ...group.pathPrefix.filter((p) => p !== '/' && pathname.startsWith(p)).map((p) => p.length));
+  const bestMatchLen = Math.max(0, ...visibleGroups.map(_matchLen));
   const isGroupActive = (group: NavGroup) => {
-    if (pathname === '/' && group.pathPrefix.includes('/')) return true;
-    return group.pathPrefix.some((p) => p !== '/' && pathname.startsWith(p));
+    if (pathname === '/') return group.pathPrefix.includes('/');
+    const my = _matchLen(group);
+    return my > 0 && my === bestMatchLen;
   };
 
   return (

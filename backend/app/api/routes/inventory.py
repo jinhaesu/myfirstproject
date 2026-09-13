@@ -416,6 +416,13 @@ def get_dashboard(as_of: Optional[str] = None, db: Session = Depends(get_db)):
     return inv.dashboard(db, as_of=_parse_date(as_of))
 
 
+@router.get("/valuation")
+def get_valuation(as_of: Optional[str] = None, warehouse_id: Optional[int] = None,
+                  db: Session = Depends(get_db)):
+    """재고 가액 = Σ(현재고×개당원가). as_of 미지정 시 마지막 확정 실사일 기준."""
+    return inv.stock_valuation(db, as_of=_parse_date(as_of), warehouse_id=warehouse_id)
+
+
 @router.get("/report.xlsx")
 def report_xlsx(as_of: Optional[str] = None, warehouse_id: Optional[int] = None,
                 category: Optional[str] = None, db: Session = Depends(get_db)):

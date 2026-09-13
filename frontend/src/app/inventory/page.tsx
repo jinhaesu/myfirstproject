@@ -78,6 +78,8 @@ const C = {
 };
 const fmt = (n: number | null | undefined) => (n === null || n === undefined ? '-' : Number(n).toLocaleString('ko-KR'));
 const numShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(2).replace(/\.00$/, '') + '억'; if (a >= 1e4) return (n / 1e4).toFixed(1).replace(/\.0$/, '') + '만'; return Math.round(n || 0).toLocaleString('ko-KR'); };
+const won = (n: number | null | undefined) => (n === null || n === undefined ? '-' : '₩' + Math.round(Number(n)).toLocaleString('ko-KR'));
+const wonShort = (n: number) => '₩' + numShort(n);
 
 function StatusBadge({ s }: { s: string }) {
   const m: Record<string, string> = {
@@ -709,6 +711,67 @@ function ReplenishmentTab({ warehouses }: { warehouses: Warehouse[] }) {
 // ═════════════════════════════════════════════════════════
 // 재고 실사
 // ═════════════════════════════════════════════════════════
+function StockValuationPanel() {
+  const [v, setV] = useState<any>(null);
+  const [showAll, setShowAll] = useState(false);
+  useEffect(() => { getJSON<any>('/inventory/valuation', null).then(setV); }, []);
+  if (!v) return null;
+  const isCount = v.basis === 'count';
+  const rows = (v.rows || []).filter((r: any) => Math.abs(r.qty) > 0);
+  const shown = showAll ? rows : rows.slice(0, 12);
+  return (
+    <div className={`${C.card} p-4 space-y-3`}>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="text-sm font-bold text-text-primary">재고 가액</div>
+        <div className="text-xs">
+          {isCount
+            ? <span className="text-success-light">✔ 마지막 확정 실사 <b>{v.last_count_date}</b> 기준</span>
+            : <span className="text-warning">확정 실사 없음 — {v.as_of} 시스템재고 기준</span>}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="총 재고가액" value={won(v.total_value)} tone="text-brand" sub={`기준일 ${v.as_of}`} />
+        <StatCard label="총 재고수량" value={numShort(v.total_qty)} sub="낱개" />
+        <StatCard label="평가 품목수" value={fmt(v.product_count)} />
+        <StatCard label="원가 미상" value={fmt(v.no_cost_count)} tone={v.no_cost_count > 0 ? 'text-warning' : 'text-success'} sub="가액 미반영" />
+      </div>
+      {(v.by_category || []).length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {v.by_category.map((b: any) => (
+            <span key={b.category} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-bg-inset text-[11px]">
+              <span className="text-text-quaternary">{b.category}</span>
+              <span className="tabular-nums font-semibold text-text-secondary">{wonShort(b.value)}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr>
+            <th className={C.th}>품목</th><th className={C.th}>분류</th>
+            <th className={`${C.th} text-right`}>현재고</th><th className={`${C.th} text-right`}>개당원가</th>
+            <th className={`${C.th} text-right`}>재고가액</th><th className={C.th}>상태</th>
+          </tr></thead>
+          <tbody>
+            {shown.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-text-quaternary text-sm">재고 없음</td></tr>}
+            {shown.map((r: any) => (
+              <tr key={r.product_id} className="hover:bg-bg-1">
+                <td className={`${C.td} text-text-primary`}>{r.product_name}{!r.has_cost && <span className="ml-1 text-[10px] text-warning" title="개당원가 미상 — 가액 0">원가?</span>}</td>
+                <td className={`${C.td} text-text-tertiary text-xs`}>{r.category}</td>
+                <td className={`${C.td} text-right tabular-nums`}>{numShort(r.qty)}{r.unit ? ` ${r.unit}` : ''}</td>
+                <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{r.unit_cost ? won(r.unit_cost) : '-'}</td>
+                <td className={`${C.td} text-right tabular-nums font-semibold text-brand`}>{won(r.value)}</td>
+                <td className={C.td}><span className={`text-[11px] ${r.status === '품절' ? 'text-danger' : r.status === '부족' ? 'text-warning' : r.status === '주의' ? 'text-warning' : 'text-success-light'}`}>{r.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > 12 && <button onClick={() => setShowAll(!showAll)} className="text-xs text-accent hover:underline">{showAll ? '접기' : `전체 ${rows.length}품목 보기`}</button>}
+    </div>
+  );
+}
+
 function CountTab({ warehouses }: { warehouses: Warehouse[] }) {
   const [sessions, setSessions] = useState<CountSession[]>([]);
   const [openId, setOpenId] = useState<number | null>(null);
@@ -739,6 +802,7 @@ function CountTab({ warehouses }: { warehouses: Warehouse[] }) {
 
   return (
     <div className="space-y-4">
+      <StockValuationPanel />
       <div className="flex items-center justify-between">
         <span className="text-sm text-text-tertiary">주·월·분기 실사로 시스템재고와 실재고를 대조합니다. 차이 발생 시 수정 사유 입력이 필수입니다.</span>
         <button onClick={() => setCreating(!creating)} className={`${C.btn} ${C.btnPrimary}`}>+ 실사 세션</button>

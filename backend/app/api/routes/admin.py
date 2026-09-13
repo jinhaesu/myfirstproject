@@ -31,11 +31,11 @@ GATES = {
 MENUS = [
     {"key": "sales", "label": "영업부 매출 관리·분석"},
     {"key": "scm", "label": "SCM 관리"},
-    {"key": "logistics", "label": "물류·생산 관리"},
+    {"key": "logistics", "label": "작업 관리"},
+    {"key": "inventory", "label": "재고 관리"},
     {"key": "mapping", "label": "매핑 관리"},
     {"key": "purchase", "label": "구매 관리"},
     {"key": "management", "label": "경영관리"},
-    {"key": "cs", "label": "CS 관리"},
 ]
 MENU_KEYS = {m["key"] for m in MENUS}
 DEFAULT_MENUS = ["sales"]   # 기본: 영업부 매출관리만

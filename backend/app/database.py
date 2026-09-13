@@ -113,6 +113,13 @@ def init_db():
                 conn.execute(text(
                     "ALTER TABLE purchase_record ADD COLUMN IF NOT EXISTS price_incl_vat BOOLEAN DEFAULT FALSE"
                 ))
+                # 메뉴 개편(2026-09): '물류·생산 관리'(logistics)→'작업 관리' 분리 + 신설 '재고 관리'(inventory).
+                # 기존 logistics 권한 보유자는 재고 관리도 이어서 볼 수 있게 inventory 자동 부여.
+                conn.execute(text(
+                    "UPDATE user_menu_permission SET menu_keys = menu_keys || ',inventory' "
+                    "WHERE (',' || menu_keys || ',') LIKE '%,logistics,%' "
+                    "AND (',' || menu_keys || ',') NOT LIKE '%,inventory,%'"
+                ))
                 conn.commit()
         except Exception:
             pass  # 이미 있거나 DB가 ALTER를 지원하지 않으면 무시
