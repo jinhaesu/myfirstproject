@@ -699,6 +699,21 @@ def _product_cost_map(db: Session) -> dict[int, float]:
     return out
 
 
+# 재고 평가원가 = SCM 재료원가(default_cost) + 개당 노무비 가산.
+# 기본 200원/ea, 깜빠뉴·슬랩은 500원/ea (2026-09 대표 지정, 잠정).
+_LABOR_ADDER_DEFAULT = 200
+_LABOR_ADDER_OVERRIDES = (("깜빠뉴", 500), ("슬랩", 500))
+
+
+def _labor_adder(name: str, has_material: bool) -> int:
+    """개당 노무비 가산액. 깜빠뉴·슬랩은 500(재료원가 유무 무관), 그 외 재료원가 있는(생산) 품목만 200."""
+    nm = name or ""
+    for kw, v in _LABOR_ADDER_OVERRIDES:
+        if kw in nm:
+            return v
+    return _LABOR_ADDER_DEFAULT if has_material else 0
+
+
 def last_confirmed_count_date(db: Session) -> Optional[date]:
     """가장 최근 확정(confirmed)된 재고 실사일. 없으면 None."""
     from app.db_models import InventoryCountSession
@@ -739,7 +754,9 @@ def stock_valuation(db: Session, as_of: Optional[date] = None,
         prod = products.get(pid)
         if prod is None:
             continue
-        uc = float(cost.get(pid, 0) or 0)
+        mat = float(cost.get(pid, 0) or 0)             # SCM 재료원가
+        labor = _labor_adder(prod["name"], mat > 0)     # 개당 노무비 가산
+        uc = mat + labor                                # 평가 개당원가
         val = qty * uc                       # 음수 가능(음수재고)
         pv = max(qty, 0.0) * uc              # 양수 재고만
         net_value += val
@@ -757,7 +774,8 @@ def stock_valuation(db: Session, as_of: Optional[date] = None,
         rows.append({
             "product_id": pid, "product_code": prod["code"], "product_name": prod["name"],
             "category": cat, "qty": round(qty, 2), "unit": prod.get("unit"),
-            "unit_cost": round(uc), "value": round(pv),
+            "unit_cost": round(uc), "material_cost": round(mat), "labor_cost": labor,
+            "value": round(pv),
             "status": stock_status(qty, safety), "has_cost": uc > 0,
             "negative": qty < -1e-9,
         })
