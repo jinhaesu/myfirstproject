@@ -1529,6 +1529,31 @@ class InventoryCountLine(Base):
     )
 
 
+class InventoryMaterialOpening(Base):
+    """원부재료·포장재 재고 기초앵커(직접입력). 재고금액 = 기초 + 매입 − BOM소요.
+
+    material_key = purchase_record.item_code 또는 정규화 품목명(코드 없을 때).
+    실사 앵커: 마지막 실사/기초 시점의 재고 수량·금액을 여기에 입력하면 그 이후
+    매입·소요만 반영해 현재 재고금액을 산출.
+    """
+    __tablename__ = "inventory_material_opening"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    material_key = Column(String(120), nullable=False, index=True)  # item_code or norm(name)
+    material_name = Column(String(400), nullable=True)
+    team = Column(String(20), nullable=True)      # 구매팀/물류팀
+    mclass = Column(String(20), nullable=True)    # 원재료/부재료
+    as_of_date = Column(Date, nullable=False, index=True)  # 기초 기준일(이 날짜의 재고)
+    opening_qty = Column(Float, default=0)        # 기초 수량(선택)
+    unit = Column(String(30), nullable=True)
+    unit_cost = Column(Float, default=0)          # 기초 단가(선택)
+    opening_value = Column(Float, default=0)      # 기초 재고금액(필수 앵커)
+    note = Column(String(300), nullable=True)
+    created_by = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
 class InventoryProduction(Base):
     """생산 실적 (생산 RAW-DATA 엑셀 1행 = 1생산건). 생산=재고 보충원.
     현재고 공식에 판매차감과 대칭으로 가산된다(가상, prod_date≤조회일).

@@ -423,6 +423,83 @@ def get_valuation(as_of: Optional[str] = None, warehouse_id: Optional[int] = Non
     return inv.stock_valuation(db, as_of=_parse_date(as_of), warehouse_id=warehouse_id)
 
 
+# ── 원부재료·포장재 통합 재고 (Phase B) ──
+
+@router.get("/material-inventory")
+def get_material_inventory(start: str, end: str, team: Optional[str] = None,
+                           mclass: Optional[str] = None, db: Session = Depends(get_db)):
+    """원부재료·포장재 재고금액 = 기초앵커 + 기간매입 − BOM이론소요(가액 기준)."""
+    s, e = _parse_date(start), _parse_date(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return inv.material_inventory(db, s, e, team=team, mclass=mclass)
+
+
+class MaterialOpeningIn(BaseModel):
+    id: Optional[int] = None
+    material_key: str
+    material_name: Optional[str] = None
+    team: Optional[str] = None
+    mclass: Optional[str] = None
+    as_of_date: str
+    opening_qty: Optional[float] = 0
+    unit: Optional[str] = None
+    unit_cost: Optional[float] = 0
+    opening_value: float = 0
+    note: Optional[str] = None
+
+
+@router.get("/material-opening")
+def list_material_opening(db: Session = Depends(get_db)):
+    from app.db_models import InventoryMaterialOpening
+    rows = db.query(InventoryMaterialOpening).order_by(
+        InventoryMaterialOpening.as_of_date.desc(), InventoryMaterialOpening.id.desc()).all()
+    return {"rows": [{
+        "id": o.id, "material_key": o.material_key, "material_name": o.material_name,
+        "team": o.team, "mclass": o.mclass,
+        "as_of_date": o.as_of_date.isoformat() if o.as_of_date else None,
+        "opening_qty": o.opening_qty, "unit": o.unit, "unit_cost": o.unit_cost,
+        "opening_value": o.opening_value, "note": o.note,
+    } for o in rows]}
+
+
+@router.post("/material-opening")
+def upsert_material_opening(body: MaterialOpeningIn, db: Session = Depends(get_db),
+                            user: dict = Depends(get_current_user)):
+    from app.db_models import InventoryMaterialOpening
+    d = _parse_date(body.as_of_date)
+    if not d:
+        raise HTTPException(400, "as_of_date 형식 오류")
+    o = db.get(InventoryMaterialOpening, body.id) if body.id else None
+    if o is None:
+        o = InventoryMaterialOpening(created_by=user.get("email"))
+        db.add(o)
+    o.material_key = (body.material_key or "").strip()
+    if not o.material_key:
+        raise HTTPException(400, "material_key 필요")
+    o.material_name = body.material_name
+    o.team = body.team
+    o.mclass = body.mclass
+    o.as_of_date = d
+    o.opening_qty = float(body.opening_qty or 0)
+    o.unit = body.unit
+    o.unit_cost = float(body.unit_cost or 0)
+    # opening_value 미입력 시 수량×단가로 산출
+    o.opening_value = float(body.opening_value or 0) or round(o.opening_qty * o.unit_cost)
+    o.note = body.note
+    db.commit()
+    return {"ok": True, "id": o.id, "opening_value": o.opening_value}
+
+
+@router.delete("/material-opening/{oid}")
+def delete_material_opening(oid: int, db: Session = Depends(get_db),
+                            user: dict = Depends(get_current_user)):
+    from app.db_models import InventoryMaterialOpening
+    n = db.query(InventoryMaterialOpening).filter(InventoryMaterialOpening.id == oid).delete()
+    db.commit()
+    return {"ok": True, "deleted": n}
+
+
 @router.get("/report.xlsx")
 def report_xlsx(as_of: Optional[str] = None, warehouse_id: Optional[int] = None,
                 category: Optional[str] = None, db: Session = Depends(get_db)):

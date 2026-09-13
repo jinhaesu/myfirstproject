@@ -61,7 +61,7 @@ interface Dashboard {
 interface TrendPoint { period: string; inbound: number; outbound: number; net: number; closing: number; }
 interface HeatRow { product_id: number; product_name: string; category: string; cells: number[]; total: number; }
 
-type Tab = '대시보드' | '재고 현황' | '보충 알림' | '재고 실사' | '설정';
+type Tab = '대시보드' | '재고 현황' | '원부재료·포장재' | '보충 알림' | '재고 실사' | '설정';
 type SettingsTab = '창고' | '채널-창고 매핑' | '안전재고' | '기초재고 업로드';
 
 // ─────────────────────────────────────────────────────────
@@ -146,7 +146,7 @@ export default function InventoryPage() {
 
   if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
 
-  const tabs: Tab[] = ['대시보드', '재고 현황', '보충 알림', '재고 실사', '설정'];
+  const tabs: Tab[] = ['대시보드', '재고 현황', '원부재료·포장재', '보충 알림', '재고 실사', '설정'];
 
   return (
     <div className="min-h-screen bg-bg-0">
@@ -154,8 +154,8 @@ export default function InventoryPage() {
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-text-primary">물류/재고 실적</h1>
-            <p className="text-sm text-text-tertiary mt-0.5">판매 데이터 연동 재고 — 기초재고에서 출발해 판매만큼 자동 차감됩니다.</p>
+            <h1 className="text-xl font-bold text-text-primary">재고 관리</h1>
+            <p className="text-sm text-text-tertiary mt-0.5">완제품(판매연동)·원부재료·포장재 재고와 실사·가액을 한 곳에서 관리합니다.</p>
           </div>
         </div>
 
@@ -171,6 +171,7 @@ export default function InventoryPage() {
 
         {tab === '대시보드' && <DashboardTab warehouses={warehouses} />}
         {tab === '재고 현황' && <StockTab warehouses={warehouses} categories={categories} />}
+        {tab === '원부재료·포장재' && <MaterialInventoryTab />}
         {tab === '보충 알림' && <ReplenishmentTab warehouses={warehouses} />}
         {tab === '재고 실사' && <CountTab warehouses={warehouses} />}
         {tab === '설정' && <SettingsTab warehouses={warehouses} onChange={() => setRefreshKey((k) => k + 1)} />}
@@ -711,6 +712,174 @@ function ReplenishmentTab({ warehouses }: { warehouses: Warehouse[] }) {
 // ═════════════════════════════════════════════════════════
 // 재고 실사
 // ═════════════════════════════════════════════════════════
+function MaterialInventoryTab() {
+  const init = { start: '2026-01-01', end: todayISO() };
+  const [range, setRange] = useState(init);
+  const [draft, setDraft] = useState(init);
+  const [team, setTeam] = useState('');
+  const [mclass, setMclass] = useState('');
+  const [q, setQ] = useState('');
+  const [d, setD] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [modal, setModal] = useState<any>(null);       // null | 'new' | prefill obj
+  const [openings, setOpenings] = useState<any[]>([]);
+  const [showOpen, setShowOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const p = new URLSearchParams({ start: range.start, end: range.end });
+    if (team) p.set('team', team);
+    if (mclass) p.set('mclass', mclass);
+    setD(await getJSON<any>(`/inventory/material-inventory?${p.toString()}`, null));
+    setLoading(false);
+  }, [range, team, mclass]);
+  useEffect(() => { load(); }, [load]);
+  const loadOpenings = useCallback(async () => {
+    setOpenings((await getJSON<any>('/inventory/material-opening', { rows: [] })).rows);
+  }, []);
+  useEffect(() => { loadOpenings(); }, [loadOpenings]);
+
+  const rows = (d?.rows || []).filter((r: any) => !q || (r.name || '').toLowerCase().includes(q.toLowerCase()) || (r.code || '').toLowerCase().includes(q.toLowerCase()));
+  const dirty = draft.start !== range.start || draft.end !== range.end;
+  const delOpening = async (id: number) => { if (!confirm('기초앵커를 삭제할까요?')) return; const r = await send(`/inventory/material-opening/${id}`, 'DELETE'); if (r.ok) { loadOpenings(); load(); } };
+
+  return (
+    <div className="space-y-4 relative">
+      <LoadingOverlay show={loading} />
+      <div className={`${C.card} p-3 flex flex-wrap items-center gap-2`}>
+        <input type="date" value={draft.start} onChange={(e) => setDraft({ ...draft, start: e.target.value })} className={C.input} />
+        <span className="text-text-quaternary">~</span>
+        <input type="date" value={draft.end} onChange={(e) => setDraft({ ...draft, end: e.target.value })} className={C.input} />
+        <button onClick={() => setRange(draft)} className={`${C.btn} ${C.btnPrimary} ${dirty ? 'ring-2 ring-brand/50' : ''}`}>조회</button>
+        <select value={team} onChange={(e) => setTeam(e.target.value)} className={C.input}>
+          <option value="">전체 팀</option><option value="구매팀">구매팀</option><option value="물류팀">물류팀</option>
+        </select>
+        <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}>
+          <option value="">전체 구분</option><option value="원재료">원재료</option><option value="부재료">부재료</option>
+        </select>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·코드 검색" className={`${C.input} w-40`} />
+        <div className="ml-auto flex gap-1.5">
+          <button onClick={() => setShowOpen(!showOpen)} className={`${C.btn} ${C.btnGhost}`}>기초앵커 {openings.length}건</button>
+          <button onClick={() => setModal('new')} className={`${C.btn} ${C.btnPrimary}`}>+ 기초재고 입력</button>
+        </div>
+      </div>
+
+      {d && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatCard label="재고금액(추정)" value={won(d.total_stock_value)} tone="text-brand" sub={`${range.start}~${range.end}`} />
+          <StatCard label="기간 매입액" value={won(d.total_purchase)} tone="text-warning" sub={`${fmt(d.material_count)}품목`} />
+          <StatCard label="BOM 이론소요" value={won(d.total_req_cost)} tone="text-info" sub="생산기반 소요원가" />
+          <StatCard label="기초앵커 합" value={won(d.total_opening)} sub="직접입력" />
+        </div>
+      )}
+      {d && (
+        <p className="text-[11px] text-text-quaternary">※ 재고금액 = 기초앵커 + 기간 매입액 − BOM 이론소요원가(생산기반). 단위·매칭 편차로 <b>가액(원) 기준</b>이며 참고치입니다. 기초앵커 미입력·소요 미매칭 품목은 매입액이 그대로 재고로 잡히니, 실사·기초 입력으로 보정하세요.</p>
+      )}
+
+      {showOpen && (
+        <div className={`${C.card} p-3`}>
+          <div className="text-sm font-semibold text-text-primary mb-2">기초앵커 (직접입력)</div>
+          {openings.length === 0 ? <div className="text-xs text-text-quaternary py-2">등록된 기초앵커 없음 — 마지막 실사/기초 시점의 재고금액을 품목별로 입력하세요.</div> : (
+            <table className="w-full text-sm"><thead><tr>
+              <th className={C.th}>기준일</th><th className={C.th}>품목</th><th className={C.th}>팀</th>
+              <th className={`${C.th} text-right`}>수량</th><th className={`${C.th} text-right`}>기초금액</th><th className={C.th}></th>
+            </tr></thead><tbody>
+              {openings.map((o) => (
+                <tr key={o.id} className="hover:bg-bg-1">
+                  <td className={C.td}>{o.as_of_date}</td>
+                  <td className={`${C.td} text-text-primary`}>{o.material_name || o.material_key}</td>
+                  <td className={C.td}>{o.team || '-'}</td>
+                  <td className={`${C.td} text-right tabular-nums`}>{o.opening_qty ? fmt(o.opening_qty) : '-'}</td>
+                  <td className={`${C.td} text-right tabular-nums text-brand`}>{won(o.opening_value)}</td>
+                  <td className={C.td}><button onClick={() => setModal(o)} className="text-accent text-xs hover:underline mr-2">수정</button><button onClick={() => delOpening(o.id)} className="text-danger text-xs hover:underline">삭제</button></td>
+                </tr>
+              ))}
+            </tbody></table>
+          )}
+        </div>
+      )}
+
+      <div className={`${C.card} overflow-x-auto`}>
+        <table className="w-full text-sm">
+          <thead><tr>
+            <th className={C.th}>품목</th><th className={C.th}>구분</th><th className={C.th}>팀</th>
+            <th className={`${C.th} text-right`}>기초</th>
+            <th className={`${C.th} text-right`}>매입액</th><th className={`${C.th} text-right`}>BOM소요</th>
+            <th className={`${C.th} text-right`}>재고금액</th><th className={`${C.th} text-right`}>커버리지</th>
+            <th className={`${C.th} text-right`}>최근단가</th><th className={C.th}></th>
+          </tr></thead>
+          <tbody>
+            {rows.length === 0 && <tr><td colSpan={10} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr>}
+            {rows.slice(0, 300).map((r: any) => (
+              <tr key={r.material_key} className="hover:bg-bg-1">
+                <td className={`${C.td} text-text-primary max-w-[240px] truncate`} title={r.name}>{r.name}{r.code && <span className="ml-1 text-[10px] text-text-quaternary">{r.code}</span>}</td>
+                <td className={C.td}><span className={r.mclass === '원재료' ? 'text-info text-xs' : r.mclass === '부재료' ? 'text-warning text-xs' : 'text-text-quaternary text-xs'}>{r.mclass || '-'}</span></td>
+                <td className={`${C.td} text-xs ${r.team === '물류팀' ? 'text-info' : 'text-text-tertiary'}`}>{r.team || '-'}</td>
+                <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{r.has_opening ? won(r.opening_value) : '-'}</td>
+                <td className={`${C.td} text-right tabular-nums text-warning`}>{r.purchase_value ? won(r.purchase_value) : '-'}<div className="text-[10px] text-text-quaternary">{r.purchase_qty ? `${numShort(r.purchase_qty)}${r.unit || ''}` : ''}</div></td>
+                <td className={`${C.td} text-right tabular-nums text-info`}>{r.req_cost ? won(r.req_cost) : '-'}</td>
+                <td className={`${C.td} text-right tabular-nums font-semibold ${r.stock_value < 0 ? 'text-danger' : 'text-brand'}`}>{won(r.stock_value)}</td>
+                <td className={`${C.td} text-right tabular-nums text-xs ${r.coverage == null ? 'text-text-quaternary' : r.coverage > 200 ? 'text-warning' : r.coverage < 80 ? 'text-danger' : 'text-success-light'}`}>{r.coverage == null ? '소요없음' : r.coverage >= 9999 ? '구매만' : `${r.coverage}%`}</td>
+                <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{r.last_price ? won(r.last_price) : '-'}</td>
+                <td className={C.td}><button onClick={() => setModal({ material_key: r.material_key, material_name: r.name, team: r.team, mclass: r.mclass, unit: r.unit, unit_cost: r.last_price })} className="text-accent text-[11px] hover:underline">기초입력</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {modal && <MaterialOpeningModal prefill={modal === 'new' ? null : modal} onClose={() => setModal(null)} onSaved={() => { setModal(null); loadOpenings(); load(); }} />}
+    </div>
+  );
+}
+
+function MaterialOpeningModal({ prefill, onClose, onSaved }: { prefill: any; onClose: () => void; onSaved: () => void }) {
+  const [f, setF] = useState<any>({
+    id: prefill?.id ?? null,
+    material_key: prefill?.material_key ?? '',
+    material_name: prefill?.material_name ?? '',
+    team: prefill?.team ?? '',
+    mclass: prefill?.mclass ?? '',
+    as_of_date: prefill?.as_of_date ?? todayISO(),
+    opening_qty: prefill?.opening_qty ?? '',
+    unit: prefill?.unit ?? '',
+    unit_cost: prefill?.unit_cost ?? '',
+    opening_value: prefill?.opening_value ?? '',
+    note: prefill?.note ?? '',
+  });
+  const [msg, setMsg] = useState<string | null>(null);
+  const up = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+  const calcVal = Math.round((Number(f.opening_qty) || 0) * (Number(f.unit_cost) || 0));
+  const save = async () => {
+    if (!f.material_key) { setMsg('품목키(코드 또는 품목명) 필요'); return; }
+    const body = { ...f, opening_qty: Number(f.opening_qty) || 0, unit_cost: Number(f.unit_cost) || 0, opening_value: Number(f.opening_value) || 0 };
+    const r = await send('/inventory/material-opening', 'POST', body);
+    if (r.ok) onSaved(); else setMsg(r.data?.detail || '저장 실패');
+  };
+  const L = ({ children }: { children: any }) => <div className="text-xs text-text-tertiary mb-1">{children}</div>;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4"><div className="text-lg font-bold text-text-primary">기초재고 앵커 {f.id ? '수정' : '입력'}</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2"><L>품목키(코드 또는 품목명) *</L><input value={f.material_key} onChange={(e) => up('material_key', e.target.value)} className={`${C.input} w-full`} placeholder="구매 item_code 또는 품목명" /></div>
+          <div className="col-span-2"><L>품목명</L><input value={f.material_name} onChange={(e) => up('material_name', e.target.value)} className={`${C.input} w-full`} /></div>
+          <div><L>팀</L><select value={f.team} onChange={(e) => up('team', e.target.value)} className={`${C.input} w-full`}><option value="">-</option><option value="구매팀">구매팀</option><option value="물류팀">물류팀</option></select></div>
+          <div><L>구분</L><select value={f.mclass} onChange={(e) => up('mclass', e.target.value)} className={`${C.input} w-full`}><option value="">-</option><option value="원재료">원재료</option><option value="부재료">부재료</option></select></div>
+          <div><L>기준일(이 날짜의 재고) *</L><input type="date" value={f.as_of_date} onChange={(e) => up('as_of_date', e.target.value)} className={`${C.input} w-full`} /></div>
+          <div><L>단위</L><input value={f.unit} onChange={(e) => up('unit', e.target.value)} className={`${C.input} w-full`} placeholder="kg/ea/box" /></div>
+          <div><L>기초 수량</L><input type="number" value={f.opening_qty} onChange={(e) => up('opening_qty', e.target.value)} className={`${C.input} w-full`} /></div>
+          <div><L>기초 단가</L><input type="number" value={f.unit_cost} onChange={(e) => up('unit_cost', e.target.value)} className={`${C.input} w-full`} /></div>
+          <div className="col-span-2"><L>기초 재고금액(비우면 수량×단가 = {won(calcVal)})</L><input type="number" value={f.opening_value} onChange={(e) => up('opening_value', e.target.value)} className={`${C.input} w-full`} placeholder={String(calcVal)} /></div>
+        </div>
+        <div className="flex items-center gap-3 mt-4"><span className="text-xs text-text-tertiary">앵커 금액 = {won(Number(f.opening_value) || calcVal)}</span><button onClick={save} className={`${C.btn} ${C.btnPrimary} ml-auto`}>저장</button></div>
+        {msg && <div className="mt-2 text-xs text-danger">{msg}</div>}
+      </div>
+    </div>
+  );
+}
+
 function StockValuationPanel() {
   const [v, setV] = useState<any>(null);
   const [showAll, setShowAll] = useState(false);
