@@ -803,9 +803,51 @@ def stock_valuation(db: Session, as_of: Optional[date] = None,
 # 원부재료·포장재 통합 재고 (구매입고 − 판매/생산 BOM소요 + 기초앵커) — Phase B
 # ──────────────────────────────────────────────
 
+import re as _re
+_SPEC_BRACKET = _re.compile(r"[\[\(][^\]\)]*[\]\)]")
+
+
+def _matchnorm(s) -> str:
+    """매칭용 정규화 — [20kg]·(특란) 등 규격/괄호 제거 후 공백제거·소문자."""
+    return _SPEC_BRACKET.sub("", str(s or "")).strip().replace(" ", "").lower()
+
+
 def _mkey(item_code, item_name) -> str:
     c = (str(item_code) or "").strip() if item_code else ""
     return c or _norm(item_name or "")
+
+
+def _bom_material_index(db: Session):
+    """BOM 자재 마스터 인덱스 → (erp_set, name2key, meta).
+    정준키(canonical) = erp_code(있으면) 또는 이름정규화. 매입/소요를 같은 키로 묶기 위함."""
+    from app.db_models import ScmRawMaterial, ScmSubMaterial
+    erp_set: set[str] = set()
+    name2key: dict[str, str] = {}
+    meta: dict[str, dict] = {}
+    for M, typ, mc in ((ScmRawMaterial, "raw", "원재료"), (ScmSubMaterial, "sub", "부재료")):
+        for m in db.query(M).all():
+            code = (m.erp_code or "").strip()
+            key = code or _matchnorm(m.name)
+            if not key:
+                continue
+            if code:
+                erp_set.add(code)
+            meta.setdefault(key, {"name": m.name, "type": typ, "mclass": mc})
+            nm = _matchnorm(m.name)
+            if nm:
+                name2key.setdefault(nm, key)
+    return erp_set, name2key, meta
+
+
+def _resolve_material(code, name, erp_set: set, name2key: dict) -> tuple[str, bool]:
+    """구매/소요 → BOM 정준키. (key, in_bom). 미매칭이면 own: 접두."""
+    c = (str(code).strip() if code else "")
+    if c and c in erp_set:
+        return c, True
+    nm = _matchnorm(name)
+    if nm and nm in name2key:
+        return name2key[nm], True
+    return "own:" + (c or nm or "?"), False
 
 
 def material_opening_map(db: Session, as_of: Optional[date] = None) -> dict[str, dict]:
@@ -827,15 +869,15 @@ def material_inventory(db: Session, start: date, end: date,
                        team: Optional[str] = None, mclass: Optional[str] = None) -> dict:
     """원부재료·포장재 재고금액 = 기초앵커 + 기간 매입액 − 기간 BOM 이론소요원가.
 
-    - 매입: purchase_record(구매팀 원부재료 + 물류팀 포장재), item_code(없으면 품목명) 기준 집계.
-    - 소요: 생산량×BOM 이론소요원가(material_requirement, erp_code 매칭).
-    - 기초: inventory_material_opening(직접입력 앵커, as_of ≤ start).
-    - 단위/매칭이 제각각이라 **가액(원) 기준**이 가장 견고 — 수량은 참고.
+    매입(purchase_record)과 소요(생산량×BOM)를 **BOM 자재 마스터 정준키로 통합 매칭**
+    (erp_code 정확일치 → 규격제거 이름매칭). 매칭되면 소요가 해당 매입에서 차감돼
+    '실제 소모된 재고'가 반영됨. 미매칭(구매만)은 매입=재고로 남아 별도 표시.
     """
     from app.services import purchase_service as pur
     _mnorm = pur._mclass_norm
+    erp_set, name2key, meta = _bom_material_index(db)
 
-    # 1) 매입 집계 (item_code 또는 정규화 품목명)
+    # 1) 매입 집계 — BOM 정준키로 resolve
     pcols = db.query(
         PurchaseRecord.item_code, PurchaseRecord.item_name, PurchaseRecord.mclass,
         PurchaseRecord.team, PurchaseRecord.qty, PurchaseRecord.supply_amount,
@@ -848,11 +890,9 @@ def material_inventory(db: Session, start: date, end: date,
 
     buy: dict[str, dict] = {}
     for code, name, mc, tm, qty, sup, up, unit, pd in pcols.all():
-        k = _mkey(code, name)
-        if not k:
-            continue
+        k, in_bom = _resolve_material(code, name, erp_set, name2key)
         b = buy.setdefault(k, {"name": name, "code": (str(code).strip() if code else None),
-                               "team": tm, "mclass": mc, "unit": unit,
+                               "team": tm, "mclass": mc, "unit": unit, "in_bom": in_bom,
                                "qty": 0.0, "value": 0.0, "last_price": 0.0, "last_date": None})
         b["qty"] += float(qty or 0)
         b["value"] += float(sup or 0)
@@ -863,36 +903,42 @@ def material_inventory(db: Session, start: date, end: date,
             b["team"] = tm
             b["mclass"] = mc
 
-    # 2) BOM 이론소요 (생산 기반), erp_code 매칭
+    # 2) BOM 이론소요(생산 기반) — 같은 정준키로 resolve
     req: dict[str, dict] = {}
     try:
         mr = pur.material_requirement(db, start, end)
     except Exception:
         mr = {"materials": []}
     for m in mr.get("materials", []):
-        k = (str(m.get("erp_code")) or "").strip()
-        if not k:
-            continue
+        k, _in = _resolve_material(m.get("erp_code"), m.get("name"), erp_set, name2key)
         r = req.setdefault(k, {"name": m.get("name"), "cost": 0.0, "qty": 0.0,
                                "unit": m.get("unit"), "type": m.get("type")})
         r["cost"] += float(m.get("cost") or 0)
         r["qty"] += float(m.get("qty") or 0)
 
-    # 3) 기초앵커 (as_of ≤ start)
-    opening = material_opening_map(db, as_of=start)
+    # 3) 기초앵커 — 같은 정준키로 resolve
+    opening_raw = material_opening_map(db, as_of=start)
+    opening: dict[str, dict] = {}
+    for mk, ov in opening_raw.items():
+        k, _in = _resolve_material(mk, ov.get("name"), erp_set, name2key)
+        cur = opening.setdefault(k, {"value": 0.0, "qty": 0.0, "name": ov.get("name")})
+        cur["value"] += ov["value"]
+        cur["qty"] += ov["qty"]
 
     keys = set(buy) | set(req) | set(opening)
     rows = []
     tot_open = tot_buy = tot_req = tot_val = 0.0
+    matched_n = buyonly_n = reqonly_n = 0
     by_team: dict[str, float] = {}
     by_mclass: dict[str, float] = {}
     for k in keys:
         b = buy.get(k, {})
         r = req.get(k, {})
         o = opening.get(k, {})
-        # team/mclass 필터: 매입에 없고 소요만 있는 키는 팀 미상 → 팀 필터 시 제외
+        mk = meta.get(k, {})
         tm = b.get("team")
-        mc = b.get("mclass") or (r.get("type") == "raw" and "원재료") or (r.get("type") == "sub" and "부재료") or None
+        mc = b.get("mclass") or mk.get("mclass") or (
+            "원재료" if r.get("type") == "raw" else "부재료" if r.get("type") == "sub" else None)
         if team and tm != team:
             continue
         if mclass and _mnorm(mc or "") != _mnorm(mclass):
@@ -902,26 +948,35 @@ def material_inventory(db: Session, start: date, end: date,
         rc = float(r.get("cost") or 0)
         sv = ov + bv - rc
         tot_open += ov; tot_buy += bv; tot_req += rc; tot_val += sv
+        has_buy, has_req = bool(b), bool(r)
+        if has_buy and has_req:
+            matched_n += 1
+        elif has_buy:
+            buyonly_n += 1
+        elif has_req:
+            reqonly_n += 1
         if tm:
             by_team[tm] = by_team.get(tm, 0.0) + sv
         if mc:
             by_mclass[mc] = by_mclass.get(mc, 0.0) + sv
         rows.append({
             "material_key": k,
-            "name": b.get("name") or r.get("name") or o.get("name") or k,
+            "name": b.get("name") or r.get("name") or mk.get("name") or o.get("name") or k,
             "code": b.get("code"),
             "team": tm, "mclass": mc,
             "unit": b.get("unit") or r.get("unit"),
+            "in_bom": bool(b.get("in_bom") or has_req or (k in meta)),
             "opening_value": round(ov),
             "purchase_qty": round(float(b.get("qty") or 0), 2),
             "purchase_value": round(bv),
             "req_qty": round(float(r.get("qty") or 0), 2),
             "req_cost": round(rc),
+            "consumed_pct": round(rc / bv * 100, 1) if bv > 0 else None,   # 매입 중 소모 비율
             "stock_value": round(sv),
             "last_price": round(float(b.get("last_price") or 0)),
             "last_date": b.get("last_date"),
             "coverage": round(bv / rc * 100, 1) if rc > 0 else (None if bv == 0 else 9999),
-            "matched": bool(b) and bool(r),
+            "matched": has_buy and has_req,
             "has_opening": bool(o),
         })
     rows.sort(key=lambda x: -x["stock_value"])
@@ -930,11 +985,12 @@ def material_inventory(db: Session, start: date, end: date,
         "total_opening": round(tot_open), "total_purchase": round(tot_buy),
         "total_req_cost": round(tot_req), "total_stock_value": round(tot_val),
         "material_count": len(rows),
+        "matched_count": matched_n, "buy_only_count": buyonly_n, "req_only_count": reqonly_n,
         "by_team": [{"team": k, "value": round(v)} for k, v in sorted(by_team.items(), key=lambda x: -x[1])],
         "by_mclass": [{"mclass": k, "value": round(v)} for k, v in sorted(by_mclass.items(), key=lambda x: -x[1])],
         "rows": rows,
-        "note": "재고금액 = 기초앵커 + 기간매입액 − BOM이론소요원가(생산기반). 단위·매칭 편차로 가액 기준. "
-                "기초앵커 미입력·소요 미매칭 품목은 매입액이 그대로 재고로 잡히니 실사·기초 입력으로 보정.",
+        "note": "재고금액 = 기초앵커 + 기간매입액 − BOM이론소요원가(생산기반, erp_code·이름 통합매칭). "
+                "미매칭(구매만)은 매입이 그대로 재고 — 실사·기초앵커로 보정.",
     }
 
 

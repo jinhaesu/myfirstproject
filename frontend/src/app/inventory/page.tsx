@@ -712,6 +712,49 @@ function ReplenishmentTab({ warehouses }: { warehouses: Warehouse[] }) {
 // ═════════════════════════════════════════════════════════
 // 재고 실사
 // ═════════════════════════════════════════════════════════
+function FlowBar({ opening, purchase, consumed, stock }: { opening: number; purchase: number; consumed: number; stock: number }) {
+  const inflow = Math.max(opening + purchase, 1);
+  const pct = (v: number) => `${Math.max(0, Math.min(100, (v / inflow) * 100)).toFixed(1)}%`;
+  return (
+    <div className="space-y-2">
+      <div>
+        <div className="flex justify-between text-[11px] mb-1"><span className="text-text-tertiary">유입 (기초 + 매입)</span><span className="tabular-nums text-text-secondary">{won(opening + purchase)}</span></div>
+        <div className="flex h-6 rounded-md overflow-hidden bg-bg-inset">
+          {opening > 0 && <div className="flex items-center justify-center text-[10px] text-white/90" style={{ width: pct(opening), background: 'var(--color-text-quaternary)' }} title={`기초 ${won(opening)}`}>{opening / inflow > 0.08 ? '기초' : ''}</div>}
+          <div className="flex items-center justify-center text-[10px] text-white/90" style={{ width: pct(purchase), background: 'var(--color-warning)' }} title={`매입 ${won(purchase)}`}>{purchase / inflow > 0.12 ? `매입 ${wonShort(purchase)}` : ''}</div>
+        </div>
+      </div>
+      <div>
+        <div className="flex justify-between text-[11px] mb-1"><span className="text-info">− 소모 (BOM 이론소요)</span><span className="tabular-nums text-info">{won(consumed)}</span></div>
+        <div className="flex h-6 rounded-md overflow-hidden bg-bg-inset"><div className="flex items-center justify-center text-[10px] text-white/90" style={{ width: pct(consumed), background: 'var(--color-info)' }}>{consumed / inflow > 0.12 ? `소모 ${wonShort(consumed)}` : ''}</div></div>
+      </div>
+      <div>
+        <div className="flex justify-between text-[11px] mb-1"><span className="text-brand font-semibold">= 재고금액</span><span className="tabular-nums text-brand font-semibold">{won(stock)}</span></div>
+        <div className="flex h-7 rounded-md overflow-hidden bg-bg-inset"><div className="flex items-center justify-center text-[11px] font-semibold text-white" style={{ width: pct(stock), background: 'var(--color-brand)' }}>{stock / inflow > 0.1 ? won(stock) : ''}</div></div>
+      </div>
+    </div>
+  );
+}
+
+function MatchBar({ matched, buyOnly, reqOnly }: { matched: number; buyOnly: number; reqOnly: number }) {
+  const tot = Math.max(matched + buyOnly + reqOnly, 1);
+  const segs = [
+    { label: '매칭(소모반영)', v: matched, c: 'var(--color-success)' },
+    { label: '구매만(미소모)', v: buyOnly, c: 'var(--color-warning)' },
+    { label: '소요만(구매없음)', v: reqOnly, c: 'var(--color-text-quaternary)' },
+  ];
+  return (
+    <div>
+      <div className="flex h-4 rounded-md overflow-hidden mb-2">
+        {segs.map((s) => s.v > 0 && <div key={s.label} style={{ width: `${(s.v / tot) * 100}%`, background: s.c }} title={`${s.label} ${s.v}`} />)}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {segs.map((s) => <div key={s.label} className="flex items-center gap-1.5 text-[11px]"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.c }} /><span className="text-text-tertiary">{s.label}</span><span className="tabular-nums font-semibold text-text-secondary">{fmt(s.v)}</span></div>)}
+      </div>
+    </div>
+  );
+}
+
 function MaterialInventoryTab() {
   const init = { start: '2026-01-01', end: todayISO() };
   const [range, setRange] = useState(init);
@@ -765,15 +808,40 @@ function MaterialInventoryTab() {
       </div>
 
       {d && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="재고금액(추정)" value={won(d.total_stock_value)} tone="text-brand" sub={`${range.start}~${range.end}`} />
-          <StatCard label="기간 매입액" value={won(d.total_purchase)} tone="text-warning" sub={`${fmt(d.material_count)}품목`} />
-          <StatCard label="BOM 이론소요" value={won(d.total_req_cost)} tone="text-info" sub="생산기반 소요원가" />
-          <StatCard label="기초앵커 합" value={won(d.total_opening)} sub="직접입력" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className={`${C.card} p-4 lg:col-span-2`}>
+            <div className="text-sm font-bold text-text-primary mb-3">재고 흐름 · 가액 기준 <span className="text-xs text-text-quaternary font-normal">{range.start} ~ {range.end}</span></div>
+            <FlowBar opening={d.total_opening} purchase={d.total_purchase} consumed={d.total_req_cost} stock={d.total_stock_value} />
+          </div>
+          <div className={`${C.card} p-4 flex flex-col`}>
+            <div className="text-[11px] text-text-tertiary mb-1">구분별 재고금액</div>
+            <div className="space-y-0.5 mb-2">
+              {(d.by_mclass || []).map((b: any) => <div key={b.mclass} className="flex justify-between text-xs"><span className="text-text-tertiary">{b.mclass}</span><span className="tabular-nums font-semibold text-text-secondary">{wonShort(b.value)}</span></div>)}
+            </div>
+            <div className="text-[11px] text-text-tertiary mb-1 mt-auto">팀별 재고금액</div>
+            <div className="space-y-0.5">
+              {(d.by_team || []).map((b: any) => <div key={b.team} className="flex justify-between text-xs"><span className={b.team === '물류팀' ? 'text-info' : 'text-text-tertiary'}>{b.team}</span><span className="tabular-nums font-semibold text-text-secondary">{wonShort(b.value)}</span></div>)}
+            </div>
+          </div>
         </div>
       )}
       {d && (
-        <p className="text-[11px] text-text-quaternary">※ 재고금액 = 기초앵커 + 기간 매입액 − BOM 이론소요원가(생산기반). 단위·매칭 편차로 <b>가액(원) 기준</b>이며 참고치입니다. 기초앵커 미입력·소요 미매칭 품목은 매입액이 그대로 재고로 잡히니, 실사·기초 입력으로 보정하세요.</p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className={`${C.card} p-4 lg:col-span-2`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-semibold text-text-primary">BOM 소모 매칭 현황</div>
+              <div className="text-xs text-text-tertiary">총 {fmt(d.material_count)}품목</div>
+            </div>
+            <MatchBar matched={d.matched_count} buyOnly={d.buy_only_count} reqOnly={d.req_only_count} />
+            <p className="text-[11px] text-text-quaternary mt-2">‘구매만’은 아직 BOM 소모가 안 잡힌 품목 — 매입이 통째로 재고로 남습니다. ‘매칭’ 품목은 생산 BOM 소요만큼 재고에서 차감됩니다. 미매칭이 크면 BOM erp_code·품목명 매칭 또는 기초앵커 보정이 필요합니다.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 content-start">
+            <StatCard label="재고금액" value={wonShort(d.total_stock_value)} tone="text-brand" />
+            <StatCard label="기간 매입" value={wonShort(d.total_purchase)} tone="text-warning" />
+            <StatCard label="소모(BOM)" value={wonShort(d.total_req_cost)} tone="text-info" />
+            <StatCard label="기초앵커" value={wonShort(d.total_opening)} />
+          </div>
+        </div>
       )}
 
       {showOpen && (
@@ -802,28 +870,44 @@ function MaterialInventoryTab() {
       <div className={`${C.card} overflow-x-auto`}>
         <table className="w-full text-sm">
           <thead><tr>
-            <th className={C.th}>품목</th><th className={C.th}>구분</th><th className={C.th}>팀</th>
+            <th className={C.th}>품목</th><th className={C.th}>구분·팀</th>
             <th className={`${C.th} text-right`}>기초</th>
-            <th className={`${C.th} text-right`}>매입액</th><th className={`${C.th} text-right`}>BOM소요</th>
-            <th className={`${C.th} text-right`}>재고금액</th><th className={`${C.th} text-right`}>커버리지</th>
-            <th className={`${C.th} text-right`}>최근단가</th><th className={C.th}></th>
+            <th className={`${C.th} text-right`}>매입</th>
+            <th className={`${C.th}`}>소모율 (소모÷매입)</th>
+            <th className={`${C.th} text-right`}>소모(BOM)</th>
+            <th className={`${C.th} text-right`}>재고금액</th>
+            <th className={C.th}>상태</th>
+            <th className={C.th}></th>
           </tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={10} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr>}
-            {rows.slice(0, 300).map((r: any) => (
-              <tr key={r.material_key} className="hover:bg-bg-1">
-                <td className={`${C.td} text-text-primary max-w-[240px] truncate`} title={r.name}>{r.name}{r.code && <span className="ml-1 text-[10px] text-text-quaternary">{r.code}</span>}</td>
-                <td className={C.td}><span className={r.mclass === '원재료' ? 'text-info text-xs' : r.mclass === '부재료' ? 'text-warning text-xs' : 'text-text-quaternary text-xs'}>{r.mclass || '-'}</span></td>
-                <td className={`${C.td} text-xs ${r.team === '물류팀' ? 'text-info' : 'text-text-tertiary'}`}>{r.team || '-'}</td>
-                <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{r.has_opening ? won(r.opening_value) : '-'}</td>
-                <td className={`${C.td} text-right tabular-nums text-warning`}>{r.purchase_value ? won(r.purchase_value) : '-'}<div className="text-[10px] text-text-quaternary">{r.purchase_qty ? `${numShort(r.purchase_qty)}${r.unit || ''}` : ''}</div></td>
-                <td className={`${C.td} text-right tabular-nums text-info`}>{r.req_cost ? won(r.req_cost) : '-'}</td>
-                <td className={`${C.td} text-right tabular-nums font-semibold ${r.stock_value < 0 ? 'text-danger' : 'text-brand'}`}>{won(r.stock_value)}</td>
-                <td className={`${C.td} text-right tabular-nums text-xs ${r.coverage == null ? 'text-text-quaternary' : r.coverage > 200 ? 'text-warning' : r.coverage < 80 ? 'text-danger' : 'text-success-light'}`}>{r.coverage == null ? '소요없음' : r.coverage >= 9999 ? '구매만' : `${r.coverage}%`}</td>
-                <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{r.last_price ? won(r.last_price) : '-'}</td>
-                <td className={C.td}><button onClick={() => setModal({ material_key: r.material_key, material_name: r.name, team: r.team, mclass: r.mclass, unit: r.unit, unit_cost: r.last_price })} className="text-accent text-[11px] hover:underline">기초입력</button></td>
-              </tr>
-            ))}
+            {rows.length === 0 && <tr><td colSpan={9} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr>}
+            {rows.slice(0, 400).map((r: any) => {
+              const cp = r.consumed_pct;
+              const st = r.matched ? { t: '매칭', c: 'bg-success/15 text-success-light' }
+                : r.purchase_value > 0 ? { t: '구매만', c: 'bg-warning/15 text-warning' }
+                : { t: '소요만', c: 'bg-bg-inset text-text-quaternary' };
+              return (
+                <tr key={r.material_key} className="hover:bg-bg-1">
+                  <td className={`${C.td} text-text-primary max-w-[230px] truncate`} title={`${r.name}${r.code ? ' · ' + r.code : ''}`}>{r.name}{r.code && <span className="ml-1 text-[10px] text-text-quaternary">{r.code}</span>}</td>
+                  <td className={C.td}>
+                    <span className={`text-xs ${r.mclass === '원재료' ? 'text-info' : r.mclass === '부재료' ? 'text-warning' : 'text-text-quaternary'}`}>{r.mclass || '-'}</span>
+                    {r.team && <span className={`text-[10px] ml-1 ${r.team === '물류팀' ? 'text-info' : 'text-text-quaternary'}`}>· {r.team.replace('팀', '')}</span>}
+                  </td>
+                  <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{r.has_opening ? wonShort(r.opening_value) : '-'}</td>
+                  <td className={`${C.td} text-right tabular-nums text-warning`}>{r.purchase_value ? wonShort(r.purchase_value) : '-'}<div className="text-[10px] text-text-quaternary">{r.purchase_qty ? `${numShort(r.purchase_qty)}${r.unit || ''}` : ''}</div></td>
+                  <td className={C.td}>
+                    <div className="flex items-center gap-1.5 min-w-[90px]">
+                      <div className="flex-1 h-2 rounded-full bg-bg-inset overflow-hidden"><div className="h-full rounded-full" style={{ width: `${Math.min(100, cp || 0)}%`, background: cp == null ? 'transparent' : cp >= 90 ? 'var(--color-success)' : cp >= 40 ? 'var(--color-info)' : 'var(--color-warning)' }} /></div>
+                      <span className="text-[10px] tabular-nums text-text-quaternary w-8 text-right">{cp == null ? '-' : `${Math.round(cp)}%`}</span>
+                    </div>
+                  </td>
+                  <td className={`${C.td} text-right tabular-nums text-info`}>{r.req_cost ? wonShort(r.req_cost) : '-'}</td>
+                  <td className={`${C.td} text-right tabular-nums font-semibold ${r.stock_value < 0 ? 'text-danger' : 'text-brand'}`}>{won(r.stock_value)}</td>
+                  <td className={C.td}><span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${st.c}`}>{st.t}</span></td>
+                  <td className={C.td}><button onClick={() => setModal({ material_key: r.material_key, material_name: r.name, team: r.team, mclass: r.mclass, unit: r.unit, unit_cost: r.last_price })} className="text-accent text-[11px] hover:underline whitespace-nowrap">기초입력</button></td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
