@@ -523,6 +523,16 @@ def post_material_register(body: MaterialRegisterIn, db: Session = Depends(get_d
     return inv.register_materials(db, body.items, user=user.get("email"))
 
 
+@router.post("/material-alias-autofix")
+def post_material_alias_autofix(start: str, end: str, db: Session = Depends(get_db),
+                                user: dict = Depends(get_current_user)):
+    """'유사 마스터 있음' 미등록 자재를 그 마스터에 별칭으로 자동 연결(erp_code 미변경)."""
+    s, e = _parse_date(start), _parse_date(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return inv.autofix_material_aliases(db, s, e, user=user.get("email"))
+
+
 @router.get("/report.xlsx")
 def report_xlsx(as_of: Optional[str] = None, warehouse_id: Optional[int] = None,
                 category: Optional[str] = None, db: Session = Depends(get_db)):

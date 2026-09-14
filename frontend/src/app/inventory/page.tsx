@@ -740,6 +740,54 @@ function SegmentedControl<T extends string>({ value, onChange, options }: { valu
   );
 }
 
+function ProductStockAnalytics() {
+  const [v, setV] = useState<any>(null);
+  useEffect(() => { getJSON<any>('/inventory/valuation', null).then(setV); }, []);
+  if (!v) return <div className={`${C.card} p-4 text-sm text-text-quaternary`}>제품 재고 분석 불러오는 중…</div>;
+  const rows = (v.rows || []).filter((r: any) => r.qty > 0);
+  const pie = (v.by_category || []).filter((c: any) => c.value > 0).slice(0, 8).map((c: any, i: number) => ({ name: c.category, value: c.value, fill: CHART_COLORS[i % CHART_COLORS.length] }));
+  const topItems = rows.slice(0, 10).map((r: any) => ({ name: (r.product_name || '').slice(0, 12), value: r.value }));
+  const stCount: Record<string, number> = {};
+  rows.forEach((r: any) => { stCount[r.status] = (stCount[r.status] || 0) + 1; });
+  const stSeg = [
+    { label: '정상', v: stCount['정상'] || 0, c: 'var(--color-success)' },
+    { label: '주의', v: stCount['주의'] || 0, c: 'var(--color-warning)' },
+    { label: '부족', v: stCount['부족'] || 0, c: 'var(--color-warning)' },
+    { label: '품절', v: stCount['품절'] || 0, c: 'var(--color-danger)' },
+  ];
+  const stTot = Math.max(stSeg.reduce((a, b) => a + b.v, 0), 1);
+  const TT = { background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8, color: 'var(--color-text-primary)' };
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="제품 재고가액" value={won(v.total_value)} tone="text-brand" sub={v.basis === 'count' ? `실사 ${v.last_count_date} 기준` : `${v.as_of} 기준`} />
+        <StatCard label="평가 품목수" value={fmt(v.product_count)} sub={`총 ${numShort(v.total_qty)}낱개`} />
+        <StatCard label="음수 재고" value={fmt(v.negative_count)} tone={v.negative_count > 0 ? 'text-danger' : 'text-success'} sub="생산·실사 보정" />
+        <StatCard label="원가 미상" value={fmt(v.no_cost_count)} tone={v.no_cost_count > 0 ? 'text-warning' : 'text-success'} sub="SCM 원가 등록" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className={`${C.card} p-4`}>
+          <div className="text-sm font-semibold text-text-primary mb-2">카테고리별 재고가액</div>
+          {pie.length > 0 ? (
+            <ResponsiveContainer width="100%" height={240}><PieChart><Pie data={pie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={(e: any) => `${e.name} ${Math.round((e.percent || 0) * 100)}%`} labelLine={false}>{pie.map((p: any, i: number) => <Cell key={i} fill={p.fill} />)}</Pie><Tooltip contentStyle={TT} formatter={(x: any) => won(x)} /></PieChart></ResponsiveContainer>
+          ) : <div className="h-[200px] flex items-center justify-center text-text-quaternary text-sm">데이터 없음</div>}
+        </div>
+        <div className={`${C.card} p-4`}>
+          <div className="text-sm font-semibold text-text-primary mb-2">상위 제품 재고가액 (Top 10)</div>
+          {topItems.length > 0 ? (
+            <ResponsiveContainer width="100%" height={240}><BarChart data={topItems} layout="vertical" margin={{ left: 20 }}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis type="category" dataKey="name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} width={90} /><Tooltip contentStyle={TT} formatter={(x: any) => won(x)} /><Bar dataKey="value" radius={[0, 4, 4, 0]}>{topItems.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>
+          ) : <div className="h-[200px] flex items-center justify-center text-text-quaternary text-sm">데이터 없음</div>}
+        </div>
+      </div>
+      <div className={`${C.card} p-4`}>
+        <div className="flex items-center justify-between mb-2"><div className="text-sm font-semibold text-text-primary">재고 상태 분포</div><div className="text-xs text-text-tertiary">양수재고 {fmt(rows.length)}품목</div></div>
+        <div className="flex h-4 rounded-md overflow-hidden mb-2">{stSeg.map((s) => s.v > 0 && <div key={s.label} style={{ width: `${(s.v / stTot) * 100}%`, background: s.c }} title={`${s.label} ${s.v}`} />)}</div>
+        <div className="flex flex-wrap gap-3">{stSeg.map((s) => <div key={s.label} className="flex items-center gap-1.5 text-[11px]"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.c }} /><span className="text-text-tertiary">{s.label}</span><span className="tabular-nums font-semibold text-text-secondary">{fmt(s.v)}</span></div>)}</div>
+      </div>
+    </div>
+  );
+}
+
 function StockHubTab({ warehouses, categories }: { warehouses: Warehouse[]; categories: string[] }) {
   const [seg, setSeg] = useState<'제품' | '원부재료' | '포장재'>('제품');
   return (
@@ -751,7 +799,7 @@ function StockHubTab({ warehouses, categories }: { warehouses: Warehouse[]; cate
           { v: '원부재료', label: '원부재료', sub: '담당: 구매팀' },
           { v: '포장재', label: '포장재', sub: '담당: 물류팀' },
         ]} />
-      {seg === '제품' && <StockTab warehouses={warehouses} categories={categories} />}
+      {seg === '제품' && <><ProductStockAnalytics /><StockTab warehouses={warehouses} categories={categories} /></>}
       {seg === '원부재료' && <MaterialInventoryTab key="raw" initialTeam="구매팀" />}
       {seg === '포장재' && <MaterialInventoryTab key="pkg" initialTeam="물류팀" />}
     </div>
@@ -992,6 +1040,13 @@ function MaterialRegisterPanel({ range, onDone }: { range: { start: string; end:
     if (res.ok) { setMsg(`등록 ${res.data.created}건 (중복 ${res.data.skipped})`); setSel({}); await load(); onDone(); }
     else setMsg(res.data?.detail || '등록 실패');
   };
+  const autofix = async () => {
+    setSaving(true); setMsg(null);
+    const res = await send(`/inventory/material-alias-autofix?start=${range.start}&end=${range.end}`, 'POST');
+    setSaving(false);
+    if (res.ok) { setMsg(`유사 마스터 자동매핑 ${res.data.created}건 — 해당 자재의 소모가 이제 매칭됩니다`); await load(); onDone(); }
+    else setMsg(res.data?.detail || '자동매핑 실패');
+  };
   return (
     <div className={`${C.card} p-4 space-y-3 border border-warning/30`}>
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1001,6 +1056,7 @@ function MaterialRegisterPanel({ range, onDone }: { range: { start: string; end:
         </div>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1 text-xs text-text-secondary cursor-pointer"><input type="checkbox" checked={onlyRaw} onChange={(e) => setOnlyRaw(e.target.checked)} /> 원재료만</label>
+          {d.has_similar_master > 0 && <button onClick={autofix} disabled={saving} className={`${C.btn} ${C.btnGhost}`} title="유사 마스터가 이미 있는 자재를 별칭으로 자동 연결(코드 미변경)">유사 {fmt(d.has_similar_master)}건 자동매핑</button>}
           <button onClick={register} disabled={saving || selRows.length === 0} className={`${C.btn} ${C.btnPrimary} disabled:opacity-40`}>{saving ? '등록 중…' : `선택 ${selRows.length}건 SCM 등록`}</button>
         </div>
       </div>

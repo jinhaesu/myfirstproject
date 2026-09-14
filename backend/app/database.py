@@ -84,7 +84,7 @@ def init_db():
             CsaChannelProduct,
             InventoryWarehouse, InventoryChannelWarehouse, InventoryStockLedger,
             InventorySafetyStock, InventoryCountSession, InventoryCountLine,
-            InventoryMaterialOpening,
+            InventoryMaterialOpening, ScmMaterialAlias,
             InventoryProduction, InventoryWorkerPhone, AppSetting,
             InventoryLogisticsWork,
             PurchaseVendor, PurchaseOrder, PurchaseOrderLine, PurchaseRecord,

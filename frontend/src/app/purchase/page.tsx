@@ -108,12 +108,16 @@ export default function PurchasePage() {
   useEffect(() => { if (!isLoading && !user) router.replace('/login'); }, [isLoading, user, router]);
   if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
   const tabs: Tab[] = ['실적 대시보드', '실적 조회', '실적 입력', '단가 추이', '매입채무', '자산형 재고', 'BOM 매핑', '원부재료 소요', '거래처', '발주'];
+  const TAB_ICON: Record<Tab, string> = {
+    '실적 대시보드': '📊', '실적 조회': '🔎', '실적 입력': '✍️', '단가 추이': '📈', '매입채무': '💳',
+    '자산형 재고': '🏭', 'BOM 매핑': '🔗', '원부재료 소요': '🧮', '거래처': '🏢', '발주': '📦',
+  };
   return (
     <div className="min-h-screen bg-bg-0">
       <Navigation />
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="mb-4"><h1 className="text-xl font-bold text-text-primary">구매 관리</h1><p className="text-sm text-text-tertiary mt-0.5">구매일보 실적 분석 · 매출대비 구매비율 · 거래처/품목 이력 · 발주·발주서 발행.</p></div>
-        <div className="flex gap-1 mb-5 border-b border-border-primary overflow-x-auto">{tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap ${tab === t ? 'border-brand text-accent' : 'border-transparent text-text-tertiary hover:text-text-secondary'}`}>{t}</button>)}</div>
+        <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">{tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[13px] font-semibold whitespace-nowrap transition-all ${tab === t ? 'bg-brand/10 border-brand/40 text-accent shadow-[0_1px_3px_rgba(0,0,0,0.15)]' : 'bg-bg-1 border-border-primary text-text-tertiary hover:text-text-secondary hover:border-border-secondary'}`}><span className="text-base leading-none">{TAB_ICON[t]}</span>{t}</button>)}</div>
         {tab === '실적 대시보드' && <DashTab />}
         {tab === '실적 조회' && <RecordsTab />}
         {tab === '실적 입력' && <InputTab />}

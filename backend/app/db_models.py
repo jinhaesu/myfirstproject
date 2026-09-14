@@ -1529,6 +1529,24 @@ class InventoryCountLine(Base):
     )
 
 
+class ScmMaterialAlias(Base):
+    """자재 별칭 매핑 — 구매 품목명/코드(정규화)를 BOM 자재 마스터 정준키에 연결.
+
+    구매 품목명이 마스터와 조금 달라 매칭 안 될 때(예: '코코아파우더 싱가포르산' ↔
+    마스터 '코코아 파우더'), 마스터 erp_code를 덮어쓰지 않고 별칭으로 연결. 되돌리기 가능.
+    """
+    __tablename__ = "scm_material_alias"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    alias_norm = Column(String(300), nullable=False, unique=True, index=True)  # 구매 품목 정규화키
+    target_key = Column(String(120), nullable=False, index=True)  # 마스터 정준키(erp_code 또는 이름정규화)
+    target_name = Column(String(300), nullable=True)
+    target_type = Column(String(10), nullable=True)   # raw/sub
+    source_name = Column(String(400), nullable=True)   # 원본 구매 품목명(참고)
+    created_by = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+
+
 class InventoryMaterialOpening(Base):
     """원부재료·포장재 재고 기초앵커(직접입력). 재고금액 = 기초 + 매입 − BOM소요.
 

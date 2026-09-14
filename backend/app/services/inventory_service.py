@@ -836,6 +836,14 @@ def _bom_material_index(db: Session):
             nm = _matchnorm(m.name)
             if nm:
                 name2key.setdefault(nm, key)
+    # 별칭 매핑 병합(구매 품목명 → 마스터 정준키)
+    try:
+        from app.db_models import ScmMaterialAlias
+        for a in db.query(ScmMaterialAlias).all():
+            if a.alias_norm and a.target_key:
+                name2key[a.alias_norm] = a.target_key
+    except Exception:
+        pass
     return erp_set, name2key, meta
 
 
@@ -1003,13 +1011,13 @@ def material_unregistered(db: Session, start: date, end: date, limit: int = 80) 
     from app.services import purchase_service as pur
     erp_set, name2key, meta = _bom_material_index(db)
 
-    # 마스터 이름 인덱스(유사매칭 제안용)
+    # 마스터 이름 인덱스(유사매칭 제안용) — (정규화이름, 원본이름, type, 정준키)
     master_names = []
     from app.db_models import ScmRawMaterial, ScmSubMaterial
     for m in db.query(ScmRawMaterial).all():
-        master_names.append((_matchnorm(m.name), m.name, "raw"))
+        master_names.append((_matchnorm(m.name), m.name, "raw", (m.erp_code or "").strip() or _matchnorm(m.name)))
     for m in db.query(ScmSubMaterial).all():
-        master_names.append((_matchnorm(m.name), m.name, "sub"))
+        master_names.append((_matchnorm(m.name), m.name, "sub", (m.erp_code or "").strip() or _matchnorm(m.name)))
 
     rows = db.query(
         PurchaseRecord.item_code, PurchaseRecord.item_name, PurchaseRecord.mclass,
@@ -1042,9 +1050,9 @@ def material_unregistered(db: Session, start: date, end: date, limit: int = 80) 
     for k, c in cand.items():
         cn = _matchnorm(c["name"])
         sug = None
-        for mn, orig, typ in master_names:
+        for mn, orig, typ, mkey in master_names:
             if mn and len(mn) >= 2 and (mn in cn or cn in mn):
-                sug = {"name": orig, "type": typ}
+                sug = {"name": orig, "type": typ, "key": mkey}
                 break
         vendor = max(c["vendors"].items(), key=lambda x: x[1])[0] if c["vendors"] else None
         stype = "raw" if (c["mclass"] == "원재료") else "sub"
@@ -1068,6 +1076,33 @@ def material_unregistered(db: Session, start: date, end: date, limit: int = 80) 
         "note": "여기 자재를 SCM 자재 마스터에 등록하면 이후 BOM 레시피 연결 시 소모가 재고에서 차감됩니다. "
                 "‘유사 마스터 있음’은 이미 등록됐으나 코드/이름이 달라 매칭 안 된 경우 — 그 마스터에 코드/별칭 보정이 우선.",
     }
+
+
+def autofix_material_aliases(db: Session, start: date, end: date,
+                             user: Optional[str] = None) -> dict:
+    """'유사 마스터 있음' 미등록 자재를 그 마스터에 별칭으로 자동 연결(멱등).
+    마스터 erp_code는 건드리지 않음 — scm_material_alias만 추가."""
+    from app.db_models import ScmMaterialAlias
+    diag = material_unregistered(db, start, end, limit=1000)
+    existing = {a.alias_norm for a in db.query(ScmMaterialAlias.alias_norm).all()}
+    created = 0
+    samples = []
+    for r in diag["rows"]:
+        sug = r.get("master_suggestion")
+        if not sug:
+            continue
+        alias_norm = _matchnorm(r["name"])
+        if not alias_norm or alias_norm in existing:
+            continue
+        db.add(ScmMaterialAlias(
+            alias_norm=alias_norm, target_key=sug["key"], target_name=sug["name"],
+            target_type=sug["type"], source_name=r["name"][:400], created_by=user))
+        existing.add(alias_norm)
+        created += 1
+        if len(samples) < 20:
+            samples.append({"from": r["name"], "to": sug["name"], "value": r["purchase_value"]})
+    db.commit()
+    return {"ok": True, "created": created, "samples": samples}
 
 
 def register_materials(db: Session, items: list[dict], user: Optional[str] = None) -> dict:
