@@ -61,7 +61,7 @@ interface Dashboard {
 interface TrendPoint { period: string; inbound: number; outbound: number; net: number; closing: number; }
 interface HeatRow { product_id: number; product_name: string; category: string; cells: number[]; total: number; }
 
-type Tab = '대시보드' | '재고 현황' | '원부재료·포장재' | '보충 알림' | '재고 실사' | '설정';
+type Tab = '대시보드' | '재고 현황' | '재고 실사' | '보충 알림' | '설정';
 type SettingsTab = '창고' | '채널-창고 매핑' | '안전재고' | '기초재고 업로드';
 
 // ─────────────────────────────────────────────────────────
@@ -146,7 +146,13 @@ export default function InventoryPage() {
 
   if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
 
-  const tabs: Tab[] = ['대시보드', '재고 현황', '원부재료·포장재', '보충 알림', '재고 실사', '설정'];
+  const tabs: { key: Tab; icon: string; sub: string }[] = [
+    { key: '대시보드', icon: '📊', sub: '요약·흐름' },
+    { key: '재고 현황', icon: '📦', sub: '제품·원부재료·포장재' },
+    { key: '재고 실사', icon: '📋', sub: '실사·가액' },
+    { key: '보충 알림', icon: '🔔', sub: '재주문' },
+    { key: '설정', icon: '⚙️', sub: '창고·매핑' },
+  ];
 
   return (
     <div className="min-h-screen bg-bg-0">
@@ -159,19 +165,24 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        <div className="flex gap-1 mb-5 border-b border-border-primary">
+        <div className="flex gap-1.5 mb-5 flex-wrap">
           {tabs.map((t) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-                tab === t ? 'border-brand text-accent' : 'border-transparent text-text-tertiary hover:text-text-secondary'}`}>
-              {t}
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all ${
+                tab === t.key
+                  ? 'bg-brand/10 border-brand/40 text-accent shadow-[0_1px_3px_rgba(0,0,0,0.15)]'
+                  : 'bg-bg-1 border-border-primary text-text-tertiary hover:text-text-secondary hover:border-border-secondary'}`}>
+              <span className="text-base leading-none">{t.icon}</span>
+              <span className="text-left leading-tight">
+                <span className="block text-[13px] font-semibold">{t.key}</span>
+                <span className={`block text-[10px] ${tab === t.key ? 'text-accent/70' : 'text-text-quaternary'}`}>{t.sub}</span>
+              </span>
             </button>
           ))}
         </div>
 
         {tab === '대시보드' && <DashboardTab warehouses={warehouses} />}
-        {tab === '재고 현황' && <StockTab warehouses={warehouses} categories={categories} />}
-        {tab === '원부재료·포장재' && <MaterialInventoryTab />}
+        {tab === '재고 현황' && <StockHubTab warehouses={warehouses} categories={categories} />}
         {tab === '보충 알림' && <ReplenishmentTab warehouses={warehouses} />}
         {tab === '재고 실사' && <CountTab warehouses={warehouses} />}
         {tab === '설정' && <SettingsTab warehouses={warehouses} onChange={() => setRefreshKey((k) => k + 1)} />}
@@ -714,6 +725,39 @@ function ReplenishmentTab({ warehouses }: { warehouses: Warehouse[] }) {
 // ═════════════════════════════════════════════════════════
 // 재고 실사
 // ═════════════════════════════════════════════════════════
+function SegmentedControl<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { v: T; label: string; sub?: string }[] }) {
+  return (
+    <div className="inline-flex bg-bg-0 border border-border-primary rounded-xl p-1 gap-1">
+      {options.map((o) => (
+        <button key={o.v} onClick={() => onChange(o.v)}
+          className={`px-4 py-1.5 rounded-lg transition-all text-left ${
+            value === o.v ? 'bg-brand text-white shadow-[0_1px_3px_rgba(0,0,0,0.2)]' : 'text-text-tertiary hover:text-text-secondary'}`}>
+          <span className="block text-[13px] font-semibold leading-tight">{o.label}</span>
+          {o.sub && <span className={`block text-[10px] leading-tight ${value === o.v ? 'text-white/75' : 'text-text-quaternary'}`}>{o.sub}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function StockHubTab({ warehouses, categories }: { warehouses: Warehouse[]; categories: string[] }) {
+  const [seg, setSeg] = useState<'제품' | '원부재료' | '포장재'>('제품');
+  return (
+    <div className="space-y-4">
+      <SegmentedControl<'제품' | '원부재료' | '포장재'>
+        value={seg} onChange={setSeg}
+        options={[
+          { v: '제품', label: '제품', sub: '완제품·판매연동' },
+          { v: '원부재료', label: '원부재료', sub: '담당: 구매팀' },
+          { v: '포장재', label: '포장재', sub: '담당: 물류팀' },
+        ]} />
+      {seg === '제품' && <StockTab warehouses={warehouses} categories={categories} />}
+      {seg === '원부재료' && <MaterialInventoryTab key="raw" initialTeam="구매팀" />}
+      {seg === '포장재' && <MaterialInventoryTab key="pkg" initialTeam="물류팀" />}
+    </div>
+  );
+}
+
 function FlowBar({ opening, purchase, consumed, stock }: { opening: number; purchase: number; consumed: number; stock: number }) {
   const inflow = Math.max(opening + purchase, 1);
   const pct = (v: number) => `${Math.max(0, Math.min(100, (v / inflow) * 100)).toFixed(1)}%`;
@@ -757,11 +801,11 @@ function MatchBar({ matched, buyOnly, reqOnly }: { matched: number; buyOnly: num
   );
 }
 
-function MaterialInventoryTab() {
+function MaterialInventoryTab({ initialTeam = '' }: { initialTeam?: string } = {}) {
   const init = { start: '2026-01-01', end: todayISO() };
   const [range, setRange] = useState(init);
   const [draft, setDraft] = useState(init);
-  const [team, setTeam] = useState('');
+  const [team, setTeam] = useState(initialTeam);
   const [mclass, setMclass] = useState('');
   const [q, setQ] = useState('');
   const [d, setD] = useState<any>(null);
