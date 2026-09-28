@@ -7,11 +7,25 @@
   예외: 개수 없이 박스만 있는 쿠키 2종(르뱅/아메리칸, I열[제품 이름]으로 판별)은
   6개(고정) × 박스수. 패턴 미매칭 시 unit_per_set=None(미파싱, 매핑값으로 폴백).
   6월 샘플 검증: 낱개 9,113 = 담당자 정답 9,113 (정확 일치).
+
+폼 #65(2026-09-26, 김재경/MD) 검증 중 발견된 파서 버그 2건 수정(2026-09-28):
+  1) 헤더 자동 탐지 — 월간 xlsx('Order report' 시트)는 상단 5행이 안내문이고
+     헤더가 6행이라 header=0 고정 시 0행 파싱 → 업로드 실패. 첫 셀 '주문 ID' 또는
+     '구매 날짜' 셀이 있는 행을 헤더로 승격(_read). 안내문 없는 파일도 그대로 동작.
+  2) line_no = E열[상품 주문 ID] 우선(없으면 SKU ID → 제공 sku). 같은 주문 안에서
+     SKU·수량·금액이 같은 두 행이 dedup_hash 충돌로 1행 유실되던 문제
+     (8월 9행, 6월 취소 1행). ※ dedup_hash가 전부 바뀌므로 이미 적재된 기간을
+     다시 올릴 때는 해당 기간 삭제 후 재업로드해야 이중 적재가 안 된다.
+  주문번호(A열 주문 ID)·매출(AO)·낱개·취소 판별 규칙은 변경 없음.
+  8월 월간 샘플 검증: 1,587행, 판매 1,439행(주문 ID 고유 1,271), 취소 148행(고유 127),
+  매출 ÷1.1 13,927,034.5, 낱개 15,247, 파일 내 해시 충돌 0.
 """
 from __future__ import annotations
 import re
 from datetime import datetime
 from typing import Iterable, Optional
+
+import pandas as pd
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
@@ -76,10 +90,85 @@ def _parse_option_units(option_text: Optional[str], product_name: Optional[str])
     return total if matched_any else None
 
 
+# 헤더 행 탐지 (폼 #65, 2026-09-26) — 첫 셀 '주문 ID' 또는 '구매 날짜' 셀이 있는 행
+_HEADER_FIRST_CELL = "주문 ID"
+_HEADER_ANY_CELL = "구매 날짜"
+_HEADER_SCAN_ROWS = 20  # 월간 xlsx 안내문은 5행 — 여유 있게 20행까지만 탐색
+
+
+def _is_header(vals: list) -> bool:
+    cells = [str(v).strip() for v in vals]
+    return bool(cells) and (cells[0] == _HEADER_FIRST_CELL or _HEADER_ANY_CELL in cells)
+
+
+def _header_names(vals: list) -> list[str]:
+    """헤더 셀 → 컬럼명. pandas header=0과 같게 빈 셀은 'Unnamed: N',
+    중복은 '.1'·'.2' 접미(월간 xlsx에 '수령인 이름'이 2개)."""
+    names: list[str] = []
+    seen: dict[str, int] = {}
+    for j, v in enumerate(vals):
+        name = to_str(v) or f"Unnamed: {j}"
+        if name in seen:
+            seen[name] += 1
+            name = f"{name}.{seen[name]}"
+        else:
+            seen[name] = 0
+        names.append(name)
+    return names
+
+
+def _read(path: str) -> pd.DataFrame:
+    """헤더 자동 탐지 후 DataFrame 반환 (폼 #65, 2026-09-28 수정).
+
+    xlsx/xls: header=None으로 읽어 헤더 행을 찾아 승격(상단 안내문 5행인 월간 xlsx 대응).
+    CSV: 기존대로 header=0. 첫 행이 헤더가 아닐 때만 같은 탐지로 폴백.
+    헤더를 못 찾으면 구 header=0 결과를 그대로 반환(구양식 파일 동작·해시 불변).
+    """
+    df: Optional[pd.DataFrame] = None
+    if path.lower().endswith(".csv"):
+        df = read_excel_safe(path, header=0)
+        if _is_header(list(df.columns)):
+            df.columns = [str(c).strip() for c in df.columns]
+            return df
+        try:
+            raw = read_excel_safe(path, header=None)
+        except Exception:
+            return df  # 탐지용 재읽기 실패 시 구 동작 유지
+    else:
+        raw = read_excel_safe(path, header=None)
+    if raw is None or raw.empty:
+        return df if df is not None else pd.DataFrame()
+    # HTML 위장 .xls는 read_html이 이미 헤더를 컬럼으로 잡아 옴 → 그대로 사용
+    if _is_header(list(raw.columns)):
+        raw.columns = [str(c).strip() for c in raw.columns]
+        return raw
+    hdr: Optional[int] = None
+    for i in range(min(_HEADER_SCAN_ROWS, len(raw))):
+        if _is_header(raw.iloc[i].tolist()):
+            hdr = i
+            break
+    if hdr is None:
+        # 헤더 미탐지(구양식 등) — header=None 재읽기는 dtype 추론이 달라
+        # (빈칸 섞인 SKU ID 'X.0'→'X') line_no·해시가 바뀌므로 구 header=0 결과 사용.
+        return df if df is not None else read_excel_safe(path, header=0)
+    df = raw.iloc[hdr + 1:].reset_index(drop=True)
+    df.columns = _header_names(raw.iloc[hdr].tolist())
+    return df
+
+
+def _first_str(*vals) -> Optional[str]:
+    """앞에서부터 비어 있지 않은 첫 값(str). NaN은 truthy라 `a or b`로는 폴백이 안 됨."""
+    for v in vals:
+        s = to_str(v)
+        if s:
+            return s
+    return None
+
+
 @register("테무")
 @register("Temu")
 def parse(path: str) -> Iterable[ParsedLine]:
-    df = read_excel_safe(path, header=0)
+    df = _read(path)
     for _, row in df.iterrows():
         sale_dt = (
             _parse_korean_date(row.get("구매 날짜"))
@@ -116,7 +205,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,
             order_no=to_str(row.get("주문 ID") or row.get("주문 상품 ID")),
-            line_no=to_str(row.get("SKU ID") or row.get("제공 sku")),
+            # line_no = E열[상품 주문 ID] 우선 (폼 #65, 2026-09-28) — SKU ID만 쓰면 같은
+            # 주문의 동일 SKU·수량·금액 행이 dedup 충돌로 유실. 구버전 원본은 SKU로 폴백.
+            line_no=_first_str(row.get("상품 주문 ID"), row.get("SKU ID"), row.get("제공 sku")),
             raw_product_name=prod,
             raw_option_name=opt,
             raw_qty=to_float(row.get("구매 수량") or row.get("수량") or 1),

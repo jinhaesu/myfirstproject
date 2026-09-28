@@ -3,6 +3,7 @@
 집계 기준: 수량 × 공급가 (세전 공급가 합계). 공급가는 개당 단가.
 낱개 = (상품코드별 기준 낱개) × (단품명 내 박스 수) × 수량.
   (폼 2026-07-26 김재경/MD: 세트/박스 미환산 684→1,376 · 주문번호 dedup 131→123)
+취소 = 주문상태가 정확히 '주문취소'인 행만 (폼 #26·#67, 2026-09-28 반영).
 복지 파일은 앞에 [고객사][사번] 2칸이 더 있으나 헤더명으로 매칭하므로 동일 파서로 처리.
 """
 from __future__ import annotations
@@ -20,12 +21,22 @@ _SAMSUNG_BASE = {
     "SP250302249589": 8, "SP250302249615": 16, "SP250502339933": 12, "SP250502339935": 9,
     "SP260202633497": 8, "SP250302254149": 8, "SP250602363533": 8, "SP260202633232": 8,
     "SP250302247762": 6, "SP250302248260": 6,
+    # 쇼핑 — 폼 #26 매핑표 밖 코드(2026-09-28 추가). 상품명·단품명의 개입수로 확인, 박스곱셈 없음.
+    # (미매핑이면 낱개 1로 잡혀 8월 −13 등 과소 집계)
+    "SP250302247604": 10,  # [비건] 단백질 파운드케이크 5종 10개입 ('쑥 5EA / 다크초코 5EA')
+    "SP250302247500": 5,   # [크림가득] 고단백 크림빵 5개입
+    "SP250302248309": 16,  # 4.5cm 마카롱 16개입 [4종 택2] ('8구 (1BOX)+ 8구 (1BOX)' = 16, ×박스 금지)
+    "SP250302248345": 16,  # 4cm 휘낭시에 16개입(8ea x 2box) — 복지 WP250302251704와 동일 16
     # 복지
     "WP250302251676": 8, "WP250302251686": 16, "WP250302254400": 8, "WP250502339934": 9,
     "WP250502339936": 9, "WP260202633503": 8, "WP250302251592": 12, "WP250302251602": 8,
     "WP250302251571": 10, "WP250802440503": 1, "WP250302251704": 16, "WP250302251803": 16,
     "WP250302254182": 8, "WP250302251756": 8, "WP250602363563": 8, "WP250602386067": 8,
     "WP260202633353": 8, "WP260302698853": 6,
+    # 복지 — 폼 #26 매핑표 밖 코드(2026-09-28 추가, 위와 같은 기준)
+    "WP250302251311": 5,   # [크림가득] 고단백 크림빵 5개입
+    "WP250302251329": 24,  # [0칼로리 0당류] 제로 티스파클링 2종 24개입 ('블랙티레몬 (24개입)')
+    "WP250302251578": 6,   # [수제 초콜릿] 단백질 브라우니 6개입
 }
 # 단품명 내 '박스 수'를 곱해야 하는 상품코드(기준 낱개=단일박스 수량).
 _SAMSUNG_BOXMULT = {
@@ -55,7 +66,9 @@ def _samsung_units(code: str, danpum: str):
 @register("삼성카드")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
-    for _idx, (_, row) in enumerate(df.iterrows()):
+    # 완전히 같은 행(주문·단품·회차·일자·상품·수량·금액)의 등장 순번 — line_no 구분용
+    _dup_seen: dict[tuple, int] = {}
+    for _, row in df.iterrows():
         sale_d = to_date(row.get("주문일자"))
         if not sale_d:
             continue
@@ -64,9 +77,12 @@ def parse(path: str) -> Iterable[ParsedLine]:
             continue
         qty = to_float(row.get("수량") or row.get("주문수량") or 1)
 
-        # 주문상태(H)에 '취소' 포함 시 취소건으로 표시
+        # 취소 = 주문상태가 정확히 '주문취소'인 행만 (폼 #26·#67 김재경/MD, 2026-09-28).
+        # 기존 '"취소" in 상태'는 '배송완료(교환취소)'·'배송완료(반품취소)'까지 취소로 오판
+        # (2026-01 교환취소 1건 6,715원 누락). 배송완료(반품/교환/반품취소/교환취소)는 정상 판매.
+        # ※ 복지 '배송완료(반품)'을 취소로 볼지는 대표 결정 대기 — 현행(정상 판매) 유지.
         status = to_str(row.get("주문상태") or "") or ""
-        is_cancel = "취소" in status
+        is_cancel = status.strip() == "주문취소"
 
         # 집계 기준: 수량(P) × 공급가(Q)
         supply_price = to_float(row.get("공급가"))
@@ -79,13 +95,21 @@ def parse(path: str) -> Iterable[ParsedLine]:
         round_no = to_str(row.get("진행회차") or row.get("신청회차"))
         code = to_str(row.get("상품코드"))
         _parts = [x for x in (code, opt, round_no) if x]
-        # 같은 주문·단품·금액 행 중복 시 dedup 탈락(76→74행) 방지 — 행 시퀀스 부여
-        line_no = ("|".join(_parts) if _parts else code or "") + f"-{_idx}"
+        # 적재 시 line_no 100자 절단 — 순번 접미사가 잘리지 않게 본문을 먼저 90자로 제한
+        base_no = ("|".join(_parts) if _parts else code or "")[:90]
+        order_no = to_str(row.get("주문번호"))
+        # 같은 주문·단품·금액 행 중복 시 dedup 탈락(76→74행) 방지 — 동일 행에만 '#순번' 부여.
+        # (2026-09-28) 파일 내 절대 행번호(-{_idx})는 주간/월간 파일마다 값이 달라 같은 행이
+        # 두 번 적재될 수 있어, 파일 위치와 무관한 '동일 행 등장 순번'으로 교체.
+        _k = (order_no, base_no, sale_d, prod, qty, gross)
+        _n = _dup_seen.get(_k, 0) + 1
+        _dup_seen[_k] = _n
+        line_no = base_no if _n == 1 else f"{base_no}#{_n}"
 
         ups = _samsung_units(code, opt)  # 상품코드 기준 낱개(세트/박스 환산). None=미매핑
         yield ParsedLine(
             sale_date=sale_d,
-            order_no=to_str(row.get("주문번호")),
+            order_no=order_no,
             line_no=line_no,
             raw_product_name=prod,
             raw_option_name=opt,

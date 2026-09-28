@@ -53,6 +53,8 @@ DEFAULT_CHANNELS = [
     {"name": "삼성카드쇼핑", "category": "복지몰", "integration_type": "manual"},
     {"name": "농협몰", "category": "복지몰", "integration_type": "manual"},
     {"name": "베네피아", "category": "복지몰", "integration_type": "manual"},
+    {"name": "국군복지단 온라인", "category": "복지몰", "integration_type": "manual"},  # 국군복지단 온라인몰(주문 단위, 2026-07 입점, 폼 #46). 오프라인 PX와 별개
+    {"name": "T deal", "category": "복지몰", "integration_type": "manual"},  # T deal(SKT 딜커머스) 주문통합 리스트 (2026-08-15~, 폼 #63)
 
     # 대형마트/편의점
     {"name": "홈플러스", "category": "대형마트", "integration_type": "manual"},

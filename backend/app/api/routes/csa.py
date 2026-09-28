@@ -1004,6 +1004,9 @@ def delete_channel_data(
 # 재처리 (재업로드 없이 보관 원본을 최신 파서로 다시 파싱·집계)
 # ──────────────────────────────────────────────────────────────
 
+_REPROCESS_NEWEST_FIRST_CHANNELS = {"테무", "알리익스프레스", "카카오스타일"}
+
+
 def _run_reprocess_background(channel_id: str, channel_name: str):
     """BackgroundTask로 실행되는 재처리 워커.
 
@@ -1019,11 +1022,18 @@ def _run_reprocess_background(channel_id: str, channel_name: str):
         # 파일 목록은 id만 — content(BLOB 수십 MB)까지 한 문장으로 당기면
         # Supabase pooler가 긴 statement를 끊어(SSL closed/timeout) 재처리가 통째로 no-op 됨.
         # content는 루프 안에서 파일별 단건 조회.
+        # 기본은 업로드 순(오래된 것 먼저). 단, 주간 부분파일 뒤에 월간/재추출 파일로
+        # '사후 취소' 상태가 갱신되는 채널은 최신 파일을 먼저 적재해야 한다 — dedup_hash에
+        # 주문상태가 없어 같은 행이면 먼저 들어온 쪽이 남기 때문(2026-09 폼 감사: 테무 8월
+        # 사후취소 2주문·알리 7/21→7/28 스냅샷). 월누적 스냅샷 채널(PX)은 역순이면
+        # 옛 스냅샷이 월을 덮어쓰므로 절대 넣지 말 것.
+        _newest_first = channel_name in _REPROCESS_NEWEST_FIRST_CHANNELS
         file_ids = [
             fid for (fid,) in (
                 db.query(CsaUploadFile.id)
                 .filter(CsaUploadFile.channel_id == channel_id)
-                .order_by(CsaUploadFile.created_at.asc())
+                .order_by(CsaUploadFile.created_at.desc() if _newest_first
+                          else CsaUploadFile.created_at.asc())
                 .all()
             )
         ]
@@ -2222,6 +2232,27 @@ def dashboard(
     if selected_channels:
         _cancel_q = _cancel_q.filter(ChannelSalesRawLine.channel_id.in_(list(selected_channels)))
     _cancel_count, _cancel_amount = _cancel_q.one()
+
+    # ESM(지마켓·옥션) 환불은 원 주문과 별도의 '음수행'으로 적재해 매출에서 차감한다
+    # (기준변경요청서 #47·#48, 2026-09). 이 행은 mapping_status='matched'라 위 취소 집계에
+    # 안 잡히므로 해당 채널에 한해 별도 합산. channel_id·sale_date 인덱스로만 조회(풀스캔 방지).
+    _esm_ids = [cid for (cid,) in db.query(Channel.id).filter(
+        Channel.name.in_(("지마켓", "G마켓", "옥션", "이베이"))).all()]
+    if selected_channels:
+        _esm_ids = [c for c in _esm_ids if c in selected_channels]
+    if _esm_ids:
+        _rc, _ra = db.query(
+            func.count(ChannelSalesRawLine.id),
+            func.coalesce(func.sum(ChannelSalesRawLine.refund_amount), 0),
+        ).filter(
+            ChannelSalesRawLine.channel_id.in_(_esm_ids),
+            ChannelSalesRawLine.sale_date >= period_start,
+            ChannelSalesRawLine.sale_date <= period_end,
+            ChannelSalesRawLine.raw_qty < 0,
+            ChannelSalesRawLine.mapping_status != "cancelled",
+        ).one()
+        _cancel_count = (_cancel_count or 0) + (_rc or 0)
+        _cancel_amount = (_cancel_amount or 0) + (_ra or 0)
 
     # 변동비 카테고리별 분해
     cost_breakdown = {

@@ -40,4 +40,5 @@ from app.services.csa_parsers import (  # noqa: E402,F401
     samsung_welstory, ourhome, cj_freshway, emart_nobrand, homeplus,
     shinsegae_tv, benepia, px, zerostore, parnas, b2b_partners,
     megamart, trade_statement, ssgmall, paldogam,
+    gukgun_online, tdeal,
 )

@@ -108,6 +108,12 @@ CHANNEL_ALIAS: dict[str, str] = {
     "코스트코": "코스트코",
     "컬리": "마켓컬리",
     "아워홈": "아워홈",
+    # 기준변경요청서 2026-09 신규 채널
+    "T deal": "T deal", "티딜": "T deal", "T딜": "T deal", "Tdeal": "T deal",
+    "T-deal": "T deal", "TDEAL": "T deal", "T DEAL": "T deal",
+    # 국군복지단 '온라인몰'(주문 단위) — 오프라인 PX(월누적, 파서 별칭 '국군복지단')와 분리
+    "국군복지단 온라인": "국군복지단 온라인", "국군복지단몰": "국군복지단 온라인",
+    "국군복지단 온라인몰": "국군복지단 온라인",
 }
 
 
@@ -151,11 +157,17 @@ VAT_INCLUDED_CHANNELS: set[str] = {
     "CJ온스타일", "CJ 온스타일", "CJ ON STYLE",
     # 백화점
     "롯데온",
-    "SSG", "SSG닷컴", "SSG(사입)",
+    "SSG", "SSG닷컴",
+    # ※ SSG(사입) 제외(2026-09 기준변경요청서 #62, 염재영): 매출 원천이 이마트 SCM
+    #    '납품현황'의 납품금액(=납품량×매입원가, 공급가·VAT 별도)이라 ÷1.1 금지.
+    #    같은 양식인 이마트 노브랜드·GS25 납품금액과 동일 처리.
     "신세계몰", "신세계몰(SSG)",  # SSG닷컴 위탁 — 주문금액(소비자가) 기준 (2026-06-12)
     # 위탁 기타 — 기준변경요청서 반영 (2026-07-06, 김재경)
     "농협몰", "농협",   # 주문금액(N) = 소비자가 → ÷1.1 (기존 누락 정정)
     "팔도감",           # 상품가액(A) = 소비자가 → ÷1.1
+    # 기준변경요청서 2026-09 신규 채널 — 소비자가(VAT 포함) 원천
+    "국군복지단 온라인",  # 금액(G) = 소비자가 (#46, 김재경)
+    "T deal",            # 상품합계(AH) = 소비자가 (#63, 임현정)
     # 카페사업부 3지점 (mycafeproject POS 연동, 2026-07-19) — 영수증 결제액 = VAT 포함
     "경복궁 카페", "행궁동 카페", "해방촌 카페",
 }
@@ -515,6 +527,11 @@ class ParsedLine:
     is_cancelled: bool = False  # 취소/환불 확정 행 — 매출엔 미반영, 건수·금액만 표시
     unit_per_set: Optional[float] = None  # 파서가 낱개 입수를 직접 지정(상품명 기반 등). None이면 매핑값 사용
     raw_row: Optional[dict] = None
+    # 파서가 표준 품목(ProductMaster.name)을 직접 지정 — 한 원본 행을 품목별로 분해한
+    # 라인(톡스토어 골라담기 [베이글]/[바게트] 태그, T deal 옵션 파트 등)에 사용.
+    # 지정 시 다중매핑·룰베이스('가장 긴 일치 용어')를 건너뛰고 그 품목으로 확정한다.
+    # (룰베이스는 상품명 '베이글/바게트/포카치아 골라담기'를 통째로 포카치아에 몰아줌)
+    product_hint: Optional[str] = None
 
 
 def ingest_lines(
@@ -547,6 +564,15 @@ def ingest_lines(
 
     masters_cache = _get_or_cache_master(db)
     product_by_id = {p.id: p for p in masters_cache}
+    # product_hint 조회용 — 표준명 우선, 별칭 보조(표준명과 충돌 시 표준명이 이김)
+    hint_lookup: dict[str, ProductMaster] = {}
+    for _p in masters_cache:
+        for _a in (_p.aliases or []):
+            _ak = str(_a).strip()
+            if _ak:
+                hint_lookup.setdefault(_ak, _p)
+    for _p in masters_cache:
+        hint_lookup[_p.name.strip()] = _p
     # ChannelProductMapping 전체를 한 번에 메모리에 캐시.
     # Supabase pooler 환경에서 라인마다 DB query하면 95k 라인 적재가 수 시간.
     mappings_cache = _build_mapping_cache(db, channel_id)
@@ -641,9 +667,12 @@ def ingest_lines(
             ))
             continue
 
+        # 파서가 품목을 직접 지정한 분해 라인 → 다중매핑·룰베이스 건너뜀
+        hint_prod = hint_lookup.get(ln.product_hint.strip()) if ln.product_hint else None
+
         # 다중 매핑(옵션 1건 → 복수 표준 품목): 낱개수량 비율로 매출 안분 + 컴포넌트별 분할.
         comps = None
-        if multi_cache:
+        if multi_cache and hint_prod is None:
             _rn = (ln.raw_product_name or "").strip()
             _ro = (ln.raw_option_name or "").strip() if ln.raw_option_name else None
             comps = multi_cache.get((_rn, _ro)) or multi_cache.get((_rn, None))
@@ -692,12 +721,15 @@ def ingest_lines(
                 inserted += 1
             continue
 
-        mapping = resolve_product(
-            db, channel_id, ln.raw_product_name or "", ln.raw_option_name,
-            masters_cache=masters_cache,
-            mappings_cache=mappings_cache,
-            product_by_id=product_by_id,
-        )
+        if hint_prod is not None:
+            mapping = MappingResult(hint_prod.id, hint_prod.name, 1, "matched")
+        else:
+            mapping = resolve_product(
+                db, channel_id, ln.raw_product_name or "", ln.raw_option_name,
+                masters_cache=masters_cache,
+                mappings_cache=mappings_cache,
+                product_by_id=product_by_id,
+            )
         # 파서가 입수를 직접 지정했으면(상품명 기반 등) 그 값 우선, 아니면 매핑값.
         _ups = ln.unit_per_set if ln.unit_per_set is not None else mapping.unit_per_set
         pcs = ln.raw_qty * _ups
