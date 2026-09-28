@@ -10,7 +10,7 @@ PyJWT
 bcrypt
 email-validator
 resend
-sqlalchemy
+sqlalchemy>=2.0,<2.1  # 2.1부터 postgresql:// 기본 드라이버가 psycopg(v3)로 바뀌어 기동 실패
 psycopg2-binary
 pandas
 openpyxl
