@@ -33,7 +33,7 @@ DEFAULT_CHANNELS = [
     {"name": "올리브영", "category": "버티컬", "integration_type": "rpa"},
     {"name": "올웨이즈", "category": "버티컬", "integration_type": "rpa"},
     {"name": "마켓컬리", "category": "버티컬", "integration_type": "rpa"},
-    {"name": "비마트", "category": "버티컬", "integration_type": "rpa"},
+    {"name": "B마트", "category": "버티컬", "integration_type": "rpa"},
     {"name": "크림", "category": "버티컬", "integration_type": "manual"},
 
     # 홈쇼핑/TV
