@@ -2370,27 +2370,48 @@ def dashboard(
         slot["contribution_margin"] += r.contribution_margin or 0
     channels_summary = sorted(by_channel.values(), key=lambda x: -x["revenue"])
 
-    # 특정 채널만 주문건수를 '주문번호 고유값'으로 보정 — 대시보드 orders는
-    # 품목별 order_count 합산이라 한 주문에 여러 상품이면 중복집계된다. 요청에 따라
-    # 롯데홈쇼핑·삼성카드만 raw_lines의 DISTINCT order_no로 재계산(다른 채널은 기존 유지).
-    _DISTINCT_ORDER_CHANNELS = {"롯데 홈쇼핑", "롯데홈쇼핑", "삼성카드쇼핑", "삼성카드"}
-    _corr_ids = [c["channel_id"] for c in channels_summary
-                 if (c.get("channel_name") or "") in _DISTINCT_ORDER_CHANNELS]
-    if _corr_ids:
-        _oq = db.query(
-            ChannelSalesRawLine.channel_id,
-            func.count(func.distinct(ChannelSalesRawLine.order_no)),
-        ).filter(
-            ChannelSalesRawLine.channel_id.in_(_corr_ids),
-            ChannelSalesRawLine.sale_date >= period_start,
-            ChannelSalesRawLine.sale_date <= period_end,
-            func.coalesce(ChannelSalesRawLine.mapping_status, "") != "cancelled",
-            ChannelSalesRawLine.order_no.isnot(None),
-        ).group_by(ChannelSalesRawLine.channel_id)
-        _distinct_orders = {cid: int(n or 0) for cid, n in _oq.all()}
-        for c in channels_summary:
-            if c["channel_id"] in _distinct_orders:
-                c["orders"] = _distinct_orders[c["channel_id"]]
+    # 요청 채널만 주문건수를 '주문번호 고유값'으로 보정 — 대시보드 orders는
+    # 품목별 order_count 합산이라 한 주문에 여러 상품이면 중복집계된다.
+    # 채널 표뿐 아니라 상단 KPI·구분 합계·기간 시리즈에도 같은 보정을 적용한다
+    # (대표 결정 2026-10-01). 품목 필터가 걸린 조회는 품목 단위 건수라 보정하지 않는다.
+    if not product_ids:
+        _dmap = _distinct_orders_by_day(
+            db, period_start, period_end,
+            [c["channel_id"] for c in channels_summary])
+        if _dmap:
+            def _bucket(d) -> str:
+                if granularity == "day":
+                    return d.isoformat()
+                if granularity == "month":
+                    return f"{d.year}-{d.month:02d}"
+                if granularity == "quarter":
+                    return f"{d.year}-Q{(d.month - 1) // 3 + 1}"
+                return f"{d.year}"
+
+            _new: dict = {}   # (channel_id, 기간) → 고유 주문 수
+            for (cid, d), n in _dmap.items():
+                k = (cid, _bucket(d))
+                _new[k] = _new.get(k, 0) + n
+            _old: dict = {}
+            _corr = {cid for cid, _ in _dmap}
+            for r in rows:
+                if r.channel_id in _corr:
+                    k = (r.channel_id, _pkey(r))
+                    _old[k] = _old.get(k, 0) + (r.order_count or 0)
+            _ch_delta: dict = {}
+            for k in set(_new) | set(_old):
+                delta = _new.get(k, 0) - _old.get(k, 0)
+                _ch_delta[k[0]] = _ch_delta.get(k[0], 0) + delta
+                if k[1] in series_map:
+                    series_map[k[1]]["orders"] += delta
+            for c in channels_summary:
+                dlt = _ch_delta.get(c["channel_id"])
+                if dlt:
+                    c["orders"] += dlt
+                    total_orders += dlt
+                    gname = group_names.get(group_map.get(c["channel_id"])) or "미분류"
+                    if gname in by_group:
+                        by_group[gname]["orders"] += dlt
 
     # 품목별 합계 — 미매핑(product_id=None)은 '(미매핑)' 단일 항목으로 묶어 포함.
     # (제외하면 품목별 합계가 상단 KPI/채널별 합계와 어긋남.)
@@ -2445,6 +2466,38 @@ def dashboard(
                               "expires": now + _DASH_TTL_SEC}
     _dlap("aggregate+serialize")
     return resp
+
+
+# 주문건수를 '주문번호 고유값'으로 세는 채널 (기준변경요청서, 대표 결정 2026-10-01).
+# 그 외 채널은 기존 방식(일자×품목별 주문 수 합산) 유지.
+_DISTINCT_ORDER_CHANNELS = {
+    "롯데 홈쇼핑", "롯데홈쇼핑", "삼성카드쇼핑", "삼성카드",
+    "토스", "카카오스타일", "베네피아", "롯데온", "테무", "이지웰", "카페24",
+    "T deal", "국군복지단 온라인", "스마트스토어",
+}
+
+
+def _distinct_orders_by_day(db: Session, start: date, end: date, channel_ids=None) -> dict:
+    """{(channel_id, sale_date): 고유 주문번호 수} — 보정 대상 채널만, 취소 제외."""
+    ids = [cid for (cid,) in db.query(Channel.id).filter(
+        Channel.name.in_(_DISTINCT_ORDER_CHANNELS)).all()]
+    if channel_ids is not None:
+        keep = set(channel_ids)
+        ids = [c for c in ids if c in keep]
+    if not ids:
+        return {}
+    q = db.query(
+        ChannelSalesRawLine.channel_id,
+        ChannelSalesRawLine.sale_date,
+        func.count(func.distinct(ChannelSalesRawLine.order_no)),
+    ).filter(
+        ChannelSalesRawLine.channel_id.in_(ids),
+        ChannelSalesRawLine.sale_date >= start,
+        ChannelSalesRawLine.sale_date <= end,
+        func.coalesce(ChannelSalesRawLine.mapping_status, "") != "cancelled",
+        ChannelSalesRawLine.order_no.isnot(None),
+    ).group_by(ChannelSalesRawLine.channel_id, ChannelSalesRawLine.sale_date)
+    return {(cid, d): int(n or 0) for cid, d, n in q.all()}
 
 
 @router.get("/matrix")
@@ -2520,6 +2573,19 @@ def csa_matrix(
         slot["monthly"][str(int(r.m))] = cell
         for k in ("pcs", "revenue", "orders", "cm"):
             slot["total"][k] += cell[k]
+
+    # 채널 매트릭스도 대시보드와 같은 주문건수 보정(주문번호 고유값) 적용
+    if by == "channel":
+        month_new: dict = {}
+        for (cid, d), n in _distinct_orders_by_day(
+                db, date(year, 1, 1), date(year, 12, 31), list(rows_out.keys())).items():
+            k = (cid, str(d.month))
+            month_new[k] = month_new.get(k, 0) + n
+        for (cid, m), n in month_new.items():
+            cell = rows_out[cid]["monthly"].get(m)
+            if cell is not None:
+                rows_out[cid]["total"]["orders"] += n - cell["orders"]
+                cell["orders"] = n
 
     out = sorted(rows_out.values(), key=lambda x: -x["total"]["revenue"])
     return {"year": year, "by": by, "rows": out}
