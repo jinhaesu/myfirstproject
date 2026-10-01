@@ -8,7 +8,8 @@
     · 전시상품명에 프로모션 문구가 붙으므로 부분 매칭(포함)으로 매핑.
     · 매핑에 없는 신규 전시상품명은 제외하지 않고 unit_per_set=None(미매핑)으로 유지.
   취소·반품 = S열[유형]이 '취소(주문취소)' 또는 '반품'인 행(우선 판별).
-    · 구버전(유형 컬럼 없음) 폴백: U열[진행단계]에 '취소' 포함 여부로 판별(기존 로직 유지).
+    · U열[진행단계]='반품완료'도 취소(유형 값과 무관 — 반품도 취소 포함, MD 회신 2026-09-30).
+    · 구버전(유형 컬럼 없음) 폴백: U열[진행단계]에 '취소' 또는 '반품완료' 포함 여부로 판별.
   VAT: 롯데온은 VAT 포함가(결제금액)로 들어오는 채널 — csa_service.VAT_INCLUDED_CHANNELS에
     이미 등록되어 있어 ingest 시점에 시스템이 자동으로 ÷1.1(공급가) 환산한다.
     파서 단에서는 원본 그대로(net_amount=gross_amount=결제금액) 전달한다
@@ -111,12 +112,14 @@ def parse(path: str) -> Iterable[ParsedLine]:
 
         # 취소·반품 판별: S열[유형]='취소(주문취소)' 또는 '반품' 우선.
         # 구버전(유형 컬럼 없는 보관 원본) 폴백: U열[진행단계]에 '취소' 포함 여부(기존 로직).
+        # 반품도 취소 포함(MD 회신 2026-09-30, 대표 승인): 유형이 '주문'으로 남아 있어도
+        # 진행단계가 '반품완료'면 취소. 구버전 폴백도 '반품완료' 추가(기존엔 '취소'만 봄).
+        stage = to_str(row.get("진행단계") or row.get("진행상태 (약식)") or "") or ""
         if has_type_col:
             order_type = to_str(row.get("유형")) or ""
-            is_cancel = ("취소" in order_type) or ("반품" in order_type)
+            is_cancel = ("취소" in order_type) or ("반품" in order_type) or ("반품완료" in stage)
         else:
-            stage = to_str(row.get("진행단계") or row.get("진행상태 (약식)") or "") or ""
-            is_cancel = "취소" in stage
+            is_cancel = ("취소" in stage) or ("반품완료" in stage)
 
         # 매출 = AV열[결제금액] 그 자체(라인 총액, 이미 판매가×수량−할인금액 반영).
         # 수량을 다시 곱하면 이중 계상되므로 곱셈 금지(구버전 버그 수정, 2026-07-15).

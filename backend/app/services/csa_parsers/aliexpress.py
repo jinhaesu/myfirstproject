@@ -10,9 +10,17 @@
   - 낱개수량 = T열[제품 정보] 텍스트에서 '(수량:N piece)'의 N × 세트입수(정규식 6순위,
     아래 _ali_set_size 참조 — 2순위는 폼 #49로 '+' 연쇄 합산 확장). 【1】【2】... 형태의
     합주문(한 행에 여러 상품)은 상품 블록별로 각각 계산해 합산한다.
+
+2026-10-01 기준 변경 요청(폼 #77, 남윤주 — 적용 시작일 2026-08-01) 반영:
+  - 주문시간 2026-08-01 이후 주문만 적용(이전 주문은 위 폼 #49 기준 유지).
+  - 주문 상태 '완료'만 유효 매출, '주문 종료'는 전부 취소. 그 외 상태(결제 대기·배송 중·
+    주문 동결 등)는 매출도 취소도 아니므로 행 자체를 스킵 — 나중 파일에서 '완료'로 바뀌면 그때 적재.
+  - 일자 기준(주문시간)·금액(주문 금액, 2026-08 파일에선 O열)·낱개수량 로직은 그대로.
+    컬럼은 문자(열 위치)가 아니라 헤더명으로 찾는다(8월 파일부터 C열이 추가돼 한 칸씩 밀림).
 """
 from __future__ import annotations
 import re
+from datetime import date
 from typing import Iterable, Optional
 
 from app.services.csa_service import ParsedLine
@@ -110,6 +118,13 @@ def _ali_pcs_from_text(text: Optional[str]) -> Optional[float]:
 # 폼 #49(2026-07-28): 주문 상태가 이 값이면 취소 행 — 공백 차이('주문종료')도 허용
 _CANCEL_STATUSES = {"주문종료", "주문동결"}
 
+# 폼 #77(2026-10-01, 남윤주 — 적용 시작일 2026-08-01): 주문시간이 이 날짜 이후인 주문은
+#   '완료'만 유효 매출, '주문 종료'만 취소, 그 외 상태(결제 대기·배송 중·주문 동결 등)는 행 스킵.
+#   이전 주문은 폼 #49 기준 그대로(검증 끝난 월이 움직이지 않도록).
+_COMPLETED_ONLY_FROM = date(2026, 8, 1)
+_VALID_STATUSES_V2 = {"완료"}
+_CANCEL_STATUSES_V2 = {"주문종료"}
+
 
 def _first_col(columns, *names: str) -> Optional[str]:
     """후보 컬럼명 중 파일에 실제로 있는 첫 컬럼명."""
@@ -147,7 +162,16 @@ def parse(path: str) -> Iterable[ParsedLine]:
             unit_per_set = None
         amount = to_float(row.get(amt_col)) if amt_col else 0.0
         status = (to_str(row.get(status_col)) or "") if status_col else ""
-        is_cancel = status.replace(" ", "") in _CANCEL_STATUSES
+        status_key = status.replace(" ", "")
+        if status_col and sale_dt.date() >= _COMPLETED_ONLY_FROM:
+            # 폼 #77: 완료=유효, 주문 종료=취소, 나머지(미확정 상태)는 적재하지 않는다.
+            # 스킵이라 DB에 해시가 남지 않으므로, 이후 파일에서 '완료'(또는 '주문 종료')로
+            # 바뀌어 들어오면 중복에 걸리지 않고 그때 정상 적재된다(취소 건수도 부풀리지 않음).
+            is_cancel = status_key in _CANCEL_STATUSES_V2
+            if not is_cancel and status_key not in _VALID_STATUSES_V2:
+                continue
+        else:
+            is_cancel = status_key in _CANCEL_STATUSES
         yield ParsedLine(
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,

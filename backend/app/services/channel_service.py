@@ -39,6 +39,7 @@ DEFAULT_CHANNELS = [
     # 홈쇼핑/TV
     {"name": "롯데 홈쇼핑", "category": "홈쇼핑", "integration_type": "rpa"},
     {"name": "GS 샵", "category": "홈쇼핑", "integration_type": "rpa"},
+    {"name": "GS 샵(직택배)", "category": "홈쇼핑", "integration_type": "manual"},  # 직택배집하택배상세(출하지시일·판매가 기준, 2026-10 신설)
     {"name": "NS MALL", "category": "홈쇼핑", "integration_type": "rpa"},
     {"name": "신세계 TV 쇼핑", "category": "홈쇼핑", "integration_type": "rpa"},
     {"name": "신세계 라이브쇼핑", "category": "홈쇼핑", "integration_type": "rpa"},

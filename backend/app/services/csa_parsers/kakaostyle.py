@@ -1,8 +1,9 @@
 """카카오스타일 (지그재그) 파서.  (기준변경 반영 2026-07-19, 김재경 MD 요청)
 
-- 매출 = U열[상품주문액 (원)] 라인 총액('18,900' 콤마 문자열 → 숫자 정제).
+- 매출 = U열[상품주문액 (원)] 라인 총액('18,900' 콤마 문자열 → 숫자 정제)
+  − X열[스토어 부담 금액 (원)](셀러 부담 쿠폰 — MD 회신 2026-09-30 대표 승인).
   T열[수량]을 다시 곱하지 않는다(이미 라인 총액). 쿠폰·마일리지 할인(V/W열)은
-  플랫폼 부담분이라 차감하지 않는다. VAT 포함 채널(카카오스타일)이라
+  플랫폼 부담분 포함 총액이라 차감하지 않는다(X열만 차감). VAT 포함 채널(카카오스타일)이라
   ingest 시점에 시스템이 자동 ÷1.1 처리(csa_service.VAT_INCLUDED_CHANNELS).
 - 취소·반품·교환 판별(해당하면 is_cancelled=True → 매출·낱개·행수 제외):
     · F열[주문상태] = '미입금취소'
@@ -138,6 +139,10 @@ def parse(path: str) -> Iterable[ParsedLine]:
             # 신규 기준: U열[상품주문액 (원)] 라인 총액 그대로 (수량 재곱셈 없음).
             # to_float가 콤마('18,900')·비숫자 문자를 자동 제거.
             amount = to_float(row.get("상품주문액 (원)"))
+            # X열[스토어 부담 금액 (원)] = 셀러 부담 쿠폰 → 정상행 매출에서 차감
+            # (MD 회신 2026-09-30, 대표 승인: 매출=공급가 원칙). 열이 없는 파일은 0.
+            # 취소행의 refund_amount는 기존대로 U열 라인 총액 유지.
+            store_burden = to_float(row.get("스토어 부담 금액 (원)"))
             order_no = to_str(row.get("주문번호")) or _id_str(row.get("상품주문번호"))
             line_no = _id_str(row.get("상품주문번호")) or to_str(row.get("주문번호"))
         else:
@@ -146,6 +151,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
                 row.get("상품가격 (원)") or row.get("판매가 (원)")
             )
             amount = unit_price * qty
+            store_burden = 0.0
             order_no = _id_str(row.get("상품주문번호")) or to_str(row.get("주문번호"))
             line_no = _id_str(row.get("주문번호"))
 
@@ -157,8 +163,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_product_name=prod,
             raw_option_name=opt,
             raw_qty=qty,
-            gross_amount=0 if is_cancel else amount,
-            net_amount=0 if is_cancel else amount,
+            gross_amount=0 if is_cancel else amount - store_burden,
+            net_amount=0 if is_cancel else amount - store_burden,
             refund_amount=amount if is_cancel else 0,
             is_cancelled=is_cancel,
             unit_per_set=_unit_per_set(opt, prod) if has_line_amount else None,

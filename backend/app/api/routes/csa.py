@@ -1004,7 +1004,7 @@ def delete_channel_data(
 # 재처리 (재업로드 없이 보관 원본을 최신 파서로 다시 파싱·집계)
 # ──────────────────────────────────────────────────────────────
 
-_REPROCESS_NEWEST_FIRST_CHANNELS = {"테무", "알리익스프레스", "카카오스타일"}
+_REPROCESS_NEWEST_FIRST_CHANNELS = {"테무", "알리익스프레스", "카카오스타일", "토스"}
 
 
 def _run_reprocess_background(channel_id: str, channel_name: str):

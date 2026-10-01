@@ -11,11 +11,17 @@ row3부터 데이터. 수출 버전에 따라 행 위치가 달라 '주문일시
  - 낱개(입수): M열[옵션명] "N개/구/봉/캔/입" 맨 앞 숫자. "N box/N박스"는
    상품명 기준 박스당 개수(마카롱 8, 쿠키·르뱅·아메리칸 6)를 곱함.
  - 취소: D열[주문상태]='결제취소'만 취소. '구매확정'만 정상 집계, 그 외
-   (배송중/재배송중 등 미확정 상태)는 정상·취소 어디에도 넣지 않고 제외
-   (검수 샘플로 순매출/낱개/주문/취소 4개 지표 모두 정답과 정확히 일치 확인).
-   단, 구버전 보관 원본처럼 '구매확정' 상태값 자체가 없는 파일에서는 위 엄격
-   판별을 적용하면 전 행이 스킵돼 0행이 될 수 있어, 그 경우 기존 방식
-   (상태값에 '취소' 포함 여부만으로 판별, 그 외는 전부 정상)으로 폴백한다.
+   (배송중/재배송중 등 미확정 상태)는 정상·취소 어디에도 넣지 않고 제외.
+   → 2026-10-01 변경요청으로 폐기(아래).
+
+기준 변경 (2026-10-01, 김재경 변경요청서 #78):
+ - 토스는 배송완료 후 7~14일 뒤에야 자동 구매확정되므로 '구매확정'만 집계하면
+   최근 월이 항상 과소 집계된다(9월 48배 차이). → '취소 제외 전체'를 매출로 본다.
+ - 취소: D열[주문상태]가 '결제취소'·'반품요청'·'교환요청'(및 취소/반품/교환/환불이
+   들어간 변형 상태)인 행만 취소. 그 외('구매확정'·'배송완료'·'배송중'·'재배송중',
+   배송준비/결제완료 등 진행 상태, 상태값 공란)는 전부 정상 매출.
+ - 상태값은 판별에만 쓰고 line_no·금액·수량에는 넣지 않는다 — '배송중'으로 올린
+   행을 나중에 '구매확정'으로 다시 올려도 dedup 해시가 같아 중복 적재되지 않는다.
 """
 from __future__ import annotations
 import re
@@ -74,20 +80,17 @@ def _parse_unit_per_set(option_name: Optional[str], product_name: Optional[str])
     return None
 
 
+# D열[주문상태] 취소 판별 키워드 — 결제취소/반품요청/교환요청 + 그 변형(반품완료·환불 등)
+_CANCEL_KEYWORDS = ("취소", "반품", "교환", "환불")
+
+
+def _is_cancel_status(status: str) -> bool:
+    return any(k in status for k in _CANCEL_KEYWORDS)
+
+
 @register("토스")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = _read_toss(path)
-
-    # 파일 전체 상태값 집합으로 신규(엄격) 판별 가능 여부 결정.
-    # '구매확정' 상태값이 아예 없는 구버전 파일에서 엄격 판별을 적용하면
-    # 전 행이 스킵돼 0행이 될 수 있으므로, 그 경우 기존 방식으로 폴백.
-    all_statuses = set()
-    if "주문상태" in df.columns:
-        for v in df["주문상태"].tolist():
-            s = to_str(v)
-            if s and not s.startswith("수정 "):
-                all_statuses.add(s)
-    strict_mode = "구매확정" in all_statuses
 
     for _, row in df.iterrows():
         # 가이드 행('수정 불가/수정 가능') 스킵
@@ -100,18 +103,9 @@ def parse(path: str) -> Iterable[ParsedLine]:
         if not prod:
             continue
 
+        # 취소/반품/교환만 취소, 그 외(구매확정·배송완료·배송중 등)는 전부 정상 매출
         status = to_str(row.get("주문상태") or "") or ""
-        if strict_mode:
-            if status == "결제취소":
-                is_cancel = True
-            elif status == "구매확정":
-                is_cancel = False
-            else:
-                # 배송중/재배송중 등 미확정 상태 — 정상·취소 어디에도 집계하지 않음
-                continue
-        else:
-            # 구버전 폴백: '취소' 포함 여부로만 판별, 그 외는 전부 정상
-            is_cancel = "취소" in status
+        is_cancel = _is_cancel_status(status)
 
         amt = to_float(row.get("주문금액"))
         opt = to_str(row.get("옵션명"))
