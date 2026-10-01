@@ -141,7 +141,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
             amount = to_float(row.get("상품주문액 (원)"))
             # X열[스토어 부담 금액 (원)] = 셀러 부담 쿠폰 → 정상행 매출에서 차감
             # (MD 회신 2026-09-30, 대표 승인: 매출=공급가 원칙). 열이 없는 파일은 0.
-            # 취소행의 refund_amount는 기존대로 U열 라인 총액 유지.
+            # 취소행 refund_amount도 같은 차감 금액 — dedup 해시가 정상행과 같아야
+        # 주간 파일의 정상행이 월간 파일의 취소행과 중복 판정된다(사후취소 반영).
             store_burden = to_float(row.get("스토어 부담 금액 (원)"))
             order_no = to_str(row.get("주문번호")) or _id_str(row.get("상품주문번호"))
             line_no = _id_str(row.get("상품주문번호")) or to_str(row.get("주문번호"))
@@ -165,7 +166,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_qty=qty,
             gross_amount=0 if is_cancel else amount - store_burden,
             net_amount=0 if is_cancel else amount - store_burden,
-            refund_amount=amount if is_cancel else 0,
+            refund_amount=(amount - store_burden) if is_cancel else 0,
             is_cancelled=is_cancel,
             unit_per_set=_unit_per_set(opt, prod) if has_line_amount else None,
         )

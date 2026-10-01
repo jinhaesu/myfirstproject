@@ -1004,7 +1004,7 @@ def delete_channel_data(
 # 재처리 (재업로드 없이 보관 원본을 최신 파서로 다시 파싱·집계)
 # ──────────────────────────────────────────────────────────────
 
-_REPROCESS_NEWEST_FIRST_CHANNELS = {"테무", "알리익스프레스", "카카오스타일", "토스"}
+_REPROCESS_NEWEST_FIRST_CHANNELS = {"테무", "알리익스프레스", "카카오스타일", "토스", "삼성카드쇼핑"}
 
 
 def _run_reprocess_background(channel_id: str, channel_name: str):
@@ -2474,6 +2474,7 @@ _DISTINCT_ORDER_CHANNELS = {
     "롯데 홈쇼핑", "롯데홈쇼핑", "삼성카드쇼핑", "삼성카드",
     "토스", "카카오스타일", "베네피아", "롯데온", "테무", "이지웰", "카페24",
     "T deal", "국군복지단 온라인", "스마트스토어",
+    "11번가", "알리익스프레스", "GS 샵(직택배)",
 }
 
 
