@@ -108,6 +108,31 @@ def _parse_xml(path: str) -> Iterable[ParsedLine]:
         )
 
 
+_PKG_PARTS = re.compile(r"\(([^()]*\d[^()]*/[^()]*)\)")
+
+
+def _sstv_ups(prod: Optional[str], opt: Optional[str]) -> float:
+    """세트 입수 (폼 #75 임현정, 2026-09 검증 479개).
+
+    CJ온스타일·신세계몰과 같은 낱개 정규식을 쓰되 둘 중 큰 값
+    ('8구+8구' 합산, '16개(플레인2개+7종 각 2개)' 총량 둘 다 맞추기 위함).
+    '패키지(마카롱2/휘낭시에2/아메리칸쿠키2)'는 구성 합(6), '+쿠키 1개 증정'은 1개 가산.
+    """
+    from app.services.csa_parsers.cjonstyle import _cj_unit_per_set
+    from app.services.csa_parsers.ssgmall import _extract_unit_count
+
+    n = max(float(_cj_unit_per_set(prod, opt) or 1), float(_extract_unit_count(prod, opt) or 1))
+    if n <= 1:
+        m = _PKG_PARTS.search(prod or "")
+        if m:
+            parts = [int(x) for x in re.findall(r"(\d+)(?=\s*(?:/|$))", m.group(1))]
+            if len(parts) >= 2 and sum(parts) <= 60:
+                n = float(sum(parts))
+    if re.search(r"쿠키\s*1개\s*증정", f"{prod or ''} {opt or ''}"):
+        n += 1
+    return n
+
+
 def _parse_xlsx(path: str) -> Iterable[ParsedLine]:
     # 헤더가 row=2 (메타 2행 + 헤더 1행)
     df = read_excel_safe(path, header=2)
@@ -122,7 +147,8 @@ def _parse_xlsx(path: str) -> Iterable[ParsedLine]:
 
         # 진행단계=주문취소/반품 — 버리지 않고 is_cancelled로 표시
         status = (to_str(row.get("진행단계")) or "").strip()
-        is_cancel = status in ("주문취소", "취소", "취소완료") or "취소" in status or "반품" in status
+        kind = (to_str(row.get("주문구분")) or "").strip()   # B열 — '취소'면 제외(폼 #75)
+        is_cancel = "취소" in status or "반품" in status or "취소" in kind
 
         prod = to_str(row.get("상품명"))
         if not prod:
@@ -146,9 +172,12 @@ def _parse_xlsx(path: str) -> Iterable[ParsedLine]:
         yield ParsedLine(
             sale_date=sale_d,
             order_no=to_str(row.get("주문번호")),
-            line_no=to_str(row.get("상품코드") or row.get("단품코드")),
+            # 같은 주문에 같은 상품코드의 다른 단품(맛)이 같은 금액으로 들어오면
+            # 상품코드만으로는 중복 판정돼 한 행이 탈락 → 단품코드까지 포함.
+            line_no="-".join(x for x in (to_str(row.get("상품코드")), to_str(row.get("단품코드"))) if x) or None,
             raw_product_name=prod,
             raw_option_name=to_str(row.get("단품상세")),
+            unit_per_set=_sstv_ups(prod, to_str(row.get("단품상세"))),
             raw_qty=qty,
             gross_amount=0 if is_cancel else gross,
             net_amount=0 if is_cancel else gross,

@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date
 from typing import Iterable, Optional
 
 from app.services.csa_service import ParsedLine
@@ -109,17 +110,22 @@ def _ss_ups(prod: Optional[str], opt: Optional[str]) -> float:
     return 1.0
 
 
+_PAYDATE_BASIS_FROM = date(2026, 8, 1)
+
+
 @register("스마트스토어")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
     for _, row in df.iterrows():
-        # 날짜 기준: 구매확정일 우선
-        sale_dt = (
-            to_datetime(row.get("구매확정일"))
-            or to_datetime(row.get("결제일"))
-            or to_datetime(row.get("결제일시"))
-            or to_datetime(row.get("주문일시"))
-        )
+        # 날짜 기준 (폼 #73 남윤주, 2026-08-01 적용): 결제일 기준.
+        # 단, 구매확정일이 2026-08-01 이전인 행은 이미 옛 기준(구매확정일)으로 과거 월에
+        # 인식된 매출이라 그대로 둔다 → 기준 전환 시점에 이중 인식·누락이 생기지 않는다.
+        confirm_dt = to_datetime(row.get("구매확정일"))
+        pay_dt = to_datetime(row.get("결제일")) or to_datetime(row.get("결제일시"))
+        if confirm_dt and (confirm_dt.date() < _PAYDATE_BASIS_FROM or not pay_dt):
+            sale_dt = confirm_dt
+        else:
+            sale_dt = pay_dt or confirm_dt or to_datetime(row.get("주문일시"))
         if not sale_dt:
             continue
         prod = to_str(row.get("상품명")) or to_str(row.get("상품 종류"))
