@@ -37,6 +37,13 @@ def _read_rows(path: str):
 @register("신세계라이브쇼핑")
 @register("신세계 라이브쇼핑")
 def parse(path: str) -> Iterable[ParsedLine]:
+    # '주문접수상세조회(실시간)' xlsx(주문 단위, 원주문접수일 포함 — 폼 #75)는
+    # 신세계 TV 쇼핑과 같은 양식이라 그 파서로 넘긴다. 집계조회 XML은 주문일이 없다.
+    with open(path, "rb") as f:
+        if f.read(2) == b"PK":
+            from app.services.csa_parsers.shinsegae_tv import _parse_xlsx
+            yield from _parse_xlsx(path)
+            return
     rows = list(_read_rows(path))
     if not rows:
         return
