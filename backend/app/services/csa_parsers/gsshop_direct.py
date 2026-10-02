@@ -19,9 +19,9 @@
 - 주문건수 = 주문번호 고유값(분할출하로 한 주문이 여러 행 — 샘플 713행/662건).
 - line_no = 주문출하지시번호(행마다 고유, 파일 내 위치와 무관 → 기간이 겹치는 재업로드에 멱등).
   주문아이템번호는 분할출하 행끼리 같아 dedup 해시가 충돌하므로 쓰지 않는다.
-- 제외(is_cancelled=True, 매출·낱개 0):
-    · 주문유형 '교환…'(교환주문 = 재출고, 신규 매출 아님) → refund 0 (환불이 아님).
+- 교환주문(주문유형 '교환…')은 정상 매출로 포함 (MD 요청 2026-10-02 — 종전 '제외'에서 변경).
       샘플 1행(2026-08-26, 59,900원): 주문유형='교환주문', 입금확인일 공란.
+- 제외(is_cancelled=True, 매출·낱개 0):
     · 주문유형 '반품…'/'취소…' 또는 주문상태에 '취소'·'반품' → refund = 판매가.
       (샘플은 배송완료 711·출고완료 2뿐 — 이 리포트에 취소·반품이 실리는지 미확인)
 - 낱개 = 입수 × 수량. 입수는 노출상품명 → 송장상품명 순으로 추출:
@@ -31,8 +31,8 @@
     ④ 못 찾으면 None → 채널 매핑 입수 사용.
 
 검증(샘플 '직택배집하택배상세(2026-08-22~2026-09-21).xlsx', 출하지시일 2026-08-24~09-21):
-  713행 · 판매가 합 42,708,700(÷1.1 = 38,826,091) · 교환주문 1행 제외 42,648,800(÷1.1 = 38,771,636)
-  낱개 24,955(35×713, 교환 제외 24,920) · 고유주문 662 · dedup 해시 충돌 0
+  713행 · 판매가 합 42,708,700(÷1.1 = 38,826,091, 교환주문 1행 포함)
+  낱개 24,955(35×713) · 고유주문 662 · dedup 해시 충돌 0
 """
 from __future__ import annotations
 
@@ -150,13 +150,12 @@ def parse(path: str) -> Iterable[ParsedLine]:
 
         otype = _norm(to_str(row.get("주문유형")) or "")
         status = _norm(to_str(row.get("주문상태")) or "")
-        is_exchange = otype.startswith("교환")
         is_refund = (otype.startswith(("반품", "취소"))
                      or "취소" in status or "반품" in status)
         ups = unit_per_set(disp, inv)
         opt = to_str(row.get("주문옵션"))
 
-        if is_exchange or is_refund:
+        if is_refund:
             yield ParsedLine(
                 sale_date=sale_d,
                 order_no=order_no,
@@ -166,8 +165,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
                 raw_qty=qty,
                 gross_amount=0,
                 net_amount=0,
-                # 교환(재출고)은 환불이 아니므로 0 — 취소금액 부풀림 방지
-                refund_amount=gross if is_refund else 0,
+                refund_amount=gross,
                 is_cancelled=True,
                 unit_per_set=ups,
             )
