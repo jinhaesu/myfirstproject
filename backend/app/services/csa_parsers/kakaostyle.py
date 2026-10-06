@@ -49,11 +49,11 @@ def _id_str(v) -> Optional[str]:
 # 교환검수완료)은 빼면 6월 교환검수완료 행이 정상으로 뒤집히므로 합집합 유지.
 _CANCEL_CLAIMS = {
     "취소완료", "구매확정 후 취소",
-    "반품완료", "반품",
+    "반품완료", "반품", "반품수거중",  # 반품수거중: MD 회신 2026-10-05(7월 취소 86건 기준)
     "교환완료", "교환", "교환검수완료",
 }
 
-_CNT_RE = re.compile(r"(\d+)\s*(?:개입|개|봉|구|캔)")
+_CNT_RE = re.compile(r"(\d+)\s*(?:개입|개|게|봉|구|캔)")  # '게' = 옵션 오타('흑임자 4게')
 _SET_RE = re.compile(r"(\d+)\s*(?:세트|박스|box)", re.I)
 _TONGMIL_RE = re.compile(r"\d+\s*\+\s*\d+\s*set", re.I)
 # '(총 N개)'류 명시적 합계 표기 — 있으면 구성 요소별 곱셈보다 우선(예:
@@ -142,7 +142,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
             # X열[스토어 부담 금액 (원)] = 셀러 부담 쿠폰 → 정상행 매출에서 차감
             # (MD 회신 2026-09-30, 대표 승인: 매출=공급가 원칙). 열이 없는 파일은 0.
             # 취소행 refund_amount도 같은 차감 금액 — dedup 해시가 정상행과 같아야
-        # 주간 파일의 정상행이 월간 파일의 취소행과 중복 판정된다(사후취소 반영).
+            # 주간 파일의 정상행이 월간 파일의 취소행과 중복 판정된다(사후취소 반영).
             store_burden = to_float(row.get("스토어 부담 금액 (원)"))
             order_no = to_str(row.get("주문번호")) or _id_str(row.get("상품주문번호"))
             line_no = _id_str(row.get("상품주문번호")) or to_str(row.get("주문번호"))

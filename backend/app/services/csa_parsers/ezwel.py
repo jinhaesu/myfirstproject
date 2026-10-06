@@ -16,6 +16,7 @@
 from __future__ import annotations
 import numbers
 import re
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable, Optional
 
@@ -215,9 +216,21 @@ def _ups_from_name(name: Optional[str], opt: Optional[str]) -> Optional[int]:
     return None
 
 
-def _resolve_ups(code: Optional[str], name: Optional[str], opt: Optional[str]) -> tuple[Optional[int], Optional[dict]]:
+# 네모바게트 1001036436212: 1~3월 옵션 '6봉^6봉'=12, 2026-04 이후 '3봉^3봉^3봉'=9 (MD 회신 2026-10-05)
+_NEMO_CODE = "1001036436212"
+_NEMO_9_FROM = date(2026, 4, 1)
+# 디저트 2BOX 1002004926459: 조합별 — 마카롱 8구×2=16, 아메리칸쿠키 6개×2=12 (MD 회신 2026-10-05)
+_DESSERT_2BOX_CODE = "1002004926459"
+
+
+def _resolve_ups(code: Optional[str], name: Optional[str], opt: Optional[str],
+                 sale_d: Optional[date] = None) -> tuple[Optional[int], Optional[dict]]:
     """상품코드·상품명·옵션 → (입수, raw_row 표시). 매핑표 적용 건은 raw_row 없음."""
     opt_s = opt or ""
+    if code == _NEMO_CODE:
+        return (9 if sale_d and sale_d >= _NEMO_9_FROM else 12), None
+    if code == _DESSERT_2BOX_CODE:
+        return (12 if "아메리칸" in opt_s else 16), None
     if code in _EZWEL_2BOX_CODES:
         return (12 if _TWO_BOX_RE.search(opt_s) else 6), None
     if code in _EZWEL_12EA_CODES:
@@ -266,7 +279,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
         # 기존 row.get("Unnamed: 8")(2026-06-12)은 실제 파일에 없는 열이라 입수가 한 번도
         # 적용되지 않았음(I열 헤더 = '주문수량') → 삭제.
         opt = to_str(row.get("옵션"))
-        unit_per_set, raw_row = _resolve_ups(_norm_code(row.get("상품코드")), prod, opt)
+        unit_per_set, raw_row = _resolve_ups(_norm_code(row.get("상품코드")), prod, opt, sale_dt.date())
 
         yield ParsedLine(
             sale_date=sale_dt.date(),
