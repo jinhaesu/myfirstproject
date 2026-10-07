@@ -12,7 +12,11 @@
   · 옵션에 개수 없으면 상품명[H] 기준(아메리칸쿠키 6종 1박스 → 6).
   취소·반품 = 주문상태[D] 코드 앞 3자리 204·303(결제취소)/208·309(환불)/507·511(반품)/205·206(환불대기).
   6월 샘플 검증: 낱개 합 52,429 vs 담당자 정답 52,419 (+0.02%).
-  ※ 선물하기는 기존 기준(매핑 입수·'취소' 문자열) 유지 — 본 규칙은 톡스토어 행에만 적용.
+  선물하기 낱개·취소(폼 #80 임현정, 2026-10-07 — 종전 '매핑 입수·취소 문자열'에서 변경):
+  낱개 = 입수 × 수량, 입수는 [상품명]+[옵션] 텍스트를 이어 붙여 ① '총 N개/구/봉/병/개입'
+  ② 'N+N' 합산 ③ 'N구 M박스/세트' = N×M ④ 'N구/개/봉/병/개입' 최댓값 ⑤ 'N종' ⑥ 1.
+  취소 = 주문상태 코드 204·303(결제 취소 완료)/507(반품 결제 취소 완료)/208(환불 완료).
+  검증(2026-09 원본 30,139행): 낱개 242,075(취소 포함 257,876) 정답 일치.
 
 톡스토어 골라담기 품목 분해(기준변경요청서 #60 2026-07-28, 장현진 / 2026-09-28 반영):
   상품명 '베이글/바게트/포카치아 … 골라담기' 행이 룰베이스 '가장 긴 일치'로 옵션과 무관하게
@@ -49,6 +53,45 @@ _PART_SPLIT = re.compile(r"[,/]|선택\s*\d+\s*:|옵션\s*\d*\s*:")
 
 # 취소·반품·환불 상태코드 (앞 3자리)
 _CANCEL_CODES = {"204", "303", "208", "309", "507", "511", "205", "206"}
+
+# 선물하기(폼 #80) — 입수 우선순위 규칙과 취소 코드
+_GIFT_CANCEL_CODES = {"204", "303", "507", "208"}
+_G_UNIT = r"(?:개입|개|구|봉|병)"
+_G_TOTAL = re.compile(rf"총\s*(\d+)\s*{_G_UNIT}")
+_G_PLUS = re.compile(rf"\d+\s*{_G_UNIT}?(?:\s*\+\s*\d+\s*{_G_UNIT}?)+")
+_G_BOX = re.compile(r"(\d+)\s*구\s*(\d+)\s*(?:box|박스|세트|set)", re.I)
+_G_CNT = re.compile(rf"(\d+)\s*{_G_UNIT}")
+_G_KIND = re.compile(r"(\d+)\s*종")
+
+
+def _gift_ups(prod: Optional[str], opt: Optional[str]) -> float:
+    t = _WEIGHT.sub(" ", f"{prod or ''} {opt or ''}")
+    m = _G_TOTAL.search(t)
+    if m and 1 <= int(m.group(1)) <= 500:
+        return float(m.group(1))
+    m = _G_PLUS.search(t)
+    if m:
+        v = sum(int(x) for x in re.findall(r"\d+", m.group(0)))
+        if 1 <= v <= 500:
+            return float(v)
+    m = _G_BOX.search(t)
+    if m and 1 <= int(m.group(1)) * int(m.group(2)) <= 500:
+        return float(int(m.group(1)) * int(m.group(2)))
+    cnts = [int(x) for x in _G_CNT.findall(t) if 1 <= int(x) <= 500]
+    if cnts:
+        return float(max(cnts))
+    m = _G_KIND.search(t)
+    if m and 1 <= int(m.group(1)) <= 50:
+        return float(m.group(1))
+    return 1.0
+
+
+def _gift_is_cancel(status: str) -> bool:
+    m = re.match(r"\s*(\d{3})", status or "")
+    if m:
+        return m.group(1) in _GIFT_CANCEL_CODES
+    return "취소" in (status or "")
+
 
 # 골라담기 품목 태그 → 표준 품목명(ProductMaster.name) — 폼 #60(2026-07-28)
 _BREAD_TAG = re.compile(r"\[\s*(베이글|바게트|포카치아)\s*\]")
@@ -171,7 +214,7 @@ def _parse_channel(path: str, channel_filter: str) -> Iterable[ParsedLine]:
         if is_talk:
             is_cancel = _talk_is_cancel(status)
         else:
-            is_cancel = "취소" in status
+            is_cancel = _gift_is_cancel(status)
 
         sale_dt = to_datetime(row.get("주문일") or row.get("발송요청일") or row.get("결제일") or row.get("주문일시"))
         if not sale_dt:
@@ -186,7 +229,7 @@ def _parse_channel(path: str, channel_filter: str) -> Iterable[ParsedLine]:
         order_no = to_str(row.get("주문번호"))
         line_no = to_str(row.get("결제번호"))
         raw_qty = to_float(row.get("수량") or 1)
-        ups = _talk_ups(opt, prod) if is_talk else None
+        ups = _talk_ups(opt, prod) if is_talk else _gift_ups(prod, opt)
 
         # 골라담기 품목 분해(폼 #60) — 톡스토어 유효 행만. 선물하기·취소 행은 기존대로 1라인.
         split = (
