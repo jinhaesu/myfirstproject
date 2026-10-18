@@ -1,0 +1,7 @@
+.git
+node_modules
+.env
+*.log
+README.md
+railway.json
+deploy.ps1
