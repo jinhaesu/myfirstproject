@@ -56,7 +56,7 @@ export default function ManagementPage() {
   if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
 
   const cp = d?.cost_vs_purchase, bp = d?.bom_vs_purchase, lb = d?.labor, iv = d?.inventory, adj = d?.adjustments;
-  const costBars = cp ? [{ name: '매출원가추정', v: cp.cogs_est }, { name: '실제구매액', v: cp.purchase_actual }] : [];
+  const costBars = cp ? [{ name: '매출원가추정', v: cp.cogs_est }, { name: 'BOM자재 구매', v: cp.purchase_bom_scope ?? cp.purchase_actual }, { name: '전체 구매', v: cp.purchase_actual }] : [];
   const laborBars = lb ? [
     { name: '생산 기입', v: lb.production.logged_hours }, { name: '생산 근무', v: lb.production.attendance_hours },
     { name: '물류 기입', v: lb.logistics.logged_hours }, { name: '물류 근무', v: lb.logistics.attendance_hours },
@@ -82,9 +82,9 @@ export default function ManagementPage() {
         {/* 월별 추이 */}
         <div className={`${C.card} p-4 mb-5`}>
           <div className="text-sm font-semibold text-text-primary mb-1">구매·원가·매출 추이 ({gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'})</div>
-          <p className="text-xs text-text-quaternary mb-3">실제구매 · 매출원가추정(판매수량×BOM원가) · BOM이론소요 · 매출을 기간별로 비교.</p>
+          <p className="text-xs text-text-quaternary mb-3">BOM자재 구매(BOM 원부재료 코드 해당분) · 매출원가추정(판매수량×BOM원가) · BOM이론소요(생산량×BOM원가)를 같은 범위로 비교. 전체구매에는 BOM에 없는 포장·물류자재(드라이아이스·아이스박스·박스·단상자 등)가 포함돼 선으로 따로 표시.{tr?.unmatched_prod_qty ? ` 원가 미매칭 생산 ${fmt(tr.unmatched_prod_qty)}개 제외.` : ""}</p>
           {tr?.series?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}><ComposedChart data={tr.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-success)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar yAxisId="l" dataKey="purchase" name="실제구매" fill="var(--color-info)" radius={[3, 3, 0, 0]} /><Bar yAxisId="l" dataKey="cogs_est" name="매출원가추정" fill="var(--color-warning)" radius={[3, 3, 0, 0]} /><Bar yAxisId="l" dataKey="bom_req" name="BOM이론소요" fill="var(--color-purple)" radius={[3, 3, 0, 0]} /><Line yAxisId="r" type="monotone" dataKey="sales" name="매출" stroke="var(--color-success)" strokeWidth={2} dot={false} /></ComposedChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={280}><ComposedChart data={tr.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-success)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar yAxisId="l" dataKey="purchase_bom" name="BOM자재 구매" fill="var(--color-info)" radius={[3, 3, 0, 0]} /><Line yAxisId="l" type="monotone" dataKey="purchase" name="전체 구매(포장·물류 포함)" stroke="var(--color-text-quaternary)" strokeDasharray="4 3" strokeWidth={2} dot={false} /><Bar yAxisId="l" dataKey="cogs_est" name="매출원가추정" fill="var(--color-warning)" radius={[3, 3, 0, 0]} /><Bar yAxisId="l" dataKey="bom_req" name="BOM이론소요" fill="var(--color-purple)" radius={[3, 3, 0, 0]} /><Line yAxisId="r" type="monotone" dataKey="sales" name="매출" stroke="var(--color-success)" strokeWidth={2} dot={false} /></ComposedChart></ResponsiveContainer>
           ) : <div className="h-[220px] flex items-center justify-center text-sm text-text-quaternary">데이터 없음</div>}
         </div>
 
@@ -127,8 +127,8 @@ export default function ManagementPage() {
           <Stat label="순매출" value={wonShort(cp?.net_sales || 0)} tone="text-success" />
           <Stat label="매출원가추정" value={wonShort(cp?.cogs_est || 0)} tone="text-warning" sub={cp?.cogs_ratio != null ? `매출比 ${cp.cogs_ratio}%` : ''} />
           <Stat label="실제 구매액" value={wonShort(cp?.purchase_actual || 0)} tone="text-info" sub={cp?.purchase_ratio != null ? `매출比 ${cp.purchase_ratio}%` : ''} />
-          <Stat label="구매−원가 gap" value={wonShort(cp?.gap || 0)} tone={(cp?.gap || 0) >= 0 ? 'text-danger' : 'text-success-light'} sub={(cp?.gap || 0) >= 0 ? '재고빌드/과다구매' : '재고소진'} />
-          <Stat label="BOM소요 대비 구매" value={bp?.gap_pct != null ? `${bp.gap_pct}%` : '-'} tone="text-purple" sub="이론소요 대비 gap" />
+          <Stat label="BOM자재구매−원가 gap" value={wonShort(cp?.gap || 0)} tone={(cp?.gap || 0) >= 0 ? 'text-danger' : 'text-success-light'} sub={(cp?.gap || 0) >= 0 ? '재고빌드/과다구매' : '재고소진'} />
+          <Stat label="BOM소요 대비 구매" value={bp?.gap_pct != null ? `${bp.gap_pct}%` : '-'} tone="text-purple" sub="BOM자재 구매 기준" />
           <Stat label="마이너스 재고" value={`${fmt(iv?.negative_count || 0)}`} tone={(iv?.negative_count || 0) > 0 ? 'text-danger' : 'text-text-primary'} sub={`전체 ${fmt(iv?.product_count || 0)}품목`} />
         </div>
 
@@ -136,9 +136,9 @@ export default function ManagementPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
           <div className={`${C.card} p-4`}>
             <div className="text-sm font-semibold text-text-primary mb-1">① 매출기반 원가추정 vs 실제 원부재료 구매액</div>
-            <p className="text-xs text-text-quaternary mb-3">판매수량×BOM원가(원가추정)와 실제 매입액 비교. 구매가 크면 재고 빌드업, 작으면 재고 소진.</p>
+            <p className="text-xs text-text-quaternary mb-3">판매수량×BOM원가(원가추정)와 BOM 원부재료 매입액 비교(gap 기준). 구매가 크면 재고 빌드업, 작으면 재고 소진. 전체 구매는 참고.</p>
             {costBars.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}><BarChart data={costBars}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="v" radius={[4, 4, 0, 0]}>{costBars.map((_, i) => <Cell key={i} fill={i === 0 ? 'var(--color-warning)' : 'var(--color-info)'} />)}</Bar></BarChart></ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={220}><BarChart data={costBars}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="v" radius={[4, 4, 0, 0]}>{costBars.map((_, i) => <Cell key={i} fill={i === 0 ? 'var(--color-warning)' : i === 1 ? 'var(--color-info)' : 'var(--color-text-quaternary)'} />)}</Bar></BarChart></ResponsiveContainer>
             ) : <div className="h-[180px]" />}
             <div className="grid grid-cols-3 gap-2 mt-2 text-center">
               <div><div className="text-[11px] text-text-quaternary">원재료 구매</div><div className="text-sm text-info font-semibold">{wonShort(cp?.purchase_raw || 0)}</div></div>
@@ -148,9 +148,9 @@ export default function ManagementPage() {
           </div>
           <div className={`${C.card} p-4`}>
             <div className="text-sm font-semibold text-text-primary mb-1">② 생산 BOM 이론소요 vs 실제 구매</div>
-            <p className="text-xs text-text-quaternary mb-3">생산실적을 BOM으로 폭발한 이론 소요금액과 실제 매입액의 차이. gap이 크면 단가·수율·매핑 점검.</p>
+            <p className="text-xs text-text-quaternary mb-3">생산실적을 BOM으로 폭발한 이론 소요금액과 BOM 원부재료 매입액의 차이. BOM 품목명 미매칭 생산분은 표준품목 개당원가로 보정{bp?.bom_fallback_cost ? `(${wonShort(bp.bom_fallback_cost)})` : ''}. gap이 크면 단가·수율·매핑 점검.</p>
             {bp ? (
-              <ResponsiveContainer width="100%" height={220}><BarChart data={[{ name: 'BOM 이론소요', v: bp.bom_req_cost }, { name: '실제 구매액', v: bp.purchase_actual }]}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="v" radius={[4, 4, 0, 0]}><Cell fill="var(--color-purple)" /><Cell fill="var(--color-info)" /></Bar></BarChart></ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={220}><BarChart data={[{ name: 'BOM 이론소요', v: bp.bom_req_cost }, { name: 'BOM자재 구매', v: bp.purchase_bom_scope ?? bp.purchase_actual }, { name: '전체 구매', v: bp.purchase_actual }]}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="v" radius={[4, 4, 0, 0]}><Cell fill="var(--color-purple)" /><Cell fill="var(--color-info)" /><Cell fill="var(--color-text-quaternary)" /></Bar></BarChart></ResponsiveContainer>
             ) : <div className="h-[180px]" />}
             <div className="text-center mt-2 text-xs text-text-tertiary">gap <span className={`${(bp?.gap || 0) >= 0 ? 'text-danger' : 'text-success-light'} font-semibold`}>{wonShort(bp?.gap || 0)}</span> ({bp?.gap_pct != null ? `${bp.gap_pct}%` : '-'})</div>
           </div>

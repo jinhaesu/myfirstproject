@@ -38,6 +38,44 @@ def _sales_costs(db: Session, start: date, end: date) -> dict:
             "labor_est": float(r[2] or 0), "pcs_qty": float(r[3] or 0)}
 
 
+def _bom_codes(db: Session) -> set:
+    """BOM 자재 마스터(원재료·부자재) ERP 코드 — 실제구매 중 BOM이 다루는 범위 판별용."""
+    from app.db_models import ScmRawMaterial, ScmSubMaterial
+    codes = {c for (c,) in db.query(ScmRawMaterial.erp_code).all() if c}
+    codes |= {c for (c,) in db.query(ScmSubMaterial.erp_code).all() if c}
+    return {str(c).strip() for c in codes if str(c).strip() not in ("", "-")}
+
+
+def _pm_cost_resolver(db: Session):
+    """생산품목명 → CSA 표준품목(이름·별칭 최장 부분일치) 개당 원가(cogs 규칙).
+    SCM 완제품명과 매칭 안 되는 생산명('GS 도넛케이크 다크초코' 등)의 이론원가 폴백."""
+    from app.db_models import CsaCostRule, CsaCostItem
+    cogs_id = db.query(CsaCostItem.id).filter(CsaCostItem.code == "cogs").scalar()
+    amt = {}
+    if cogs_id:
+        for pid, a in db.query(CsaCostRule.product_id, CsaCostRule.amount_per_pcs).filter(
+                CsaCostRule.cost_item_id == cogs_id, CsaCostRule.channel_id.is_(None),
+                CsaCostRule.is_active.is_(True)).all():
+            if pid and a:
+                amt[pid] = float(a)
+    keys = []
+    for p in db.query(ProductMaster).filter(ProductMaster.id.in_(list(amt) or [-1])).all():
+        names = [p.name or ""] + ([str(a) for a in p.aliases if a] if isinstance(p.aliases, list) else [])
+        for k in names:
+            k2 = k.replace(" ", "").lower()
+            if len(k2) >= 2:
+                keys.append((k2, amt[p.id]))
+    keys.sort(key=lambda x: -len(x[0]))
+
+    def resolve(name: str):
+        n = (name or "").replace(" ", "").lower()
+        for k, a in keys:
+            if k in n:
+                return a
+        return None
+    return resolve
+
+
 def _purchase_actual(db: Session, start: date, end: date) -> dict:
     rows = db.query(PurchaseRecord.mclass, func.coalesce(func.sum(PurchaseRecord.supply_amount), 0.0)).filter(
         PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end).group_by(PurchaseRecord.mclass).all()
@@ -54,9 +92,13 @@ def overview(db: Session, start: date, end: date) -> dict:
     sc = _sales_costs(db, start, end)
     pa = _purchase_actual(db, start, end)
 
-    # 1) 매출기반 원가추정 vs 실제 구매액
+    # 1) 매출기반 원가추정 vs 실제 구매액 — 비교는 BOM 자재코드 범위 구매(포장·물류자재 제외)로
     cogs_est = sc["cogs_est"]
     purchase_total = pa["total"]
+    codes = _bom_codes(db)
+    bom_scope = float(db.query(func.coalesce(func.sum(PurchaseRecord.supply_amount), 0.0)).filter(
+        PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end,
+        PurchaseRecord.item_code.in_(list(codes) or ["-"])).scalar() or 0)
     cost_vs_purchase = {
         "net_sales": round(sc["net_sales"]),
         "cogs_est": round(cogs_est),                 # 판매수량×BOM원가 (Σcost_cogs)
@@ -64,7 +106,8 @@ def overview(db: Session, start: date, end: date) -> dict:
         "purchase_actual": round(purchase_total),    # 실제 원부재료 구매(공급가)
         "purchase_raw": round(pa["raw"]), "purchase_sub": round(pa["sub"]),
         "purchase_ratio": round(purchase_total / sc["net_sales"] * 100, 1) if sc["net_sales"] else None,
-        "gap": round(purchase_total - cogs_est),     # +면 구매>소비(재고빌드/과다구매), −면 구매<소비(재고소진)
+        "purchase_bom_scope": round(bom_scope),
+        "gap": round(bom_scope - cogs_est),          # +면 구매>소비(재고빌드/과다구매), −면 구매<소비(재고소진)
     }
 
     # 2) BOM 이론소요 vs 실제 구매
@@ -72,12 +115,25 @@ def overview(db: Session, start: date, end: date) -> dict:
         mr = pur.material_requirement(db, start, end)
         bom_cost = mr.get("total_cost", 0)
     except Exception:
-        bom_cost = 0
+        mr, bom_cost = {}, 0
+    # BOM 품목명 미매칭 생산분은 CSA 표준품목 개당원가로 폴백(누락=0원 과소 방지)
+    resolve = _pm_cost_resolver(db)
+    fb_cost = 0.0; still_unmatched = 0.0
+    for u in (mr.get("unmatched") or []):
+        c = resolve(u.get("name"))
+        if c:
+            fb_cost += (u.get("qty") or 0) * c
+        else:
+            still_unmatched += (u.get("qty") or 0)
+    bom_cost += fb_cost
     bom_vs_purchase = {
-        "bom_req_cost": round(bom_cost),             # 생산 BOM 소요 이론금액
+        "bom_req_cost": round(bom_cost),             # 생산 BOM 소요 이론금액(미매칭분 표준품목 원가 폴백 포함)
+        "bom_fallback_cost": round(fb_cost),
+        "unmatched_prod_qty": round(still_unmatched),
         "purchase_actual": round(purchase_total),
-        "gap": round(purchase_total - bom_cost),
-        "gap_pct": round((purchase_total - bom_cost) / bom_cost * 100, 1) if bom_cost else None,
+        "purchase_bom_scope": round(float(bom_scope)),   # BOM 자재코드 해당 구매만(포장·물류자재 제외)
+        "gap": round(float(bom_scope) - bom_cost),
+        "gap_pct": round((float(bom_scope) - bom_cost) / bom_cost * 100, 1) if bom_cost else None,
     }
 
     # 3) 근무시간 vs 기입시간
@@ -197,15 +253,19 @@ def trend(db: Session, start: date, end: date, granularity: str = "month",
             return monday.isoformat()
         return d.isoformat()
 
-    # 실제 구매(공급가)
+    # 실제 구매(공급가) — 전체 + BOM 자재코드 범위(원가 비교용, 포장·물류자재·소모품 제외)
+    codes = _bom_codes(db)
     pur: dict = {}
-    _pq = db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount).filter(
+    pur_bom: dict = {}
+    _pq = db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount, PurchaseRecord.item_code).filter(
         PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
     if team:
         _pq = _pq.filter(PurchaseRecord.team == team)
-    for pd, amt in _pq.all():
+    for pd, amt, code in _pq.all():
         if pd:
             pur[bucket(pd)] = pur.get(bucket(pd), 0) + (amt or 0)
+            if code and str(code).strip() in codes:
+                pur_bom[bucket(pd)] = pur_bom.get(bucket(pd), 0) + (amt or 0)
 
     # 매출·원가추정(cost_cogs)
     sal: dict = {}
@@ -225,7 +285,9 @@ def trend(db: Session, start: date, end: date, granularity: str = "month",
             ScmProduct.item_type.in_(["완제품", "세트", "혼합세트", "반제품"])).all():
         if p.default_cost:
             cost_by_norm.setdefault(_norm(p.product_name), p.default_cost)
+    resolve = _pm_cost_resolver(db)
     bom: dict = {}
+    unmatched_qty = 0.0
     for pd, name, q in db.query(
             InventoryProduction.prod_date, InventoryProduction.product_name,
             InventoryProduction.qty).filter(
@@ -240,21 +302,25 @@ def trend(db: Session, start: date, end: date, granularity: str = "month",
                 if k and (k in nm or nm in k):
                     c = v
                     break
+        if c is None:
+            c = resolve(name)   # SCM명 미매칭 → CSA 표준품목 개당원가 폴백
         if c:
             bom[bucket(pd)] = bom.get(bucket(pd), 0) + q * c
+        else:
+            unmatched_qty += q
 
     keys = sorted(set(pur) | set(sal) | set(bom))
     series = []
     for k in keys:
-        p = round(pur.get(k, 0)); s = round(sal.get(k, 0))
+        p = round(pur.get(k, 0)); s = round(sal.get(k, 0)); pb = round(pur_bom.get(k, 0))
         cg = round(cogs.get(k, 0)); bm = round(bom.get(k, 0))
         series.append({
-            "bucket": k, "purchase": p, "sales": s, "cogs_est": cg, "bom_req": bm,
+            "bucket": k, "purchase": p, "purchase_bom": pb, "sales": s, "cogs_est": cg, "bom_req": bm,
             "purchase_ratio": round(p / s * 100, 1) if s else None,
             "cogs_ratio": round(cg / s * 100, 1) if s else None,
-            "bom_gap": p - bm, "cogs_gap": p - cg,
+            "bom_gap": pb - bm, "cogs_gap": pb - cg,
         })
-    return {"granularity": granularity, "series": series}
+    return {"granularity": granularity, "series": series, "unmatched_prod_qty": round(unmatched_qty)}
 
 
 def labor_trend(db: Session, start: date, end: date, granularity: str = "month") -> dict:
