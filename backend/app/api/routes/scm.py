@@ -3302,7 +3302,7 @@ def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Sessio
     """
     from collections import defaultdict
     from app.db_models import (
-        ScmProduct, ScmRawMaterial, ScmSubMaterial,
+        ScmProduct, ScmRawMaterial, ScmSubMaterial, ScmItemComponent,
         ProductMaster, CsaCostItem, CsaCostRule,
     )
     from app.services.csa_cost_service import seed_cost_items, rebuild_daily_with_costs
@@ -3356,8 +3356,15 @@ def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Sessio
         ScmProduct.item_type.in_(["완제품", "세트", "혼합세트"]),
     ).all()
 
-    agg: dict = defaultdict(lambda: {"costs": [], "labors": [], "names": []})
+    agg: dict = defaultdict(lambda: {"costs": [], "labors": [], "names": [], "set_costs": [], "set_names": []})
     unmatched = []
+
+    def piece_count(item_id) -> float:
+        """세트 1개에 든 낱개 수 = 직속 구성 수량 합(없으면 1)."""
+        n = sum(float(c.qty or 0) for c in db.query(ScmItemComponent).filter(
+            ScmItemComponent.parent_item_id == item_id).all())
+        return n if n > 0 else 1.0
+
     for it in items:
         pm = None
         if it.csa_product_id and it.csa_product_id in pm_by_id:
@@ -3366,6 +3373,12 @@ def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Sessio
             pm = resolve_pm(it.product_name or "", it.product_category or "")
         if not pm:
             unmatched.append({"id": it.id, "name": it.product_name, "item_type": it.item_type})
+            continue
+        if it.item_type in ("세트", "혼합세트"):
+            # CSA 변동비는 낱개(pcs)당 → 세트 원가는 구성 낱개 수로 나눠 '낱개당'으로 환산.
+            # (2026-10-20: 마카롱 감동/사랑세트 1세트 원가가 낱개 평균에 섞여 개당 327→661 과대)
+            agg[pm.id]["set_costs"].append(round(unit_material_cost(it.id) / piece_count(it.id)))
+            agg[pm.id]["set_names"].append(it.product_name)
             continue
         agg[pm.id]["costs"].append(round(unit_material_cost(it.id)))
         agg[pm.id]["labors"].append(round(it.labor_cost_per_unit or 0))
@@ -3394,6 +3407,10 @@ def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Sessio
 
     report = []
     for pid, d in agg.items():
+        # 낱개 완제품이 있으면 그 평균만 사용, 세트만 연결된 표준품목은 세트의 낱개당 원가 사용
+        if not d["costs"] and d["set_costs"]:
+            d["costs"], d["names"] = d["set_costs"], d["set_names"]
+            d["labors"] = [0] * len(d["set_costs"])
         avg_cost = round(sum(d["costs"]) / len(d["costs"])) if d["costs"] else 0
         avg_labor = round(sum(d["labors"]) / len(d["labors"])) if d["labors"] else 0
         if cogs_item:
