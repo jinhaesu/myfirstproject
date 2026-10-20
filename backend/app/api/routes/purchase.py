@@ -355,21 +355,23 @@ def list_records(start: Optional[str] = None, end: Optional[str] = None,
 @router.get("/records/dashboard")
 def records_dashboard(start: str, end: str, vendor: Optional[str] = None,
                       mclass: Optional[str] = None, q: Optional[str] = None,
-                      team: Optional[str] = None, db: Session = Depends(get_db)):
+                      team: Optional[str] = None, basis: Optional[str] = None,
+                      db: Session = Depends(get_db)):
+    """basis=supply(공급가·VAT별도, 기본) | total(합계·VAT포함)."""
     s, e = _pd(start), _pd(end)
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
-    return pur.records_dashboard(db, s, e, vendor=vendor, mclass=mclass, q=q, team=team)
+    return pur.records_dashboard(db, s, e, vendor=vendor, mclass=mclass, q=q, team=team, basis=basis)
 
 
 @router.get("/records/monthly-matrix")
 def records_monthly_matrix(year: int, by: str = "vendor",
                            team: Optional[str] = None, mclass: Optional[str] = None,
-                           top: int = 0, db: Session = Depends(get_db)):
-    """지정 연도 1~12월 × 거래처(또는 원부재료)별 구매 공급가 매트릭스 + 합계."""
+                           top: int = 0, basis: Optional[str] = None, db: Session = Depends(get_db)):
+    """지정 연도 1~12월 × 거래처(또는 원부재료)별 구매 매트릭스 + 합계(basis: supply|total)."""
     if by not in ("vendor", "material"):
         by = "vendor"
-    return pur.records_monthly_matrix(db, year, by=by, team=team, mclass=mclass, top=top)
+    return pur.records_monthly_matrix(db, year, by=by, team=team, mclass=mclass, top=top, basis=basis)
 
 
 @router.get("/export")
@@ -380,14 +382,14 @@ def export_excel(kind: str = "records",
                  team: Optional[str] = None, year: Optional[int] = None,
                  by: str = "vendor", asof: Optional[str] = None,
                  min_lines: int = 1, sort: str = "abs_change",
-                 db: Session = Depends(get_db)):
+                 basis: Optional[str] = None, db: Session = Depends(get_db)):
     """구매 관리 각 메뉴(또는 kind=all 전체)를 엑셀(.xlsx)로 내려받기."""
     from app.services import purchase_export as pex
     params = {
         "start": _pd(start), "end": _pd(end), "vendor": vendor, "mclass": mclass,
         "item_code": item_code, "q": q, "team": team,
         "year": year, "by": by, "asof": _pd(asof),
-        "min_lines": min_lines, "sort": sort,
+        "min_lines": min_lines, "sort": sort, "basis": basis,
     }
     try:
         bio = pex.build_workbook(db, kind, params)
@@ -431,27 +433,31 @@ def sales_ratio(start: str, end: str, granularity: str = "day",
 
 
 @router.get("/records/vendor-history")
-def vendor_history(vendor: str, start: Optional[str] = None, end: Optional[str] = None, db: Session = Depends(get_db)):
-    return pur.vendor_history(db, vendor, start=_pd(start), end=_pd(end))
+def vendor_history(vendor: str, start: Optional[str] = None, end: Optional[str] = None,
+                   basis: Optional[str] = None, db: Session = Depends(get_db)):
+    return pur.vendor_history(db, vendor, start=_pd(start), end=_pd(end), basis=basis)
 
 
 @router.get("/records/item-history")
 def item_history(item_code: Optional[str] = None, item_name: Optional[str] = None,
-                 start: Optional[str] = None, end: Optional[str] = None, db: Session = Depends(get_db)):
-    return pur.item_history(db, item_code=item_code, item_name=item_name, start=_pd(start), end=_pd(end))
+                 start: Optional[str] = None, end: Optional[str] = None,
+                 basis: Optional[str] = None, db: Session = Depends(get_db)):
+    return pur.item_history(db, item_code=item_code, item_name=item_name, start=_pd(start), end=_pd(end),
+                            basis=basis)
 
 
 @router.get("/records/price-tracker")
 def price_tracker(start: str, end: str, mclass: Optional[str] = None,
                   vendor: Optional[str] = None, q: Optional[str] = None,
                   min_lines: int = Query(1, ge=1), sort: str = "abs_change",
-                  team: Optional[str] = None, db: Session = Depends(get_db)):
-    """품목별 매입 단가 변동 개요 — 기간 내 최초/최근/최저/최고 단가 + 변동률."""
+                  team: Optional[str] = None, basis: Optional[str] = None,
+                  db: Session = Depends(get_db)):
+    """품목별 매입 단가 변동 개요 — 기간 내 최초/최근/최저/최고 단가 + 변동률(basis: supply|total)."""
     s, e = _pd(start), _pd(end)
     if not s or not e:
         raise HTTPException(400, "start/end 날짜가 필요합니다.")
     return pur.price_tracker(db, s, e, mclass=mclass, vendor=vendor, q=q,
-                             min_lines=min_lines, sort=sort, team=team)
+                             min_lines=min_lines, sort=sort, team=team, basis=basis)
 
 
 # ── 발주서 이메일 발행 ──
@@ -496,14 +502,21 @@ def issue_order(pid: int, to: Optional[str] = Query(None), db: Session = Depends
               <th style='padding:6px 10px;border:1px solid #ddd;text-align:left'>품목</th>
               <th style='padding:6px 10px;border:1px solid #ddd'>코드</th>
               <th style='padding:6px 10px;border:1px solid #ddd'>수량</th>
-              <th style='padding:6px 10px;border:1px solid #ddd'>단가</th>
-              <th style='padding:6px 10px;border:1px solid #ddd'>금액</th>
+              <th style='padding:6px 10px;border:1px solid #ddd'>단가(VAT별도)</th>
+              <th style='padding:6px 10px;border:1px solid #ddd'>공급가액</th>
             </tr></thead>
             <tbody>{rows_html}</tbody>
-            <tfoot><tr><td colspan='4' style='padding:8px 10px;text-align:right;font-weight:bold'>합계</td>
-              <td style='padding:8px 10px;border:1px solid #ddd;text-align:right;font-weight:bold'>{(po.total_amount or 0):,.0f}원</td></tr></tfoot>
+            <tfoot>
+              <tr><td colspan='4' style='padding:6px 10px;text-align:right'>공급가액 합계</td>
+                <td style='padding:6px 10px;border:1px solid #ddd;text-align:right'>{(po.total_amount or 0):,.0f}원</td></tr>
+              <tr><td colspan='4' style='padding:6px 10px;text-align:right'>부가세(10%)</td>
+                <td style='padding:6px 10px;border:1px solid #ddd;text-align:right'>{round((po.total_amount or 0) * 0.1):,.0f}원</td></tr>
+              <tr><td colspan='4' style='padding:8px 10px;text-align:right;font-weight:bold'>합계(VAT포함)</td>
+                <td style='padding:8px 10px;border:1px solid #ddd;text-align:right;font-weight:bold'>{round((po.total_amount or 0) * 1.1):,.0f}원</td></tr>
+            </tfoot>
           </table>
-          <p style='color:#888;font-size:12px;margin-top:16px'>본 발주서는 조인앤조인 구매관리 시스템에서 발행되었습니다.</p>
+          <p style='color:#888;font-size:12px;margin-top:12px'>※ 단가·공급가액은 부가세 별도 금액입니다. 면세 품목은 세금계산서(계산서) 기준으로 정산합니다.</p>
+          <p style='color:#888;font-size:12px;margin-top:4px'>본 발주서는 조인앤조인 구매관리 시스템에서 발행되었습니다.</p>
         </div>"""
         resend.Emails.send({
             "from": settings.RESEND_FROM_EMAIL,
