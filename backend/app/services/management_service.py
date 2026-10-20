@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import re
 from datetime import date
 from typing import Optional
 
@@ -46,6 +47,42 @@ def _bom_codes(db: Session) -> set:
     return {str(c).strip() for c in codes if str(c).strip() not in ("", "-")}
 
 
+# 개당 포장(BOM 부자재): 롤지·인쇄필름('_8도' 등 도수 표기)·삼방지퍼백·머핀컵
+_PIECE_PACK = re.compile(r"롤지|\d\s*도(?![가-힣])|삼방지퍼백|머핀컵")
+# 비교 제외(판매단위 포장·물류·제판비) 그룹
+_EXCL_GROUPS = [
+    ("물류·보냉(드라이아이스·아이스박스/팩·택배박스·완충재)", re.compile(r"드라이아이스|아이스팩|아이스박스|택배박스|완충재|보냉")),
+    ("판매 포장(단상자·선물박스·구/입 패키지·쇼핑백)", re.compile(r"단상자|박스|\d\s*구|\d\s*(?:개)?입|카토너|쇼핑백|패키지|케이스|파우치")),
+    ("제판·목형비", re.compile(r"목형|동판|제판")),
+]
+
+
+def bom_scope_classifier(db: Session):
+    """구매 1행이 원가(BOM) 비교 범위인지 판정 → fn(item_code, item_name, mclass) -> bool.
+
+    범위 = ① BOM 자재 마스터 품목코드 ② 원재료(원산지 변경 등으로 코드가 바뀐 원료 포함)
+          ③ 개당 포장(롤지·인쇄필름·지퍼백 등, BOM 부자재).
+    제외 = 판매단위 포장(단상자·선물박스)·물류/보냉자재·제판비 등 BOM에 없는 구매.
+    (2026-10-20: 코드만으로 판정 시 코코아파우더·PTS 등 원재료 2.2억이 '비대상'으로 잘못 빠짐)
+    """
+    codes = _bom_codes(db)
+
+    def in_scope(code, name, mclass) -> bool:
+        if code and str(code).strip() in codes:
+            return True
+        if (mclass or "") == "원재료":
+            return True
+        return bool(_PIECE_PACK.search(name or ""))
+    return in_scope
+
+
+def excluded_group(name: str) -> str:
+    for g, rx in _EXCL_GROUPS:
+        if rx.search(name or ""):
+            return g
+    return "기타 부재료"
+
+
 def _pm_cost_resolver(db: Session):
     """생산품목명 → CSA 표준품목(이름·별칭 최장 부분일치) 개당 원가(cogs 규칙).
     SCM 완제품명과 매칭 안 되는 생산명('GS 도넛케이크 다크초코' 등)의 이론원가 폴백."""
@@ -76,6 +113,44 @@ def _pm_cost_resolver(db: Session):
     return resolve
 
 
+def excluded_purchases(db: Session, start: date, end: date, team: Optional[str] = None,
+                       limit: int = 100) -> dict:
+    """원가 비교에서 제외되는 BOM 비대상 구매(판매포장·물류/보냉·제판비 등) 내역 — 품목별·그룹별 합계(공급가)."""
+    in_scope = bom_scope_classifier(db)
+    q = db.query(PurchaseRecord.item_code, PurchaseRecord.item_name, PurchaseRecord.mclass,
+                 PurchaseRecord.vendor_name, PurchaseRecord.supply_amount).filter(
+        PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
+    if team:
+        q = q.filter(PurchaseRecord.team == team)
+    items: dict = {}
+    by_class: dict = {}
+    total = included = 0.0
+    for code, name, mc, vendor, amt in q.all():
+        amt = float(amt or 0)
+        total += amt
+        if in_scope(code, name, mc):
+            included += amt
+            continue
+        nm = re.sub(r"\s+", " ", re.sub(r"\[.*?\]", "", name or "")).strip() or "(품목명 없음)"
+        grp = excluded_group(nm)
+        e = items.setdefault((code or "", nm), {"item_code": code, "item_name": nm, "mclass": mc, "group": grp,
+                                                 "vendor": vendor, "amount": 0.0, "count": 0})
+        e["amount"] += amt; e["count"] += 1
+        by_class[grp] = by_class.get(grp, 0.0) + amt
+    rows = sorted(items.values(), key=lambda x: -x["amount"])
+    for r in rows:
+        r["amount"] = round(r["amount"])
+    excluded = total - included
+    return {
+        "start": start.isoformat(), "end": end.isoformat(), "basis": "supply",
+        "purchase_total": round(total), "bom_scope": round(included), "excluded": round(excluded),
+        "excluded_pct": round(excluded / total * 100, 1) if total else None,
+        "item_count": len(rows),
+        "by_group": [{"group": k, "amount": round(v)} for k, v in sorted(by_class.items(), key=lambda x: -x[1])],
+        "items": rows[:limit],
+    }
+
+
 def _purchase_actual(db: Session, start: date, end: date) -> dict:
     rows = db.query(PurchaseRecord.mclass, func.coalesce(func.sum(PurchaseRecord.supply_amount), 0.0)).filter(
         PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end).group_by(PurchaseRecord.mclass).all()
@@ -95,10 +170,10 @@ def overview(db: Session, start: date, end: date) -> dict:
     # 1) 매출기반 원가추정 vs 실제 구매액 — 비교는 BOM 자재코드 범위 구매(포장·물류자재 제외)로
     cogs_est = sc["cogs_est"]
     purchase_total = pa["total"]
-    codes = _bom_codes(db)
-    bom_scope = float(db.query(func.coalesce(func.sum(PurchaseRecord.supply_amount), 0.0)).filter(
-        PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end,
-        PurchaseRecord.item_code.in_(list(codes) or ["-"])).scalar() or 0)
+    in_scope = bom_scope_classifier(db)
+    bom_scope = sum(float(a or 0) for c, n, mc, a in db.query(
+        PurchaseRecord.item_code, PurchaseRecord.item_name, PurchaseRecord.mclass, PurchaseRecord.supply_amount).filter(
+        PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end).all() if in_scope(c, n, mc))
     cost_vs_purchase = {
         "net_sales": round(sc["net_sales"]),
         "cogs_est": round(cogs_est),                 # 판매수량×BOM원가 (Σcost_cogs)
@@ -107,6 +182,7 @@ def overview(db: Session, start: date, end: date) -> dict:
         "purchase_raw": round(pa["raw"]), "purchase_sub": round(pa["sub"]),
         "purchase_ratio": round(purchase_total / sc["net_sales"] * 100, 1) if sc["net_sales"] else None,
         "purchase_bom_scope": round(bom_scope),
+        "purchase_excluded": round(purchase_total - bom_scope),   # BOM 비대상(포장·물류·소모품) — 비교에서 제외
         "gap": round(bom_scope - cogs_est),          # +면 구매>소비(재고빌드/과다구매), −면 구매<소비(재고소진)
     }
 
@@ -131,7 +207,7 @@ def overview(db: Session, start: date, end: date) -> dict:
         "bom_fallback_cost": round(fb_cost),
         "unmatched_prod_qty": round(still_unmatched),
         "purchase_actual": round(purchase_total),
-        "purchase_bom_scope": round(float(bom_scope)),   # BOM 자재코드 해당 구매만(포장·물류자재 제외)
+        "purchase_bom_scope": round(float(bom_scope)),   # BOM 범위 구매(원재료+개당포장, 판매포장·물류 제외)
         "gap": round(float(bom_scope) - bom_cost),
         "gap_pct": round((float(bom_scope) - bom_cost) / bom_cost * 100, 1) if bom_cost else None,
     }
@@ -243,7 +319,7 @@ def trend(db: Session, start: date, end: date, granularity: str = "month",
     import re
     from datetime import timedelta
     from app.db_models import ScmProduct, InventoryProduction
-    from app.services.purchase_service import _norm
+    from app.services import purchase_service as pur_svc
 
     def bucket(d):
         if granularity == "month":
@@ -254,17 +330,18 @@ def trend(db: Session, start: date, end: date, granularity: str = "month",
         return d.isoformat()
 
     # 실제 구매(공급가) — 전체 + BOM 자재코드 범위(원가 비교용, 포장·물류자재·소모품 제외)
-    codes = _bom_codes(db)
+    in_scope = bom_scope_classifier(db)
     pur: dict = {}
     pur_bom: dict = {}
-    _pq = db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount, PurchaseRecord.item_code).filter(
+    _pq = db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount, PurchaseRecord.item_code,
+                   PurchaseRecord.item_name, PurchaseRecord.mclass).filter(
         PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
     if team:
         _pq = _pq.filter(PurchaseRecord.team == team)
-    for pd, amt, code in _pq.all():
+    for pd, amt, code, iname, mcl in _pq.all():
         if pd:
             pur[bucket(pd)] = pur.get(bucket(pd), 0) + (amt or 0)
-            if code and str(code).strip() in codes:
+            if in_scope(code, iname, mcl):
                 pur_bom[bucket(pd)] = pur_bom.get(bucket(pd), 0) + (amt or 0)
 
     # 매출·원가추정(cost_cogs)
@@ -280,11 +357,9 @@ def trend(db: Session, start: date, end: date, granularity: str = "month",
             cogs[b] = cogs.get(b, 0) + (cc or 0)
 
     # BOM 이론소요 = 생산량 × 개당원가(동기화된 default_cost)
-    cost_by_norm: dict = {}
-    for p in db.query(ScmProduct).filter(
-            ScmProduct.item_type.in_(["완제품", "세트", "혼합세트", "반제품"])).all():
-        if p.default_cost:
-            cost_by_norm.setdefault(_norm(p.product_name), p.default_cost)
+    cost_by_id = {p.id: p.default_cost for p in db.query(ScmProduct.id, ScmProduct.default_cost).all()
+                  if p.default_cost}
+    match = pur_svc.build_prod_matcher(db)
     resolve = _pm_cost_resolver(db)
     bom: dict = {}
     unmatched_qty = 0.0
@@ -295,13 +370,8 @@ def trend(db: Session, start: date, end: date, granularity: str = "month",
             InventoryProduction.product_name.isnot(None)).all():
         if not pd or not q:
             continue
-        nm = _norm(name)
-        c = cost_by_norm.get(nm)
-        if c is None:
-            for k, v in cost_by_norm.items():
-                if k and (k in nm or nm in k):
-                    c = v
-                    break
+        iid, _how = match(name)
+        c = cost_by_id.get(iid) if iid else None
         if c is None:
             c = resolve(name)   # SCM명 미매칭 → CSA 표준품목 개당원가 폴백
         if c:
@@ -315,8 +385,10 @@ def trend(db: Session, start: date, end: date, granularity: str = "month",
         p = round(pur.get(k, 0)); s = round(sal.get(k, 0)); pb = round(pur_bom.get(k, 0))
         cg = round(cogs.get(k, 0)); bm = round(bom.get(k, 0))
         series.append({
-            "bucket": k, "purchase": p, "purchase_bom": pb, "sales": s, "cogs_est": cg, "bom_req": bm,
+            "bucket": k, "purchase": p, "purchase_bom": pb, "purchase_excluded": p - pb,
+            "sales": s, "cogs_est": cg, "bom_req": bm,
             "purchase_ratio": round(p / s * 100, 1) if s else None,
+            "purchase_bom_ratio": round(pb / s * 100, 1) if s else None,
             "cogs_ratio": round(cg / s * 100, 1) if s else None,
             "bom_gap": pb - bm, "cogs_gap": pb - cg,
         })

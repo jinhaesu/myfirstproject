@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { ProductionMatchPanel } from '@/components/ProductionMatchPanel';
 
 // ─────────────────────────────────────────────
 // API helpers
@@ -234,13 +235,15 @@ export default function BomPage() {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch(`${API_BASE}/api/scm/bom/import?replace=true`, {
+      // 비파괴 반영: 단일 레시피 제품 시트만 품목명 기준 BOM 라인 교체(CSA 연결·노무비·별칭·필링 구조 보존).
+      // 전체 초기화 재적재(replace=true)는 화면에서 제공하지 않음.
+      const res = await fetch(`${API_BASE}/api/scm/bom/import?replace=false&sheets=*`, {
         method: 'POST',
         headers: (() => { const h = getAuthHeaders(); delete h['Content-Type']; return h; })(),
         body: fd,
       });
       const j = await res.json();
-      if (j?.success) { flash(`적재 완료 — 원재료 ${j.report.raw_materials} · 부자재 ${j.report.sub_materials} · 시트 ${j.report.sheets.length}개`); loadSummary(); loadList(); }
+      if (j?.success) { flash(`반영 완료 — 시트 ${j.report.sheets.length}개 · 갱신 ${j.report.updated_items.length} · 신규 품목 ${j.report.new_items.length} · 신규 자재 ${j.report.new_raw.length + j.report.new_sub.length}`); loadSummary(); loadList(); }
       else flash('적재 실패');
     } catch { flash('적재 실패'); }
     setImporting(false);
@@ -332,12 +335,14 @@ export default function BomPage() {
             <button onClick={() => setMatModal({ kind: 'sub', data: null })} className="px-3 py-2 text-sm font-medium rounded-lg border border-border-primary bg-bg-1 text-text-secondary hover:bg-white/5 transition">+ 부자재</button>
             <button onClick={toggleAnalytics} className={`px-3 py-2 text-sm font-medium rounded-lg border transition ${showAnalytics ? 'border-brand/50 bg-brand/10 text-accent' : 'border-border-primary bg-bg-1 text-text-secondary hover:bg-white/5'}`}>카테고리 분석</button>
             <button onClick={() => setShowCalc((v) => !v)} className="px-3 py-2 text-sm font-medium rounded-lg border border-border-primary bg-bg-1 text-text-secondary hover:bg-white/5 transition">생산소요 계산{cart.length > 0 ? ` (${cart.length})` : ''}</button>
-            <label className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition ${importing ? 'bg-bg-1 text-text-quaternary border border-border-primary' : 'bg-brand text-white hover:bg-accent'}`}>
-              {importing ? '적재 중…' : 'BOM 엑셀'}
+            <label title="단일 레시피 제품 시트를 품목명 기준으로 비파괴 반영(마카롱·뚱낭시에·비건·LLB 도넛 등 합성 구조 시트는 제외)" className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition ${importing ? 'bg-bg-1 text-text-quaternary border border-border-primary' : 'bg-brand text-white hover:bg-accent'}`}>
+              {importing ? '반영 중…' : 'BOM 엑셀 반영'}
               <input type="file" accept=".xlsx,.xls" className="hidden" disabled={importing} onChange={(e) => e.target.files?.[0] && onImport(e.target.files[0])} />
             </label>
           </div>
         </div>
+
+        <ProductionMatchPanel />
 
         {/* Summary cards */}
         {summary && (

@@ -468,6 +468,8 @@ class ScmProduct(Base):
     erp_code = Column(String(100), nullable=True, index=True)  # ERP 품목코드(자재)
     # CSA 표준품목 연결 (세트 품목 → 사랑세트/감동세트 ProductMaster)
     csa_product_id = Column(Integer, ForeignKey("csa_product_master.id"), nullable=True, index=True)
+    # 생산실적 품목명 별칭(정확 매칭) — 'GS 도넛케이크 다크초코' 등 BOM명과 다른 생산명 연결
+    prod_aliases = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
