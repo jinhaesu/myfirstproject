@@ -3418,7 +3418,14 @@ def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Sessio
             InventoryProduction.product_name, InventoryProduction.product_id).all():
         q = float(q or 0)
         iid, _how = match(pname)
-        if q <= 0 or not iid or iid not in item_by_id or ppid not in pm_by_id:
+        if q <= 0 or not iid or iid not in item_by_id:
+            continue
+        # BOM 품목에 표준품목이 지정돼 있으면 그쪽 우선(생산일보 품목류 오기 방지:
+        # 'GS 도넛케이트'가 품목류=파운드로 입력돼 파운드 원가에 도넛 원가가 섞이던 문제)
+        link = item_by_id[iid].csa_product_id
+        if link in pm_by_id:
+            ppid = link
+        if ppid not in pm_by_id:
             continue
         c = per_piece(iid)
         if c <= 0:
