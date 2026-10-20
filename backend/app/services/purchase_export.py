@@ -74,6 +74,10 @@ def _sheet(wb: Workbook, title: str, headers: list[str], rows: list[list],
 
 # ── kind별 시트 빌더 ──
 
+def _vat_tag(basis) -> str:
+    return "(VAT포함)" if basis == "total" else "(VAT별도)"
+
+
 def _sheet_records(wb, db, params, first=False):
     d = pur.records_list(
         db, start=params.get("start"), end=params.get("end"),
@@ -81,15 +85,15 @@ def _sheet_records(wb, db, params, first=False):
         item_code=params.get("item_code"), q=params.get("q"),
         team=params.get("team"), limit=100000, offset=0)
     headers = ["일자", "No", "담당팀", "창고", "거래처", "구분", "담당자", "품목코드",
-               "품목명", "규격", "단위", "수량", "kg", "단가", "kg당단가",
-               "공급가", "부가세", "합계", "정산", "정산일", "비고"]
+               "품목명", "규격", "단위", "수량", "kg", "단가(VAT별도)", "kg당단가(VAT별도)",
+               "공급가(VAT별도)", "부가세", "합계(VAT포함)", "정산", "정산일", "비고"]
     rows = []
     for r in d["rows"]:
         rows.append([
             r.get("pdate"), r.get("seq"), r.get("team"), r.get("warehouse"),
             r.get("vendor"), r.get("mclass"), r.get("staff"), r.get("item_code"),
             r.get("item_name_short") or r.get("item_name"), r.get("spec"), r.get("unit"),
-            r.get("qty"), r.get("kg"), r.get("unit_price"), r.get("price_per_kg"),
+            r.get("qty"), r.get("kg"), r.get("unit_price_supply"), r.get("price_per_kg"),
             r.get("supply"), r.get("vat"), r.get("total"),
             "완료" if r.get("paid") else "미지급", r.get("paid_date"), r.get("note"),
         ])
@@ -106,10 +110,11 @@ def _sheet_price(wb, db, params, first=False):
         db, params["start"], params["end"], mclass=params.get("mclass"),
         vendor=params.get("vendor"), q=params.get("q"),
         min_lines=params.get("min_lines", 1), sort=params.get("sort", "abs_change"),
-        team=params.get("team"))
+        team=params.get("team"), basis=params.get("basis"))
+    vb = _vat_tag(d.get("basis"))
     headers = ["품목코드", "품목명", "규격", "구분", "단위", "거래처수", "매입횟수",
-               "최초일", "최초단가", "최근일", "최근단가", "최저", "최고", "평균",
-               "변동", "변동률%", "스프레드%", "총수량", "총kg", "총매입액", "단가효과"]
+               "최초일", f"최초단가{vb}", "최근일", f"최근단가{vb}", "최저", "최고", "평균",
+               "변동", "변동률%", "스프레드%", "총수량", "총kg", f"총매입액{vb}", "단가효과"]
     rows = []
     for x in d["items"]:
         rows.append([
@@ -128,36 +133,40 @@ def _sheet_price(wb, db, params, first=False):
 def _sheet_dashboard(wb, db, params, first=False):
     d = pur.records_dashboard(
         db, params["start"], params["end"], vendor=params.get("vendor"),
-        mclass=params.get("mclass"), q=params.get("q"), team=params.get("team"))
+        mclass=params.get("mclass"), q=params.get("q"), team=params.get("team"),
+        basis=params.get("basis"))
+    amt_h = "합계(VAT포함)" if d.get("basis") == "total" else "공급가(VAT별도)"
     # 요약
     summ_h = ["항목", "값"]
     summ_rows = [
         ["기간", f"{d['start']} ~ {d['end']}"],
         ["전표수", d["line_count"]],
-        ["공급가 합계", d["total_supply"]],
+        ["공급가 합계(VAT별도)", d["total_supply"]],
+        ["부가세", d.get("total_vat")],
         ["합계(VAT포함)", d["total_amount"]],
         ["거래처수", d["vendor_count"]],
         ["품목수", d["item_count"]],
-        ["기간 매출", d["sales"]],
-        ["매입/매출 비율(%)", d["purchase_to_sales_ratio"]],
+        ["기간 매출(공급가)", d["sales"]],
+        ["매입/매출 비율(%, 공급가 기준)", d["purchase_to_sales_ratio"]],
+        ["아래 시트 금액 기준", amt_h],
     ]
     _sheet(wb, "대시보드요약", summ_h, summ_rows, money_cols=set(), first=first)
     # 구분별
-    _sheet(wb, "구분별", ["구분", "공급가", "전표수"],
+    _sheet(wb, "구분별", ["구분", amt_h, "전표수"],
            [[r["mclass"], r["supply"], r["lines"]] for r in d["by_class"]],
            money_cols={1})
     # 거래처별
-    _sheet(wb, "거래처별", ["거래처", "공급가"],
+    _sheet(wb, "거래처별", ["거래처", amt_h],
            [[r["vendor"], r["supply"]] for r in d["by_vendor"]], money_cols={1})
     # 품목별
-    _sheet(wb, "품목별", ["품목코드", "품목명", "구분", "공급가", "수량"],
+    _sheet(wb, "품목별", ["품목코드", "품목명", "구분", amt_h, "수량"],
            [[r.get("item_code"), r.get("item_name"), r.get("mclass"), r["supply"], r["qty"]]
             for r in d["by_item"]], money_cols={3}, num1_cols={4})
     # 월별
-    _sheet(wb, "월별추이", ["월", "공급가"],
+    _sheet(wb, "월별추이", ["월", amt_h],
            [[r["month"], r["supply"]] for r in d["by_month"]], money_cols={1})
     # 일별
-    _sheet(wb, "일별추이", ["일자", "공급가"],
+    _sheet(wb, "일별추이", ["일자", amt_h],
            [[r["date"], r["supply"]] for r in d["by_day"]], money_cols={1})
 
 
@@ -165,8 +174,8 @@ def _sheet_monthly(wb, db, params, first=False):
     year = params.get("year") or date.today().year
     by = params.get("by") or "vendor"
     d = pur.records_monthly_matrix(db, year, by=by, team=params.get("team"),
-                                   mclass=params.get("mclass"))
-    label_h = "거래처" if by == "vendor" else "품목명"
+                                   mclass=params.get("mclass"), basis=params.get("basis"))
+    label_h = ("거래처" if by == "vendor" else "품목명") + _vat_tag(d.get("basis"))
     months = [f"{m}월" for m in range(1, 13)]
     headers = [label_h] + (["품목코드"] if by == "material" else []) + months + ["합계"]
     rows = []
@@ -185,7 +194,8 @@ def _sheet_monthly(wb, db, params, first=False):
 def _sheet_ap(wb, db, params, first=False):
     d = pur.ap_aging(db, asof=params.get("asof"), start=params.get("start"))
     buckets = d["bucket_order"]
-    headers = ["우선순위", "거래처", "정산조건", "매입액", "지급액", "잔액", "연체액",
+    # 매입채무는 실제 지급(VAT포함 현금)과 상계하므로 VAT포함 고정
+    headers = ["우선순위", "거래처", "정산조건", "매입액(VAT포함)", "지급액(VAT포함)", "잔액(VAT포함)", "연체액(VAT포함)",
                "평균연체일", "최장연체일", "평균지급소요일", "최초만기"] + buckets
     rows = []
     for v in d["vendors"]:
@@ -206,7 +216,7 @@ def _sheet_ap(wb, db, params, first=False):
 
 def _sheet_bom(wb, db, params, first=False):
     d = pur.bom_purchase_mapping(db)
-    headers = ["유형", "erp코드", "품명", "공급처", "기준", "마스터가", "구매가",
+    headers = ["유형", "erp코드", "품명", "공급처", "기준", "마스터가(VAT별도)", "구매가(VAT별도)",
                "괴리%", "거래처", "최근구매일", "매입횟수", "BOM사용", "상태"]
     flagmap = {"no_purchase": "구매없음", "stale": "괴리", "unit_check": "kg환산불가", "unused": "미사용"}
     rows = []

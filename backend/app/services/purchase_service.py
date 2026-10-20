@@ -40,6 +40,33 @@ def _norm(s) -> str:
     return re.sub(r"\s+", "", s).lower()
 
 
+# ── 부가세 기준(basis) ─────────────────────────────
+# 구매실적 금액은 supply_amount(공급가·VAT별도) / vat / total_amount(합계·VAT포함) 3열.
+# unit_price는 기본 VAT별도이나 price_incl_vat=True 행만 VAT포함 단가(이카운트式 입력).
+# 조회 API는 basis='supply'(기본, 별도) | 'total'(포함)로 금액·단가 기준을 고른다.
+# 매출대비 비율·BOM 원가는 매출이 공급가이므로 항상 별도 기준 고정.
+def _basis(b: Optional[str]) -> str:
+    return "total" if (b or "").lower() in ("total", "incl", "vat_incl", "포함") else "supply"
+
+
+def _amt(r, basis: str = "supply") -> float:
+    """행 금액 — basis=total이면 합계(VAT포함), 아니면 공급가(VAT별도)."""
+    return float((r.total_amount if basis == "total" else r.supply_amount) or 0)
+
+
+def _unit_price(r, basis: str = "supply") -> float:
+    """행 단가를 basis 기준으로 정규화.
+    별도: price_incl_vat 행은 ÷1.1. 포함: 별도단가 × (합계÷공급가) — 면세(vat 0)는 그대로."""
+    up = float(r.unit_price or 0)
+    if bool(getattr(r, "price_incl_vat", False)):
+        up = up / 1.1
+    if basis == "total":
+        s = float(r.supply_amount or 0)
+        t = float(r.total_amount or 0)
+        up = up * (t / s) if s else up * 1.1
+    return up
+
+
 _SPEC_RE = re.compile(r"\[([^\]]+)\]")
 _WEIGHT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(kg|g)\b", re.IGNORECASE)
 # N kg * M ea  (박스당 M개 × 개당 Nkg) — 멀티팩
@@ -609,8 +636,11 @@ def _sales_sum(db: Session, start: date, end: date) -> float:
 
 def records_dashboard(db: Session, start: date, end: date,
                       vendor: Optional[str] = None, mclass: Optional[str] = None,
-                      q: Optional[str] = None, team: Optional[str] = None) -> dict:
-    """구매 실적 종합 대시보드 — 원/부재료·거래처·품목·일별·매출대비 누적비율. 거래처·구분·팀·검색 필터."""
+                      q: Optional[str] = None, team: Optional[str] = None,
+                      basis: Optional[str] = None) -> dict:
+    """구매 실적 종합 대시보드 — 원/부재료·거래처·품목·일별·매출대비 누적비율. 거래처·구분·팀·검색 필터.
+    basis: 분해 차트('supply' 키) 금액 기준. 매출대비 비율은 항상 공급가 기준."""
+    basis = _basis(basis)
     base = db.query(PurchaseRecord).filter(
         PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
     if vendor:
@@ -633,7 +663,7 @@ def records_dashboard(db: Session, start: date, end: date,
     by_month: dict = {}
     by_staff: dict = {}
     for r in rows:
-        amt = r.supply_amount or 0
+        amt = _amt(r, basis)
         c = r.mclass or "기타"
         bc = by_class.setdefault(c, {"mclass": c, "supply": 0, "lines": 0})
         bc["supply"] += amt; bc["lines"] += 1
@@ -652,7 +682,9 @@ def records_dashboard(db: Session, start: date, end: date,
 
     return {
         "start": start.isoformat(), "end": end.isoformat(),
+        "basis": basis,
         "line_count": len(rows), "total_supply": round(total_supply), "total_amount": round(total_amount),
+        "total_vat": round(total_amount - total_supply),
         "vendor_count": len(by_vendor), "item_count": len(by_item),
         "sales": round(sales), "purchase_to_sales_ratio": ratio,
         "by_class": sorted(by_class.values(), key=lambda x: -x["supply"]),
@@ -666,12 +698,13 @@ def records_dashboard(db: Session, start: date, end: date,
 
 def records_monthly_matrix(db: Session, year: int, by: str = "vendor",
                            team: Optional[str] = None, mclass: Optional[str] = None,
-                           top: int = 0) -> dict:
-    """지정 연도 1~12월 × (거래처|원부재료) 구매 공급가 매트릭스.
+                           top: int = 0, basis: Optional[str] = None) -> dict:
+    """지정 연도 1~12월 × (거래처|원부재료) 구매 매트릭스(basis: 공급가 기본 | 합계).
 
     설정 기간과 무관하게 해당 연도 전체(1~12월)를 대상으로 한다.
     by='vendor'(거래처별) 또는 'material'(품목별). 행별 합계·월별 합계·총계 포함.
     """
+    basis = _basis(basis)
     start = date(year, 1, 1)
     end = date(year, 12, 31)
     qry = db.query(PurchaseRecord).filter(
@@ -689,7 +722,7 @@ def records_monthly_matrix(db: Session, year: int, by: str = "vendor",
         if not r.pdate:
             continue
         mi = r.pdate.month - 1
-        amt = r.supply_amount or 0
+        amt = _amt(r, basis)
         if by == "material":
             code = (r.item_code or "").strip()
             label = _SPEC_RE.sub("", r.item_name or "").strip() or r.item_name or "(품목미상)"
@@ -713,7 +746,7 @@ def records_monthly_matrix(db: Session, year: int, by: str = "vendor",
         "total": round(g["total"]),
     } for g in rows]
     return {
-        "year": year, "by": by,
+        "year": year, "by": by, "basis": basis,
         "month_totals": [round(v) for v in month_totals],
         "grand_total": round(grand),
         "row_count": len(grid),
@@ -810,7 +843,9 @@ def records_list(db: Session, start=None, end=None, vendor=None, mclass=None,
             "item_code": r.item_code, "item_name": r.item_name, "item_name_short": name_wo,
             "spec": spec, "kg_per_unit": kgpu, "unit": r.unit,
             "qty": r.qty, "kg": kg, "unit_price": r.unit_price,
-            "price_per_kg": round(r.unit_price / kgpu) if (kgpu and r.unit_price) else None,
+            "unit_price_supply": round(_unit_price(r), 2), "unit_price_total": round(_unit_price(r, "total"), 2),
+            "price_incl_vat": bool(r.price_incl_vat),
+            "price_per_kg": round(_unit_price(r) / kgpu) if (kgpu and r.unit_price) else None,
             "supply": round(r.supply_amount or 0),
             "vat": round(r.vat or 0), "total": round(r.total_amount or 0), "note": r.note,
             "paid": bool(r.paid), "paid_date": r.paid_date.isoformat() if r.paid_date else None,
@@ -826,7 +861,8 @@ def records_list(db: Session, start=None, end=None, vendor=None, mclass=None,
     }
 
 
-def vendor_history(db: Session, vendor: str, start=None, end=None) -> dict:
+def vendor_history(db: Session, vendor: str, start=None, end=None, basis: Optional[str] = None) -> dict:
+    basis = _basis(basis)
     qry = db.query(PurchaseRecord).filter(PurchaseRecord.vendor_name == vendor)
     if start:
         qry = qry.filter(PurchaseRecord.pdate >= start)
@@ -837,13 +873,13 @@ def vendor_history(db: Session, vendor: str, start=None, end=None) -> dict:
     by_item: dict = {}
     for r in rows:
         mk = f"{r.pdate.year}-{r.pdate.month:02d}" if r.pdate else "?"
-        by_month[mk] = by_month.get(mk, 0) + (r.supply_amount or 0)
+        by_month[mk] = by_month.get(mk, 0) + _amt(r, basis)
         ik = r.item_code or r.item_name
         bi = by_item.setdefault(ik, {"item_code": r.item_code, "item_name": r.item_name, "supply": 0, "qty": 0})
-        bi["supply"] += (r.supply_amount or 0); bi["qty"] += (r.qty or 0)
+        bi["supply"] += _amt(r, basis); bi["qty"] += (r.qty or 0)
     return {
-        "vendor": vendor, "line_count": len(rows),
-        "total_supply": round(sum(r.supply_amount or 0 for r in rows)),
+        "vendor": vendor, "line_count": len(rows), "basis": basis,
+        "total_supply": round(sum(_amt(r, basis) for r in rows)),
         "first": min((r.pdate.isoformat() for r in rows if r.pdate), default=None),
         "last": max((r.pdate.isoformat() for r in rows if r.pdate), default=None),
         "by_month": [{"month": k, "supply": round(v)} for k, v in sorted(by_month.items())],
@@ -851,7 +887,9 @@ def vendor_history(db: Session, vendor: str, start=None, end=None) -> dict:
     }
 
 
-def item_history(db: Session, item_code=None, item_name=None, start=None, end=None) -> dict:
+def item_history(db: Session, item_code=None, item_name=None, start=None, end=None,
+                 basis: Optional[str] = None) -> dict:
+    basis = _basis(basis)
     qry = db.query(PurchaseRecord)
     if item_code:
         qry = qry.filter(PurchaseRecord.item_code == item_code)
@@ -868,13 +906,14 @@ def item_history(db: Session, item_code=None, item_name=None, start=None, end=No
     for r in rows:
         mk = f"{r.pdate.year}-{r.pdate.month:02d}" if r.pdate else "?"
         bm = by_month.setdefault(mk, {"month": mk, "supply": 0, "qty": 0})
-        bm["supply"] += (r.supply_amount or 0); bm["qty"] += (r.qty or 0)
-        by_vendor[r.vendor_name or "미지정"] = by_vendor.get(r.vendor_name or "미지정", 0) + (r.supply_amount or 0)
+        bm["supply"] += _amt(r, basis); bm["qty"] += (r.qty or 0)
+        by_vendor[r.vendor_name or "미지정"] = by_vendor.get(r.vendor_name or "미지정", 0) + _amt(r, basis)
         if r.unit_price:
-            prices.append((r.pdate.isoformat() if r.pdate else None, r.unit_price, r.vendor_name))
+            prices.append((r.pdate.isoformat() if r.pdate else None, _unit_price(r, basis), r.vendor_name))
     return {
         "item_code": item_code, "item_name": item_name or (rows[0].item_name if rows else None),
-        "line_count": len(rows), "total_supply": round(sum(r.supply_amount or 0 for r in rows)),
+        "basis": basis,
+        "line_count": len(rows), "total_supply": round(sum(_amt(r, basis) for r in rows)),
         "total_qty": round(sum(r.qty or 0 for r in rows), 1),
         "by_month": [{**v, "supply": round(v["supply"]), "qty": round(v["qty"], 1)} for v in by_month.values()],
         "by_vendor": sorted(({"vendor": k, "supply": round(v)} for k, v in by_vendor.items()), key=lambda x: -x["supply"]),
@@ -894,14 +933,16 @@ def _is_tooling_cost(name: Optional[str]) -> bool:
 def price_tracker(db: Session, start: date, end: date,
                   mclass: Optional[str] = None, vendor: Optional[str] = None,
                   q: Optional[str] = None, min_lines: int = 1,
-                  sort: str = "abs_change", team: Optional[str] = None) -> dict:
-    """기간 내 품목별 매입 단가 변동 개요.
+                  sort: str = "abs_change", team: Optional[str] = None,
+                  basis: Optional[str] = None) -> dict:
+    """기간 내 품목별 매입 단가 변동 개요. basis: 단가·매입액 기준(공급가 기본 | 합계).
 
     품목(item_code 우선, 없으면 item_name)별로 기간 내 최초/최근 단가, 최저/최고,
     가중평균(공급가÷수량), 변동률(최근÷최초)을 집계. 단가 상승/하락 품목을 한눈에.
     · 단가는 행별 unit_price(공급가/수량 아님)를 사용하되, 0/음수는 제외.
     · 매입 시점이 여럿이면 최초=기간 첫 매입일 단가, 최근=마지막 매입일 단가.
     """
+    basis = _basis(basis)
     qry = db.query(PurchaseRecord).filter(
         PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end,
     )
@@ -937,10 +978,10 @@ def price_tracker(db: Session, start: date, end: date,
         if it["kg_per_unit"] is None:
             it["kg_per_unit"] = r.kg_per_unit if r.kg_per_unit else parse_spec(r.item_name or "")[1]
         it["total_qty"] += (r.qty or 0)
-        it["total_supply"] += (r.supply_amount or 0)
+        it["total_supply"] += _amt(r, basis)
         if r.vendor_name:
             it["vendors"].add(r.vendor_name)
-        up = r.unit_price or 0
+        up = _unit_price(r, basis)   # VAT포함 단가 입력행도 basis 기준으로 정규화
         if up > 0 and r.pdate:
             it["points"].append((r.pdate, up, r.vendor_name))
 
@@ -1023,7 +1064,7 @@ def price_tracker(db: Session, start: date, end: date,
     net_savings = savings_amount - increase_amount
     excluded_outliers = sum(1 for x in out if not _sane(x))
     return {
-        "start": start.isoformat(), "end": end.isoformat(),
+        "start": start.isoformat(), "end": end.isoformat(), "basis": basis,
         "item_count": len(out),
         "rising_count": len(rising), "falling_count": len(falling),
         "flat_count": len(out) - len(rising) - len(falling),
@@ -1553,9 +1594,10 @@ def suggest_items(db: Session, q: Optional[str] = None, limit: int = 30) -> list
     result = []
     for it in out[:limit]:
         # 최근 단가 조회
-        last_up = db.query(PurchaseRecord.unit_price).filter(
+        last_rec = db.query(PurchaseRecord).filter(
             PurchaseRecord.item_name == it["item_name"]).order_by(
-            PurchaseRecord.pdate.desc()).limit(1).scalar()
+            PurchaseRecord.pdate.desc()).limit(1).first()
+        last_up = _unit_price(last_rec) if last_rec else 0   # VAT별도 기준
         spec, kgpu = parse_spec(it["item_name"])
         result.append({
             "item_code": it["item_code"], "item_name": it["item_name"],
@@ -1678,7 +1720,8 @@ def _latest_purchase_by_code(db: Session) -> dict:
     rows = db.query(
         PurchaseRecord.item_code, PurchaseRecord.item_name, PurchaseRecord.unit,
         PurchaseRecord.unit_price, PurchaseRecord.kg_per_unit, PurchaseRecord.vendor_name,
-        PurchaseRecord.pdate,
+        PurchaseRecord.pdate, PurchaseRecord.price_incl_vat,
+        PurchaseRecord.supply_amount, PurchaseRecord.total_amount,
     ).filter(PurchaseRecord.item_code.isnot(None), PurchaseRecord.item_code != "").order_by(
         PurchaseRecord.item_code, PurchaseRecord.pdate.desc(), PurchaseRecord.id.desc()
     ).all()
@@ -1691,7 +1734,9 @@ def _latest_purchase_by_code(db: Session) -> dict:
         if code in latest:
             continue
         latest[code] = {
-            "item_name": r.item_name, "unit": r.unit, "unit_price": float(r.unit_price or 0),
+            "item_name": r.item_name, "unit": r.unit,
+            # BOM 마스터 단가는 VAT별도 — VAT포함 단가 입력행은 ÷1.1 정규화
+            "unit_price": _unit_price(r),
             "kg_per_unit": r.kg_per_unit, "vendor": r.vendor_name,
             "last_date": r.pdate.isoformat() if r.pdate else None, "buy_count": cnt.get(r.item_code, 0),
         }

@@ -374,7 +374,7 @@ export default function BomPage() {
         {showAnalytics && (
           <div className="bg-bg-1 rounded-xl border border-brand/30 p-4 mb-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-text-primary">카테고리·유형별 BOM 원가 분석 <span className="text-xs font-normal text-text-quaternary ml-1">개당 재료원가(완전전개) 기준 · {analytics?.item_count ?? 0}개 품목</span></h3>
+              <h3 className="font-bold text-text-primary">카테고리·유형별 BOM 원가 분석 <span className="text-xs font-normal text-text-quaternary ml-1">개당 재료원가(완전전개, VAT별도) 기준 · {analytics?.item_count ?? 0}개 품목</span></h3>
               <div className="flex items-center gap-2">
                 <button onClick={loadAnalytics} className="text-xs px-2 py-1 rounded border border-border-primary text-text-tertiary hover:bg-white/5">새로고침</button>
                 <button onClick={() => setShowAnalytics(false)} className="text-text-quaternary hover:text-text-secondary">✕</button>
@@ -460,7 +460,7 @@ export default function BomPage() {
               {req && (
                 <div className="bg-bg-0 rounded-lg border border-border-primary p-3">
                   <div className="flex justify-between items-baseline mb-2 pb-2 border-b border-border-primary">
-                    <span className="text-xs font-semibold text-text-tertiary">예상 재료원가</span>
+                    <span className="text-xs font-semibold text-text-tertiary">예상 재료원가 (VAT별도)</span>
                     <span className="text-xl font-bold text-text-primary">{won(req.total_material_cost)}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -603,8 +603,8 @@ export default function BomPage() {
                           <tr className="bg-bg-0 text-text-quaternary text-xs">
                             <th className="text-left font-medium px-3 py-2">자재명</th>
                             <th className="text-right font-medium px-3 py-2">투입량 ({weightUnit}/ea)</th>
-                            <th className="text-right font-medium px-3 py-2">단가</th>
-                            <th className="text-right font-medium px-3 py-2">금액</th>
+                            <th className="text-right font-medium px-3 py-2">단가 (VAT별도)</th>
+                            <th className="text-right font-medium px-3 py-2">금액 (VAT별도)</th>
                             <th className="w-8" />
                           </tr>
                         </thead>
@@ -666,7 +666,7 @@ export default function BomPage() {
                         </tbody>
                         <tfoot>
                           <tr className="border-t border-border-primary bg-bg-0">
-                            <td className="px-3 py-2.5 font-semibold text-text-primary" colSpan={3}>개당 재료원가 합계</td>
+                            <td className="px-3 py-2.5 font-semibold text-text-primary" colSpan={3}>개당 재료원가 합계 (VAT별도)</td>
                             <td className="px-3 py-2.5 text-right font-bold text-brand tabular-nums">{won(bom.bom_cost)}</td>
                             <td />
                           </tr>
@@ -812,11 +812,11 @@ function MaterialModal({ kind, data, onClose, onSaved, flash }: { kind: 'raw' | 
         <>
           <div className="grid grid-cols-2 gap-3">
             <Field label="단위"><input value={f.unit || ''} onChange={(e) => set('unit', e.target.value)} placeholder="ea" className={`w-full px-3 py-2 text-sm ${inputCls}`} /></Field>
-            <Field label="롤당 단가"><input type="number" value={f.roll_price || ''} onChange={(e) => set('roll_price', e.target.value)} className={`w-full px-3 py-2 text-sm text-right tabular-nums ${inputCls}`} /></Field>
+            <Field label="롤당 단가 (원, VAT별도)"><input type="number" value={f.roll_price || ''} onChange={(e) => set('roll_price', e.target.value)} className={`w-full px-3 py-2 text-sm text-right tabular-nums ${inputCls}`} /></Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="생산가능수량(롤당)"><input type="number" value={f.producible_qty || ''} onChange={(e) => set('producible_qty', e.target.value)} className={`w-full px-3 py-2 text-sm text-right tabular-nums ${inputCls}`} /></Field>
-            <Field label="개당 단가 (원)"><input type="number" value={f.unit_price || ''} onChange={(e) => set('unit_price', e.target.value)} className={`w-full px-3 py-2 text-sm text-right tabular-nums ${inputCls}`} /></Field>
+            <Field label="개당 단가 (원, VAT별도)"><input type="number" value={f.unit_price || ''} onChange={(e) => set('unit_price', e.target.value)} className={`w-full px-3 py-2 text-sm text-right tabular-nums ${inputCls}`} /></Field>
           </div>
         </>
       )}

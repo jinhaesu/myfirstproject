@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, Fragment } from 'react';
+import { useEffect, useState, useCallback, Fragment, createContext, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
@@ -63,6 +63,27 @@ const thisMonth = () => { const n = new Date(); return { start: iso(new Date(n.g
 function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
   return <div className={`${C.card} p-4`}><div className="text-[11px] text-text-tertiary mb-1 truncate">{label}</div><div className={`text-lg font-bold tabular-nums ${tone || 'text-text-primary'}`}>{value}</div>{sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}</div>;
 }
+// 부가세 기준 — 구매관리 전 탭 공통(상단 토글). supply=공급가(VAT별도) | total=합계(VAT포함).
+// 매출대비 비율·BOM 원가·매출원가 추정은 매출이 공급가라 항상 VAT별도 고정, 매입채무는 실지급과 상계라 VAT포함 고정.
+type Basis = 'supply' | 'total';
+const BasisCtx = createContext<Basis>('supply');
+const useBasis = () => useContext(BasisCtx);
+const vatTag = (b: Basis) => (b === 'total' ? 'VAT포함' : 'VAT별도');
+function VatBadge({ b, fixed }: { b: Basis; fixed?: boolean }) {
+  return <span className={`ml-1.5 align-middle text-[10px] font-semibold px-1.5 py-0.5 rounded border ${b === 'total' ? 'text-accent border-accent/40 bg-brand/10' : 'text-text-tertiary border-border-primary bg-bg-inset'}`} title={fixed ? '이 지표는 상단 토글과 무관하게 고정 기준' : '상단 부가세 토글 기준'}>{vatTag(b)}{fixed ? ' 고정' : ''}</span>;
+}
+function VatToggle({ value, onChange }: { value: Basis; onChange: (b: Basis) => void }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs text-text-tertiary">금액 기준</span>
+      <div className="flex rounded-lg overflow-hidden border border-border-primary">
+        {([['supply', '공급가 (VAT별도)'], ['total', '합계 (VAT포함)']] as const).map(([k, l]) => (
+          <button key={k} onClick={() => onChange(k)} className={`px-2.5 py-1.5 text-xs font-semibold ${value === k ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`}>{l}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
 // 담당팀 필터 — 전체/구매팀/물류팀
 function TeamFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -105,6 +126,9 @@ export default function PurchasePage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('실적 대시보드');
+  const [basis, setBasisState] = useState<Basis>('supply');
+  useEffect(() => { try { const v = localStorage.getItem('purchase_vat_basis'); if (v === 'total' || v === 'supply') setBasisState(v); } catch {} }, []);
+  const setBasis = (b: Basis) => { setBasisState(b); try { localStorage.setItem('purchase_vat_basis', b); } catch {} };
   useEffect(() => { if (!isLoading && !user) router.replace('/login'); }, [isLoading, user, router]);
   if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
   const tabs: Tab[] = ['실적 대시보드', '실적 조회', '실적 입력', '단가 추이', '매입채무', '자산형 재고', 'BOM 매핑', '원부재료 소요', '거래처', '발주'];
@@ -116,8 +140,9 @@ export default function PurchasePage() {
     <div className="min-h-screen bg-bg-0">
       <Navigation />
       <main className="max-w-[1400px] mx-auto px-4 py-6">
-        <div className="mb-4"><h1 className="text-xl font-bold text-text-primary">구매 관리</h1><p className="text-sm text-text-tertiary mt-0.5">구매일보 실적 분석 · 매출대비 구매비율 · 거래처/품목 이력 · 발주·발주서 발행.</p></div>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-xl font-bold text-text-primary">구매 관리</h1><p className="text-sm text-text-tertiary mt-0.5">구매일보 실적 분석 · 매출대비 구매비율 · 거래처/품목 이력 · 발주·발주서 발행.</p></div><VatToggle value={basis} onChange={setBasis} /></div>
         <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">{tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[13px] font-semibold whitespace-nowrap transition-all ${tab === t ? 'bg-brand/10 border-brand/40 text-accent shadow-[0_1px_3px_rgba(0,0,0,0.15)]' : 'bg-bg-1 border-border-primary text-text-tertiary hover:text-text-secondary hover:border-border-secondary'}`}><span className="text-base leading-none">{TAB_ICON[t]}</span>{t}</button>)}</div>
+        <BasisCtx.Provider value={basis}>
         {tab === '실적 대시보드' && <DashTab />}
         {tab === '실적 조회' && <RecordsTab />}
         {tab === '실적 입력' && <InputTab />}
@@ -128,6 +153,7 @@ export default function PurchasePage() {
         {tab === '원부재료 소요' && <MatTab />}
         {tab === '거래처' && <VendorTab />}
         {tab === '발주' && <POTab />}
+        </BasisCtx.Provider>
       </main>
     </div>
   );
@@ -165,6 +191,7 @@ const presets = () => {
 // 실적 대시보드
 // ─────────────────────────────────────────────
 function DashTab() {
+  const basis = useBasis();
   const [gran, setGran] = useState<'day' | 'week' | 'month'>('month');
   // 입력(draft)과 적용(applied) 분리 — 조회 버튼으로만 반영
   const [dr, setDr] = useState({ ...thisMonth(), vendor: '', mclass: '', q: '', team: '' });
@@ -178,10 +205,10 @@ function DashTab() {
   const P = presets();
   const applyDraft = () => setAp(dr);
   const applyPreset = (v: { start: string; end: string }) => { const nx = { ...dr, ...v }; setDr(nx); setAp(nx); };
-  const qs = () => { const p = new URLSearchParams({ start: ap.start, end: ap.end }); if (ap.vendor) p.set('vendor', ap.vendor); if (ap.mclass) p.set('mclass', ap.mclass); if (ap.q) p.set('q', ap.q); if (ap.team) p.set('team', ap.team); return p.toString(); };
+  const qs = () => { const p = new URLSearchParams({ start: ap.start, end: ap.end, basis }); if (ap.vendor) p.set('vendor', ap.vendor); if (ap.mclass) p.set('mclass', ap.mclass); if (ap.q) p.set('q', ap.q); if (ap.team) p.set('team', ap.team); return p.toString(); };
   useEffect(() => { getJSON<{ vendors: Vendor[] }>('/purchase/vendors', { vendors: [] }).then((r) => setVendors(r.vendors)); }, []);
   const tq = () => (ap.team ? `&team=${encodeURIComponent(ap.team)}` : '');
-  useEffect(() => { setLoading(true); getJSON<any>(`/purchase/records/dashboard?${qs()}`, null).then((r) => { setD(r); setLoading(false); }); }, [ap]);
+  useEffect(() => { setLoading(true); getJSON<any>(`/purchase/records/dashboard?${qs()}`, null).then((r) => { setD(r); setLoading(false); }); }, [ap, basis]);
   useEffect(() => { getJSON<any>(`/purchase/records/sales-ratio?start=${ap.start}&end=${ap.end}&granularity=${gran}${tq()}`, null).then(setRatio); }, [ap, gran]);
   useEffect(() => { getJSON<any>(`/purchase/records/req-vs-actual?start=${ap.start}&end=${ap.end}&top=30${tq()}`, null).then(setHeat); }, [ap]);
   useEffect(() => { getJSON<any>(`/purchase/records/gap-trend?start=${ap.start}&end=${ap.end}&granularity=${gran}${tq()}`, null).then(setGapT); }, [ap, gran]);
@@ -206,28 +233,28 @@ function DashTab() {
         {(dr.vendor || dr.mclass || dr.q) && <button onClick={() => { const nx = { ...dr, vendor: '', mclass: '', q: '' }; setDr(nx); setAp(nx); }} className={`${C.btn} ${C.btnGhost}`}>필터 해제</button>}
         {dirty && <span className="text-xs text-warning">변경됨 — 조회를 누르세요</span>}
         <div className="ml-auto flex gap-1.5">
-          <XlsxBtn kind="dashboard" label="⬇ 대시보드 엑셀" params={{ start: ap.start, end: ap.end, vendor: ap.vendor || undefined, mclass: ap.mclass || undefined, q: ap.q || undefined, team: ap.team || undefined }} />
-          <XlsxBtn kind="all" label="⬇ 구매관리 전체" params={{ start: ap.start, end: ap.end, team: ap.team || undefined, year: Number(ap.start.slice(0, 4)) }} />
+          <XlsxBtn kind="dashboard" label="⬇ 대시보드 엑셀" params={{ basis, start: ap.start, end: ap.end, vendor: ap.vendor || undefined, mclass: ap.mclass || undefined, q: ap.q || undefined, team: ap.team || undefined }} />
+          <XlsxBtn kind="all" label="⬇ 구매관리 전체" params={{ basis, start: ap.start, end: ap.end, team: ap.team || undefined, year: Number(ap.start.slice(0, 4)) }} />
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard label="구매액(공급가)" value={wonShort(d?.total_supply || 0)} tone="text-warning" sub={`${fmt(d?.line_count || 0)}건`} />
-        <StatCard label="원재료" value={wonShort((d?.by_class || []).find((x: any) => x.mclass === '원재료')?.supply || 0)} tone="text-info" />
-        <StatCard label="부재료" value={wonShort((d?.by_class || []).find((x: any) => x.mclass === '부재료')?.supply || 0)} tone="text-warning" />
-        <StatCard label="매출액(순)" value={wonShort(d?.sales || 0)} tone="text-success" />
-        <StatCard label="구매/매출" value={d?.purchase_to_sales_ratio != null ? `${d.purchase_to_sales_ratio}%` : '-'} tone="text-purple" sub="공급가÷순매출" />
+        <StatCard label={`구매액(${vatTag(basis)})`} value={wonShort((basis === 'total' ? d?.total_amount : d?.total_supply) || 0)} tone="text-warning" sub={`${fmt(d?.line_count || 0)}건 · ${basis === 'total' ? `공급가 ${wonShort(d?.total_supply || 0)}` : `VAT포함 ${wonShort(d?.total_amount || 0)}`}`} />
+        <StatCard label={`원재료(${vatTag(basis)})`} value={wonShort((d?.by_class || []).find((x: any) => x.mclass === '원재료')?.supply || 0)} tone="text-info" />
+        <StatCard label={`부재료(${vatTag(basis)})`} value={wonShort((d?.by_class || []).find((x: any) => x.mclass === '부재료')?.supply || 0)} tone="text-warning" />
+        <StatCard label="매출액(순·VAT별도)" value={wonShort(d?.sales || 0)} tone="text-success" />
+        <StatCard label="구매/매출" value={d?.purchase_to_sales_ratio != null ? `${d.purchase_to_sales_ratio}%` : '-'} tone="text-purple" sub="공급가÷순매출 (VAT별도 고정)" />
         <StatCard label="거래처·품목" value={`${fmt(d?.vendor_count || 0)}·${fmt(d?.item_count || 0)}`} sub="거래처 · 품목수" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-text-primary mb-3">원/부재료 구성</div>
+          <div className="text-sm font-semibold text-text-primary mb-3">원/부재료 구성<VatBadge b={basis} /></div>
           {classData.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}><PieChart><Pie data={classData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={(e: any) => `${e.name} ${Math.round(e.percent * 100)}%`} labelLine={false}>{classData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /></PieChart></ResponsiveContainer>
           ) : <Empty />}
         </div>
         <div className={`${C.card} p-4 lg:col-span-2`}>
-          <div className="text-sm font-semibold text-text-primary mb-3">거래처별 구매액 (Top 12)</div>
+          <div className="text-sm font-semibold text-text-primary mb-3">거래처별 구매액 (Top 12)<VatBadge b={basis} /></div>
           {d?.by_vendor?.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}><BarChart data={d.by_vendor.slice(0, 12)} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis type="category" dataKey="vendor" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} width={110} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" radius={[0, 4, 4, 0]}>{d.by_vendor.slice(0, 12).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>
           ) : <Empty />}
@@ -235,7 +262,7 @@ function DashTab() {
       </div>
 
       <div className={`${C.card} p-4`}>
-        <div className="text-sm font-semibold text-text-primary mb-3">매출 대비 구매 누적비율 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'} {ratio?.cum_ratio != null && <span className="text-purple ml-2">기간 누적 {ratio.cum_ratio}%</span>}{ap.team && <span className="text-xs text-info ml-2">· {ap.team} 구매기준(매출=전사)</span>}</div>
+        <div className="text-sm font-semibold text-text-primary mb-3">매출 대비 구매 누적비율 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}<VatBadge b="supply" fixed /> {ratio?.cum_ratio != null && <span className="text-purple ml-2">기간 누적 {ratio.cum_ratio}%</span>}{ap.team && <span className="text-xs text-info ml-2">· {ap.team} 구매기준(매출=전사)</span>}</div>
         {ratio?.series?.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}><LineChart data={ratio.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-purple)', fontSize: 10 }} tickFormatter={(v) => `${v}%`} /><Tooltip contentStyle={TT} formatter={(v: any, n: any) => n.includes('비율') ? `${v}%` : won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Line yAxisId="l" type="monotone" dataKey="purchase" name="구매액" stroke="var(--color-warning)" strokeWidth={2} dot={false} /><Line yAxisId="l" type="monotone" dataKey="sales" name="매출액" stroke="var(--color-success)" strokeWidth={2} dot={false} /><Line yAxisId="r" type="monotone" dataKey="cum_ratio" name="누적 구매/매출 비율" stroke="var(--color-purple)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer>
         ) : <Empty />}
@@ -244,14 +271,14 @@ function DashTab() {
       {/* 월별 BOM소요 vs 실구매 / 원가추정 vs 실구매 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-text-primary mb-1">BOM 이론소요 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}{ap.team && <span className="text-xs text-info ml-2">· {ap.team} 구매</span>}</div>
+          <div className="text-sm font-semibold text-text-primary mb-1">BOM 이론소요 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}<VatBadge b="supply" fixed />{ap.team && <span className="text-xs text-info ml-2">· {ap.team} 구매</span>}</div>
           <p className="text-xs text-text-quaternary mb-3">생산량×BOM개당원가(이론소요) 대비 실제 매입. gap=재고 증감.</p>
           {gapT?.series?.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}><ComposedChart data={gapT.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="bom_req" name="BOM이론소요" fill="var(--color-purple)" radius={[3, 3, 0, 0]} /><Bar dataKey="purchase" name="실제구매" fill="var(--color-info)" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
           ) : <Empty />}
         </div>
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-text-primary mb-1">매출기반 원가추정 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}{ap.team && <span className="text-xs text-info ml-2">· {ap.team} 구매</span>}</div>
+          <div className="text-sm font-semibold text-text-primary mb-1">매출기반 원가추정 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}<VatBadge b="supply" fixed />{ap.team && <span className="text-xs text-info ml-2">· {ap.team} 구매</span>}</div>
           <p className="text-xs text-text-quaternary mb-3">판매수량×BOM원가(매출원가) 대비 실제 매입. gap=재고 빌드업/소진.</p>
           {gapT?.series?.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}><ComposedChart data={gapT.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="cogs_est" name="매출원가추정" fill="var(--color-warning)" radius={[3, 3, 0, 0]} /><Bar dataKey="purchase" name="실제구매" fill="var(--color-info)" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
@@ -261,13 +288,13 @@ function DashTab() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-text-primary mb-3">일별 구매액</div>
+          <div className="text-sm font-semibold text-text-primary mb-3">일별 구매액<VatBadge b={basis} /></div>
           {d?.by_day?.length > 0 ? (
             <ResponsiveContainer width="100%" height={240}><BarChart data={d.by_day}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="date" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 9 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" fill="var(--color-brand-bg)" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer>
           ) : <Empty />}
         </div>
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-semibold text-text-primary mb-3">품목별 구매액 (Top 12)</div>
+          <div className="text-sm font-semibold text-text-primary mb-3">품목별 구매액 (Top 12)<VatBadge b={basis} /></div>
           {d?.by_item?.length > 0 ? (
             <ResponsiveContainer width="100%" height={240}><BarChart data={d.by_item.slice(0, 12)} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis type="category" dataKey="item_name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 9 }} width={130} tickFormatter={(v) => String(v).slice(0, 14)} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" radius={[0, 4, 4, 0]}>{d.by_item.slice(0, 12).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>
           ) : <Empty />}
@@ -277,7 +304,7 @@ function DashTab() {
       {/* 생산 소요 vs 실제 구매 히트맵 */}
       <div className={`${C.card} p-4`}>
         <div className="flex items-center justify-between mb-1">
-          <div className="text-sm font-semibold text-text-primary">생산 BOM 소요 vs 실제 구매 · 품목별 히트맵{ap.team && <span className="text-xs text-info ml-2">· {ap.team} 구매</span>}</div>
+          <div className="text-sm font-semibold text-text-primary">생산 BOM 소요 vs 실제 구매 · 품목별 히트맵<VatBadge b="supply" fixed />{ap.team && <span className="text-xs text-info ml-2">· {ap.team} 구매</span>}</div>
           {heat && <div className="text-xs text-text-tertiary">이론소요 {wonShort(heat.total_req)} · 실구매 {wonShort(heat.total_act)} · 매칭 {heat.matched_count}품목</div>}
         </div>
         <p className="text-xs text-text-quaternary mb-3">색이 진할수록 금액 큼. 커버리지 = 실구매÷이론소요(100% 미만=재고소진/과소구매, 초과=재고빌드/선구매).</p>
@@ -320,6 +347,7 @@ function Empty() { return <div className="h-[200px] flex items-center justify-ce
 
 // 연도별 월별(1~12월) × 거래처(또는 원부재료) 구매 합계 매트릭스 — 설정 기간과 무관
 function MonthlyMatrix({ defaultYear, team }: { defaultYear: number; team: string }) {
+  const basis = useBasis();
   const [year, setYear] = useState(defaultYear);
   const [by, setBy] = useState<'vendor' | 'material'>('vendor');
   const [d, setD] = useState<any>(null);
@@ -327,10 +355,10 @@ function MonthlyMatrix({ defaultYear, team }: { defaultYear: number; team: strin
   useEffect(() => { setYear(defaultYear); }, [defaultYear]);
   useEffect(() => {
     setLoading(true);
-    const p = new URLSearchParams({ year: String(year), by });
+    const p = new URLSearchParams({ year: String(year), by, basis });
     if (team) p.set('team', team);
     getJSON<any>(`/purchase/records/monthly-matrix?${p.toString()}`, null).then((r) => { setD(r); setLoading(false); });
-  }, [year, by, team]);
+  }, [year, by, team, basis]);
   const nowY = new Date().getFullYear();
   const years = [nowY, nowY - 1, nowY - 2];
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -338,7 +366,7 @@ function MonthlyMatrix({ defaultYear, team }: { defaultYear: number; team: strin
   return (
     <div className={`${C.card} p-4`}>
       <div className="flex flex-wrap items-center gap-2 mb-1">
-        <div className="text-sm font-semibold text-text-primary">연도별 월별 구매 합계 매트릭스</div>
+        <div className="text-sm font-semibold text-text-primary">연도별 월별 구매 합계 매트릭스<VatBadge b={basis} /></div>
         <div className="flex rounded-lg overflow-hidden border border-border-primary ml-2">
           {years.map((y) => <button key={y} onClick={() => setYear(y)} className={`px-2.5 py-1.5 text-xs font-semibold ${year === y ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`}>{y}년</button>)}
         </div>
@@ -346,9 +374,9 @@ function MonthlyMatrix({ defaultYear, team }: { defaultYear: number; team: strin
           {([['vendor', '거래처별'], ['material', '원부재료별']] as const).map(([k, l]) => <button key={k} onClick={() => setBy(k)} className={`px-2.5 py-1.5 text-xs font-semibold ${by === k ? 'bg-info text-white' : 'bg-bg-inset text-text-tertiary'}`}>{l}</button>)}
         </div>
         {team && <span className="text-xs text-info">· {team}</span>}
-        <div className="ml-auto"><XlsxBtn kind="monthly" params={{ year, by, team: team || undefined }} /></div>
+        <div className="ml-auto"><XlsxBtn kind="monthly" params={{ year, by, basis, team: team || undefined }} /></div>
       </div>
-      <p className="text-xs text-text-quaternary mb-3">위 조회기간과 무관하게 <b>{year}년 1~12월</b> {by === 'vendor' ? '거래처' : '원부재료'}별 구매 공급가(VAT별도)입니다. 행·열·총계 포함, 상위 금액순.</p>
+      <p className="text-xs text-text-quaternary mb-3">위 조회기간과 무관하게 <b>{year}년 1~12월</b> {by === 'vendor' ? '거래처' : '원부재료'}별 구매 {basis === 'total' ? '합계(VAT포함)' : '공급가(VAT별도)'}입니다. 행·열·총계 포함, 상위 금액순.</p>
       <div className="relative overflow-x-auto">
         <LoadingOverlay show={loading} />
         <table className="w-full text-xs">
@@ -383,6 +411,7 @@ function MonthlyMatrix({ defaultYear, team }: { defaultYear: number; team: strin
 // 실적 조회
 // ─────────────────────────────────────────────
 function RecordsTab() {
+  const basis = useBasis();
   const [range, setRange] = useState(thisMonth());
   const [mclass, setMclass] = useState('');
   const [q, setQ] = useState('');
@@ -398,8 +427,11 @@ function RecordsTab() {
     setData(await getJSON<any>(`/purchase/records?${p.toString()}`, null));
   }, [range, mclass, q, team]);
   useEffect(() => { load(); }, [load]);
-  const openVendor = async (v: string) => setHist({ type: 'vendor', ...(await getJSON<any>(`/purchase/records/vendor-history?vendor=${encodeURIComponent(v)}`, {})) });
-  const openItem = async (code: string, name: string) => setHist({ type: 'item', ...(await getJSON<any>(`/purchase/records/item-history?item_code=${encodeURIComponent(code || '')}&item_name=${encodeURIComponent(name || '')}`, {})) });
+  const openVendor = async (v: string) => setHist({ type: 'vendor', ...(await getJSON<any>(`/purchase/records/vendor-history?vendor=${encodeURIComponent(v)}&basis=${basis}`, {})) });
+  const openItem = async (code: string, name: string) => setHist({ type: 'item', ...(await getJSON<any>(`/purchase/records/item-history?item_code=${encodeURIComponent(code || '')}&item_name=${encodeURIComponent(name || '')}&basis=${basis}`, {})) });
+  // 단가 표시 — 입력 기준(별도/포함)이 섞여 있어 서버가 정규화한 basis 단가를 쓴다
+  const upOf = (r: any) => (basis === 'total' ? (r.unit_price_total ?? r.unit_price) : (r.unit_price_supply ?? r.unit_price));
+  const kgOf = (r: any) => (r.price_per_kg == null ? null : basis === 'total' && r.unit_price_supply ? r.price_per_kg * (r.unit_price_total / r.unit_price_supply) : r.price_per_kg);
   const [sel, setSel] = useState<Set<number>>(new Set());
   const toggleSel = (id: number) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const applySettle = async (paid: boolean) => {
@@ -423,7 +455,7 @@ function RecordsTab() {
           {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setUnit(u)} className={`px-2.5 py-2 text-xs font-semibold ${unit === u ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`}>{u === 'ea' ? '수량(ea)' : '중량(kg)'}</button>)}
         </div>
         <XlsxBtn kind="records" params={{ start: range.start, end: range.end, mclass: mclass || undefined, q: q || undefined, team: team || undefined }} />
-        {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가 {won(data.supply_total)} · 미지급 {won(data.unpaid_total || 0)}{data.total > 500 && ' (500건 표시)'}</span>}
+        {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가(VAT별도) {won(data.supply_total)} · 합계(VAT포함) {won(data.total_total || 0)} · 미지급(VAT포함) {won(data.unpaid_total || 0)}{data.total > 500 && ' (500건 표시)'}</span>}
       </div>
       {/* 정산완료 처리 툴바 — 체크박스로 행 선택 후 버튼 클릭 */}
       <div className="flex flex-wrap items-center gap-2 bg-bg-1 border border-border-primary rounded-lg px-3 py-2">
@@ -436,8 +468,8 @@ function RecordsTab() {
         <table className="w-full"><thead><tr>
           <th className={`${C.th} text-center`} title="전체 선택"><input type="checkbox" checked={allSel} onChange={toggleAll} /></th>
           <th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>규격</th>
-          <th className={`${C.th} text-right`}>{unit === 'ea' ? '수량' : '중량(kg)'}</th><th className={`${C.th} text-right`}>{unit === 'ea' ? '단가' : 'kg당'}</th>
-          <th className={`${C.th} text-right`}>공급가</th><th className={`${C.th} text-right`}>합계</th><th className={`${C.th} text-center`}>정산</th>
+          <th className={`${C.th} text-right`}>{unit === 'ea' ? '수량' : '중량(kg)'}</th><th className={`${C.th} text-right`}>{unit === 'ea' ? '단가' : 'kg당'}({vatTag(basis)})</th>
+          <th className={`${C.th} text-right`}>공급가(VAT별도)</th><th className={`${C.th} text-right`}>합계(VAT포함)</th><th className={`${C.th} text-center`}>정산</th>
         </tr></thead>
           <tbody>{!rows.length ? <tr><td colSpan={11} className="p-6 text-center text-text-quaternary text-sm">데이터 없음</td></tr> : rows.map((r: any) => (
             <tr key={r.id} className={`hover:bg-bg-1 ${sel.has(r.id) ? 'bg-brand/10' : ''}`}>
@@ -448,7 +480,7 @@ function RecordsTab() {
               <td className={`${C.td} max-w-[240px] truncate`} title={r.item_name}><button onClick={() => openItem(r.item_code, r.item_name)} className="hover:text-accent hover:underline text-left">{r.item_name_short || r.item_name}</button></td>
               <td className={`${C.td} text-text-tertiary text-xs`}>{r.spec || '-'}</td>
               <td className={`${C.td} text-right tabular-nums`}>{unit === 'kg' ? (r.kg != null ? fmt(r.kg) + 'kg' : '-') : fmt(r.qty) + (r.unit || '')}</td>
-              <td className={`${C.td} text-right tabular-nums`}>{unit === 'kg' ? (r.price_per_kg != null ? won(r.price_per_kg) : '-') : won(r.unit_price)}</td>
+              <td className={`${C.td} text-right tabular-nums`}>{unit === 'kg' ? (kgOf(r) != null ? won(Math.round(kgOf(r) as number)) : '-') : won(Math.round(upOf(r)))}{r.price_incl_vat && <span className="ml-1 text-[10px] text-accent" title="VAT포함 단가로 입력된 전표 — 기준에 맞게 환산 표시">입력:포함</span>}{!r.price_incl_vat && r.vat === 0 && r.supply !== 0 && <span className="ml-1 text-[10px] text-text-quaternary" title="부가세 0 — 면세 또는 미기재">면세</span>}</td>
               <td className={`${C.td} text-right text-warning tabular-nums`}>{won(r.supply)}</td>
               <td className={`${C.td} text-right tabular-nums`}>{won(r.total)}</td>
               <td className={`${C.td} text-center`}>{r.paid ? <span className="text-success-light text-xs" title={r.paid_date || ''}>✓ 완료</span> : <span className="text-text-quaternary text-xs">미지급</span>}</td>
@@ -457,7 +489,7 @@ function RecordsTab() {
           {rows.length > 0 && (
             <tfoot><tr className="bg-bg-inset font-semibold sticky bottom-0">
               <td className={C.td}></td>
-              <td className={`${C.td} text-text-primary`} colSpan={5}>합계 · {fmt(data.total)}건{data.total > (data.limit || 500) ? ` (전체 기간 기준, 표는 ${fmt(data.limit || 500)}건 표시)` : ''} · 미지급 {won(data.unpaid_total || 0)}</td>
+              <td className={`${C.td} text-text-primary`} colSpan={5}>합계 · {fmt(data.total)}건{data.total > (data.limit || 500) ? ` (전체 기간 기준, 표는 ${fmt(data.limit || 500)}건 표시)` : ''} · 미지급(VAT포함) {won(data.unpaid_total || 0)}</td>
               <td className={`${C.td} text-right text-text-primary`} title="단위 혼재 단순합">{unit === 'kg' ? fmt(data.kg_total || 0) + 'kg' : fmt(data.qty_total || 0)}</td>
               <td className={`${C.td} text-right text-text-tertiary`}>VAT {wonShort(data.vat_total || 0)}</td>
               <td className={`${C.td} text-right text-warning`}>{won(data.supply_total || 0)}</td>
@@ -483,14 +515,14 @@ function HistoryModal({ hist, onClose }: { hist: any; onClose: () => void }) {
           <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <StatCard label="누적 구매액" value={wonShort(hist.total_supply || 0)} tone="text-warning" />
+          <StatCard label={`누적 구매액(${vatTag(hist.basis === 'total' ? 'total' : 'supply')})`} value={wonShort(hist.total_supply || 0)} tone="text-warning" />
           <StatCard label="라인수" value={fmt(hist.line_count || 0)} />
           <StatCard label={isVendor ? '거래기간' : '누적수량'} value={isVendor ? `${hist.first || '-'}~` : fmt(hist.total_qty || 0)} sub={isVendor ? (hist.last || '') : ''} />
         </div>
         <div className="text-sm font-semibold text-text-primary mb-2">월별 구매</div>
         <ResponsiveContainer width="100%" height={200}><BarChart data={hist.by_month || []}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="month" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" fill="var(--color-brand-bg)" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer>
         {!isVendor && hist.price_trend?.length > 1 && <>
-          <div className="text-sm font-semibold text-text-primary mt-4 mb-2">단가 추이</div>
+          <div className="text-sm font-semibold text-text-primary mt-4 mb-2">단가 추이<VatBadge b={hist.basis === 'total' ? 'total' : 'supply'} /></div>
           <ResponsiveContainer width="100%" height={180}><LineChart data={hist.price_trend}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="date" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 9 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Line type="monotone" dataKey="unit_price" name="단가" stroke="var(--color-cyan)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer>
         </>}
         <div className="text-sm font-semibold text-text-primary mt-4 mb-2">{isVendor ? '품목별' : '거래처별'}</div>
@@ -641,7 +673,7 @@ function InputTab() {
           </div>
         </div>
         <p className="px-4 pt-1 text-xs text-text-quaternary">과거에 잘못 입력한 건은 검색해서 우측 <b>수정</b> 버튼으로 바로잡을 수 있습니다.</p>
-        <table className="w-full mt-2"><thead><tr><th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>규격</th><th className={`${C.th} text-right`}>수량</th><th className={`${C.th} text-right`}>단가</th><th className={`${C.th} text-right`}>공급가</th><th className={C.th}>비고</th><th className={C.th}>입력자</th><th className={C.th}></th></tr></thead>
+        <table className="w-full mt-2"><thead><tr><th className={C.th}>일자</th><th className={C.th}>거래처</th><th className={C.th}>구분</th><th className={C.th}>품목</th><th className={C.th}>규격</th><th className={`${C.th} text-right`}>수량</th><th className={`${C.th} text-right`}>단가</th><th className={`${C.th} text-right`}>공급가(VAT별도)</th><th className={C.th}>비고</th><th className={C.th}>입력자</th><th className={C.th}></th></tr></thead>
           <tbody>{!recent.length ? <tr><td colSpan={11} className="p-6 text-center text-text-quaternary text-sm">{rqApplied ? '검색 결과가 없습니다.' : '실적이 없습니다.'}</td></tr> : recent.map((r) => (
             <tr key={r.id} className="hover:bg-bg-1">
               <td className={C.td}>{r.pdate}{r.seq ? `-${r.seq}` : ''}</td>
@@ -720,6 +752,7 @@ function pctTone(p: number | null) { if (p == null) return 'text-text-quaternary
 function pctStr(p: number | null) { if (p == null) return '-'; const s = p > 0 ? '▲' : p < 0 ? '▼' : '='; return `${s} ${Math.abs(p).toFixed(1)}%`; }
 
 function PriceTab() {
+  const basis = useBasis();
   const [range, setRange] = useState({ start: '2025-01-01', end: iso(new Date()) });
   const [mclass, setMclass] = useState('');
   const [q, setQ] = useState('');
@@ -732,14 +765,14 @@ function PriceTab() {
   const [hist, setHist] = useState<any>(null);
   const load = useCallback(async () => {
     setLoading(true);
-    const p = new URLSearchParams({ start: range.start, end: range.end, min_lines: String(minLines), sort });
+    const p = new URLSearchParams({ start: range.start, end: range.end, min_lines: String(minLines), sort, basis });
     if (mclass) p.set('mclass', mclass);
     if (team) p.set('team', team);
     setData(await getJSON<any>(`/purchase/records/price-tracker?${p.toString()}`, null));
     setLoading(false);
-  }, [range, mclass, minLines, sort, team]);
+  }, [range, mclass, minLines, sort, team, basis]);
   useEffect(() => { load(); }, [load]);
-  const openItem = async (code: string, name: string) => setHist({ type: 'item', ...(await getJSON<any>(`/purchase/records/item-history?item_code=${encodeURIComponent(code || '')}&item_name=${encodeURIComponent(name || '')}&start=${range.start}&end=${range.end}`, {})) });
+  const openItem = async (code: string, name: string) => setHist({ type: 'item', ...(await getJSON<any>(`/purchase/records/item-history?item_code=${encodeURIComponent(code || '')}&item_name=${encodeURIComponent(name || '')}&start=${range.start}&end=${range.end}&basis=${basis}`, {})) });
   const allItems = data?.items || [];
   const ql = q.trim().toLowerCase();
   const items = ql ? allItems.filter((it: any) => (it.item_name || '').toLowerCase().includes(ql) || (it.item_code || '').toLowerCase().includes(ql)) : allItems;
@@ -760,9 +793,9 @@ function PriceTab() {
           {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setPu(u)} className={`px-2.5 py-2 text-xs font-semibold ${pu === u ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`} title={u === 'kg' ? '규격 [Nkg] 기준 kg당 단가' : '전표상 단위(ea/box)당 단가'}>{u === 'ea' ? '단위당' : 'kg당'}</button>)}
         </div>
         <select value={sort} onChange={(e) => setSort(e.target.value)} className={`${C.input} ml-auto`}>{SORTS.map((s) => <option key={s.k} value={s.k}>{s.label}</option>)}</select>
-        <XlsxBtn kind="price" params={{ start: range.start, end: range.end, mclass: mclass || undefined, min_lines: minLines, sort, team: team || undefined }} />
+        <XlsxBtn kind="price" params={{ basis, start: range.start, end: range.end, mclass: mclass || undefined, min_lines: minLines, sort, team: team || undefined }} />
       </div>
-      <p className="text-xs text-text-quaternary">기간 내 각 품목의 <b className="text-text-tertiary">매입 단가(전표상 단가, 품목×단위별)</b> 최초→최근 변동입니다. 상승=<span className="text-danger">빨강</span>, 하락=<span className="text-info">파랑</span>. 점/행 클릭 시 단가 추이 그래프. <b className="text-text-tertiary">kg당</b> 토글 시 규격 [Nkg] 기준 kg당 단가로 환산(규격 없는 품목은 '-').</p>
+      <p className="text-xs text-text-quaternary">기간 내 각 품목의 <b className="text-text-tertiary">매입 단가(전표상 단가, 품목×단위별, {basis === 'total' ? 'VAT포함' : 'VAT별도'})</b> 최초→최근 변동입니다. VAT포함으로 입력된 전표도 선택한 기준으로 환산합니다. 상승=<span className="text-danger">빨강</span>, 하락=<span className="text-info">파랑</span>. 점/행 클릭 시 단가 추이 그래프. <b className="text-text-tertiary">kg당</b> 토글 시 규격 [Nkg] 기준 kg당 단가로 환산(규격 없는 품목은 '-').</p>
       {data && <>
         {/* 기간 총 단가효과 (인하 절감 − 인상 부담) — 총액 관점 순효과 */}
         <div className={`${C.card} p-4 border-l-4 ${(data.net_savings ?? 0) >= 0 ? 'border-l-success' : 'border-l-danger'}`}>
@@ -796,7 +829,7 @@ function PriceTab() {
       <div className={`${C.card} p-4 relative`}>
         {loading && <div className="absolute inset-0 bg-bg-0/40 z-10 rounded-xl" />}
         <div className="flex items-center justify-between mb-1">
-          <div className="text-sm font-semibold text-text-primary">단가 변동 점도표</div>
+          <div className="text-sm font-semibold text-text-primary">단가 변동 점도표<VatBadge b={basis} /></div>
           <div className="text-xs text-text-quaternary">x축 = 변동률(%) · y축 = 누적 공급가 · 점 크기 = 매입 횟수 · 점 클릭 = 상세</div>
         </div>
         {scatter.length > 0 ? (
@@ -827,7 +860,7 @@ function PriceTab() {
             <th className={C.th}>품목</th><th className={C.th}>규격</th><th className={C.th}>구분</th><th className={`${C.th} text-right`}>매입</th>
             <th className={`${C.th} text-right`}>최초{pu === 'kg' ? '(kg당)' : ''}</th><th className={`${C.th} text-right`}>최근{pu === 'kg' ? '(kg당)' : ''}</th>
             <th className={`${C.th} text-right`}>변동률</th><th className={`${C.th} text-right`}>최저~최고</th>
-            <th className={`${C.th} text-right`}>편차</th><th className={`${C.th} text-right`}>가중평균</th><th className={`${C.th} text-right`}>{pu === 'kg' ? '누적kg' : '누적공급가'}</th>
+            <th className={`${C.th} text-right`}>편차</th><th className={`${C.th} text-right`}>가중평균</th><th className={`${C.th} text-right`}>{pu === 'kg' ? '누적kg' : basis === 'total' ? '누적합계(VAT포함)' : '누적공급가(VAT별도)'}</th>
           </tr></thead>
           <tbody>{!items.length ? <tr><td colSpan={11} className="p-6 text-center text-text-quaternary text-sm">{loading ? '조회 중…' : '데이터 없음'}</td></tr> : items.map((it: any, i: number) => (
             <tr key={i} className="hover:bg-bg-1 cursor-pointer" onClick={() => openItem(it.item_code, it.item_name)}>
@@ -931,7 +964,7 @@ function APTab() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="총 매입(VAT포함)" value={won(T.payable || 0)} tone="text-text-primary" />
-        <StatCard label="지급 완료" value={won(T.paid || 0)} tone="text-info" />
+        <StatCard label="지급 완료(VAT포함)" value={won(T.paid || 0)} tone="text-info" />
         {(() => {
           const bal = T.balance || 0; const bt = T.balance_target || 0;
           const ratio = bt > 0 ? Math.round((bal / bt) * 100) : null;
@@ -949,7 +982,7 @@ function APTab() {
             </div>
           );
         })()}
-        <StatCard label="연체 잔액" value={won(T.overdue || 0)} tone="text-danger" sub="계약 만기 경과분" />
+        <StatCard label="연체 잔액(VAT포함)" value={won(T.overdue || 0)} tone="text-danger" sub="계약 만기 경과분" />
       </div>
 
       {data?.bucket_totals && (
@@ -988,9 +1021,9 @@ function APTab() {
             <SortTh k="priority" label="순위" />
             <SortTh k="vendor" label="거래처" />
             <th className={C.th}>정산조건</th>
-            <SortTh k="payable" label="매입" cls="text-right" />
-            <SortTh k="paid" label="지급" cls="text-right" />
-            <SortTh k="balance" label="잔액" cls="text-right" />
+            <SortTh k="payable" label="매입(VAT포함)" cls="text-right" />
+            <SortTh k="paid" label="지급(VAT포함)" cls="text-right" />
+            <SortTh k="balance" label="잔액(VAT포함)" cls="text-right" />
             <SortTh k="overdue" label="연체액" cls="text-right" />
             <SortTh k="avg_days_overdue" label="연체 평균일" cls="text-right" />
             <SortTh k="max_days_overdue" label="연체 최장일" cls="text-right" />
@@ -1075,7 +1108,7 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
         </div>
         <div className="grid grid-cols-3 gap-2 mb-4">
           <StatCard label="매입(VAT포함)" value={won(vendor.payable || 0)} />
-          <StatCard label="미지급 잔액" value={won(vendor.balance || 0)} tone="text-warning" />
+          <StatCard label="미지급 잔액(VAT포함)" value={won(vendor.balance || 0)} tone="text-warning" />
           <StatCard label="연체" value={won(vendor.overdue || 0)} tone={vendor.overdue > 0 ? 'text-danger' : 'text-text-tertiary'} sub={vendor.overdue > 0 ? `평균 ${fmt(vendor.avg_days_overdue || 0)}일 · 최장 ${fmt(vendor.max_days_overdue || 0)}일` : ''} />
         </div>
 
@@ -1109,7 +1142,7 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
         {/* 정산 이력 (일자별) */}
         <div className="text-sm font-semibold text-text-primary mb-2">정산 이력 <span className="text-xs text-text-quaternary font-normal">({pays.length}건)</span></div>
         <div className="overflow-x-auto mb-4">
-          <table className="w-full"><thead><tr><th className={C.th}>지급일</th><th className={`${C.th} text-right`}>금액</th><th className={C.th}>수단</th><th className={C.th}>메모</th><th className={C.th}></th></tr></thead>
+          <table className="w-full"><thead><tr><th className={C.th}>지급일</th><th className={`${C.th} text-right`}>금액(VAT포함)</th><th className={C.th}>수단</th><th className={C.th}>메모</th><th className={C.th}></th></tr></thead>
             <tbody>{!pays.length ? <tr><td colSpan={5} className="p-4 text-center text-text-quaternary text-xs">정산 이력 없음</td></tr> : pays.map((p) => (
               <tr key={p.id} className="hover:bg-bg-0">
                 <td className={C.td}>{p.pay_date}</td>
@@ -1223,7 +1256,7 @@ function BomMapTab() {
       <div className={`${C.card} overflow-x-auto`}>
         <table className="w-full"><thead><tr>
           <th className={`${C.th} text-center`}></th><th className={C.th}>유형</th><th className={C.th}>자재명</th><th className={C.th}>코드</th><th className={C.th}>거래처</th>
-          <th className={`${C.th} text-right`}>마스터</th><th className={`${C.th} text-right`}>최신구매</th><th className={`${C.th} text-right`}>괴리</th>
+          <th className={`${C.th} text-right`}>마스터(VAT별도)</th><th className={`${C.th} text-right`}>최신구매(VAT별도)</th><th className={`${C.th} text-right`}>괴리</th>
           <th className={`${C.th} text-center`}>BOM사용</th><th className={C.th}>최근구매</th><th className={C.th}>상태</th>
         </tr></thead>
           <tbody>{!items.length ? <tr><td colSpan={11} className="p-6 text-center text-text-quaternary text-sm">{loading ? '조회 중…' : '해당 없음'}</td></tr> : items.map((x: any) => (
@@ -1275,7 +1308,7 @@ function MatTab() {
       {mr && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard label="총 소요원가(이론)" value={wonShort(mr.total_cost)} tone="text-warning" />
+            <StatCard label="총 소요원가(이론·VAT별도)" value={wonShort(mr.total_cost)} tone="text-warning" />
             <StatCard label="원재료 종류" value={fmt(mr.raw_count)} />
             <StatCard label="부자재 종류" value={fmt(mr.sub_count)} />
             <StatCard label="거래처 수" value={fmt(mr.by_vendor.length)} />
@@ -1292,7 +1325,7 @@ function MatTab() {
                     </tr>
                     {openVendor === v.vendor && (
                       <tr key={`${v.vendor}-d`} className="bg-bg-0"><td colSpan={4} className="px-4 py-2 border-b border-bg-inset">
-                        <table className="w-full"><thead><tr><th className={C.th}>자재</th><th className={C.th}>ERP</th><th className={C.th}>소요량</th><th className={C.th}>단가</th><th className={C.th}>원가</th></tr></thead>
+                        <table className="w-full"><thead><tr><th className={C.th}>자재</th><th className={C.th}>ERP</th><th className={C.th}>소요량</th><th className={C.th}>단가(VAT별도)</th><th className={C.th}>원가(VAT별도)</th></tr></thead>
                           <tbody>{mr.materials.filter((m) => m.vendor === v.vendor).map((m, i) => (<tr key={i}><td className={`${C.td} text-text-secondary`}><span className={m.type === 'raw' ? 'text-info' : 'text-warning'}>[{m.type === 'raw' ? '원' : '부'}]</span> {m.name}</td><td className={C.td}>{m.erp_code || '-'}</td><td className={C.td}>{fmt(m.qty)}{m.unit}</td><td className={C.td}>{won(m.unit_price)}</td><td className={C.td}>{won(m.cost)}</td></tr>))}</tbody></table>
                       </td></tr>
                     )}
@@ -1371,15 +1404,15 @@ function POTab() {
         <span className="text-xs text-text-quaternary ml-auto">{rows.length}건 · [원부재료 소요] 탭에서 거래처별 발주 생성 → 여기서 발주서 발행</span>
       </div>
       <div className={`${C.card} overflow-x-auto`}>
-        <table className="w-full"><thead><tr><th className={C.th}>발주일</th><th className={C.th}>거래처</th><th className={C.th}>품목수</th><th className={C.th}>발주액</th><th className={C.th}>상태</th><th className={C.th}></th></tr></thead>
+        <table className="w-full"><thead><tr><th className={C.th}>발주일</th><th className={C.th}>거래처</th><th className={C.th}>품목수</th><th className={C.th}>발주액(VAT별도)</th><th className={C.th}>상태</th><th className={C.th}></th></tr></thead>
           <tbody>{rows.length === 0 ? <tr><td colSpan={6} className="p-6 text-center text-text-quaternary text-sm">발주 없음</td></tr> : rows.map((p) => (
             <>
               <tr key={p.id} className="hover:bg-bg-1 cursor-pointer" onClick={() => setOpen(open === p.id ? null : p.id)}>
-                <td className={C.td}>{p.order_date}</td><td className={`${C.td} text-text-primary`}>{p.vendor_name}</td><td className={C.td}>{p.line_count}</td><td className={`${C.td} text-warning`}>{won(p.total_amount)}</td>
+                <td className={C.td}>{p.order_date}</td><td className={`${C.td} text-text-primary`}>{p.vendor_name}</td><td className={C.td}>{p.line_count}</td><td className={`${C.td} text-warning`}>{won(p.total_amount)}<div className="text-[10px] text-text-quaternary">VAT포함 ≈ {won(Math.round((p.total_amount || 0) * 1.1))}</div></td>
                 <td className={C.td}><select value={p.status} onClick={(e) => e.stopPropagation()} onChange={(e) => setStatus(p.id, e.target.value)} className={`bg-bg-0 border border-border-primary rounded px-2 py-1 text-xs ${badge[p.status] || ''}`}>{STATUS.map((s) => <option key={s} value={s}>{s}</option>)}</select></td>
                 <td className={C.td}><button onClick={(e) => { e.stopPropagation(); issue(p); }} className="text-success text-xs hover:underline mr-2">발주서 발행</button><button onClick={(e) => { e.stopPropagation(); del(p.id); }} className="text-danger text-xs hover:underline">삭제</button> <span className="text-text-quaternary text-xs ml-1">{open === p.id ? '▲' : '▼'}</span></td>
               </tr>
-              {open === p.id && <tr key={`${p.id}-d`} className="bg-bg-0"><td colSpan={6} className="px-4 py-2 border-b border-bg-inset"><table className="w-full"><thead><tr><th className={C.th}>자재</th><th className={C.th}>소요량</th><th className={C.th}>단가</th><th className={C.th}>금액</th></tr></thead><tbody>{p.lines.map((l: any) => (<tr key={l.id}><td className={C.td}>{l.material_name}</td><td className={C.td}>{fmt(l.qty)}{l.unit}</td><td className={C.td}>{won(l.unit_price)}</td><td className={C.td}>{won(l.amount)}</td></tr>))}</tbody></table></td></tr>}
+              {open === p.id && <tr key={`${p.id}-d`} className="bg-bg-0"><td colSpan={6} className="px-4 py-2 border-b border-bg-inset"><table className="w-full"><thead><tr><th className={C.th}>자재</th><th className={C.th}>소요량</th><th className={C.th}>단가(VAT별도)</th><th className={C.th}>금액(VAT별도)</th></tr></thead><tbody>{p.lines.map((l: any) => (<tr key={l.id}><td className={C.td}>{l.material_name}</td><td className={C.td}>{fmt(l.qty)}{l.unit}</td><td className={C.td}>{won(l.unit_price)}</td><td className={C.td}>{won(l.amount)}</td></tr>))}</tbody></table></td></tr>}
             </>
           ))}</tbody></table>
       </div>
