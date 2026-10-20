@@ -2504,20 +2504,10 @@ def sync_product_stats(db: Session = Depends(get_db)):
         ScmProduct, InventoryProduction, ScmRawMaterial, ScmSubMaterial,
     )
 
-    def _norm(s):
-        s = str(s or "")
-        s = re.sub(r"\[[^\]]*\]", "", s)
-        s = re.sub(r"\([^\)]*\)", "", s)
-        for p in ("널담", "뚱", "GS", "CU", "삼성", "세븐일레븐", "노브랜드", "올리브영", "상온", "고단백", "저당"):
-            s = s.replace(p, "")
-        return re.sub(r"\s+", "", s).lower()
+    from app.services.purchase_service import build_prod_matcher
 
     products = db.query(ScmProduct).all()
-    # 정규화 이름 → 완제품/세트/반제품 우선 인덱스
-    by_norm = {}
-    for p in products:
-        if p.item_type in ("완제품", "세트", "혼합세트", "반제품"):
-            by_norm.setdefault(_norm(p.product_name), p.id)
+    match = build_prod_matcher(db)
 
     produced: dict = {}
     hours: dict = {}
@@ -2528,13 +2518,7 @@ def sync_product_stats(db: Session = Depends(get_db)):
     ).filter(InventoryProduction.product_name.isnot(None)).group_by(InventoryProduction.product_name).all()
     matched = 0
     for name, q, h in rows:
-        nm = _norm(name)
-        pid = by_norm.get(nm)
-        if not pid:
-            for k, v in by_norm.items():
-                if k and (k in nm or nm in k):
-                    pid = v
-                    break
+        pid, _how = match(name)
         if not pid:
             continue
         matched += 1
@@ -3295,8 +3279,9 @@ class SyncCsaCostsRequest(BaseModel):
 def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Session = Depends(get_db)):
     """SCM BOM에서 산출한 **개당 재료원가(+개당 노무비)**를 CSA 변동비 규칙(cogs/labor)으로 동기화.
 
-    - 완제품: CSA 표준품목(ProductMaster)에 csa_product_id로 연결됐거나 이름이 정확히 일치하면 매칭.
-      같은 표준품목에 여러 맛(완제품)이 매핑되면 **평균** 개당 원가/노무비를 사용.
+    - 1순위 **생산 가중평균**: 최근 180일 생산실적의 표준품목별로, 생산명→BOM품목(별칭·정규화 매칭)
+      개당원가를 생산량으로 가중평균(맛·채널별 원가차와 실제 생산 비중 반영).
+    - 생산 기록 없는 표준품목: csa_product_id 연결/이름 포함 매칭된 완제품의 **단순평균**.
     - 세트/혼합세트: csa_product_id가 명시된 경우에만 동기화(세트 1개 단가 = 풀 BOM 원가).
     - 규칙은 전 채널 공통(channel_id=NULL)·기간 무제한으로 upsert → 채널별 daily 재계산 반영.
     """
@@ -3405,14 +3390,62 @@ def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Sessio
                 amount_per_pcs=amount, is_active=True, notes="SCM BOM 동기화",
             ))
 
+    # ── 생산량 가중: 최근 180일 생산실적(생산명→BOM품목 매칭, 생산행의 표준품목) 기준 ──
+    # 단순평균은 맛·채널별 원가차(GS/CU/자사 쿠키 등)와 실제 생산 비중을 반영 못 함 → 생산 가중평균 우선.
+    # 생산 기록이 없는 표준품목만 아래 단순평균(이름·연결 매칭)으로 폴백.
+    from datetime import date as _date, timedelta as _td
+    from app.db_models import InventoryProduction
+    from app.services.purchase_service import build_prod_matcher
+    match = build_prod_matcher(db)
+    item_by_id = {it.id: it for it in items}
+    cost_cache: dict = {}
+
+    def per_piece(iid):
+        if iid not in cost_cache:
+            it = item_by_id.get(iid)
+            c = unit_material_cost(iid)
+            if it is not None and it.item_type in ("세트", "혼합세트"):
+                c = c / piece_count(iid)
+            cost_cache[iid] = c
+        return cost_cache[iid]
+
+    since = _date.today() - _td(days=180)
+    wagg: dict = defaultdict(lambda: {"q": 0.0, "cost": 0.0, "labor": 0.0, "names": defaultdict(float)})
+    for pname, ppid, q in db.query(InventoryProduction.product_name, InventoryProduction.product_id,
+                                   func.coalesce(func.sum(InventoryProduction.qty), 0.0)).filter(
+            InventoryProduction.prod_date >= since, InventoryProduction.product_id.isnot(None),
+            InventoryProduction.product_name.isnot(None)).group_by(
+            InventoryProduction.product_name, InventoryProduction.product_id).all():
+        q = float(q or 0)
+        iid, _how = match(pname)
+        if q <= 0 or not iid or iid not in item_by_id or ppid not in pm_by_id:
+            continue
+        c = per_piece(iid)
+        if c <= 0:
+            continue
+        w = wagg[ppid]
+        w["q"] += q; w["cost"] += q * c
+        w["labor"] += q * float(item_by_id[iid].labor_cost_per_unit or 0)
+        w["names"][item_by_id[iid].product_name] += q
+
     report = []
-    for pid, d in agg.items():
+    for pid in set(agg) | set(wagg):
+        d = agg[pid]
         # 낱개 완제품이 있으면 그 평균만 사용, 세트만 연결된 표준품목은 세트의 낱개당 원가 사용
         if not d["costs"] and d["set_costs"]:
             d["costs"], d["names"] = d["set_costs"], d["set_names"]
             d["labors"] = [0] * len(d["set_costs"])
         avg_cost = round(sum(d["costs"]) / len(d["costs"])) if d["costs"] else 0
         avg_labor = round(sum(d["labors"]) / len(d["labors"])) if d["labors"] else 0
+        method = "단순평균"
+        w = wagg.get(pid)
+        if w and w["q"] > 0:
+            avg_cost = round(w["cost"] / w["q"])
+            wl = round(w["labor"] / w["q"])
+            avg_labor = wl or avg_labor
+            method = "생산가중(180일)"
+            d["names"] = [n for n, _ in sorted(w["names"].items(), key=lambda x: -x[1])]
+            d["costs"] = d["names"]
         if cogs_item:
             upsert_rule(cogs_item.id, pid, avg_cost)
         if body.include_labor and labor_item:
@@ -3420,7 +3453,7 @@ def sync_csa_costs(body: SyncCsaCostsRequest = SyncCsaCostsRequest(), db: Sessio
         report.append({
             "product_id": pid, "product_name": pm_by_id[pid].name,
             "matched_items": len(d["costs"]), "avg_cogs": avg_cost, "avg_labor": avg_labor,
-            "source_names": d["names"],
+            "method": method, "source_names": d["names"][:20],
         })
     db.commit()
 
@@ -3783,15 +3816,24 @@ def fix_self_components(db: Session = Depends(get_db)):
 
 
 @router.post("/bom/import")
-async def import_bom(file: UploadFile = File(...), replace: bool = True, db: Session = Depends(get_db)):
-    """BOM 엑셀 업로드 → 원재료·부자재·반제품·완제품·세트 적재"""
+async def import_bom(file: UploadFile = File(...), replace: bool = True, sheets: Optional[str] = None,
+                     db: Session = Depends(get_db)):
+    """BOM 엑셀 업로드 → 원재료·부자재·반제품·완제품·세트 적재.
+    sheets='시트1,시트2' 지정 시 해당 제품 시트만 비파괴 반영(기존 품목·자재·CSA 연결 보존)."""
     import tempfile, os
-    from app.services.bom_importer import import_bom_workbook
+    from app.services.bom_importer import import_bom_workbook, upsert_bom_sheets
     try:
         suffix = os.path.splitext(file.filename or "bom.xlsx")[1] or ".xlsx"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(await file.read())
             tmp_path = tmp.name
+        if sheets:
+            rep = upsert_bom_sheets(tmp_path, db, [x.strip() for x in sheets.split(",") if x.strip()])
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+            return {"success": not rep["errors"], "report": rep}
         report = import_bom_workbook(tmp_path, db, replace=replace)
         try:
             os.unlink(tmp_path)
@@ -3809,3 +3851,64 @@ async def import_bom(file: UploadFile = File(...), replace: bool = True, db: Ses
         db.rollback()
         logger.error(f"BOM 임포트 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── 생산실적 품목명 ↔ BOM 품목 매칭(별칭) ──
+class ProductionAliasRequest(BaseModel):
+    production_name: str
+    item_id: Optional[int] = None   # None = 별칭 해제
+
+
+@router.get("/bom/production-matching")
+def production_matching(days: int = 180, db: Session = Depends(get_db)):
+    """최근 N일 생산 품목명별 BOM 매칭 현황(별칭/정확/부분/미매칭) + 개당 BOM원가."""
+    from datetime import date as _date, timedelta as _td
+    from app.db_models import ScmProduct, InventoryProduction, ProductMaster
+    from app.services.purchase_service import build_prod_matcher
+    match = build_prod_matcher(db)
+    items = {p.id: p for p in db.query(ScmProduct).filter(
+        ScmProduct.item_type.in_(["완제품", "세트", "혼합세트"])).all()}
+    pm = {p.id: p.name for p in db.query(ProductMaster.id, ProductMaster.name).all()}
+    since = _date.today() - _td(days=max(1, min(days, 1500)))
+    rows = db.query(InventoryProduction.product_name, InventoryProduction.product_id,
+                    func.coalesce(func.sum(InventoryProduction.qty), 0.0)).filter(
+        InventoryProduction.prod_date >= since, InventoryProduction.product_name.isnot(None)).group_by(
+        InventoryProduction.product_name, InventoryProduction.product_id).all()
+    out = []
+    for name, ppid, q in rows:
+        if not q:
+            continue
+        iid, how = match(name)
+        it = items.get(iid) if iid else None
+        out.append({"production_name": name, "qty": round(float(q)), "csa_product": pm.get(ppid),
+                    "item_id": iid, "item_name": it.product_name if it else None,
+                    "match": how or "none", "unit_cost": round(it.default_cost or 0) if it else None})
+    out.sort(key=lambda x: -x["qty"])
+    tot = sum(r["qty"] for r in out) or 1
+    unm = sum(r["qty"] for r in out if r["match"] == "none")
+    return {"since": since.isoformat(), "rows": out, "total_qty": round(tot),
+            "unmatched_qty": round(unm), "unmatched_pct": round(unm / tot * 100, 1),
+            "items": sorted(({"id": p.id, "name": p.product_name, "category": p.product_category,
+                              "cost": round(p.default_cost or 0)} for p in items.values() if p.is_active is not False),
+                            key=lambda x: (x["category"] or "", x["name"]))}
+
+
+@router.put("/bom/production-alias")
+def set_production_alias(body: ProductionAliasRequest, db: Session = Depends(get_db)):
+    """생산 품목명을 BOM 품목의 별칭으로 지정(다른 품목의 같은 별칭은 해제). item_id=None이면 해제만."""
+    import re as _re
+    from app.db_models import ScmProduct
+    key = _re.sub(r"\s+", "", body.production_name or "").lower()
+    if not key:
+        raise HTTPException(400, "production_name 필요")
+    for p in db.query(ScmProduct).filter(ScmProduct.prod_aliases.isnot(None)).all():
+        al = [a for a in (p.prod_aliases or []) if _re.sub(r"\s+", "", str(a)).lower() != key]
+        if len(al) != len(p.prod_aliases or []):
+            p.prod_aliases = al or None
+    if body.item_id:
+        it = db.query(ScmProduct).filter(ScmProduct.id == body.item_id).first()
+        if not it:
+            raise HTTPException(404, "품목 없음")
+        it.prod_aliases = list(it.prod_aliases or []) + [body.production_name.strip()]
+    db.commit()
+    return {"success": True}

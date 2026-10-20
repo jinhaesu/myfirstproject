@@ -390,3 +390,215 @@ def import_bom_workbook(path: str, db, replace: bool = True) -> dict:
             report["errors"].append({"sheet": sheet, "error": str(e)})
 
     return report
+
+
+# 비파괴 반영 시 시트명 → 기존 품목 접두어(시트명이 바뀐 경우), 제외 시트(중복본·필링 구조)
+SHEET_PREFIX = {"베이글,GS베이글": "베이글", "LLB 카스테라 2종": "카스테라 2종"}
+UPSERT_SKIP = {"500깜빠뉴(구 사워도우)", "LLB 도넛케이크 2종"}
+
+
+def upsertable_sheets(path: str) -> list[str]:
+    """'*' 반영 대상: 단일 레시피 제품 시트(꼬끄/빵+크림 합성 시트·자재DB·중복본 제외)."""
+    xl = pd.ExcelFile(path)
+    out = []
+    for sh in xl.sheet_names:
+        if sh in NON_PRODUCT_SHEETS or sh in UPSERT_SKIP:
+            continue
+        df = pd.read_excel(path, sheet_name=sh, header=None)
+        secs = _detect_sections(df)
+        if not secs or any(_classify_section(s["label"])[0] in ("꼬끄", "크림") for s in secs):
+            continue
+        out.append(sh)
+    return out
+
+
+def upsert_bom_sheets(path: str, db, sheets: list[str]) -> dict:
+    """선택한 제품 시트만 **비파괴** 반영(기존 품목·자재·CSA 연결·노무비 보존).
+
+    - 자재: 기존 마스터를 ERP코드→이름 순으로 재사용, 없을 때만 시트 '원재료DB/부자재DB' 행으로 신설.
+    - 품목: 같은 이름이 있으면 BOM 라인만 교체(id·csa_product_id·labor 유지), 없으면 완제품 신설.
+    - 섹션마다 맛 컬럼 = 완제품(단일 레시피 시트 기준). 꼬끄/크림 합성 시트(마카롱 등)는 대상 아님.
+    - 같은 섹션에서 이름이 겹치는데 투입량이 다르면 첫 섹션 같은 열의 맛명을 붙여 구분.
+    """
+    report = {"sheets": [], "errors": [], "new_raw": [], "new_sub": [], "new_items": [], "updated_items": [],
+              "sheet_priced": []}
+    xl = pd.ExcelFile(path)
+    if sheets == ["*"]:
+        sheets = upsertable_sheets(path)
+
+    raw_by_code, raw_by_name = {}, {}
+    for m in db.query(ScmRawMaterial).all():
+        if m.erp_code and m.erp_code.strip() not in ("", "-"):
+            raw_by_code.setdefault(m.erp_code.strip(), m.id)
+        raw_by_name.setdefault(m.name, m.id)
+    sub_by_code, sub_by_name = {}, {}
+    for m in db.query(ScmSubMaterial).all():
+        if m.erp_code and m.erp_code.strip() not in ("", "-"):
+            sub_by_code.setdefault(m.erp_code.strip(), m.id)
+        sub_by_name.setdefault(m.name, m.id)
+
+    # 시트 자재DB(신설 시 단가 출처, VAT별도)
+    raw_db, sub_db = {}, {}
+    if "원재료DB" in xl.sheet_names:
+        for _, row in pd.read_excel(path, sheet_name="원재료DB", header=1).iterrows():
+            name = _s(row.get("품목명 [규격]") or row.get("품목명"))
+            if name and name != "품목명 [규격]":
+                raw_db[name] = row
+                if _s(row.get("품목코드")):
+                    raw_db[_s(row.get("품목코드"))] = row
+    if "부자재DB" in xl.sheet_names:
+        for _, row in pd.read_excel(path, sheet_name="부자재DB", header=1).iterrows():
+            name = _s(row.get("품목명 [규격]") or row.get("품목명"))
+            if name:
+                sub_db[name] = row
+                if _s(row.get("품목코드")):
+                    sub_db[_s(row.get("품목코드"))] = row
+
+    def raw_id(erp, mname, sheet_price=0.0, sheet_spec=0.0):
+        rid = raw_by_code.get(erp) or raw_by_name.get(mname)
+        if rid:
+            return rid
+        row = raw_db.get(erp) if erp else None
+        row = row if row is not None else raw_db.get(mname)
+        if row is None:
+            report["sheet_priced"].append(mname)   # 자재DB에 없음 → 제품시트 행의 규격단가 사용
+        rm = ScmRawMaterial(
+            erp_code=erp or None, name=mname or erp,
+            supplier=_s(row.get("거래처명")) if row is not None else None,
+            material_class=(_s(row.get("구분")) if row is not None else "") or "원재료",
+            spec=_s(row.get("규격")) if row is not None else None,
+            unit=_s(row.get("단위")) if row is not None else None,
+            kg_price=_f(row.get("kg당 단가")) if row is not None else (
+                sheet_price / sheet_spec if sheet_spec else sheet_price),
+            spec_price=_f(row.get("규격당 단가")) if row is not None else sheet_price,
+            notes="BOM 시트 선택반영(VAT별도)",
+        )
+        db.add(rm); db.flush()
+        if erp:
+            raw_by_code[erp] = rm.id
+        raw_by_name[rm.name] = rm.id
+        report["new_raw"].append(rm.name)
+        return rm.id
+
+    def sub_id(erp, mname, sheet_price=0.0):
+        sid = sub_by_code.get(erp) or sub_by_name.get(mname)
+        if sid:
+            return sid
+        row = sub_db.get(erp) if erp else None
+        row = row if row is not None else sub_db.get(mname)
+        if row is None:
+            report["sheet_priced"].append(mname)
+        sm = ScmSubMaterial(
+            erp_code=erp or None, name=mname or erp,
+            supplier=_s(row.get("거래처명")) if row is not None else None,
+            unit=_s(row.get("단위")) if row is not None else None,
+            roll_price=_f(row.get("롤당 단가")) if row is not None else 0,
+            producible_qty=_f(row.get("생산가능수량")) if row is not None else 0,
+            unit_price=(_f(row.get("개당 단가\n(롤지=cm당 단가)") or row.get("개당 단가")) if row is not None
+                        else sheet_price),
+        )
+        db.add(sm); db.flush()
+        if erp:
+            sub_by_code[erp] = sm.id
+        sub_by_name[sm.name] = sm.id
+        report["new_sub"].append(sm.name)
+        return sm.id
+
+    orphans: set = set()
+    for sheet in sheets:
+        if sheet not in xl.sheet_names:
+            report["errors"].append({"sheet": sheet, "error": "시트 없음"})
+            continue
+        try:
+            df = pd.read_excel(path, sheet_name=sheet, header=None)
+            sections = _detect_sections(df)
+            first_cols = dict(_detect_flavor_cols(df, sections[0]["header_r"])) if sections else {}
+            rep = {"sheet": sheet, "items": []}
+            for sec in sections:
+                seen: dict[str, tuple] = {}
+                fcols = _detect_flavor_cols(df, sec["header_r"])
+                # 같은 맛명(중량 제거 후)이 중량만 다르게 여러 열이면 중량을 이름에 남겨 구분
+                # (예: 노브랜드 화이트식빵 600g / 90g — 기존 임포터는 한 품목에 합쳐 원가 과대)
+                variants: dict[str, set] = {}
+                for _c, fr in fcols:
+                    variants.setdefault(_clean_flavor(fr), set()).add(re.sub(r"\s+", " ", _s(fr)))
+                for fcol, fname_raw in fcols:
+                    flavor = _clean_flavor(fname_raw)
+                    if not flavor:
+                        continue
+                    if len(variants.get(flavor, ())) > 1:
+                        flavor = re.sub(r"\s+", " ", _s(fname_raw))
+                    kg_col, ea_col = _find_qty_cols(df, sec["header_r"], fcol)
+                    lines = []
+                    for r in range(sec["mat_start"], sec["mat_end"]):
+                        erp = _s(df.iat[r, 0]); mname = _s(df.iat[r, 1])
+                        if not mname and not erp:
+                            continue
+                        if mname == "합계":
+                            break
+                        if erp.endswith(".0") and erp[:-2].isdigit():
+                            erp = erp[:-2]
+                        if erp == mname or not re.fullmatch(r"[0-9A-Za-z\-]+", erp or "-"):
+                            erp = ""          # 코드칸에 이름이 들어간 행(체다치즈향·롤지 등)
+                        qkg = _f(df.iat[r, kg_col]) if kg_col < df.shape[1] else 0
+                        qea = _f(df.iat[r, ea_col]) if ea_col < df.shape[1] else 0
+                        sp, sspec = _f(df.iat[r, 3]), _f(df.iat[r, 2])
+                        # 포장재(롤지·필름)는 시트에 kg칸이 채워져 있어도 부자재(개수)로
+                        is_sub = ("롤지" in mname or mname in sub_db or (erp and erp in sub_db)
+                                  or (mname in sub_by_name and mname not in raw_by_name))
+                        if is_sub and (qea > 0 or qkg > 0):
+                            lines.append(("sub", erp, mname, qea or 1.0, "ea", sp, 0.0))
+                        elif qkg > 0:
+                            lines.append(("raw", erp, mname, qkg, "kg", sp, sspec))
+                        elif qea > 0:
+                            lines.append(("sub", erp, mname, qea, "ea", sp, 0.0))
+                    if not lines:
+                        continue
+                    sig = tuple(x[:5] for x in lines)
+                    if flavor in seen:
+                        if seen[flavor] == sig:
+                            continue
+                        pair = _clean_flavor(first_cols.get(fcol, "")) or str(fcol)
+                        flavor = f"{flavor} ({pair}용)"
+                    seen[flavor] = sig
+                    prefix = SHEET_PREFIX.get(sheet, sheet)
+                    item_name = flavor if flavor.startswith(prefix) else f"{prefix} {flavor}"
+                    it = db.query(ScmProduct).filter(ScmProduct.product_name == item_name).first()
+                    if it:
+                        db.query(ScmBomLine).filter(ScmBomLine.item_id == it.id).delete()
+                        # 구 임포터가 '본품' 반제품 1개로 감싼 구조(아메쿠키·CU파운드 등)는 직접 라인으로 평탄화
+                        # — 남겨두면 반제품 원가 + 직접 라인이 이중 합산됨
+                        for c in db.query(ScmItemComponent).filter(ScmItemComponent.parent_item_id == it.id).all():
+                            orphans.add(c.child_item_id)
+                            db.delete(c)
+                        report["updated_items"].append(item_name)
+                    else:
+                        m = SECTION_WEIGHT_RE.search(fname_raw) or re.search(r"(\d+(?:\.\d+)?)\s*g", fname_raw, re.I)
+                        it = ScmProduct(product_name=item_name, product_category=prefix, item_type="완제품",
+                                        flavor=flavor, unit_weight_g=float(m.group(1)) if m else 0,
+                                        is_active=True, notes="BOM 시트 선택반영")
+                        db.add(it); db.flush()
+                        report["new_items"].append(item_name)
+                    for i, (t, erp, mname, q, u, sp, sspec) in enumerate(lines, 1):
+                        rid = raw_id(erp, mname, sp, sspec) if t == "raw" else None
+                        sid = sub_id(erp, mname, sp) if t == "sub" else None
+                        db.add(ScmBomLine(item_id=it.id, material_type=t, raw_material_id=rid,
+                                          sub_material_id=sid, material_erp_code=erp or None,
+                                          material_name=mname or None, qty_per_unit=q, qty_unit=u,
+                                          source_sheet=sheet, sort_order=i))
+                    rep["items"].append(item_name)
+            db.flush()
+            for cid in orphans:
+                if not db.query(ScmItemComponent).filter(ScmItemComponent.child_item_id == cid).count():
+                    ch = db.query(ScmProduct).filter(ScmProduct.id == cid, ScmProduct.item_type == "반제품").first()
+                    if ch and ch.is_active is not False:
+                        ch.is_active = False
+                        ch.notes = ((ch.notes or "") + " [시트 선택반영으로 완제품 직접라인 전환 — 미사용]").strip()
+                        report.setdefault("deactivated_semis", []).append(ch.product_name)
+            orphans.clear()
+            db.commit()
+            report["sheets"].append(rep)
+        except Exception as e:
+            db.rollback()
+            report["errors"].append({"sheet": sheet, "error": str(e)})
+    return report

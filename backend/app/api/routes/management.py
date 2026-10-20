@@ -44,3 +44,13 @@ def labor_trend(start: str, end: str, granularity: str = "month", db: Session = 
     if not s or not e:
         raise HTTPException(400, "start/end 형식 오류")
     return mgmt.labor_trend(db, s, e, granularity=granularity)
+
+
+@router.get("/excluded-purchases")
+def excluded_purchases(start: str, end: str, team: Optional[str] = None, limit: int = 100,
+                       db: Session = Depends(get_db)):
+    """원가 비교에서 제외한 BOM 비대상 구매(포장·물류자재·소모품) 내역."""
+    s, e = _pd(start), _pd(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    return mgmt.excluded_purchases(db, s, e, team=team or None, limit=max(1, min(limit, 500)))

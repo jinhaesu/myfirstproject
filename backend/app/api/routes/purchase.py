@@ -414,6 +414,17 @@ def gap_trend(start: str, end: str, granularity: str = "month",
     return mgmt.trend(db, s, e, granularity=granularity, team=team)
 
 
+@router.get("/records/excluded")
+def excluded_records(start: str, end: str, team: Optional[str] = None, limit: int = 100,
+                     db: Session = Depends(get_db)):
+    """gap 비교에서 제외한 BOM 비대상 구매(포장·물류자재·소모품) 품목별 내역."""
+    s, e = _pd(start), _pd(end)
+    if not s or not e:
+        raise HTTPException(400, "start/end 형식 오류")
+    from app.services import management_service as mgmt
+    return mgmt.excluded_purchases(db, s, e, team=team or None, limit=max(1, min(limit, 500)))
+
+
 @router.get("/records/req-vs-actual")
 def req_vs_actual(start: str, end: str, top: int = 40,
                   team: Optional[str] = None, db: Session = Depends(get_db)):

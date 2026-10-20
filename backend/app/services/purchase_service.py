@@ -148,15 +148,48 @@ def vendor_list(db: Session) -> list[dict]:
 # 생산 → 원부재료 소요 (BOM 폭발)
 # ──────────────────────────────────────────────
 
+def build_prod_matcher(db: Session):
+    """생산실적 품목명 → SCM BOM 품목 매칭기. 반환: match(name) -> (item_id|None, 방식).
+
+    우선순위: ① 품목 별칭(prod_aliases, 공백무시 정확일치) ② 정규화명 정확일치
+    ③ 정규화명 부분일치 — 생산명에 포함된 BOM명 중 **가장 긴 것**(구체적일수록 우선),
+       없으면 BOM명이 생산명을 포함하는 것 중 가장 짧은 것.
+    (2026-10-20: 첫 부분일치 채택 → 'GS 저당 베이글 크랜베리'가 일반 베이글로 가던 오매칭 수정)
+    """
+    finished = db.query(ScmProduct).filter(
+        ScmProduct.item_type.in_(["완제품", "세트", "혼합세트"]),
+        ScmProduct.is_active.isnot(False)).all()
+    alias, norm_index = {}, {}
+    for p in finished:
+        for a in (p.prod_aliases or []) if isinstance(p.prod_aliases, list) else []:
+            k = re.sub(r"\s+", "", str(a or "")).lower()
+            if k:
+                alias[k] = p.id
+        norm_index.setdefault(_norm(p.product_name), p.id)
+    keys = sorted((k for k in norm_index if k), key=len)
+
+    def match(name):
+        raw = re.sub(r"\s+", "", str(name or "")).lower()
+        if raw in alias:
+            return alias[raw], "alias"
+        nm = _norm(name)
+        if nm in norm_index:
+            return norm_index[nm], "exact"
+        inside = [k for k in keys if k in nm]
+        if inside:
+            return norm_index[inside[-1]], "partial"
+        outer = [k for k in keys if nm and nm in k]
+        if outer:
+            return norm_index[outer[0]], "partial"
+        return None, None
+    return match
+
+
 def material_requirement(db: Session, start: date, end: date) -> dict:
     """기간 생산실적 → 원부재료 소요량·예상원가·거래처. 생산 품목명↔scm 완제품 매칭 후 폭발."""
     from app.api.routes.scm import _explode_item
 
-    # scm 완제품 이름 인덱스
-    finished = db.query(ScmProduct).filter(ScmProduct.item_type.in_(["완제품", "세트", "혼합세트"])).all()
-    norm_index = {}
-    for p in finished:
-        norm_index.setdefault(_norm(p.product_name), p.id)
+    match = build_prod_matcher(db)
 
     # 기간 생산 집계 (품목명별)
     prod = db.query(InventoryProduction.product_name,
@@ -173,14 +206,7 @@ def material_requirement(db: Session, start: date, end: date) -> dict:
         q = float(q or 0)
         if q <= 0:
             continue
-        nm = _norm(name)
-        item_id = norm_index.get(nm)
-        if not item_id:
-            # 부분일치
-            for k, v in norm_index.items():
-                if k and (k in nm or nm in k):
-                    item_id = v
-                    break
+        item_id, _how = match(name)
         if not item_id:
             unmatched_qty += q
             unmatched[name] = unmatched.get(name, 0.0) + q
@@ -222,7 +248,7 @@ def material_requirement(db: Session, start: date, end: date) -> dict:
         "sub_count": sum(1 for m in materials if m["type"] == "sub"),
         "by_vendor": sorted(by_vendor.values(), key=lambda x: -x["cost"]),
         "matched_qty": round(matched_qty), "unmatched_qty": round(unmatched_qty),
-        "unmatched": sorted(({"name": k, "qty": round(v)} for k, v in unmatched.items()), key=lambda x: -x["qty"])[:20],
+        "unmatched": sorted(({"name": k, "qty": round(v)} for k, v in unmatched.items()), key=lambda x: -x["qty"]),
     }
 
 
