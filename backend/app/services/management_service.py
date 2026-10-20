@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import re
 from datetime import date
 from typing import Optional
 
@@ -46,6 +47,42 @@ def _bom_codes(db: Session) -> set:
     return {str(c).strip() for c in codes if str(c).strip() not in ("", "-")}
 
 
+# 개당 포장(BOM 부자재): 롤지·인쇄필름('_8도' 등 도수 표기)·삼방지퍼백·머핀컵
+_PIECE_PACK = re.compile(r"롤지|\d\s*도(?![가-힣])|삼방지퍼백|머핀컵")
+# 비교 제외(판매단위 포장·물류·제판비) 그룹
+_EXCL_GROUPS = [
+    ("물류·보냉(드라이아이스·아이스박스/팩·택배박스·완충재)", re.compile(r"드라이아이스|아이스팩|아이스박스|택배박스|완충재|보냉")),
+    ("판매 포장(단상자·선물박스·구/입 패키지·쇼핑백)", re.compile(r"단상자|박스|\d\s*구|\d\s*(?:개)?입|카토너|쇼핑백|패키지|케이스|파우치")),
+    ("제판·목형비", re.compile(r"목형|동판|제판")),
+]
+
+
+def bom_scope_classifier(db: Session):
+    """구매 1행이 원가(BOM) 비교 범위인지 판정 → fn(item_code, item_name, mclass) -> bool.
+
+    범위 = ① BOM 자재 마스터 품목코드 ② 원재료(원산지 변경 등으로 코드가 바뀐 원료 포함)
+          ③ 개당 포장(롤지·인쇄필름·지퍼백 등, BOM 부자재).
+    제외 = 판매단위 포장(단상자·선물박스)·물류/보냉자재·제판비 등 BOM에 없는 구매.
+    (2026-10-20: 코드만으로 판정 시 코코아파우더·PTS 등 원재료 2.2억이 '비대상'으로 잘못 빠짐)
+    """
+    codes = _bom_codes(db)
+
+    def in_scope(code, name, mclass) -> bool:
+        if code and str(code).strip() in codes:
+            return True
+        if (mclass or "") == "원재료":
+            return True
+        return bool(_PIECE_PACK.search(name or ""))
+    return in_scope
+
+
+def excluded_group(name: str) -> str:
+    for g, rx in _EXCL_GROUPS:
+        if rx.search(name or ""):
+            return g
+    return "기타 부재료"
+
+
 def _pm_cost_resolver(db: Session):
     """생산품목명 → CSA 표준품목(이름·별칭 최장 부분일치) 개당 원가(cogs 규칙).
     SCM 완제품명과 매칭 안 되는 생산명('GS 도넛케이크 다크초코' 등)의 이론원가 폴백."""
@@ -78,9 +115,8 @@ def _pm_cost_resolver(db: Session):
 
 def excluded_purchases(db: Session, start: date, end: date, team: Optional[str] = None,
                        limit: int = 100) -> dict:
-    """원가 비교에서 제외되는 BOM 비대상 구매(포장·물류자재·소모품 등) 내역 — 품목별·중분류별 합계(공급가)."""
-    import re
-    codes = _bom_codes(db)
+    """원가 비교에서 제외되는 BOM 비대상 구매(판매포장·물류/보냉·제판비 등) 내역 — 품목별·그룹별 합계(공급가)."""
+    in_scope = bom_scope_classifier(db)
     q = db.query(PurchaseRecord.item_code, PurchaseRecord.item_name, PurchaseRecord.mclass,
                  PurchaseRecord.vendor_name, PurchaseRecord.supply_amount).filter(
         PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
@@ -92,15 +128,15 @@ def excluded_purchases(db: Session, start: date, end: date, team: Optional[str] 
     for code, name, mc, vendor, amt in q.all():
         amt = float(amt or 0)
         total += amt
-        if code and str(code).strip() in codes:
+        if in_scope(code, name, mc):
             included += amt
             continue
         nm = re.sub(r"\s+", " ", re.sub(r"\[.*?\]", "", name or "")).strip() or "(품목명 없음)"
-        e = items.setdefault((code or "", nm), {"item_code": code, "item_name": nm, "mclass": mc,
+        grp = excluded_group(nm)
+        e = items.setdefault((code or "", nm), {"item_code": code, "item_name": nm, "mclass": mc, "group": grp,
                                                  "vendor": vendor, "amount": 0.0, "count": 0})
         e["amount"] += amt; e["count"] += 1
-        k = mc or "미분류"
-        by_class[k] = by_class.get(k, 0.0) + amt
+        by_class[grp] = by_class.get(grp, 0.0) + amt
     rows = sorted(items.values(), key=lambda x: -x["amount"])
     for r in rows:
         r["amount"] = round(r["amount"])
@@ -110,7 +146,7 @@ def excluded_purchases(db: Session, start: date, end: date, team: Optional[str] 
         "purchase_total": round(total), "bom_scope": round(included), "excluded": round(excluded),
         "excluded_pct": round(excluded / total * 100, 1) if total else None,
         "item_count": len(rows),
-        "by_class": [{"mclass": k, "amount": round(v)} for k, v in sorted(by_class.items(), key=lambda x: -x[1])],
+        "by_group": [{"group": k, "amount": round(v)} for k, v in sorted(by_class.items(), key=lambda x: -x[1])],
         "items": rows[:limit],
     }
 
@@ -134,10 +170,10 @@ def overview(db: Session, start: date, end: date) -> dict:
     # 1) 매출기반 원가추정 vs 실제 구매액 — 비교는 BOM 자재코드 범위 구매(포장·물류자재 제외)로
     cogs_est = sc["cogs_est"]
     purchase_total = pa["total"]
-    codes = _bom_codes(db)
-    bom_scope = float(db.query(func.coalesce(func.sum(PurchaseRecord.supply_amount), 0.0)).filter(
-        PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end,
-        PurchaseRecord.item_code.in_(list(codes) or ["-"])).scalar() or 0)
+    in_scope = bom_scope_classifier(db)
+    bom_scope = sum(float(a or 0) for c, n, mc, a in db.query(
+        PurchaseRecord.item_code, PurchaseRecord.item_name, PurchaseRecord.mclass, PurchaseRecord.supply_amount).filter(
+        PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end).all() if in_scope(c, n, mc))
     cost_vs_purchase = {
         "net_sales": round(sc["net_sales"]),
         "cogs_est": round(cogs_est),                 # 판매수량×BOM원가 (Σcost_cogs)
@@ -171,7 +207,7 @@ def overview(db: Session, start: date, end: date) -> dict:
         "bom_fallback_cost": round(fb_cost),
         "unmatched_prod_qty": round(still_unmatched),
         "purchase_actual": round(purchase_total),
-        "purchase_bom_scope": round(float(bom_scope)),   # BOM 자재코드 해당 구매만(포장·물류자재 제외)
+        "purchase_bom_scope": round(float(bom_scope)),   # BOM 범위 구매(원재료+개당포장, 판매포장·물류 제외)
         "gap": round(float(bom_scope) - bom_cost),
         "gap_pct": round((float(bom_scope) - bom_cost) / bom_cost * 100, 1) if bom_cost else None,
     }
@@ -294,17 +330,18 @@ def trend(db: Session, start: date, end: date, granularity: str = "month",
         return d.isoformat()
 
     # 실제 구매(공급가) — 전체 + BOM 자재코드 범위(원가 비교용, 포장·물류자재·소모품 제외)
-    codes = _bom_codes(db)
+    in_scope = bom_scope_classifier(db)
     pur: dict = {}
     pur_bom: dict = {}
-    _pq = db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount, PurchaseRecord.item_code).filter(
+    _pq = db.query(PurchaseRecord.pdate, PurchaseRecord.supply_amount, PurchaseRecord.item_code,
+                   PurchaseRecord.item_name, PurchaseRecord.mclass).filter(
         PurchaseRecord.pdate >= start, PurchaseRecord.pdate <= end)
     if team:
         _pq = _pq.filter(PurchaseRecord.team == team)
-    for pd, amt, code in _pq.all():
+    for pd, amt, code, iname, mcl in _pq.all():
         if pd:
             pur[bucket(pd)] = pur.get(bucket(pd), 0) + (amt or 0)
-            if code and str(code).strip() in codes:
+            if in_scope(code, iname, mcl):
                 pur_bom[bucket(pd)] = pur_bom.get(bucket(pd), 0) + (amt or 0)
 
     # 매출·원가추정(cost_cogs)

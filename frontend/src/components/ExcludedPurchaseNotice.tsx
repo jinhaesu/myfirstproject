@@ -6,8 +6,8 @@ import { useEffect, useState } from 'react';
 // 클릭 시 품목별 제외 내역을 모달로 띄운다. 금액은 공급가(VAT별도).
 type Excluded = {
   purchase_total: number; bom_scope: number; excluded: number; excluded_pct: number | null; item_count: number;
-  by_class: { mclass: string; amount: number }[];
-  items: { item_code: string | null; item_name: string; mclass: string | null; vendor: string | null; amount: number; count: number }[];
+  by_group: { group: string; amount: number }[];
+  items: { item_code: string | null; item_name: string; mclass: string | null; group: string; vendor: string | null; amount: number; count: number }[];
 };
 
 const authHeaders = (): Record<string, string> => {
@@ -36,7 +36,7 @@ export function ExcludedPurchaseNotice({ start, end, team, endpoint = '/purchase
         className="w-full mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-left text-xs rounded-lg border border-dashed border-warning/60 bg-warning/10 px-3 py-2 hover:bg-warning/15 transition-colors">
         <span className="font-semibold text-warning">비교 제외</span>
         <span className="text-text-secondary">BOM 비대상 구매 <b className="text-text-primary tabular-nums">{wonShort(d.excluded)}</b>
-          {d.excluded_pct != null && <> (전체 {wonShort(d.purchase_total)}의 {d.excluded_pct}%)</>} — 포장·물류자재·소모품 등은 그래프에서 뺐습니다</span>
+          {d.excluded_pct != null && <> (전체 {wonShort(d.purchase_total)}의 {d.excluded_pct}%)</>} — 단상자·선물박스·보냉/물류자재 등은 그래프에서 뺐습니다</span>
         <span className="ml-auto text-brand underline underline-offset-2">제외 내역 보기 →</span>
       </button>
       {open && (
@@ -47,13 +47,13 @@ export function ExcludedPurchaseNotice({ start, end, team, endpoint = '/purchase
               <div>
                 <div className="text-xs text-text-tertiary">{start} ~ {end} · 공급가(VAT별도)</div>
                 <div className="text-lg font-bold text-text-primary">원가 비교에서 제외한 구매 {wonShort(d.excluded)}</div>
-                <div className="text-xs text-text-quaternary mt-1">BOM 자재 마스터(원재료·부자재) 품목코드에 없는 구매입니다. 원가 gap은 BOM자재 구매 {wonShort(d.bom_scope)}만으로 비교합니다.</div>
+                <div className="text-xs text-text-quaternary mt-1">원재료·개당 포장(롤지·인쇄필름·지퍼백)이 아닌 구매입니다 — 판매단위 포장, 물류·보냉자재, 제판비 등. 원가 gap은 BOM자재 구매 {wonShort(d.bom_scope)}만으로 비교합니다.</div>
               </div>
               <button onClick={() => setOpen(false)} className="text-text-tertiary hover:text-text-primary text-xl">×</button>
             </div>
             <div className="flex flex-wrap gap-2 mb-4">
-              {d.by_class.map((c) => (
-                <span key={c.mclass} className="text-xs px-2 py-1 rounded-md bg-bg-inset text-text-secondary">{c.mclass} <b className="text-text-primary tabular-nums">{wonShort(c.amount)}</b></span>
+              {d.by_group.map((c) => (
+                <span key={c.group} className="text-xs px-2 py-1 rounded-md bg-bg-inset text-text-secondary">{c.group} <b className="text-text-primary tabular-nums">{wonShort(c.amount)}</b></span>
               ))}
             </div>
             <div className="overflow-x-auto">
@@ -66,7 +66,7 @@ export function ExcludedPurchaseNotice({ start, end, team, endpoint = '/purchase
                 <tbody>{d.items.map((x, i) => (
                   <tr key={i} className="border-t border-border-primary">
                     <td className="py-1.5 pr-2 text-text-primary">{x.item_name}{x.item_code && <span className="text-text-quaternary ml-1">({x.item_code})</span>}</td>
-                    <td className="py-1.5 pr-2 text-text-secondary">{x.mclass || '-'}</td>
+                    <td className="py-1.5 pr-2 text-text-secondary">{x.group}</td>
                     <td className="py-1.5 pr-2 text-text-secondary truncate max-w-[10rem]">{x.vendor || '-'}</td>
                     <td className="py-1.5 pr-2 text-right tabular-nums text-text-secondary">{x.count}</td>
                     <td className="py-1.5 text-right tabular-nums text-warning">{won(x.amount)}</td>
