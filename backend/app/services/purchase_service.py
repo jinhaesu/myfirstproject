@@ -1331,6 +1331,7 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
     잔액에 해당하는 (최근) 미지급 발주들의 만기일로 aging 버킷 분류.
     """
     today = asof or date.today()
+    cur_first = today.replace(day=1)   # 이 날 이전 발주 = 전월까지 마감(세금계산서 발행) 분
     terms = {t.vendor_name: t for t in db.query(PurchaseVendorTerm).all()}
 
     q = db.query(
@@ -1366,7 +1367,8 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
         pay_detail.setdefault(vn, []).append((pdt, float(amt or 0)))
 
     vendors_out = []
-    totals = {"payable": 0.0, "paid": 0.0, "balance": 0.0, "overdue": 0.0}
+    totals = {"payable": 0.0, "paid": 0.0, "balance": 0.0, "overdue": 0.0,
+              "closed_balance": 0.0, "current_balance": 0.0}
     _lead_wsum = 0.0   # 전체 가중 평균 지급소요일 누적(일수×금액)
     _lead_wamt = 0.0
     _od_wsum_all = 0.0  # 전체 연체 가중 평균 경과일 누적
@@ -1400,11 +1402,19 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
         max_days_overdue = None      # 잔액 중 가장 오래 연체된 발주의 경과일수
         od_wsum = od_wamt = 0.0      # 연체 금액가중 평균 경과일 계산용
         vbuckets = {b: 0.0 for b in _BUCKET_ORDER}
+        closed_bal = current_bal = 0.0   # 잔액 = 전월까지 마감분 + 당월 발주분 (회계 장부 대사용)
+        by_month: dict = {}
         for b in reversed(buys):
             if remaining <= 0.5:
                 break
             take = min(b["total"], remaining)
             remaining -= take
+            if b["pdate"] < cur_first:
+                closed_bal += take
+            else:
+                current_bal += take
+            ym = b["pdate"].strftime("%Y-%m")
+            by_month[ym] = by_month.get(ym, 0.0) + take
             due = compute_due_date(b["pdate"], term)
             days_over = (today - due).days if due else None
             bucket = _aging_bucket(days_over) if due is not None else "미설정"
@@ -1428,6 +1438,8 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
                 "bucket": bucket,
             })
         totals["overdue"] += overdue_amt
+        totals["closed_balance"] += closed_bal
+        totals["current_balance"] += current_bal
         avg_days_overdue = round(od_wsum / od_wamt) if od_wamt > 0.5 else None
         _od_wsum_all += od_wsum
         _od_wamt_all += od_wamt
@@ -1464,6 +1476,9 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
             "payable": round(payable),
             "paid": round(eff_paid),
             "balance": round(balance),
+            "closed_balance": round(closed_bal),
+            "current_balance": round(current_bal),
+            "unpaid_by_month": {k: round(by_month[k]) for k in sorted(by_month) if by_month[k] > 0.5},
             "overdue": round(overdue_amt),
             "term_label": term_label(term) if term else None,
             "has_term": term is not None,
@@ -1496,7 +1511,6 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
         while m <= 0:
             m += 12; y -= 1
         return date(y, m, 1)
-    cur_first = today.replace(day=1)
     s3 = _minus_months(cur_first, 3)
     sale3 = db.query(func.coalesce(func.sum(ChannelSalesDailyProduct.net_sales), 0.0)).filter(
         ChannelSalesDailyProduct.sale_date >= s3,
@@ -1509,6 +1523,7 @@ def ap_aging(db: Session, asof: Optional[date] = None, start: Optional[date] = N
     totals_out["balance_target_formula"] = "3개월 월평균매출(공급가)×0.35×2.5"
     return {
         "asof": today.isoformat(),
+        "closed_until": (cur_first - timedelta(days=1)).isoformat(),
         "totals": totals_out,
         "bucket_totals": {k: round(bucket_totals[k]) for k in _BUCKET_ORDER},
         "bucket_order": _BUCKET_ORDER,
@@ -1533,14 +1548,23 @@ def vendor_orders(db: Session, vendor: str, asof: Optional[date] = None) -> dict
     paid_total = float(db.query(func.coalesce(func.sum(PurchasePayment.amount), 0.0)).filter(
         PurchasePayment.vendor_name == vendor).scalar() or 0.0)
 
+    cur_first = today.replace(day=1)
     remaining_paid = paid_total
     out = []
     payable = paid_alloc = 0.0
+    closed_bal = current_bal = 0.0
+    months: dict = {}   # 월별 매입/지급배정/미지급 — 회계 월별 외상매입금과 대사
     paid_cnt = partial_cnt = unpaid_cnt = 0
     for b in buys:  # 오래된 발주부터 지급 상계
         pay = min(b["total"], remaining_paid)
         remaining_paid -= pay
         unpaid = b["total"] - pay
+        if b["pdate"] < cur_first:
+            closed_bal += unpaid
+        else:
+            current_bal += unpaid
+        mo = months.setdefault(b["pdate"].strftime("%Y-%m"), {"total": 0.0, "paid": 0.0, "unpaid": 0.0})
+        mo["total"] += b["total"]; mo["paid"] += pay; mo["unpaid"] += unpaid
         due = compute_due_date(b["pdate"], term)
         days_over = (today - due).days if due else None
         bucket = _aging_bucket(days_over) if due is not None else "미설정"
@@ -1565,6 +1589,11 @@ def vendor_orders(db: Session, vendor: str, asof: Optional[date] = None) -> dict
         "partial_count": partial_cnt, "unpaid_count": unpaid_cnt,
         "payable": round(payable), "paid": round(paid_alloc),
         "balance": round(max(0.0, payable - paid_alloc)),
+        "closed_balance": round(closed_bal),
+        "current_balance": round(current_bal),
+        "current_month": cur_first.strftime("%Y-%m"),
+        "months": [{"ym": k, "total": round(v["total"]), "paid": round(v["paid"]), "unpaid": round(v["unpaid"])}
+                   for k, v in sorted(months.items(), reverse=True)],
         "orders": out,
     }
 

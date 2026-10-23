@@ -981,6 +981,7 @@ function APTab() {
                   <div className="text-[10px] text-text-quaternary leading-tight">3개월 월평균매출×0.35×2.5</div>
                 </div>
               ) : <div className="text-[11px] text-text-quaternary mt-1 truncate">현재 갚아야 할 총액</div>}
+              <div className="text-[10px] text-text-quaternary leading-tight mt-0.5" title={`전월까지 마감분 = ${data?.closed_until || ''} 이전 발주(세금계산서 발행 기준)`}>마감분 {won(T.closed_balance || 0)} + 당월 {won(T.current_balance || 0)}</div>
             </div>
           );
         })()}
@@ -1045,7 +1046,7 @@ function APTab() {
                 <td className={C.td}>{v.term_label || <span className="text-warning">미설정</span>}</td>
                 <td className={`${C.td} text-right tabular-nums`}>{won(v.payable)}</td>
                 <td className={`${C.td} text-right tabular-nums text-info`}>{won(v.paid)}</td>
-                <td className={`${C.td} text-right tabular-nums text-warning font-semibold`}>{won(v.balance)}</td>
+                <td className={`${C.td} text-right tabular-nums text-warning font-semibold`}>{won(v.balance)}{v.current_balance > 0 && <div className="text-[10px] font-normal text-text-quaternary leading-tight" title="전월까지 마감분(세금계산서 발행 기준) + 당월 발주분">마감 {won(v.closed_balance)} · 당월 {won(v.current_balance)}</div>}</td>
                 <td className={`${C.td} text-right tabular-nums ${v.overdue > 0 ? 'text-danger font-semibold' : 'text-text-quaternary'}`}>{v.overdue > 0 ? won(v.overdue) : '-'}</td>
                 <td className={`${C.td} text-right tabular-nums ${odTone(avgOd)}`} title={avgOd != null ? '연체 잔액의 금액가중 평균 경과일' : '연체 없음'}>{avgOd != null ? `${fmt(avgOd)}일` : '-'}</td>
                 <td className={`${C.td} text-right tabular-nums ${odTone(od)}`} title={od != null ? '잔액 중 가장 오래 연체된 발주 경과일' : '연체 없음'}>{od != null ? `${fmt(od)}일` : '-'}</td>
@@ -1110,7 +1111,8 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
         </div>
         <div className="grid grid-cols-3 gap-2 mb-4">
           <StatCard label="매입(VAT포함)" value={won(vendor.payable || 0)} />
-          <StatCard label="미지급 잔액(VAT포함)" value={won(vendor.balance || 0)} tone="text-warning" />
+          <StatCard label="미지급 잔액(VAT포함)" value={won(vendor.balance || 0)} tone="text-warning"
+            sub={`전월까지 마감분 ${won(vendor.closed_balance || 0)} + 당월 발주 ${won(vendor.current_balance || 0)}`} />
           <StatCard label="연체" value={won(vendor.overdue || 0)} tone={vendor.overdue > 0 ? 'text-danger' : 'text-text-tertiary'} sub={vendor.overdue > 0 ? `평균 ${fmt(vendor.avg_days_overdue || 0)}일 · 최장 ${fmt(vendor.max_days_overdue || 0)}일` : ''} />
         </div>
 
@@ -1155,6 +1157,26 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
               </tr>
             ))}</tbody></table>
         </div>
+
+        {/* 월별 미지급 — 회계 장부(세금계산서 발행 = 전월까지 마감) 대사용 */}
+        {orders?.months?.some((m: any) => m.unpaid > 0) && (
+          <div className="mb-4">
+            <div className="text-sm font-semibold text-text-primary mb-1">월별 미지급 <span className="text-xs text-text-quaternary font-normal">(회계 월별 외상매입금과 대사 · 지급은 오래된 발주부터 상계)</span></div>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary">전월까지 마감분 (세금계산서 발행 기준)</div><div className="text-sm font-bold tabular-nums text-warning">{won(orders.closed_balance || 0)}</div></div>
+              <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary">당월 발주분 ({orders.current_month}, 미마감)</div><div className="text-sm font-bold tabular-nums text-text-secondary">{won(orders.current_balance || 0)}</div></div>
+            </div>
+            <table className="w-full"><thead><tr><th className={C.th}>월</th><th className={`${C.th} text-right`}>매입(VAT포함)</th><th className={`${C.th} text-right`}>지급 배정</th><th className={`${C.th} text-right`}>미지급</th></tr></thead>
+              <tbody>{orders.months.filter((m: any) => m.unpaid > 0).map((m: any) => (
+                <tr key={m.ym}>
+                  <td className={C.td}>{m.ym}{m.ym === orders.current_month ? <span className="ml-1 text-[10px] text-text-quaternary">당월</span> : ''}</td>
+                  <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{won(m.total)}</td>
+                  <td className={`${C.td} text-right tabular-nums text-info`}>{m.paid > 0 ? won(m.paid) : '-'}</td>
+                  <td className={`${C.td} text-right tabular-nums text-warning font-semibold`}>{won(m.unpaid)}</td>
+                </tr>
+              ))}</tbody></table>
+          </div>
+        )}
 
         {/* 발주 상세 — 미지급/완료 토글 */}
         {(orders?.orders?.length > 0) && (() => {
