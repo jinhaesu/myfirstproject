@@ -63,6 +63,18 @@ class MessageResponse(BaseModel):
     success: bool
 
 
+def _sso_only():
+    """이메일 인증번호(OTP)·비밀번호 로그인 차단 (2026-10-24, 회계·HR·근태와 동일 조치).
+
+    이 경로들은 회사 이메일 도메인만 확인하고 허브(auth.nuldam.com)의 SCM 권한은 보지 않아,
+    권한 없는 직원도 세션을 얻을 수 있었다. 로그인은 허브 SSO(/api/auth/sso)로만 한다.
+    """
+    raise HTTPException(
+        status_code=403,
+        detail="이 로그인 방식은 사용할 수 없습니다. 회사 계정(SSO)으로 로그인하세요: https://auth.nuldam.com",
+    )
+
+
 def get_auth_service() -> AuthService:
     return AuthService()
 
@@ -123,7 +135,8 @@ async def login(
     request: LoginRequest,
     auth_service: AuthService = Depends(get_auth_service)
 ):
-    """로그인"""
+    """로그인 — 비활성화(SSO 전용). 아래 본문은 복구 대비로만 남겨 둔다."""
+    _sso_only()
     user = auth_service.authenticate_user(request.email, request.password)
 
     if not user:
@@ -228,7 +241,8 @@ async def send_otp(
     auth_service: AuthService = Depends(get_auth_service),
     otp_service: OTPService = Depends(get_otp_service)
 ):
-    """이메일로 OTP 발송"""
+    """이메일로 OTP 발송 — 비활성화(SSO 전용)."""
+    _sso_only()
     # 사용자 존재 확인
     user = auth_service.get_user_by_email(request.email)
     if not user:
@@ -258,7 +272,8 @@ async def verify_otp_login(
     auth_service: AuthService = Depends(get_auth_service),
     otp_service: OTPService = Depends(get_otp_service)
 ):
-    """OTP 검증 후 로그인"""
+    """OTP 검증 후 로그인 — 비활성화(SSO 전용)."""
+    _sso_only()
     # 사용자 존재 확인
     user = auth_service.get_user_by_email(request.email)
     if not user:

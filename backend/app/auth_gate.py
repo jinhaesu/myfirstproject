@@ -26,10 +26,9 @@ from app.services.auth_service import AuthService
 PUBLIC_EXACT = frozenset({
     "/",
     "/health",
-    # 로그인 흐름 (각 엔드포인트가 자체 검증)
-    "/api/auth/login",
-    "/api/auth/send-otp",
-    "/api/auth/verify-otp",
+    # 로그인 흐름 — 허브 SSO 교환만 공개 (자체 RS256 JWKS 검증).
+    # 비밀번호·이메일 인증번호 로그인(/api/auth/login, send-otp, verify-otp)은
+    # 2026-10-24 차단(허브 권한 우회 경로) — 게이트에서 401, 처리기에서도 403.
     "/api/auth/sso",
     # Cafe24 OAuth 리다이렉트 (브라우저가 Cafe24에서 돌아오는 경로, 헤더 없음)
     "/api/cafe24/oauth/callback",
