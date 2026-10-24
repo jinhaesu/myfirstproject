@@ -252,6 +252,12 @@ app = FastAPI(
     redirect_slashes=False,  # HTTPS 리다이렉트 문제 방지
 )
 
+# 전역 인증 게이트 — 공개 허용 목록(auth_gate.PUBLIC_*) 외 모든 경로는 사용자 JWT 또는
+# 서비스 키(JARVIS_API_KEY) 필요. CORS보다 먼저 등록해야 CORS가 바깥에 감싸져
+# 401 응답에도 CORS 헤더가 붙는다(안 그러면 브라우저가 401을 네트워크 오류로 본다).
+from app.auth_gate import AuthGateMiddleware  # noqa: E402
+app.add_middleware(AuthGateMiddleware)
+
 # CORS 설정 — 모든 오리진 허용 (JWT 인증으로 보안 유지)
 # max_age로 브라우저가 OPTIONS preflight를 10분간 캐싱 → 메뉴 진입 시 endpoint당
 # 라운드트립이 절반으로 감소 (Supabase 이전 후 Railway↔Seoul 왕복이 누적 비용)

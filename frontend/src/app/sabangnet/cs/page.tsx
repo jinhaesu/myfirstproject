@@ -17,6 +17,28 @@ const getAuthHeaders = () => {
   return headers;
 };
 
+// 첨부파일 다운로드 — 서버 API가 인증 필수라 window.open(헤더 없음) 대신 토큰을 실어 받아 저장한다.
+const downloadReferenceFile = async (refId: number, fileName?: string | null) => {
+  try {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const res = await fetch(`${API_BASE}/api/sabangnet/reference-data/${refId}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`다운로드 실패 (${res.status})`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName || `reference-${refId}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (e) {
+    alert(e instanceof Error ? e.message : '다운로드 실패');
+  }
+};
+
 const fetchSafe = async <T,>(path: string, defaultValue: T): Promise<T> => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000);
@@ -1846,7 +1868,7 @@ export default function CSPage() {
                                 </span>
                               )}
                               <button
-                                onClick={() => window.open(`${API_BASE}/api/sabangnet/reference-data/${ref.id}/download`, '_blank')}
+                                onClick={() => downloadReferenceFile(ref.id, ref.file_name)}
                                 className="text-xs text-link hover:text-accent font-medium"
                               >
                                 다운로드
