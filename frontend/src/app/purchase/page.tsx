@@ -457,7 +457,7 @@ function RecordsTab() {
           {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setUnit(u)} className={`px-2.5 py-2 text-xs font-semibold ${unit === u ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`}>{u === 'ea' ? '수량(ea)' : '중량(kg)'}</button>)}
         </div>
         <XlsxBtn kind="records" params={{ start: range.start, end: range.end, mclass: mclass || undefined, q: q || undefined, team: team || undefined }} />
-        {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가(VAT별도) {won(data.supply_total)} · 합계(VAT포함) {won(data.total_total || 0)} · 미지급(VAT포함) {won(data.unpaid_total || 0)}{data.total > 500 && ' (500건 표시)'}</span>}
+        {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가(VAT별도) {won(data.supply_total)} · 합계(VAT포함) {won(data.total_total || 0)} · <span title="전표 정산 체크(✓완료)를 안 한 줄의 합계입니다. 실제 지급 기록과는 별개 — 거래처별 실제 미지급은 매입채무 탭(지급 기록 기준)에서 확인하세요.">정산 미체크(VAT포함) {won(data.unpaid_total || 0)}</span>{data.total > 500 && ' (500건 표시)'}</span>}
       </div>
       {/* 정산완료 처리 툴바 — 체크박스로 행 선택 후 버튼 클릭 */}
       <div className="flex flex-wrap items-center gap-2 bg-bg-1 border border-border-primary rounded-lg px-3 py-2">
@@ -485,13 +485,13 @@ function RecordsTab() {
               <td className={`${C.td} text-right tabular-nums`}>{unit === 'kg' ? (kgOf(r) != null ? won(Math.round(kgOf(r) as number)) : '-') : won(Math.round(upOf(r)))}{r.price_incl_vat && <span className="ml-1 text-[10px] text-accent" title="VAT포함 단가로 입력된 전표 — 기준에 맞게 환산 표시">입력:포함</span>}{!r.price_incl_vat && r.vat === 0 && r.supply !== 0 && <span className="ml-1 text-[10px] text-text-quaternary" title="부가세 0 — 면세 또는 미기재">면세</span>}</td>
               <td className={`${C.td} text-right text-warning tabular-nums`}>{won(r.supply)}</td>
               <td className={`${C.td} text-right tabular-nums`}>{won(r.total)}</td>
-              <td className={`${C.td} text-center`}>{r.paid ? <span className="text-success-light text-xs" title={r.paid_date || ''}>✓ 완료</span> : <span className="text-text-quaternary text-xs">미지급</span>}</td>
+              <td className={`${C.td} text-center`}>{r.paid ? <span className="text-success-light text-xs" title={r.paid_date || ''}>✓ 완료</span> : <span className="text-text-quaternary text-xs" title="정산 체크 안 함 — 지급 기록과 별개">미체크</span>}</td>
             </tr>
           ))}</tbody>
           {rows.length > 0 && (
             <tfoot><tr className="bg-bg-inset font-semibold sticky bottom-0">
               <td className={C.td}></td>
-              <td className={`${C.td} text-text-primary`} colSpan={5}>합계 · {fmt(data.total)}건{data.total > (data.limit || 500) ? ` (전체 기간 기준, 표는 ${fmt(data.limit || 500)}건 표시)` : ''} · 미지급(VAT포함) {won(data.unpaid_total || 0)}</td>
+              <td className={`${C.td} text-text-primary`} colSpan={5}>합계 · {fmt(data.total)}건{data.total > (data.limit || 500) ? ` (전체 기간 기준, 표는 ${fmt(data.limit || 500)}건 표시)` : ''} · <span title="정산 체크 안 한 줄 합계(지급 기록과 별개)">정산 미체크(VAT포함) {won(data.unpaid_total || 0)}</span>{team ? <span className="ml-2 text-[11px] font-normal text-text-quaternary">담당팀 필터: {team} — 매입채무는 전 팀 합산</span> : null}</td>
               <td className={`${C.td} text-right text-text-primary`} title="단위 혼재 단순합">{unit === 'kg' ? fmt(data.kg_total || 0) + 'kg' : fmt(data.qty_total || 0)}</td>
               <td className={`${C.td} text-right text-text-tertiary`}>VAT {wonShort(data.vat_total || 0)}</td>
               <td className={`${C.td} text-right text-warning`}>{won(data.supply_total || 0)}</td>
@@ -953,7 +953,7 @@ function APTab() {
     <div className="space-y-5">
       <LoadingOverlay show={loading} />
       <p className="text-xs text-text-quaternary">
-        매입채무 = 구매일보 합계(VAT포함). 잔액 = 매입 − 지급(오래된 발주부터 상계). <b className="text-text-tertiary">연체 평균일</b>=연체 잔액의 금액가중 평균 경과일 / <b className="text-text-tertiary">연체 최장일</b>=가장 오래된 연체 발주 경과일, <b className="text-text-tertiary">평균지급소요</b>=실제 지급기록 기준 발주→지급 금액가중 평균(체크박스 자동정산분 제외). 컬럼 클릭 정렬·거래처명 클릭 설정. 맨 앞 체크박스로 잔액을 정산완료 처리. 기준일 {data?.asof || '-'}.
+        매입채무 = 구매실적 합계(VAT포함, <b className="text-text-tertiary">구매팀+물류팀 전체</b>, 월·만기는 실적 <b className="text-text-tertiary">일자</b> 기준). 잔액 = 매입 − 지급(지급 총액을 오래된 실적부터 차례로 상계 = &apos;지급 배정&apos;). <b className="text-text-tertiary">연체 평균일</b>=연체 잔액의 금액가중 평균 경과일 / <b className="text-text-tertiary">연체 최장일</b>=가장 오래된 연체 발주 경과일, <b className="text-text-tertiary">평균지급소요</b>=실제 지급기록 기준 발주→지급 금액가중 평균(체크박스 자동정산분 제외). 컬럼 클릭 정렬·거래처명 클릭 설정. 맨 앞 체크박스로 잔액을 정산완료 처리. 기준일 {data?.asof || '-'}.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-text-tertiary">미지급 집계 시작일</span>
@@ -1161,16 +1161,29 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
         {/* 월별 미지급 — 회계 장부(세금계산서 발행 = 전월까지 마감) 대사용 */}
         {orders?.months?.some((m: any) => m.unpaid > 0) && (
           <div className="mb-4">
-            <div className="text-sm font-semibold text-text-primary mb-1">월별 미지급 <span className="text-xs text-text-quaternary font-normal">(회계 월별 외상매입금과 대사 · 지급은 오래된 발주부터 상계)</span></div>
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary">전월까지 마감분 (세금계산서 발행 기준)</div><div className="text-sm font-bold tabular-nums text-warning">{won(orders.closed_balance || 0)}</div></div>
-              <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary">당월 발주분 ({orders.current_month}, 미마감)</div><div className="text-sm font-bold tabular-nums text-text-secondary">{won(orders.current_balance || 0)}</div></div>
+            <div className="text-sm font-semibold text-text-primary mb-1">월별 미지급 <span className="text-xs text-text-quaternary font-normal">(월 = 구매실적 &apos;일자&apos; 기준 · 구매팀+물류팀 합산 · VAT포함)</span></div>
+            <div className="text-[11px] text-text-tertiary leading-relaxed mb-2 rounded-lg border border-border-primary px-3 py-2">
+              <b className="text-text-secondary">지급 배정</b> = 지금까지 기록한 지급 총액({won(orders.paid_total || 0)})을 <b>가장 오래된 실적부터 차례로</b> 채웠을 때 그 달 몫으로 돌아간 금액입니다.
+              지급 메모에 &quot;8월분&quot;이라고 적어도 그 달에 붙지 않고, 앞선 달에 덜 갚은 금액(중복 입력 포함)이 있으면 그쪽부터 메워집니다.
+              구매실적 화면과 맞춰 볼 때는 같은 기간·<b>담당팀 &apos;전체&apos;</b>로 놓고 보세요.
             </div>
-            <table className="w-full"><thead><tr><th className={C.th}>월</th><th className={`${C.th} text-right`}>매입(VAT포함)</th><th className={`${C.th} text-right`}>지급 배정</th><th className={`${C.th} text-right`}>미지급</th></tr></thead>
+            {orders.dup_suspect_total > 0 && (
+              <div className="text-[11px] text-danger leading-relaxed mb-2 rounded-lg bg-danger/10 px-3 py-2">
+                ⚠ 물류팀 포장비 원자료 {fmt(orders.dup_suspect_count)}줄 {won(orders.dup_suspect_total)}이 구매팀 실적과 같은 날·같은 품목·같은 금액으로 겹칩니다(이중 입력 의심). 이 금액만큼 미지급이 부풀려져 보입니다 — 정리 전까지는 월별 &apos;중복의심&apos; 금액을 빼고 보세요.
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary" title="실적 일자가 이번 달 1일 이전인 실적의 미지급 잔액">전월까지 실적분 (실적 일자 기준)</div><div className="text-sm font-bold tabular-nums text-warning">{won(orders.closed_balance || 0)}</div></div>
+              <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary">당월 실적분 ({orders.current_month}, 미마감)</div><div className="text-sm font-bold tabular-nums text-text-secondary">{won(orders.current_balance || 0)}</div></div>
+            </div>
+            <table className="w-full"><thead><tr><th className={C.th} title="구매실적 '일자'의 연-월">월(실적 일자)</th><th className={`${C.th} text-right`}>매입(VAT포함)</th><th className={`${C.th} text-right`} title="지급 총액을 오래된 실적부터 차례로 채웠을 때 이 달에 돌아간 금액">지급 배정 ⓘ</th><th className={`${C.th} text-right`}>미지급</th></tr></thead>
               <tbody>{orders.months.filter((m: any) => m.unpaid > 0).map((m: any) => (
                 <tr key={m.ym}>
                   <td className={C.td}>{m.ym}{m.ym === orders.current_month ? <span className="ml-1 text-[10px] text-text-quaternary">당월</span> : ''}</td>
-                  <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{won(m.total)}</td>
+                  <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{won(m.total)}
+                    {m.by_team && Object.keys(m.by_team).length > 1 && <div className="text-[10px] text-text-quaternary leading-tight">{Object.entries(m.by_team).map(([t, a]: any) => `${t.replace('팀', '')} ${won(a)}`).join(' · ')}</div>}
+                    {m.dup_suspect > 0 && <div className="text-[10px] text-danger leading-tight" title="물류팀 원자료가 구매팀 실적과 겹친 금액">중복의심 −{won(m.dup_suspect)}</div>}
+                  </td>
                   <td className={`${C.td} text-right tabular-nums text-info`}>{m.paid > 0 ? won(m.paid) : '-'}</td>
                   <td className={`${C.td} text-right tabular-nums text-warning font-semibold`}>{won(m.unpaid)}</td>
                 </tr>
