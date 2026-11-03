@@ -617,6 +617,33 @@ def vendor_orders(vendor: str, asof: Optional[str] = None, db: Session = Depends
     return pur.vendor_orders(db, vendor, asof=_pd(asof))
 
 
+@router.get("/records/packaging-dup-audit")
+def packaging_dup_audit(vendor: Optional[str] = None, db: Session = Depends(get_db)):
+    """물류팀 포장비 원자료 중 구매팀 실적과 겹치는 이중 계상 의심 줄(조회 전용)."""
+    return pur.packaging_dup_suspects(db, vendor=vendor)
+
+
+class PackagingDupCleanupIn(BaseModel):
+    vendor: Optional[str] = None
+    dry_run: bool = True
+
+
+@router.post("/records/packaging-dup-cleanup")
+def packaging_dup_cleanup(body: PackagingDupCleanupIn, db: Session = Depends(get_db),
+                          user: dict = Depends(get_current_user)):
+    """이중 계상 의심 원자료 줄 삭제. 기본 dry_run=True(목록만). 실행은 담당 승인 후 dry_run=False."""
+    a = pur.packaging_dup_suspects(db, vendor=body.vendor)
+    if body.dry_run or not a["rows"]:
+        return {"dry_run": True, **{k: a[k] for k in ("count", "total", "by_vendor")}}
+    ids = [r["id"] for r in a["rows"]]
+    n = db.query(pur.PurchaseRecord).filter(pur.PurchaseRecord.id.in_(ids),
+                                            pur.PurchaseRecord.source == "packaging_raw").delete(
+        synchronize_session=False)
+    db.commit()
+    return {"dry_run": False, "deleted": n, "total": a["total"], "by_vendor": a["by_vendor"],
+            "by": (user or {}).get("sub")}
+
+
 @router.get("/ap-aging")
 def ap_aging(asof: Optional[str] = None, start: Optional[str] = None, db: Session = Depends(get_db)):
     """거래처별 매입채무 잔액 + 계약 정산일 기준 aging + 정산 우선순위."""

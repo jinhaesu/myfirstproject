@@ -1541,12 +1541,27 @@ def vendor_orders(db: Session, vendor: str, asof: Optional[date] = None) -> dict
     today = asof or date.today()
     term = db.query(PurchaseVendorTerm).filter(PurchaseVendorTerm.vendor_name == vendor).first()
     rows = db.query(
-        PurchaseRecord.pdate, func.sum(PurchaseRecord.total_amount), func.count(PurchaseRecord.id)
-    ).filter(PurchaseRecord.vendor_name == vendor).group_by(PurchaseRecord.pdate).all()
-    buys = sorted([{"pdate": pd, "total": float(t or 0), "lines": int(c or 0)}
-                   for pd, t, c in rows if pd], key=lambda x: x["pdate"])
+        PurchaseRecord.pdate, PurchaseRecord.team,
+        func.sum(PurchaseRecord.total_amount), func.count(PurchaseRecord.id)
+    ).filter(PurchaseRecord.vendor_name == vendor).group_by(PurchaseRecord.pdate, PurchaseRecord.team).all()
+    by_day: dict = {}
+    team_month: dict = {}   # 월 → 담당팀별 매입(VAT포함) — 구매실적 화면(담당팀 필터)과 대사용
+    for pd, tm, t, c in rows:
+        if not pd:
+            continue
+        d = by_day.setdefault(pd, {"pdate": pd, "total": 0.0, "lines": 0})
+        d["total"] += float(t or 0); d["lines"] += int(c or 0)
+        tmm = team_month.setdefault(pd.strftime("%Y-%m"), {})
+        tk = tm or "구매팀"
+        tmm[tk] = tmm.get(tk, 0.0) + float(t or 0)
+    buys = sorted(by_day.values(), key=lambda x: x["pdate"])
     paid_total = float(db.query(func.coalesce(func.sum(PurchasePayment.amount), 0.0)).filter(
         PurchasePayment.vendor_name == vendor).scalar() or 0.0)
+    # 물류팀 포장비 원자료(packaging_raw)가 구매팀이 나눠 입력한 줄과 겹친 '중복 의심' 금액(월별)
+    dup = packaging_dup_suspects(db, vendor=vendor)
+    dup_month: dict = {}
+    for s in dup["rows"]:
+        dup_month[s["pdate"][:7]] = dup_month.get(s["pdate"][:7], 0.0) + s["total"]
 
     cur_first = today.replace(day=1)
     remaining_paid = paid_total
@@ -1592,10 +1607,86 @@ def vendor_orders(db: Session, vendor: str, asof: Optional[date] = None) -> dict
         "closed_balance": round(closed_bal),
         "current_balance": round(current_bal),
         "current_month": cur_first.strftime("%Y-%m"),
-        "months": [{"ym": k, "total": round(v["total"]), "paid": round(v["paid"]), "unpaid": round(v["unpaid"])}
+        "paid_total": round(paid_total),
+        # 월 구분 기준 = 구매실적의 '일자'(pdate). 구매실적 화면의 기간 필터와 같은 기준이다.
+        "month_basis": "실적 일자",
+        "months": [{"ym": k, "total": round(v["total"]), "paid": round(v["paid"]), "unpaid": round(v["unpaid"]),
+                    "by_team": {t: round(a) for t, a in sorted(team_month.get(k, {}).items()) if abs(a) > 0.5},
+                    "dup_suspect": round(dup_month.get(k, 0.0))}
                    for k, v in sorted(months.items(), reverse=True)],
+        "dup_suspect_total": round(dup["total"]),
+        "dup_suspect_count": dup["count"],
         "orders": out,
     }
+
+
+def _nm_key(s: Optional[str]) -> str:
+    """품목명 비교키 — ' [규격]' 꼬리 제거 + 공백 제거 (원자료는 규격 꼬리가 없거나 잘려 있음)."""
+    s = (s or "").split(" [")[0]
+    return re.sub(r"\s+", "", s)
+
+
+def _split_dup_match(raw_name: str, raw_supply: float, cands: list) -> Optional[list]:
+    """원자료 1줄이 같은 날 같은 품목으로 '나눠 입력된' 기존 줄들의 합과 같은지.
+
+    cands: [(id, item_name, supply)] — 같은 거래처·같은 일자의 기존(비 원자료) 실적.
+    품목명이 서로 앞부분 일치하는 줄들의 공급가 합이 원자료 공급가와 같으면(반올림 오차 허용) 그 id 목록을 반환.
+    (예: 구매팀이 베이글 롤지 24롤+22롤+추가분 1롤 3줄로 입력 = 물류 원자료 47롤 1줄)
+    """
+    rk = _nm_key(raw_name)
+    if not rk:
+        return None
+    hit = [(i, s) for i, n, s in cands
+           if (k := _nm_key(n)) and (k.startswith(rk) or rk.startswith(k))]
+    # 허용오차: 줄별 단가 반올림 차이(수십 원) — max(100원, 0.1%)
+    tol = max(100.0, abs(raw_supply or 0) * 0.001)
+    if hit and abs(sum(s for _, s in hit) - (raw_supply or 0)) <= tol:
+        return [i for i, _ in hit]
+    return None
+
+
+def packaging_dup_suspects(db: Session, vendor: Optional[str] = None,
+                           source: str = "packaging_raw") -> dict:
+    """물류팀 포장비 원자료(packaging_raw) 중 기존 구매실적과 '같은 날·같은 품목·같은 금액'으로
+    겹치는 줄(이중 계상 의심) 목록. 조회 전용 — 데이터는 바꾸지 않는다.
+
+    원인: 원자료는 하루·품목별 1줄 집계인데, 구매팀은 같은 입고를 여러 줄(부분입고·추가분)로
+    나눠 입력해 2026-09-10 적재 때의 (거래처,일자,공급가,수량) 단건 비교로는 못 걸렀다.
+    """
+    q = db.query(PurchaseRecord.id, PurchaseRecord.vendor_name, PurchaseRecord.pdate,
+                 PurchaseRecord.item_name, PurchaseRecord.supply_amount,
+                 PurchaseRecord.total_amount, PurchaseRecord.qty).filter(PurchaseRecord.source == source)
+    if vendor:
+        q = q.filter(PurchaseRecord.vendor_name == vendor)
+    raws = q.all()
+    if not raws:
+        return {"count": 0, "total": 0.0, "supply": 0.0, "rows": [], "by_vendor": {}}
+    vendors = {r.vendor_name for r in raws if r.vendor_name}
+    dates = {r.pdate for r in raws if r.pdate}
+    ex: dict = {}
+    for i, vn, pd, nm, sup in db.query(
+            PurchaseRecord.id, PurchaseRecord.vendor_name, PurchaseRecord.pdate,
+            PurchaseRecord.item_name, PurchaseRecord.supply_amount).filter(
+            PurchaseRecord.vendor_name.in_(vendors), PurchaseRecord.pdate.in_(dates),
+            PurchaseRecord.source != source).all():
+        ex.setdefault((vn, pd), []).append((i, nm, float(sup or 0)))
+    out, by_vendor = [], {}
+    tot = sup_t = 0.0
+    for r in raws:
+        ids = _split_dup_match(r.item_name, float(r.supply_amount or 0), ex.get((r.vendor_name, r.pdate), []))
+        if not ids:
+            continue
+        t = float(r.total_amount or 0)
+        tot += t; sup_t += float(r.supply_amount or 0)
+        bv = by_vendor.setdefault(r.vendor_name, {"count": 0, "total": 0.0})
+        bv["count"] += 1; bv["total"] += t
+        out.append({"id": r.id, "vendor": r.vendor_name, "pdate": r.pdate.isoformat(),
+                    "item_name": r.item_name, "qty": r.qty, "supply": round(float(r.supply_amount or 0)),
+                    "total": round(t), "matched_ids": ids})
+    out.sort(key=lambda x: (x["vendor"] or "", x["pdate"]))
+    return {"count": len(out), "total": round(tot), "supply": round(sup_t), "rows": out,
+            "by_vendor": {k: {"count": v["count"], "total": round(v["total"])}
+                          for k, v in sorted(by_vendor.items(), key=lambda x: -x[1]["total"])}}
 
 
 # ──────────────────────────────────────────────
@@ -1688,16 +1779,19 @@ def import_packaging_records(db: Session, rows: list[dict], team: str = "물류�
     vendors = {(r.get("vendor") or "").strip() for r in rows if r.get("vendor")}
     # 기존(비 raw) DB의 (거래처,일자,공급가round,수량round) 멀티셋 — 이미 있는 만큼만 스킵
     existing = Counter()
+    day_rows: dict = {}   # (거래처, 일자) → [(id, 품목명, 공급가)] — 나눠 입력된 줄 합계 비교용
     if dedup and vendors:
         ex = db.query(
-            PurchaseRecord.vendor_name, PurchaseRecord.pdate,
-            PurchaseRecord.supply_amount, PurchaseRecord.qty,
+            PurchaseRecord.id, PurchaseRecord.vendor_name, PurchaseRecord.pdate,
+            PurchaseRecord.item_name, PurchaseRecord.supply_amount, PurchaseRecord.qty,
         ).filter(PurchaseRecord.vendor_name.in_(vendors),
                  PurchaseRecord.source != source).all()
-        for vn, pd_, s_, q_ in ex:
+        for id_, vn, pd_, nm_, s_, q_ in ex:
             existing[(vn, pd_.isoformat() if pd_ else None, round(s_ or 0), round(q_ or 0))] += 1
+            day_rows.setdefault((vn, pd_.isoformat() if pd_ else None), []).append((id_, nm_, float(s_ or 0)))
 
     inserted = skipped_dup = zero_amt = 0
+    used_split: set = set()   # 이미 원자료 1줄과 짝지은 기존 줄(두 번 상쇄 방지)
     by_vendor = defaultdict(lambda: {"ins": 0, "dup": 0})
     for r in rows:
         vendor = (r.get("vendor") or "").strip()
@@ -1725,6 +1819,16 @@ def import_packaging_records(db: Session, rows: list[dict], team: str = "물류�
             skipped_dup += 1
             by_vendor[vendor]["dup"] += 1
             continue
+        if dedup and has_amt:
+            # 구매팀이 같은 입고를 여러 줄(부분입고·추가분)로 나눠 입력한 경우: 같은 날·같은 품목 줄의
+            # 공급가 합이 원자료 1줄과 같으면 이중 계상 → 스킵 (2026-11 다다피엔씨 58줄·1.6억 중복 원인)
+            cands = [c for c in day_rows.get((vendor, pd.isoformat()), []) if c[0] not in used_split]
+            ids = _split_dup_match(iname, supply, cands)
+            if ids:
+                used_split.update(ids)
+                skipped_dup += 1
+                by_vendor[vendor]["dup"] += 1
+                continue
 
         _spec, _kgpu = parse_spec(iname)
         note = "포장비raw" + ("" if has_amt else " · 원자료 금액미기재")
