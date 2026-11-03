@@ -1163,7 +1163,7 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
           <div className="mb-4">
             <div className="text-sm font-semibold text-text-primary mb-1">월별 미지급 <span className="text-xs text-text-quaternary font-normal">(월 = 구매실적 &apos;일자&apos; 기준 · 구매팀+물류팀 합산 · VAT포함)</span></div>
             <div className="text-[11px] text-text-tertiary leading-relaxed mb-2 rounded-lg border border-border-primary px-3 py-2">
-              <b className="text-text-secondary">지급 배정</b> = 지금까지 기록한 지급 총액({won(orders.paid_total || 0)})을 <b>가장 오래된 실적부터 차례로</b> 채웠을 때 그 달 몫으로 돌아간 금액입니다.
+              <b className="text-text-secondary">지급 배정</b> = 지금까지 기록한 지급 총액{orders.paid_total != null ? `(${won(orders.paid_total)})` : ''}을 <b>가장 오래된 실적부터 차례로</b> 채웠을 때 그 달 몫으로 돌아간 금액입니다.
               지급 메모에 &quot;8월분&quot;이라고 적어도 그 달에 붙지 않고, 앞선 달에 덜 갚은 금액(중복 입력 포함)이 있으면 그쪽부터 메워집니다.
               구매실적 화면과 맞춰 볼 때는 같은 기간·<b>담당팀 &apos;전체&apos;</b>로 놓고 보세요.
             </div>
