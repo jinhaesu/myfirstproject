@@ -8,6 +8,15 @@
        상품명, 매출수량, 매출금액, 순매출수량, 순매출금액 (고객판매금액),
        반품수량, 반품금액, 협력사지급액
 
+매출 기준(직송주문 포맷 A, 기준변경요청서 #89 2026-11 임현정 — 2025-01-01분부터):
+  순매출 = AV열[고객결제액] (취소 제외, ÷1.1은 ingest에서 — VAT_INCLUDED_CHANNELS 'GS 샵').
+  AW열[협력사지급금액]은 settlement_amount 참고 보존, AU열[판매가]는 gross 참고값.
+  매출 기준일 = K열[주문일자], 취소 = B열[상태]='주문취소'(취소·반품 포함 판정 유지).
+  교환주문(주문유형)은 정상 매출로 포함 — 담당자 정답에 포함돼 있음.
+  고객결제액 컬럼이 없는 구버전 원본은 종전대로 협력사지급금액 기준.
+  11월 샘플(주문배송관리 2026-11-01~04, 246행·주문취소 5·교환주문 2):
+    고객결제액 합 4,272,080(÷1.1 = 3,883,709) = 담당자 정답 4,272,080 일치.
+
 원본이 HTML이라 read_html이 경로를 직접 받으면 인코딩 깨짐 → 파일을 str로 읽고 StringIO 전달.
 
 낱개수량(2026-07 기준변경요청서, 임현정) — 직송주문 포맷(A)에만 적용:
@@ -140,12 +149,23 @@ def parse(path: str) -> Iterable[ParsedLine]:
             qty = to_float(_pick(row, "수량") or 0)
             # gross: 판매가 (라인별 정가 총액)
             gross = to_float(_pick(row, "판매가격", "판매가") or 0)
-            # 매출(net) = V열 협력사지급금액 (당사 수령액)  ← 사용자 지정(2026-06-05)
-            net = to_float(
-                _pick(row, "협력사지급금액", "협력사 지급금액", "협력사지급액", "고객결제액") or gross
-            )
-            if not gross:
-                gross = net
+            settle = to_float(_pick(row, "협력사지급금액", "협력사 지급금액", "협력사지급액") or 0)
+            if "고객결제액" in cols:
+                # 매출(net) = AV열[고객결제액]  ← 기준변경요청서 #89(2026-11 임현정, 2025-01-01분부터).
+                # AW열[협력사지급금액]은 settlement_amount로 참고 보존, AU열[판매가]는 gross 참고값.
+                # 고객결제액이 0이면 gross도 0으로 맞춘다 — 적재 시 'net or gross' 폴백으로
+                # 판매가가 매출로 잡히는 것 방지(수량은 유지).
+                net = to_float(row.get("고객결제액"))
+                if not net:
+                    gross = 0.0
+            else:
+                # 고객결제액 컬럼이 없는 구버전 원본: 종전 기준 유지
+                # 매출(net) = V열 협력사지급금액 (당사 수령액)  ← 사용자 지정(2026-06-05)
+                net = to_float(
+                    _pick(row, "협력사지급금액", "협력사 지급금액", "협력사지급액") or gross
+                )
+                if not gross:
+                    gross = net
             # 일자: '주문매출실적_상세' 양식은 원주문일자/접수일자/출고완료일을 사용
             # (주문일자/출하지시일자 컬럼 없음 → 과거엔 파일명/today로 잘못 잡혀 당월 미표시).
             sale_d = (
@@ -169,6 +189,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
                 _pick(row, "순매출금액 (고객판매금액)", "순매출금액(고객판매금액)", "매출금액") or 0
             )
             net = to_float(_pick(row, "협력사지급액") or gross)
+            settle = 0.0  # 매출집계(구) 포맷 — 종전대로 정산액 미적재
             sale_d = file_date or date.today()
             line_no = f"{to_str(_pick(row, '상품코드', '상품상세코드')) or ''}-{_idx}"
             order_no = None
@@ -188,6 +209,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
             raw_qty=qty,
             gross_amount=0 if is_cancel else gross,
             net_amount=0 if is_cancel else net,
+            settlement_amount=0 if is_cancel else settle,
             refund_amount=net if is_cancel else 0,
             is_cancelled=is_cancel,
             unit_per_set=unit_per_set,

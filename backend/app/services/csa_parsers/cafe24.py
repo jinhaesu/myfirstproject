@@ -1,53 +1,125 @@
 """카페24 (자사몰) 파서.
 
-실제 컬럼 기준 (openpyxl):
-  날짜  : 결제일시(입금확인일)  — datetime64, F(환불) 행은 NaT (구양식)
-         신양식(AN열 존재)은 K열[주문일시] 기준 (기준변경요청서 2026-07, 김재경)
-  필터  : 결제구분 == 'T'  (F = 취소/환불 행, 제외) — 구양식
-  주문번호: 주문번호
-  상품번호: 상품품목코드 (SKU 수준), fallback 상품코드 / 상품번호
-  상품명 : 상품명(한국어 쇼핑몰)  fallback 상품명
-  옵션  : 상품옵션
-  수량  : 수량  (int64)
-  gross : 상품구매금액(KRW)  (int64, 이미 숫자)
-  net   : 상품구매금액(KRW) 그대로 사용
-         ('품목별 결제금액' 컬럼은 전부 NaN)
+기준변경요청서 #83 (MD 김재경, 2025-01-01 적용분부터 전 기간 동일 적용)
+──────────────────────────────────────────────────────────────────────
+  ① 순매출 = 주문번호별 [총 실결제금액(최초정보)] ÷ 1.1  (매월 일관 적용)
+     · 이 금액은 '주문 단위' 값이 품목 행마다 반복 기재돼 있다 → 행 단순합산 금지.
+       주문당 1회만 집계하고, 그 주문의 살아있는(비취소) 품목 행에
+       (상품구매금액 − 상품별 추가할인금액) 비율로 안분한다(행 합계 = 주문 금액, 원 단위 오차 없음).
+       → 품목별 매출 분석이 가능하면서 채널 합계는 주문 금액 합과 정확히 일치.
+     · ÷1.1은 이 파서에서 직접 적용한다. 카페24/자사몰은 csa_service.VAT_INCLUDED_CHANNELS에
+       없으므로(2026-06-15 제외) ingest에서 추가 환산되지 않는다 — 이중 환산 없음.
+       ※ '월마다 ÷1.1이 섞인' 원인: 2026-05-19 커밋(94c2b1f)에서 카페24/자사몰을
+         VAT_INCLUDED_CHANNELS에 넣었다가 2026-06-15 커밋(db108a9)에서 뺐다. 환산은
+         ingest 시점에 raw_lines에 '구워져' 저장되므로, 그 사이(5/19~6/15)에 올린 배치는
+         ÷1.1, 그 전·후에 올린 배치는 미환산 — 판매월이 아니라 '업로드 시점'에 따라 섞였다.
+  ② 취소 처리 (AN열[취소구분])
+     · '취소' 행 → 취소 행(is_cancelled, 매출·낱개 미반영). '부분취소'는 정상 행으로 집계
+       (최초 실결제금액에 포함돼 있고 MD 정답표도 포함 — 2026-11 확인).
+     · 주문의 모든 행이 취소 → 완전취소 주문: 주문수·매출 모두 제외.
+       하나라도 '취소안함'이면 정상 주문: 취소 행만 빼고, 주문 실결제금액은 남은 행에 안분.
+     · 구양식(AN열 없음, 2026-06-12 이전 보관본)은 B열[결제구분]=='F' 행을 취소로 본다.
+  ③ 낱개 = 입수 × I열[수량]  (ParsedLine.unit_per_set 으로 직접 지정)
+     입수 결정 순서:
+       0) 상품코드(AK) 매핑표 cafe24_units.CAFE24_UNITS_BY_CODE (MD 정답표 182종) — 최우선
+       1) 옵션(AM)에 '총 N개/구/봉' → N
+       2) 옵션을 '+'·','로 나눠 조각마다 N(개입·개·구·봉·ea·캔·병) × M(박스·box, 기본 1) 합산
+          ('선택 안함' 조각은 숫자가 없어 자연히 0). 1+1·증정 조각도 포함.
+       3) 옵션에 단위가 없으면 F열[상품명]을 같은 규칙으로
+       4) 적립금·쇼핑백 → 0
+     표에 있는 코드에서 규칙으로도 못 찾으면 0(정답표 기준), 표에 없는 코드에서
+     못 찾으면 None → 기존 ChannelProductMapping 입수값을 따른다.
+     ⚠ csa_service는 다중매핑(ChannelProductMappingComponent)이 걸린 상품이면 파서의
+       unit_per_set을 쓰지 않고 컴포넌트 입수로 분할한다(공유 로직).
+  ④ 주문건수 = 주문번호 고유값(완전취소 제외) — routes/csa.py _DISTINCT_ORDER_CHANNELS가
+     비취소 행의 주문번호를 센다. 완전취소 주문은 모든 행이 is_cancelled라 자동 제외.
+  ⑤ 공동구매 구분: 매핑표의 공동구매 플래그, 표에 없으면 상품명 '[OOX널담]' 패턴.
+     raw_row["판매구분"]에 '공동구매'/'자사몰'로 남긴다(ParsedLine에 전용 필드 없음).
 
-신양식(2026-06-12~ 파일부터 AN열[취소구분] 추가) 기준변경 반영 (2026-07, 김재경 MD):
-  ① 순매출 = Σ( T열[판매가] − AI열[상품별 추가할인금액] )
-     · AN열[취소구분] == '취소' 행만 제외. '취소안함' / '부분취소' 행은 그대로 포함
-       (부분취소도 전액 반영 — 쿠폰할인·적립금·'총 실제 환불금액'은 차감하지 않음).
-     · 판매가(T)는 이미 공급가(부가세 별도) — csa_service.VAT_INCLUDED_CHANNELS에서
-       카페24/자사몰이 제외되어 있어(2026-06-12 검수) 여기서 추가로 ÷1.1 하지 않는다.
-       (검증: 2026-06 Σ(T-AI) = 203,773,280원, 웹 노출값과 정확히 일치)
-  ② 낱개수량: 상품코드(AK, 196종)별 '기준 낱개 입수' 매핑표가 아직 없어 이 파서는
-     unit_per_set을 지정하지 않는다(None 유지) → csa_service.resolve_product의
-     ChannelProductMapping/ChannelProductMappingComponent 매핑을 그대로 따른다.
-     ⚠ 콜라보 증정품(콩단백 너겟·후무스 등, 펄스랩 세트 등)의 낱개 포함 여부는
-       scripts/fix_units_manual_overrides.py에 이미 확정된 매핑으로 등록되어 있음
-       — 파서에서 unit_per_set을 설정하면(ParsedLine.unit_per_set이 매핑값보다
-       우선) 이 확정 로직을 깨뜨리므로 절대 지정하지 않는다. 196종 매핑표 확정 시
-       이 매핑 테이블에 반영할 것(파서 변경 불필요).
-  ③ 행수(주문건수) = J열[주문번호] 고유값. 파서는 주문번호(order_no)와 행별
-     is_cancelled만 정확히 방출하고, '완전취소 주문'(같은 주문번호의 모든 행이
-     취소) 판별·집계는 리포팅 레이어(주문 단위 group-by) 책임.
-  ④ 취소구분(AN) 판별: 정확히 '취소' 문자열인 행만 취소. '부분취소'는 신규
-     기준에서 정상 취급(구양식 로직과 달라진 부분 — 예전엔 "취소" in flag 로
-     부분취소도 취소 처리했으나 신규 요청서로 교정).
-
-구버전 호환: AN열[취소구분]이 없는 원본(2026-06-12 이전 보관분)은 기존 로직
-  (결제구분 F=취소, 판매가−추가할인−총실제환불금액, 결제일시 우선 날짜) 그대로 유지.
+  날짜: K열[주문일시] (결제일시는 취소 행에서 NaT가 흔함).
 """
 from __future__ import annotations
 
-import pandas as pd
-from typing import Iterable
+import re
+from typing import Iterable, Optional
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
 from app.services.csa_parsers._common import (
-    read_excel_safe, to_date, to_datetime, to_float, to_str,
+    read_excel_safe, to_datetime, to_float, to_str,
 )
+from app.services.csa_parsers.cafe24_units import CAFE24_UNITS_BY_CODE
+
+_VAT = 1.1
+
+# '총 16개', '총 24구', '총 9봉'
+_TOTAL_RE = re.compile(r"총\s*(\d+)\s*(개입|개|구|봉|캔|병|ea)", re.I)
+# 조각별 낱개 단위: 8개입 / 7개 / 8구 / 5봉 / 4ea / 24캔 / 3병
+_UNIT_RE = re.compile(r"(\d+)\s*(개입|개|구|봉|캔|병|ea)", re.I)
+# 박스 수: 2박스 / 2BOX / 2box
+_BOX_RE = re.compile(r"(\d+)\s*(박스|box)", re.I)
+# 낱개 집계 제외 품목
+_NON_PRODUCT_RE = re.compile(r"적립금|쇼핑백")
+# 공동구매 상품명 패턴: [신여성X널담], [다쿵x널담], [28기 현숙X널담] …
+_GROUP_BUY_RE = re.compile(r"\[[^\]]*[xX]\s*널담")
+
+
+def _units_in_text(text: Optional[str]) -> Optional[int]:
+    """한 텍스트(옵션 또는 상품명)에서 세트당 낱개 수. 단위를 못 찾으면 None."""
+    if not text:
+        return None
+    m = _TOTAL_RE.search(text)
+    if m:
+        return int(m.group(1))
+    total = 0
+    found = False
+    for piece in re.split(r"[+,]", text):
+        u = _UNIT_RE.search(piece)
+        if not u:
+            continue
+        found = True
+        # 박스 수는 단위 뒤쪽을 먼저 보고(8구 2박스), 없으면 조각 전체에서
+        b = _BOX_RE.search(piece[u.end():]) or _BOX_RE.search(piece)
+        total += int(u.group(1)) * (int(b.group(1)) if b else 1)
+    return total if found else None
+
+
+def _units_by_rule(prod_name: Optional[str], option: Optional[str]) -> Optional[int]:
+    """#83 규칙 1)~4) — 옵션 우선, 없으면 상품명."""
+    if _NON_PRODUCT_RE.search(prod_name or ""):
+        return 0
+    v = _units_in_text(option)
+    if v is None:
+        v = _units_in_text(prod_name)
+    return v
+
+
+def units_per_set(code: Optional[str], prod_name: Optional[str], option: Optional[str]) -> Optional[int]:
+    """상품코드 매핑표 우선, 없으면 규칙. None이면 매핑 테이블 입수값에 맡김."""
+    if code and code in CAFE24_UNITS_BY_CODE:
+        fixed, _gb = CAFE24_UNITS_BY_CODE[code]
+        if fixed is not None:
+            return fixed
+        v = _units_by_rule(prod_name, option)
+        return v if v is not None else 0
+    return _units_by_rule(prod_name, option)
+
+
+def is_group_buy(code: Optional[str], prod_name: Optional[str]) -> bool:
+    """공동구매 상품 여부 — 매핑표 플래그 우선, 없으면 상품명 패턴."""
+    if code and code in CAFE24_UNITS_BY_CODE:
+        return CAFE24_UNITS_BY_CODE[code][1]
+    return bool(_GROUP_BUY_RE.search(prod_name or ""))
+
+
+def _order_total(row) -> float:
+    """주문 단위 총 실결제금액(최초정보). 컬럼명 변형 대비."""
+    for col in ("총 실결제금액(최초정보) (KRW)", "총 실결제금액(최초정보)", "총 실결제금액"):
+        if col in row.index:
+            v = row.get(col)
+            if v is not None and str(v) != "nan":
+                return to_float(v)
+    return 0.0
 
 
 @register("자사몰")
@@ -55,120 +127,131 @@ from app.services.csa_parsers._common import (
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
 
-    # 신양식 판별: AN열[취소구분] 존재 여부 (한 번만 계산 — 행마다 재판정하지 않음).
-    # 구버전 보관 원본엔 이 컬럼이 없으므로, 없으면 기존(구양식) 로직으로 폴백한다.
+    # 신양식 판별: AN열[취소구분] 존재 여부. 없으면 결제구분 F 로 취소 판별(구양식).
     has_cancel_col = "취소구분" in df.columns
+
+    # ── 1패스: 행 정리 + 주문별 묶기 ─────────────────────────────────────
+    rows: list[dict] = []
+    seq: dict = {}
+
+    def _seq_line_no(order_no, sku: str) -> str:
+        k = (order_no, sku)
+        n = seq.get(k, 0)
+        seq[k] = n + 1
+        return f"{sku}-{n}"
 
     for _idx, (_, row) in enumerate(df.iterrows()):
         prod_name = to_str(row.get("상품명(한국어 쇼핑몰)") or row.get("상품명"))
         if not prod_name:
             continue
-
-        qty = to_float(row.get("수량") or 1)
-
-        # line_no: 상품품목코드(SKU) > 상품코드 > 상품번호 + 행 시퀀스
-        #   (같은 주문에 동일 SKU·금액 행 중복 시 dedup 탈락 방지)
-        line_no = (
-            to_str(row.get("상품품목코드"))
-            or to_str(row.get("상품코드"))
-            or to_str(row.get("상품번호"))
-            or ""
-        ) + f"-{_idx}"
-
-        if has_cancel_col:
-            # ── 신양식 (AN열[취소구분] 존재) ─────────────────────────────
-            # 정확히 '취소'인 행만 제외. '취소안함'·'부분취소'는 매출에 포함.
-            cancel_flag = to_str(row.get("취소구분"))
-            is_cancel = cancel_flag == "취소"
-
-            # 기간 필터 기준 = 주문일시(K열). 결제일시는 취소 행에서 NaT가 흔해
-            # 신양식에서는 더 이상 우선 사용하지 않는다(기준변경요청서 2026-07).
-            sale_dt = to_datetime(row.get("주문일시") or row.get("결제일시(입금확인일)"))
-            if not sale_dt:
-                continue
-
-            gross = to_float(row.get("판매가"))
-            extra_discount = to_float(row.get("상품별 추가할인금액") or 0)
-            net = gross - extra_discount
-
-            if is_cancel:
-                yield ParsedLine(
-                    sale_date=sale_dt.date(),
-                    sale_datetime=sale_dt,
-                    order_no=to_str(row.get("주문번호")),
-                    line_no=line_no,
-                    raw_product_name=prod_name,
-                    raw_option_name=to_str(row.get("상품옵션")),
-                    raw_qty=qty,
-                    gross_amount=0,
-                    net_amount=0,
-                    refund_amount=net,
-                    is_cancelled=True,
-                )
-            else:
-                yield ParsedLine(
-                    sale_date=sale_dt.date(),
-                    sale_datetime=sale_dt,
-                    order_no=to_str(row.get("주문번호")),
-                    line_no=line_no,
-                    raw_product_name=prod_name,
-                    raw_option_name=to_str(row.get("상품옵션")),
-                    raw_qty=qty,
-                    gross_amount=gross,
-                    net_amount=net,
-                )
-            continue
-
-        # ── 구양식 (AN열 없음) — 기존 로직 그대로 (검수 2026-06-12) ─────────
-        pay_type = to_str(row.get("결제구분"))
-        is_cancel = bool(pay_type and pay_type.upper() == "F")
-
-        # 날짜: 결제일시(입금확인일) 우선, 없으면 주문일시 fallback.
-        # (취소 행은 결제일시가 NaT인 경우가 많아 주문일시로 잡힘)
-        # NaT(pd.NaT)는 bool 평가 불가 → pd.isna 체크
-        dt_val = row.get("결제일시(입금확인일)")
-        if dt_val is None or (hasattr(dt_val, '__class__') and pd.isna(dt_val)):
-            dt_val = row.get("주문일시")
-
-        sale_dt = to_datetime(dt_val)
+        sale_dt = to_datetime(row.get("주문일시") or row.get("결제일시(입금확인일)"))
         if not sale_dt:
             continue
 
-        # gross: 판매가 (정가, 할인 전)
-        gross = to_float(
-            row.get("판매가")
-            or row.get("상품구매금액(KRW)")
-        )
-        # 매출 = 판매가 − 상품별 추가할인금액 − 총 실제 환불금액
-        #   (부분환불 반영. 취소안함 행이라도 부분환불분은 매출에서 차감 — 검수 2026-06-12)
-        extra_discount = to_float(row.get("상품별 추가할인금액") or 0)
-        refund_amt = to_float(row.get("총 실제 환불금액") or 0)
-        net = gross - extra_discount - refund_amt
+        if has_cancel_col:
+            # '취소' = 행 취소 → 제외. '부분취소'는 정상 행으로 둔다 — 매출 기준인
+            # [총 실결제금액(최초정보)]에 이미 그 품목 금액이 들어 있고, MD 정답표(8월 낱개
+            # 150,695)도 부분취소 14행을 포함해 셌다(제외하면 −94).
+            is_cancel = to_str(row.get("취소구분")) == "취소"
+        else:
+            pay_type = to_str(row.get("결제구분"))
+            is_cancel = bool(pay_type and pay_type.upper() == "F")
+            # 구양식엔 AN열이 없어 결제구분 T로 남은 취소 행을 못 가린다 →
+            # 최초 실결제 > 0 인데 현재 [총 결제금액] == 0 이면 주문 전체 취소로 본다.
+            # (2026-08 신양식 검증: 완전취소 637건 모두 총 결제금액 0, 정상 주문은 0 아님)
+            if not is_cancel and "총 결제금액(KRW)" in row.index:
+                if _order_total(row) > 0 and to_float(row.get("총 결제금액(KRW)") or 0) == 0:
+                    is_cancel = True
 
-        if is_cancel:
-            # 취소/환불 확정: 매출엔 0으로 잡고 refund_amount에 취소금액 기록
+        code = to_str(row.get("상품코드")) or None
+        option = to_str(row.get("상품옵션"))
+        line_amt = to_float(row.get("상품구매금액(KRW)") or row.get("판매가") or 0)
+        extra_discount = to_float(row.get("상품별 추가할인금액") or 0)
+
+        rows.append({
+            "order_no": to_str(row.get("주문번호")),
+            # line_no: 상품품목코드(SKU) > 상품코드 > 상품번호 + 같은 주문·SKU 안의 순번.
+            #   (같은 주문에 동일 SKU 행 중복 시 dedup 탈락 방지. 파일 행 번호를 쓰면
+            #    같은 달을 다시 받은 파일에서 키가 달라져 이중 적재됨 — 8월 주문 +87)
+            "line_no": _seq_line_no(
+                to_str(row.get("주문번호")),
+                to_str(row.get("상품품목코드")) or code or to_str(row.get("상품번호")) or "",
+            ),
+            "sale_dt": sale_dt,
+            "prod_name": prod_name,
+            "option": option,
+            "code": code,
+            "qty": to_float(row.get("수량") or 1),
+            "line_amt": line_amt,
+            "weight": max(line_amt - extra_discount, 0.0),
+            "order_total": _order_total(row),
+            "is_cancel": is_cancel,
+        })
+
+    # 주문별: 살아있는 행 목록 + 주문 실결제금액(주문 단위 값 — 첫 행 값 1회만)
+    order_live: dict[str, list[int]] = {}
+    order_total: dict[str, float] = {}
+    for i, r in enumerate(rows):
+        key = r["order_no"] or f"__row{i}"
+        r["_key"] = key
+        order_total.setdefault(key, r["order_total"])
+        if not r["is_cancel"]:
+            order_live.setdefault(key, []).append(i)
+
+    # ── 주문 실결제금액 → 살아있는 행에 안분 (÷1.1) ─────────────────────
+    #   완전취소 주문은 order_live에 없음 → 매출 0, 모든 행 취소로 방출.
+    alloc: dict[int, float] = {}
+    for key, idxs in order_live.items():
+        total = order_total.get(key, 0.0) / _VAT
+        weights = [rows[i]["weight"] for i in idxs]
+        wsum = sum(weights)
+        if wsum <= 0:
+            weights = [1.0] * len(idxs)
+            wsum = float(len(idxs))
+        acc = 0.0
+        for n, i in enumerate(idxs):
+            if n == len(idxs) - 1:
+                alloc[i] = total - acc  # 마지막 행이 잔여분 흡수 → 주문 합계 정확히 일치
+            else:
+                share = total * weights[n] / wsum
+                alloc[i] = share
+                acc += share
+
+    # ── 2패스: ParsedLine 방출 ──────────────────────────────────────────
+    for i, r in enumerate(rows):
+        group_buy = is_group_buy(r["code"], r["prod_name"])
+        raw_row = {"판매구분": "공동구매" if group_buy else "자사몰", "상품코드": r["code"]}
+
+        if r["is_cancel"]:
             yield ParsedLine(
-                sale_date=sale_dt.date(),
-                sale_datetime=sale_dt,
-                order_no=to_str(row.get("주문번호")),
-                line_no=line_no,
-                raw_product_name=prod_name,
-                raw_option_name=to_str(row.get("상품옵션")),
-                raw_qty=qty,
+                sale_date=r["sale_dt"].date(),
+                sale_datetime=r["sale_dt"],
+                order_no=r["order_no"],
+                line_no=r["line_no"],
+                raw_product_name=r["prod_name"],
+                raw_option_name=r["option"],
+                raw_qty=r["qty"],
                 gross_amount=0,
                 net_amount=0,
-                refund_amount=net,
+                refund_amount=r["weight"] / _VAT,
                 is_cancelled=True,
+                raw_row=raw_row,
             )
-        else:
-            yield ParsedLine(
-                sale_date=sale_dt.date(),
-                sale_datetime=sale_dt,
-                order_no=to_str(row.get("주문번호")),
-                line_no=line_no,
-                raw_product_name=prod_name,
-                raw_option_name=to_str(row.get("상품옵션")),
-                raw_qty=qty,
-                gross_amount=gross,
-                net_amount=net,
-            )
+            continue
+
+        net = alloc.get(i, 0.0)
+        # ingest는 net이 0이면 gross로 대체하므로(net or gross), 안분액 0인 행은 gross도 0.
+        gross = r["line_amt"] / _VAT if net else 0.0
+        yield ParsedLine(
+            sale_date=r["sale_dt"].date(),
+            sale_datetime=r["sale_dt"],
+            order_no=r["order_no"],
+            line_no=r["line_no"],
+            raw_product_name=r["prod_name"],
+            raw_option_name=r["option"],
+            raw_qty=r["qty"],
+            gross_amount=gross,
+            net_amount=net,
+            unit_per_set=units_per_set(r["code"], r["prod_name"], r["option"]),
+            raw_row=raw_row,
+        )

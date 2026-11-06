@@ -176,10 +176,24 @@ VAT_INCLUDED_CHANNELS: set[str] = {
 }
 
 
-def is_vat_included(channel_name: Optional[str]) -> bool:
+# VAT 포함 채널이지만 특정일 이후 원천이 공급가로 바뀐 채널 — 그 날짜 이후 매출은 ÷1.1 하지 않음.
+# 롯데홈쇼핑(2026-11 폼 #86 남윤주): 어드민 개편 후 판매금액(J)이 이미 공급가(VAT 별도) 행 합계.
+VAT_EXCLUDED_FROM: dict[str, date] = {
+    "롯데 홈쇼핑": date(2026, 10, 1),
+    "롯데홈쇼핑": date(2026, 10, 1),
+}
+
+
+def is_vat_included(channel_name: Optional[str], sale_date: Optional[date] = None) -> bool:
     if not channel_name:
         return False
-    return channel_name.strip() in VAT_INCLUDED_CHANNELS
+    n = channel_name.strip()
+    if n not in VAT_INCLUDED_CHANNELS:
+        return False
+    cut = VAT_EXCLUDED_FROM.get(n)
+    if isinstance(sale_date, datetime):
+        sale_date = sale_date.date()
+    return not (cut and sale_date and sale_date >= cut)
 
 
 # '월 누적 스냅샷'으로 데이터를 주는 채널 — 한 달치를 조회시점까지 누적해 내려주므로,
@@ -680,7 +694,7 @@ def ingest_lines(
             _ro = (ln.raw_option_name or "").strip() if ln.raw_option_name else None
             comps = multi_cache.get((_rn, _ro)) or multi_cache.get((_rn, None))
         if comps:
-            if is_vat_included(channel_name):
+            if is_vat_included(channel_name, ln.sale_date):
                 base_gross = ln.gross_amount * _VAT_EXCL_FACTOR
                 base_net = (ln.net_amount or ln.gross_amount) * _VAT_EXCL_FACTOR
             else:
@@ -758,7 +772,7 @@ def ingest_lines(
         # 모두 공급가(÷1.1)로 환산해 적재한다 — 사용자 정책(2026-06-05).
         # (이미 공급가로 들어오는 채널: 컬리 공급가액, GS25 납품금액, 에이블리 결제액 등은
         #  애초에 VAT_INCLUDED_CHANNELS에서 제외돼 있어 환산하지 않음.)
-        if is_vat_included(channel_name):
+        if is_vat_included(channel_name, ln.sale_date):
             adj_gross = ln.gross_amount * _VAT_EXCL_FACTOR
             adj_net = (ln.net_amount or ln.gross_amount) * _VAT_EXCL_FACTOR
         else:

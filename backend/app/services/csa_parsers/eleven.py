@@ -17,6 +17,15 @@ net_amount   = 주문금액 − 판매자기본할인금액 − 판매자추가�
   ※ 적용 시작일 2026-08-01(주문일시 기준). 그 이전 주문은 기존대로 정산예정금액
     (11번가 수수료 차감 후 금액)을 유지해 과거 월 매출이 움직이지 않게 한다.
 
+기준변경요청 폼 #85 (남윤주 MD, 2026-10-01~) — 「신)판매완료 내역」(구매확정분만, 취소 없음):
+  - 월 귀속·sale_date = 결제일시[C] (종전: 주문일시 우선)
+  - 2026-10-01 ~ 10-31 결제분: 순매출 = 주문금액[AI] − 판매자기본할인[AJ] − 판매자추가할인[AO]
+    (복수구매할인[AP]은 차감하지 않음)
+  - 2026-11-01 ~ 결제분: 순매출 = AI − AJ − AO − 복수구매할인[AP]
+  - 2026-08-01 ~ 09-30: 기존(폼 #79) 그대로 — 주문일시 기준, 할인 3종 차감
+  - 주문건수 = 주문번호[H] 고유값(라우트 _DISTINCT_ORDER_CHANNELS에 11번가 등록됨)
+  - VAT 포함가 → ÷1.1은 ingest 공통 로직(VAT_INCLUDED_CHANNELS)에서 처리
+
 line_no = 주문상세번호 (주문 내 상품 순번 1,2,3… — 행 위치와 무관, 주문 내 고유).
   '번호' 컬럼은 파일 내 행 순번이라 조회 기간이 바뀌면 달라지므로 사용 금지.
 
@@ -34,6 +43,10 @@ from app.services.csa_parsers._common import read_excel_safe, to_datetime, to_fl
 
 # 순매출 신규 산식(주문금액 − 판매자 부담 할인 3종) 적용 시작일 — 폼 #79
 _NET_RULE_FROM = date(2026, 8, 1)
+# 폼 #85: 결제일시 기준 귀속 + 복수구매할인 미차감 시작일(결제일시 기준)
+_PAY_RULE_FROM = date(2026, 10, 1)
+# 폼 #85: 복수구매할인(AP) 차감 재개일(결제일시 기준)
+_BULK_DISC_FROM = date(2026, 11, 1)
 
 
 def _find_header_row(df: pd.DataFrame) -> int | None:
@@ -57,8 +70,17 @@ def parse(path: str) -> Iterable[ParsedLine]:
     df.columns = [str(c).strip() if pd.notna(c) else "" for c in raw.iloc[header_row].tolist()]
 
     for _, row in df.iterrows():
-        # 주문일시 우선, 없으면 결제일시
-        sale_dt = to_datetime(row.get("주문일시")) or to_datetime(row.get("결제일시"))
+        order_dt = to_datetime(row.get("주문일시"))
+        pay_dt = to_datetime(row.get("결제일시"))
+        if pay_dt and pay_dt.date() >= _PAY_RULE_FROM:
+            # 폼 #85: 결제일시로 월 귀속. 결제일시 셀은 날짜만 오는 경우가 많아
+            # 같은 날 주문일시가 있으면 그 시각을 sale_datetime으로 사용
+            sale_dt = order_dt if (order_dt and order_dt.date() == pay_dt.date()) else pay_dt
+            pay_rule = True
+        else:
+            # 2026-09 이전: 주문일시 우선, 없으면 결제일시 (기존 동작 유지)
+            sale_dt = order_dt or pay_dt
+            pay_rule = False
         if not sale_dt:
             continue
 
@@ -76,7 +98,16 @@ def parse(path: str) -> Iterable[ParsedLine]:
             gross = unit_price * qty
 
         settle = to_float(row.get("정산예정금액"))
-        if sale_dt.date() >= _NET_RULE_FROM:
+        if pay_rule:
+            # 폼 #85: 판매자 기본·추가할인 차감, 복수구매할인은 11/1 결제분부터 차감
+            net = (
+                gross
+                - to_float(row.get("판매자기본할인금액"))
+                - to_float(row.get("판매자추가할인금액"))
+            )
+            if sale_dt.date() >= _BULK_DISC_FROM:
+                net -= to_float(row.get("복수구매할인금액"))
+        elif sale_dt.date() >= _NET_RULE_FROM:
             # 판매자 부담 할인(즉시할인·할인쿠폰·복수구매할인) 차감 — 수수료는 차감하지 않음
             net = (
                 gross
