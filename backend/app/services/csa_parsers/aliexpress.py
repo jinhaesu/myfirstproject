@@ -17,6 +17,17 @@
     주문 동결 등)는 매출도 취소도 아니므로 행 자체를 스킵 — 나중 파일에서 '완료'로 바뀌면 그때 적재.
   - 일자 기준(주문시간)·금액(주문 금액, 2026-08 파일에선 O열)·낱개수량 로직은 그대로.
     컬럼은 문자(열 위치)가 아니라 헤더명으로 찾는다(8월 파일부터 C열이 추가돼 한 칸씩 밀림).
+
+2026-11 변경 요청(폼 #82 — 적용 시작일 2026-08-01 / 폼 #84 — 적용 시작일 2026-10-01, 남윤주) 반영:
+  - #82(08-01~): 유효 매출 상태를 '완료' 단독 → {완료, 배송(운송 중), 미배송} 으로 확대.
+    매출 = O열[주문 금액](₩·쉼표·공백 제거), 일자 = F열[주문시간]. '주문 종료'는 취소(#77 유지),
+    '결제 대기' 등 그 외 상태는 매출도 취소도 아니므로 스킵.
+    (정답: 9월 736건 / 11,987,318원 = O열 VAT 포함 합계, ÷1.1 전 금액)
+  - #84(10-01~): 같은 상태 규칙 + 낱개수량 = X열[제품 코드] '<SKU> * N'의 N × 입수.
+    한 주문(행)에 X열 코드가 ';'로 여러 개(=【1】【2】… 복수 상품)면 상품별 ParsedLine으로 분해한다.
+    주문건수 = A열 주문 ID 고유값 → 분해 라인 중 첫 라인만 주문번호 유지.
+    (정답: 10월 매출 281건 / O열 ₩4,991,628(VAT 제외 ₩4,537,844), 취소 86건 ₩1,777,047,
+     결제 대기 2건 ₩34,500 제외, 파일 369행)
 """
 from __future__ import annotations
 import re
@@ -122,8 +133,48 @@ _CANCEL_STATUSES = {"주문종료", "주문동결"}
 #   '완료'만 유효 매출, '주문 종료'만 취소, 그 외 상태(결제 대기·배송 중·주문 동결 등)는 행 스킵.
 #   이전 주문은 폼 #49 기준 그대로(검증 끝난 월이 움직이지 않도록).
 _COMPLETED_ONLY_FROM = date(2026, 8, 1)
-_VALID_STATUSES_V2 = {"완료"}
+# 폼 #82(2026-11, 남윤주 — 적용 시작일 2026-08-01): '완료'만 → 완료·배송(운송 중)·미배송 전부 유효 매출.
+#   (상태 키는 공백 제거 후 비교 — '배송(운송 중)' → '배송(운송중)')
+_VALID_STATUSES_V2 = {"완료", "배송(운송중)", "배송중", "미배송"}
 _CANCEL_STATUSES_V2 = {"주문종료"}
+
+# 폼 #84(2026-11, 남윤주 — 적용 시작일 2026-10-01): 낱개 = X열[제품 코드] 'SKU * N'의 N × 입수,
+#   복수 상품 주문(X열 ';' 구분)은 상품별 라인으로 분해.
+_SPLIT_FROM = date(2026, 10, 1)
+_CODE_RE = re.compile(r"^\s*(\S+?)\s*\*\s*(\d+)\s*$")
+
+
+def _ali_codes(text: Optional[str]) -> list[tuple[str, int]]:
+    """X열[제품 코드] '1005…_1200… * 2;1005…_1200… * 1' → [(SKU, N), …]. 형식 불일치 시 빈 리스트."""
+    if not text:
+        return []
+    out: list[tuple[str, int]] = []
+    for part in str(text).split(";"):
+        if not part.strip():
+            continue
+        m = _CODE_RE.match(part)
+        if not m:
+            return []
+        out.append((m.group(1), int(m.group(2))))
+    return out
+
+
+def _alloc(amount: float, weights: list[float]) -> list[float]:
+    """금액을 낱개 비율로 안분 — 원 단위 반올림, 잔여는 마지막 라인(합계 보존)."""
+    tot = sum(weights)
+    if tot <= 0:
+        weights = [1.0] * len(weights)
+        tot = float(len(weights))
+    out: list[float] = []
+    acc = 0.0
+    for i, w in enumerate(weights):
+        if i == len(weights) - 1:
+            out.append(amount - acc)
+        else:
+            a = float(round(amount * w / tot))
+            out.append(a)
+            acc += a
+    return out
 
 
 def _first_col(columns, *names: str) -> Optional[str]:
@@ -164,18 +215,75 @@ def parse(path: str) -> Iterable[ParsedLine]:
         status = (to_str(row.get(status_col)) or "") if status_col else ""
         status_key = status.replace(" ", "")
         if status_col and sale_dt.date() >= _COMPLETED_ONLY_FROM:
-            # 폼 #77: 완료=유효, 주문 종료=취소, 나머지(미확정 상태)는 적재하지 않는다.
-            # 스킵이라 DB에 해시가 남지 않으므로, 이후 파일에서 '완료'(또는 '주문 종료')로
+            # 폼 #77→#82: 완료·배송(운송 중)·미배송=유효, 주문 종료=취소, 나머지(결제 대기 등)는
+            # 적재하지 않는다. 스킵이라 DB에 해시가 남지 않으므로, 이후 파일에서 유효/취소 상태로
             # 바뀌어 들어오면 중복에 걸리지 않고 그때 정상 적재된다(취소 건수도 부풀리지 않음).
             is_cancel = status_key in _CANCEL_STATUSES_V2
             if not is_cancel and status_key not in _VALID_STATUSES_V2:
                 continue
         else:
             is_cancel = status_key in _CANCEL_STATUSES
+        order_no = to_str(row.get("주문 ID"))
+
+        if sale_dt.date() >= _SPLIT_FROM:
+            # 폼 #84: 낱개 = X열 'SKU * N'의 N(raw_qty) × 입수(unit_per_set, 상품 블록 제목 정규식).
+            codes = _ali_codes(to_str(row.get("제품 코드")))
+            segs = [s for s in _SEG_SPLIT_RE.split(prod) if s.strip()]
+            if len(codes) >= 2 and len(codes) == len(segs):
+                # 복수 상품 주문 → 상품별 라인 분해. 상품명은 단품 주문과 같은 '【1】 …' 형태로
+                # 재구성해 기존 상품 매핑(단품 주문 기준)이 그대로 걸리게 한다.
+                names = [to_str("【1】" + s) for s in segs]
+                sizes = [_ali_set_size(s) for s in segs]
+                keys = [f"{sku}#{order_no or ''}#{i + 1}" for i, (sku, _) in enumerate(codes)]
+                if is_cancel:
+                    # 취소는 주문당 1라인(취소 건수 = 주문 수 유지) — 키·상품명·수량은 유효 시 첫 라인과
+                    # 동일, 금액 = O열 전액. 유효 첫 라인 gross도 O열 전액이라 dedup 해시가 같아져
+                    # 배송 → 주문 종료로 바뀐 주문이 최신 파일 우선 재처리에서 최신 상태만 남는다.
+                    yield ParsedLine(
+                        sale_date=sale_dt.date(),
+                        sale_datetime=sale_dt,
+                        order_no=order_no,
+                        line_no=keys[0],
+                        raw_product_name=names[0],
+                        raw_qty=float(codes[0][1]),
+                        unit_per_set=float(sizes[0]),
+                        gross_amount=amount,
+                        net_amount=amount,
+                        shipping_fee=to_float(row.get("배송비")),
+                        refund_amount=amount,
+                        is_cancelled=True,
+                    )
+                    continue
+                nets = _alloc(amount, [n * s for (_, n), s in zip(codes, sizes)])
+                for i, ((sku, n), name, size, key, net) in enumerate(zip(codes, names, sizes, keys, nets)):
+                    yield ParsedLine(
+                        sale_date=sale_dt.date(),
+                        sale_datetime=sale_dt,
+                        # 첫 라인만 주문번호 유지 — 품목별 DISTINCT 합산 시 주문건수 부풀림 방지
+                        order_no=order_no if i == 0 else None,
+                        line_no=key,
+                        raw_product_name=name,
+                        raw_qty=float(n),
+                        unit_per_set=float(size),
+                        # gross는 dedup 해시 키 — 첫 라인에 O열 전액, 나머지 0(주문 gross 합계 보존).
+                        # 매출(net)은 낱개 비율 안분. (대시보드 매출은 net 기준)
+                        gross_amount=amount if i == 0 else 0.0,
+                        net_amount=net,
+                        shipping_fee=to_float(row.get("배송비")) if i == 0 else 0.0,
+                        refund_amount=0,
+                        is_cancelled=False,
+                    )
+                continue
+            if len(codes) == 1 and len(segs) <= 1:
+                # 단품 주문: 수량 N은 X열, 입수는 제목 정규식(종전 '(수량:N piece)'×입수와 동일 낱개).
+                raw_qty = float(codes[0][1])
+                unit_per_set = float(_ali_set_size(segs[0] if segs else prod))
+            # 그 외(X열 공란·형식 불일치·블록 수 불일치)는 종전 T열 텍스트 로직 유지.
+
         yield ParsedLine(
             sale_date=sale_dt.date(),
             sale_datetime=sale_dt,
-            order_no=to_str(row.get("주문 ID")),
+            order_no=order_no,
             line_no=to_str(row.get("상품 ID") or row.get("제품 코드") or row.get("EAN코드")),
             raw_product_name=prod,
             raw_option_name=to_str(row.get("선택 사항") or row.get("옵션")),

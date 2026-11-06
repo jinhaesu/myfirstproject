@@ -7,13 +7,21 @@
        상품 구매액, 배송비, 추가 지원 금액, 올웨이즈 부담 쿠폰, 판매자 부담 쿠폰,
        취소 금액, 기 정산액, 기 정산 수수료, 수수료율 %, 수수료, 특별 수수료, 정산금액
      - 행수(주문건수) = G열 [합배송 ID] 고유값  ← 사용자 지정(2026-06-12)
-     - 순매출(스펙) = (M열[상품 구매액] + P열[올웨이즈 부담 쿠폰] + O열[추가 지원 금액]) / 1.1
-       ← 사용자 갱신(2026-07-14, 임현정). 단, ÷1.1은 이 파서가 아니라 csa_service.ingest_lines가
-       is_vat_included("올웨이즈")=True(VAT_INCLUDED_CHANNELS 소속)일 때 net_amount에 자동
-       적용하므로, 파서는 세 금액의 합(VAT 포함가)만 net_amount로 넘긴다(이중 환산 방지).
+     - 순매출(스펙) = (M열[상품 구매액] + P열[올웨이즈 부담 쿠폰] + N열[배송비] − R열[취소 금액]) / 1.1
+       ← 기준변경요청서 #87(2026-11, 임현정, 2025-01-01분부터 적용). 종전(2026-07-14)
+       'M + P + O[추가 지원 금액]'에서 O를 빼고 N(배송비)을 더하며 R(취소 금액)을 차감.
+       Q열[판매자 부담 쿠폰]은 이미 M에 반영돼 있어 차감하지 않는다.
+       단, ÷1.1은 이 파서가 아니라 csa_service.ingest_lines가 is_vat_included("올웨이즈")=True
+       (VAT_INCLUDED_CHANNELS 소속)일 때 net_amount에 자동 적용하므로, 파서는 VAT 포함
+       합계만 net_amount로 넘긴다(이중 환산 방지).
+     - 매출 기준일 = A열[결제일자]
      - 낱개수량 = H열[상품명]+I열[옵션] 결합 텍스트에서 정규식으로 세트 입수(N)를
        추출해 J열[수량]과 곱연산 (우선순위는 _extract_units_per_set 참조, 2026-07-14 임현정)
-     - 취소/반품/환불: K열[주문 상태]에 '취소'/'환불'/'반품' 포함 시 매출 제외
+     - 취소/반품/환불: K열[주문 상태]='주문취소'(및 '취소'/'환불'/'반품' 포함) 시 매출 제외,
+       취소액은 R열[취소 금액]으로 refund에 기록. 상태가 정상이어도 R로 전액 상계돼 순매출이
+       0 이하가 되면 취소로 본다(적재 시 net 0 → gross 폴백으로 매출이 되살아나는 것 방지).
+       11월 샘플(2026-11-01~04, 163행): 순매출 합 1,599,405(VAT 포함, ÷1.1 = 1,454,005)
+       = 담당자 정답 1,599,405 일치. 주문취소 6행은 M−R=0.
   B) 정산 예정 매출 내역 (구양식) — 합배송 아이디 / 상품 구매금액 /
        판매자 부담 쿠폰할인금 / 주문 성사 시점 기반. (하위호환 — 로직 변경 없음)
 """
@@ -74,9 +82,11 @@ def parse(path: str) -> Iterable[ParsedLine]:
     for _, row in df.iterrows():
         if is_new:
             # ── 신양식: 주문건별정산내역 ──
+            # 취소 = K열[주문 상태]='주문취소' (#87). 기존 '취소/환불/반품' 포함 판정 유지.
             status = to_str(row.get("주문 상태") or "") or ""
             is_cancel = "취소" in status or "환불" in status or "반품" in status
 
+            # 매출 기준일 = A열[결제일자] (#87). 결제일자 공란 시에만 보조 시점 사용.
             sale_dt = (
                 to_datetime(row.get("결제일자"))
                 or to_datetime(row.get("배송 완료 시점"))
@@ -88,17 +98,22 @@ def parse(path: str) -> Iterable[ParsedLine]:
             if not prod:
                 continue
             opt = to_str(row.get("옵션"))
-            # 순매출 = (상품 구매액 + 올웨이즈 부담 쿠폰 + 추가 지원 금액) / 1.1
-            # ← 2026-07-14 임현정 기준변경요청. ÷1.1은 이 파서가 아니라 ingest_lines가
-            # is_vat_included("올웨이즈")=True일 때 net_amount에 자동 적용한다(VAT_INCLUDED_CHANNELS).
+            # 순매출 = (상품 구매액 + 올웨이즈 부담 쿠폰 + 배송비 − 취소 금액) / 1.1
+            # ← 기준변경요청서 #87(2026-11 임현정, 2025-01-01분부터). 판매자 부담 쿠폰(Q)은
+            # 이미 상품 구매액(M)에 반영돼 있어 차감하지 않는다. 추가 지원 금액(O)은 제외.
+            # ÷1.1은 이 파서가 아니라 ingest_lines가 is_vat_included("올웨이즈")=True일 때
+            # net_amount에 자동 적용한다(VAT_INCLUDED_CHANNELS).
             # 여기서 또 나누면 이중 환산되므로 net_amount에는 VAT 포함 합계만 담는다.
-            # "올웨이즈 부담 쿠폰" 컬럼이 없는 구버전 보관 원본(예: 배송비 기준 시절)은
-            # to_float(None)=0으로 폴백되어 예외 없이 동작.
+            # 컬럼이 없는 구버전 보관 원본은 to_float(None)=0으로 폴백되어 예외 없이 동작.
             gross = to_float(row.get("상품 구매액"))
             allways_coupon = to_float(row.get("올웨이즈 부담 쿠폰"))
-            support = to_float(row.get("추가 지원 금액"))
-            net = gross + allways_coupon + support
+            ship = to_float(row.get("배송비"))
             refund = to_float(row.get("취소 금액"))
+            net = gross + allways_coupon + ship - refund
+            # 상태가 정상이어도 취소 금액으로 전액 상계(순매출 0 이하)되면 취소로 처리 —
+            # net 0을 넘기면 적재 시 'net or gross' 폴백으로 상품 구매액이 매출로 잡힌다.
+            if not is_cancel and refund > 0 and net <= 0:
+                is_cancel = True
             order_no = to_str(row.get("합배송 ID") or row.get("주문번호"))
             commission = to_float(row.get("수수료")) + to_float(row.get("특별 수수료"))
             units_per_set = _extract_units_per_set(prod, opt)

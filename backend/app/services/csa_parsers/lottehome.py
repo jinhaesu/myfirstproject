@@ -134,6 +134,14 @@ def _lotte_units(prod: str):
     return None  # 미매핑
 
 
+def _code_str(v) -> str:
+    """상품코드·단품 문자열 정규화 — 신 어드민 xlsx는 숫자로 읽혀 '3006902097.0'·'1.0'이 됨."""
+    s = to_str(v) or ""
+    if s.endswith(".0") and s[:-2].isdigit():
+        s = s[:-2]
+    return s.zfill(3) if s.isdigit() and len(s) < 3 else s
+
+
 def _parse_integrated_admin(df: pd.DataFrame) -> Iterable[ParsedLine]:
     """인터넷-TV 통합 어드민 신양식 (2026-07 기준변경요청서, 김재경).
 
@@ -142,6 +150,14 @@ def _parse_integrated_admin(df: pd.DataFrame) -> Iterable[ParsedLine]:
     - 날짜 컬럼 없음 → 주문번호 앞 8자리(YYYYMMDD)가 주문일
     - 순매출 = 판매금액(i열) ÷1.1(VAT). 낱개 = 상품명 매핑 입수 × 수량.
     - 완전 반품쌍(동일 주문번호+상품코드에 +금액/−금액 공존) → 매출·낱개·행수에서 제외.
+
+    기준변경요청 폼 #86 (2026-10-01~, 원상품코드 열이 추가된 신 어드민):
+      순번/주문번호[B]/원상품코드/상품코드/단품/상품명/단품상세/과세/수량[I]/판매금액[J]/상품대금[K]/수수료금액[L]
+    - J열[판매금액] = 이미 행 합계(단가×수량, 할인 후) → 수량(I)을 곱하면 안 됨(곱하면 1.6배 과대).
+    - 주문일 = 주문번호(B) 앞 8자리 → 9/27~9/30 주문이 섞여 와도 각자 주문일로 귀속.
+    - 수량(I) → 낱개 = 상품명 매핑 입수 × 수량 (변경 없음). K·L열 미사용.
+    - VAT: 폼 #86 기준 판매금액은 VAT 별도(공급가). 파서는 판매금액 원값을 넘기며,
+      ÷1.1 여부는 ingest의 VAT_INCLUDED_CHANNELS가 결정(파서에서 보정하지 않음).
     """
     from collections import defaultdict
     rows = []
@@ -157,7 +173,7 @@ def _parse_integrated_admin(df: pd.DataFrame) -> Iterable[ParsedLine]:
         prod = to_str(row.get("상품명"))
         if not prod:
             continue
-        code = to_str(row.get("상품코드")) or ""
+        code = _code_str(row.get("상품코드"))
         rows.append((_idx, sale_d, order_no, code, prod,
                      to_str(row.get("단품상세")), to_str(row.get("단품")),
                      to_float(row.get("수량") or 1), to_float(row.get("판매금액") or 0)))
@@ -167,13 +183,21 @@ def _parse_integrated_admin(df: pd.DataFrame) -> Iterable[ParsedLine]:
         amts[(r[2], r[3])].append(r[8])
     refund_keys = {k for k, a in amts.items() if any(x > 0 for x in a) and any(x < 0 for x in a)}
 
+    # line_no = 상품코드|단품-(같은 주문·상품 안의 순번). 파일 내 행 번호(_idx)를 쓰면
+    # 기간이 겹치는 파일(며칠치 파일 + 월 전체 파일)끼리 같은 주문의 키가 달라져
+    # 중복 제거가 안 되고 매출이 2배로 잡힌다(2026-10 1,771,410 vs 정답 868,964).
+    occ: dict = defaultdict(int)
     for _idx, sale_d, order_no, code, prod, danpum_detail, danpum, qty, gross in rows:
         if (order_no, code) in refund_keys:
             continue
+        danpum = _code_str(danpum)
+        k = (order_no, code, danpum)
+        seq = occ[k]
+        occ[k] += 1
         yield ParsedLine(
             sale_date=sale_d,
             order_no=order_no,
-            line_no=f"{code}|{danpum}-{_idx}",
+            line_no=f"{code}|{danpum}-{seq}",
             raw_product_name=prod,
             raw_option_name=danpum_detail,
             raw_qty=qty,
@@ -190,8 +214,13 @@ def parse(path: str) -> Iterable[ParsedLine]:
     if df.empty:
         return
 
+    # 헤더 공백 정리 — 감지는 strip 기준인데 row.get()이 원본 이름을 쓰면
+    # '판매금액 ' 같은 헤더에서 금액이 0으로 빠지는 것을 방지
+    df.columns = [str(c).strip() for c in df.columns]
+
     # 통합 어드민 신양식 감지: 판매금액+과세+주문번호 있고 날짜 컬럼 없음
-    cols = {str(c).strip() for c in df.columns}
+    # (폼 #86 신 어드민도 이 분기 — 판매금액은 행 합계라 수량을 곱하지 않음)
+    cols = set(df.columns)
     if {"판매금액", "과세", "주문번호"} <= cols and not (
         {"주문일시", "결제일시", "주문일자", "매출일자"} & cols
     ):
