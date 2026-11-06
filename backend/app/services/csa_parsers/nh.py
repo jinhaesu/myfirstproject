@@ -8,7 +8,7 @@ import pandas as pd
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
-from app.services.csa_parsers._common import read_excel_safe, to_date, to_float, to_str
+from app.services.csa_parsers._common import read_excel_safe, to_date, to_float, to_str, occ_seq
 
 log = logging.getLogger(__name__)
 
@@ -151,6 +151,7 @@ def _take_return_qty(returns: dict, key: tuple, code: str, qty: float) -> float:
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
     returns = _load_returns(path)
+    _seq: dict = {}  # line_no용 동일 주문·상품 등장 순번(파일 행번호 대신)
     for _idx, (_, row) in enumerate(df.iterrows()):
         sale_d = to_date(row.get("주문일자") or row.get("결제완료일시"))
         if sale_d is None or pd.isna(sale_d):
@@ -193,7 +194,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
             order_no=to_str(row.get("주문번호")),
             # 같은 (주문번호, 주문순번) 충돌로 행이 dedup 탈락(127→124건)하지 않게
             # 행 시퀀스를 붙여 라인 고유성 보장 (검수 반영 2026-06-12)
-            line_no=f"{to_str(row.get('주문순번') or row.get('상품코드')) or ''}-{_idx}",
+            line_no=f"{to_str(row.get('주문순번') or row.get('상품코드')) or ''}-{occ_seq(_seq, to_str(row.get('주문번호')), to_str(row.get('주문순번') or row.get('상품코드')))}",
             raw_product_name=prod,
             # 매핑 키는 기존대로 규격 우선 유지 — 옵션명으로 바꾸면 기존 매핑 12건이 빠짐.
             # 옵션명은 아래 낱개 입수 파싱에만 사용 (폼 #50, 2026-09-28)

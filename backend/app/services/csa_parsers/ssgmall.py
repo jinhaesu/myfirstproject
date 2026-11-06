@@ -32,7 +32,7 @@ import pandas as pd
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
-from app.services.csa_parsers._common import to_datetime, to_float, to_str
+from app.services.csa_parsers._common import to_datetime, to_float, to_str, occ_seq
 
 # 낱개수량(입수) 추출용 — 상품명+옵션 결합 텍스트에 순차 적용
 _RE_TOTAL = re.compile(r"총\s*(\d+)\s*(?:개입|구|개|봉)")
@@ -94,6 +94,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
     if df.empty:
         return
 
+    _seq: dict = {}  # line_no용 동일 주문·상품 등장 순번(파일 행번호 대신)
     for _idx, (_, row) in enumerate(df.iterrows()):
         prod = to_str(row.get("상품명"))
         if not prod:
@@ -121,7 +122,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
             sale_datetime=sale_dt,
             order_no=to_str(row.get("주문번호")),
             # 같은 주문에 동일 상품 복수 행 dedup 탈락 방지 — 행 시퀀스 부여
-            line_no=f"{to_str(row.get('상품번호')) or ''}-{_idx}",
+            line_no=f"{to_str(row.get('상품번호')) or ''}-{occ_seq(_seq, to_str(row.get('주문번호')), to_str(row.get('상품번호')))}",
             raw_product_name=prod,
             raw_option_name=opt_name,
             raw_qty=qty,

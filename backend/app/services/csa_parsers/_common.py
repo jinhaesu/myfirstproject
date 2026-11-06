@@ -224,3 +224,15 @@ def read_excel_safe(path: str, **kwargs) -> pd.DataFrame:
     except Exception:
         pass
     return pd.read_excel(path, **kwargs)
+
+
+def occ_seq(counter: dict, *key) -> int:
+    """같은 키(주문번호·상품코드 등)가 파일 안에서 몇 번째로 나왔는지(0부터).
+
+    line_no에 파일 행 번호(_idx)를 붙이면 기간이 겹치는 파일(주간·월간 재추출)마다
+    같은 주문의 키가 달라져 dedup이 안 되고 이중 적재된다(2026-11 롯데홈쇼핑 10월 2배).
+    대신 '동일 주문·상품 안의 등장 순번'을 붙여 파일 위치와 무관하게 만든다.
+    """
+    n = counter.get(key, 0)
+    counter[key] = n + 1
+    return n

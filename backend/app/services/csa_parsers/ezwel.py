@@ -24,7 +24,7 @@ import pandas as pd
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
-from app.services.csa_parsers._common import read_excel_safe, to_date, to_datetime, to_float, to_str
+from app.services.csa_parsers._common import read_excel_safe, to_date, to_datetime, to_float, to_str, occ_seq
 
 
 # 상품코드(F열) → 낱개 입수 — 폼 #25(2026-07-14)·#39(07-26) 매핑표 28종
@@ -251,6 +251,7 @@ def _resolve_ups(code: Optional[str], name: Optional[str], opt: Optional[str],
 @register("이지웰")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
+    _seq: dict = {}  # line_no용 동일 주문·상품 등장 순번(파일 행번호 대신)
     for _idx, (_, row) in enumerate(df.iterrows()):
         # 주문일시가 숫자형 YYYYMMDDHHMMSS(예: 20260517230737)로 오는 양식 지원
         dt_raw = row.get("주문일자")
@@ -286,7 +287,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
             sale_datetime=sale_dt,
             order_no=to_str(row.get("주문번호")),
             # 같은 주문에 동일 상품 복수 행 dedup 탈락(266→260행) 방지 — 행 시퀀스 부여
-            line_no=f"{to_str(row.get('상품코드')) or ''}-{_idx}",
+            line_no=f"{to_str(row.get('상품코드')) or ''}-{occ_seq(_seq, to_str(row.get('주문번호')), to_str(row.get('상품코드')))}",
             raw_product_name=prod,
             raw_option_name=opt,
             raw_qty=qty,
