@@ -24,7 +24,7 @@ import pandas as pd
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
-from app.services.csa_parsers._common import to_date, to_datetime, to_float, to_str
+from app.services.csa_parsers._common import to_date, to_datetime, to_float, to_str, occ_seq
 
 
 def _is_encrypted_ole2(path: str) -> bool:
@@ -227,6 +227,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
         yield from _parse_integrated_admin(df)
         return
 
+    _seq: dict = {}  # line_no용 동일 주문·상품 등장 순번(파일 행번호 대신)
     for _idx, (_, row) in enumerate(df.iterrows()):
         # 날짜
         sale_dt = to_datetime(row.get("주문일시") or row.get("결제일시"))
@@ -274,7 +275,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
             sale_datetime=sale_dt,
             order_no=to_str(row.get("주문번호")),
             # 같은 주문에 동일 상품·금액 행 중복 시 dedup 탈락 방지 — 행 시퀀스 부여
-            line_no=f"{to_str(row.get('상품코드')) or ''}-{_idx}",
+            line_no=f"{to_str(row.get('상품코드')) or ''}-{occ_seq(_seq, to_str(row.get('주문번호')), to_str(row.get('상품코드')))}",
             raw_product_name=prod,
             raw_option_name=to_str(row.get("옵션") or row.get("단품명")),
             raw_qty=qty,

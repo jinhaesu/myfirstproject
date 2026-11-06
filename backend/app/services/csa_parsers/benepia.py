@@ -36,7 +36,7 @@ import pandas as pd
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
-from app.services.csa_parsers._common import to_datetime, to_float, to_str
+from app.services.csa_parsers._common import to_datetime, to_float, to_str, occ_seq
 
 _PASSWORD = "nuldam2026!"
 
@@ -136,6 +136,7 @@ def _benepia_ups(opt: Optional[str], prod: Optional[str]) -> Optional[float]:
 @register("Benepia")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = _read_benepia(path)
+    _seq: dict = {}  # line_no용 동일 주문·상품 등장 순번(파일 행번호 대신)
     for _idx, (_, row) in enumerate(df.iterrows()):
         sale_dt = (
             to_datetime(row.get("주문일"))
@@ -166,7 +167,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
             order_no=to_str(row.get("주문번호")),
             # 다품목 주문이 같은 (주문번호, 주문순번)으로 dedup 탈락하지 않게
             # 행 시퀀스 부여 (검수 반영 2026-06-12)
-            line_no=f"{to_str(row.get('주문순번') or row.get('상품코드')) or ''}-{_idx}",
+            line_no=f"{to_str(row.get('주문순번') or row.get('상품코드')) or ''}-{occ_seq(_seq, to_str(row.get('주문번호')), to_str(row.get('주문순번') or row.get('상품코드')))}",
             raw_product_name=prod,
             raw_option_name=opt,
             raw_qty=qty,

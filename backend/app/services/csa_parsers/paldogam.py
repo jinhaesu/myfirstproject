@@ -16,12 +16,13 @@ from typing import Iterable
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
-from app.services.csa_parsers._common import read_excel_safe, to_date, to_float, to_str
+from app.services.csa_parsers._common import read_excel_safe, to_date, to_float, to_str, occ_seq
 
 
 @register("팔도감")
 def parse(path: str) -> Iterable[ParsedLine]:
     df = read_excel_safe(path, header=0)
+    _seq: dict = {}  # line_no용 동일 주문·상품 등장 순번(파일 행번호 대신)
     for _idx, (_, row) in enumerate(df.iterrows()):
         sale_d = to_date(row.get("거래발생일")) or to_date(row.get("정산기준일"))
         if not sale_d:
@@ -36,7 +37,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
         yield ParsedLine(
             sale_date=sale_d,
             order_no=to_str(row.get("개별주문번호") or row.get("주문번호")),
-            line_no=f"{to_str(row.get('판매자상품코드')) or ''}-{_idx}",
+            line_no=f"{to_str(row.get('판매자상품코드')) or ''}-{occ_seq(_seq, to_str(row.get('개별주문번호') or row.get('주문번호')), to_str(row.get('판매자상품코드')))}",
             raw_product_name=prod,
             raw_option_name=to_str(row.get("옵션명")),
             raw_qty=qty,

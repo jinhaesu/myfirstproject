@@ -44,7 +44,7 @@ import pandas as pd
 
 from app.services.csa_service import ParsedLine
 from app.services.csa_parsers import register
-from app.services.csa_parsers._common import to_date, to_float, to_str
+from app.services.csa_parsers._common import to_date, to_float, to_str, occ_seq
 
 _GS_TOTAL = re.compile(r"총\s*(\d+)\s*(?:개입|구|개|봉|병)")
 _GS_PLUS = re.compile(r"(\d+)\s*\+\s*(\d+)\s*(?:개입|구|개|봉|병)?")
@@ -135,6 +135,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
 
     file_date = _extract_date_from_filename(path)
 
+    _seq: dict = {}  # line_no용 동일 주문·상품 등장 순번(파일 행번호 대신)
     for _idx, (_, row) in enumerate(df.iterrows()):
         prod = to_str(_pick(row, "상품명(송장)", "상품명(인터넷)", "협력사상품명", "상품명"))
         if not prod:
@@ -175,7 +176,8 @@ def parse(path: str) -> Iterable[ParsedLine]:
             )
             # 같은 주문에 동일 상품코드·금액 행이 여러 개면 dedup 해시가 충돌해
             # 행이 탈락(수량 과소) → 행 시퀀스를 붙여 라인 고유성 보장.
-            line_no = f"{to_str(_pick(row, '상품상세코드', '협력사상품코드')) or ''}-{_idx}"
+            _lc = to_str(_pick(row, '상품상세코드', '협력사상품코드')) or ''
+            line_no = f"{_lc}-{occ_seq(_seq, to_str(_pick(row, '주문번호')), _lc)}"
             order_no = to_str(_pick(row, "주문번호"))
             opt = to_str(_pick(row, "주문옵션"))
             # 낱개수량 = [상품명(인터넷)]+[주문옵션] 결합 정규식 × [수량].
