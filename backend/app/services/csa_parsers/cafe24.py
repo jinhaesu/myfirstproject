@@ -14,8 +14,8 @@
          ingest 시점에 raw_lines에 '구워져' 저장되므로, 그 사이(5/19~6/15)에 올린 배치는
          ÷1.1, 그 전·후에 올린 배치는 미환산 — 판매월이 아니라 '업로드 시점'에 따라 섞였다.
   ② 취소 처리 (AN열[취소구분])
-     · '취소' 행 → 취소 행(is_cancelled, 매출·낱개 미반영). '부분취소'는 정상 행으로 집계
-       (최초 실결제금액에 포함돼 있고 MD 정답표도 포함 — 2026-11 확인).
+     · '취소'·'부분취소' 행 → 취소 행(is_cancelled, 매출·낱개 미반영). 부분취소 품목 금액은
+       주문 최초 실결제금액에서 차감(2026-11-08 김재경 회신 — 낱개·매출 모두 취소분 제외).
      · 주문의 모든 행이 취소 → 완전취소 주문: 주문수·매출 모두 제외.
        하나라도 '취소안함'이면 정상 주문: 취소 행만 빼고, 주문 실결제금액은 남은 행에 안분.
      · 구양식(AN열 없음, 2026-06-12 이전 보관본)은 B열[결제구분]=='F' 행을 취소로 본다.
@@ -94,8 +94,16 @@ def _units_by_rule(prod_name: Optional[str], option: Optional[str]) -> Optional[
     return v
 
 
+# 옵션에서 박스 수를 고르는 코드: 박스당 입수 (2026-11-08 김재경 — 아메리칸쿠키 6개 2박스=12)
+_PER_BOX: dict[str, int] = {"P0000DGU": 6}
+
+
 def units_per_set(code: Optional[str], prod_name: Optional[str], option: Optional[str]) -> Optional[int]:
     """상품코드 매핑표 우선, 없으면 규칙. None이면 매핑 테이블 입수값에 맡김."""
+    if code and code in _PER_BOX:
+        # 상품명엔 'N개 2/3박스'처럼 박스 수가 둘 다 적혀 규칙이 틀림 → 옵션의 박스 수 × 박스당 입수
+        m = re.search(r"(\d+)\s*(?:박스|box|BOX)", option or "")
+        return _PER_BOX[code] * (int(m.group(1)) if m else 1)
     if code and code in CAFE24_UNITS_BY_CODE:
         fixed, _gb = CAFE24_UNITS_BY_CODE[code]
         if fixed is not None:
@@ -149,13 +157,16 @@ def parse(path: str) -> Iterable[ParsedLine]:
             continue
 
         if has_cancel_col:
-            # '취소' = 행 취소 → 제외. '부분취소'는 정상 행으로 둔다 — 매출 기준인
-            # [총 실결제금액(최초정보)]에 이미 그 품목 금액이 들어 있고, MD 정답표(8월 낱개
-            # 150,695)도 부분취소 14행을 포함해 셌다(제외하면 −94).
-            is_cancel = to_str(row.get("취소구분")) == "취소"
+            # '취소'·'부분취소' 행 → 제외(낱개·매출). 부분취소 품목 금액은 아래 안분 단계에서
+            # 주문 최초 실결제금액에서 차감한다 — 낱개·매출 모두 '취소분 제외'로 통일
+            # (2026-11-08 김재경 회신. 8월 낱개 150,601).
+            _cx = to_str(row.get("취소구분"))
+            is_cancel = _cx in ("취소", "부분취소")
+            is_partial = _cx == "부분취소"
         else:
             pay_type = to_str(row.get("결제구분"))
             is_cancel = bool(pay_type and pay_type.upper() == "F")
+            is_partial = False
             # 구양식엔 AN열이 없어 결제구분 T로 남은 취소 행을 못 가린다 →
             # 최초 실결제 > 0 인데 현재 [총 결제금액] == 0 이면 주문 전체 취소로 본다.
             # (2026-08 신양식 검증: 완전취소 637건 모두 총 결제금액 0, 정상 주문은 0 아님)
@@ -186,15 +197,19 @@ def parse(path: str) -> Iterable[ParsedLine]:
             "weight": max(line_amt - extra_discount, 0.0),
             "order_total": _order_total(row),
             "is_cancel": is_cancel,
+            "is_partial": is_partial,
         })
 
     # 주문별: 살아있는 행 목록 + 주문 실결제금액(주문 단위 값 — 첫 행 값 1회만)
     order_live: dict[str, list[int]] = {}
     order_total: dict[str, float] = {}
+    partial_amt: dict[str, float] = {}  # 부분취소 품목 금액(상품구매금액−추가할인 = 그 품목 환불액)
     for i, r in enumerate(rows):
         key = r["order_no"] or f"__row{i}"
         r["_key"] = key
         order_total.setdefault(key, r["order_total"])
+        if r["is_partial"]:
+            partial_amt[key] = partial_amt.get(key, 0.0) + r["weight"]
         if not r["is_cancel"]:
             order_live.setdefault(key, []).append(i)
 
@@ -202,7 +217,7 @@ def parse(path: str) -> Iterable[ParsedLine]:
     #   완전취소 주문은 order_live에 없음 → 매출 0, 모든 행 취소로 방출.
     alloc: dict[int, float] = {}
     for key, idxs in order_live.items():
-        total = order_total.get(key, 0.0) / _VAT
+        total = max(order_total.get(key, 0.0) - partial_amt.get(key, 0.0), 0.0) / _VAT
         weights = [rows[i]["weight"] for i in idxs]
         wsum = sum(weights)
         if wsum <= 0:
