@@ -1218,8 +1218,10 @@ def export_excel(
 
     from app.services.csa_parsers._common import read_excel_safe
 
+    # 파일 목록은 메타만 — content(BLOB)까지 한 번에 당기면 카카오선물하기(48파일 115MB)처럼
+    # 큰 채널에서 메모리·시간이 터진다(2026-11-09 504 타임아웃). content는 필요한 파일만 단건 조회.
     files = (
-        db.query(CsaUploadFile)
+        db.query(CsaUploadFile.id, CsaUploadFile.file_name, CsaUploadFile.batch_id, CsaUploadFile.channel_id)
         .filter(CsaUploadFile.channel_id == channel_id)
         .order_by(CsaUploadFile.created_at.asc())
         .all()
@@ -1230,18 +1232,54 @@ def export_excel(
     ch = db.query(Channel).filter(Channel.id == channel_id).first()
     channel_name = (ch.name if ch else None) or files[0].channel_id
 
+    # 파일별 실제 매출일 범위(적재된 행 기준)로 기간과 안 겹치는 파일은 읽지 않는다.
+    # 적재 행이 하나도 없는 배치(다른 파일과 전부 중복)는 그 행이 다른 파일에 있으므로 건너뛴다.
+    from sqlalchemy import func as _f
+    batch_range = {
+        b: (lo, hi) for b, lo, hi in (
+            db.query(ChannelSalesRawLine.batch_id, _f.min(ChannelSalesRawLine.sale_date), _f.max(ChannelSalesRawLine.sale_date))
+            .filter(ChannelSalesRawLine.channel_id == channel_id)
+            .group_by(ChannelSalesRawLine.batch_id)
+            .all()
+        )
+    }
+
+    def _overlaps(batch_id) -> bool:
+        if not batch_id:
+            return True  # 배치 연결이 없으면 판단 불가 → 읽는다(누락보다 과포함)
+        r = batch_range.get(batch_id)
+        if not r:
+            return False
+        lo, hi = r
+        return not (hi < period_start or lo > period_end)
+
+    targets = [f for f in files if _overlaps(f.batch_id)]
+
     ps = pd.Timestamp(period_start)
     pe = pd.Timestamp(period_end)
 
+    def _read(path: str):
+        # 내보내기는 서식이 필요 없으니 calamine(openpyxl보다 5~10배 빠름) 먼저
+        if path.lower().endswith(".xlsx"):
+            try:
+                return pd.read_excel(path, engine="calamine")
+            except Exception:
+                pass
+        return read_excel_safe(path)
+
     frames: list = []
-    for f in files:
+    for f in targets:
         suffix = _os.path.splitext(f.file_name or "")[1] or ".xlsx"
         tmp_path = None
         try:
+            content = db.query(CsaUploadFile.content).filter(CsaUploadFile.id == f.id).scalar()
+            if not content:
+                continue
             with _tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                tmp.write(f.content)
+                tmp.write(content)
                 tmp_path = tmp.name
-            df = read_excel_safe(tmp_path)
+            del content
+            df = _read(tmp_path)
         except Exception:
             log.exception("export: 파일 재읽기 실패 file_id=%s", f.id)
             continue
@@ -1268,13 +1306,23 @@ def export_excel(
 
     if frames:
         out_df = pd.concat(frames, ignore_index=True)
+        # 기간이 겹치는 파일(주간+월 전체 재추출)에 같은 행이 반복 → 완전히 같은 행은 한 번만
+        if len(frames) > 1:
+            out_df = out_df.drop_duplicates(ignore_index=True)
     else:
         # 빈 결과: 첫 파일의 컬럼 구조라도 유지
         out_df = pd.DataFrame()
 
     buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        out_df.to_excel(writer, index=False)
+    try:
+        # xlsxwriter 스트리밍 모드 — 26만 행도 1분 안팎(openpyxl은 수 분 → 300초 타임아웃)
+        with pd.ExcelWriter(buf, engine="xlsxwriter",
+                            engine_kwargs={"options": {"constant_memory": True, "strings_to_urls": False}}) as writer:
+            out_df.to_excel(writer, index=False)
+    except ImportError:
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            out_df.to_excel(writer, index=False)
     buf.seek(0)
 
     from urllib.parse import quote

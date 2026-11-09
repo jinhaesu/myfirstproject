@@ -149,40 +149,155 @@ async def delete_channel(
     return {"message": "삭제되었습니다"}
 
 
-# === 채널 매출 API ===
+# === 채널 매출 API (조회) ===
+# 2026-11-09: 예전 ChannelSales 표(0행)를 읽어 팀 API·AI 연동에서 "매출이 비어 있다"는 문제가 났다.
+# 실제 매출은 CSA 집계표(csa_sales_daily_product)에 있으므로 조회 3종은 그쪽을 읽는다.
+# 매출 = 공급가(VAT 별도) 기준, 매출차감형 월정액(revenue_deduction)을 뺀 값 — CSA 대시보드와 같은 기준.
+# year·month는 선택: 없으면 이번 달. start/end(YYYY-MM-DD)를 주면 그 기간이 우선.
+from datetime import date as _date, timedelta as _td
+from sqlalchemy import func as _sf
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.db_models import ChannelSalesDailyProduct as _D
+
+_BASIS = "공급가(VAT 별도), 매출차감형 월정액 차감, 취소·반품 반영 — CSA 대시보드 기준"
+
+
+def _period(year: Optional[int], month: Optional[int], start: Optional[str], end: Optional[str]):
+    try:
+        if start or end:
+            s = _date.fromisoformat(start) if start else None
+            e = _date.fromisoformat(end) if end else None
+            if s and not e:
+                e = _date.today()
+            if e and not s:
+                s = e.replace(day=1)
+        else:
+            t = _date.today()
+            if year is not None and month is None:
+                s, e = _date(year, 1, 1), _date(year, 12, 31)  # 연도만 주면 그 해 전체
+            else:
+                y, m = (year or t.year), (month or t.month)
+                s = _date(y, m, 1)
+                e = _date(y + (m == 12), m % 12 + 1, 1) - _td(days=1)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="날짜 형식은 YYYY-MM-DD, month는 1~12 입니다")
+    if s > e:
+        raise HTTPException(status_code=400, detail="start가 end보다 늦습니다")
+    if (e - s).days > 400:
+        raise HTTPException(status_code=400, detail="한 번에 조회할 수 있는 기간은 400일까지입니다")
+    return s, e
+
+
+def _rev():
+    return _sf.coalesce(_sf.sum(_D.net_sales - _sf.coalesce(_D.revenue_deduction, 0.0)), 0.0)
+
+
+def _meta(db: Session, s, e, **extra):
+    last = db.query(_sf.max(_D.sale_date)).scalar()
+    return {"period_start": s.isoformat(), "period_end": e.isoformat(),
+            "data_as_of": last.isoformat() if last else None, "basis": _BASIS, **extra}
+
+
+def _channel_filter(q, channel_id, channel_name):
+    if channel_id:
+        q = q.filter(_D.channel_id == channel_id)
+    if channel_name:
+        q = q.filter(_sf.replace(_D.channel_name, " ", "").ilike(f"%{channel_name.replace(' ', '')}%"))
+    return q
+
+
 @router.get("/sales/summary")
 async def get_sales_summary(
-    year: int,
-    month: int,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    channel_id: Optional[str] = None,
+    channel_name: Optional[str] = None,
     _: dict = Depends(get_current_user),
-    service: ChannelService = Depends(get_channel_service)
+    db: Session = Depends(get_db),
 ):
-    """일별 전체 매출 요약"""
-    return service.get_daily_summary(year, month)
+    """일별 전체 매출 요약 (매출·판매량(낱개)·주문수)"""
+    s, e = _period(year, month, start, end)
+    q = db.query(_D.sale_date, _rev(), _sf.coalesce(_sf.sum(_D.pcs_qty), 0.0),
+                 _sf.coalesce(_sf.sum(_D.raw_qty), 0.0), _sf.coalesce(_sf.sum(_D.order_count), 0))
+    q = _channel_filter(q.filter(_D.sale_date >= s, _D.sale_date <= e), channel_id, channel_name)
+    rows = q.group_by(_D.sale_date).order_by(_D.sale_date).all()
+    days = [{"date": d.isoformat(), "net_sales": round(r), "pcs_qty": round(p), "raw_qty": round(rq), "order_count": int(o)}
+            for d, r, p, rq, o in rows]
+    total = {"net_sales": sum(x["net_sales"] for x in days), "pcs_qty": sum(x["pcs_qty"] for x in days),
+             "raw_qty": sum(x["raw_qty"] for x in days), "order_count": sum(x["order_count"] for x in days)}
+    return {**_meta(db, s, e), "total": total, "days": days}
 
 
 @router.get("/sales/by-channel")
 async def get_sales_by_channel(
-    year: int,
-    month: int,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
     _: dict = Depends(get_current_user),
-    service: ChannelService = Depends(get_channel_service)
+    db: Session = Depends(get_db),
 ):
-    """채널별 월간 매출 요약"""
-    return service.get_channel_summary(year, month)
+    """채널별 기간 매출 요약"""
+    s, e = _period(year, month, start, end)
+    rows = (
+        db.query(_D.channel_id, _D.channel_name, _D.channel_category, _rev(),
+                 _sf.coalesce(_sf.sum(_D.pcs_qty), 0.0), _sf.coalesce(_sf.sum(_D.raw_qty), 0.0),
+                 _sf.coalesce(_sf.sum(_D.order_count), 0), _sf.max(_D.sale_date))
+        .filter(_D.sale_date >= s, _D.sale_date <= e)
+        .group_by(_D.channel_id, _D.channel_name, _D.channel_category)
+        .all()
+    )
+    chans = sorted(
+        [{"channel_id": cid, "channel_name": nm, "category": cat, "net_sales": round(r), "pcs_qty": round(p),
+          "raw_qty": round(rq), "order_count": int(o), "last_sale_date": last.isoformat() if last else None}
+         for cid, nm, cat, r, p, rq, o, last in rows],
+        key=lambda x: -x["net_sales"],
+    )
+    total = {"net_sales": sum(x["net_sales"] for x in chans), "pcs_qty": sum(x["pcs_qty"] for x in chans),
+             "order_count": sum(x["order_count"] for x in chans)}
+    return {**_meta(db, s, e), "total": total, "channels": chans}
 
 
 @router.get("/sales/detail")
 async def get_sales_detail(
-    year: int,
-    month: int,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
     channel_id: Optional[str] = None,
     channel_name: Optional[str] = None,
+    group_by: str = "day",
     _: dict = Depends(get_current_user),
-    service: ChannelService = Depends(get_channel_service)
+    db: Session = Depends(get_db),
 ):
-    """채널별 일별 매출 상세"""
-    return service.get_channel_sales(year, month, channel_id, channel_name)
+    """채널별 매출 상세. group_by=day(일×채널, 기본) | product(품목별 합계) | day_product(일×품목)"""
+    s, e = _period(year, month, start, end)
+    if group_by not in ("day", "product", "day_product"):
+        raise HTTPException(status_code=400, detail="group_by는 day, product, day_product 중 하나")
+    keys = [_D.channel_id, _D.channel_name]
+    if group_by in ("day", "day_product"):
+        keys.insert(0, _D.sale_date)
+    if group_by in ("product", "day_product"):
+        keys.append(_D.product_name)
+    q = db.query(*keys, _rev(), _sf.coalesce(_sf.sum(_D.pcs_qty), 0.0), _sf.coalesce(_sf.sum(_D.raw_qty), 0.0),
+                 _sf.coalesce(_sf.sum(_D.order_count), 0))
+    q = _channel_filter(q.filter(_D.sale_date >= s, _D.sale_date <= e), channel_id, channel_name)
+    rows = q.group_by(*keys).order_by(*keys).limit(20000).all()
+    names = [k.key for k in keys]
+    items = []
+    for r in rows:
+        d = dict(zip(names, r[: len(names)]))
+        if "sale_date" in d:
+            d["date"] = d.pop("sale_date").isoformat()
+        rv, p, rq, o = r[len(names):]
+        d.update(net_sales=round(rv), pcs_qty=round(p), raw_qty=round(rq), order_count=int(o))
+        items.append(d)
+    total = {"net_sales": sum(x["net_sales"] for x in items), "pcs_qty": sum(x["pcs_qty"] for x in items),
+             "order_count": sum(x["order_count"] for x in items)}
+    return {**_meta(db, s, e, group_by=group_by, truncated=len(items) >= 20000), "total": total, "items": items}
 
 
 @router.post("/sales")

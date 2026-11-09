@@ -437,50 +437,60 @@ async def get_sales(
     return service.get_all_sales()
 
 
+def _default_ym(year, month):
+    """year·month 생략 시 이번 달 (팀 API·AI가 파라미터 없이 불러 422가 나던 문제, 2026-11-09)"""
+    t = datetime.now()
+    return (year or t.year), (month or t.month)
+
+
 @router.get("/sales/summary")
 async def get_sales_summary(
-    year: int,
-    month: int,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
     service: TargetsService = Depends(get_targets_service)
 ):
     """매출 현황 합계 조회"""
+    year, month = _default_ym(year, month)
     return service.get_sales_summary(year, month)
 
 
 @router.get("/sales/comparison")
 async def get_comparison(
-    year: int,
-    month: int,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
     manager: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
     service: TargetsService = Depends(get_targets_service)
 ):
     """목표 대비 실적, 전월 대비 데이터 조회 (책임자 필터 옵션)"""
+    year, month = _default_ym(year, month)
     return service.get_comparison_data(year, month, manager)
 
 
 @router.get("/sales/realtime")
 async def get_realtime_indicator(
-    year: int,
-    month: int,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
     manager: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
     service: TargetsService = Depends(get_targets_service)
 ):
     """실시간 지표 조회 (당일 기준 목표 대비 달성률)"""
+    year, month = _default_ym(year, month)
     return service.get_realtime_indicator(year, month, manager)
 
 
 @router.get("/sales/daily-chart")
 async def get_daily_sales_chart(
-    year: int,
-    month: int,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
     manager: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
     service: TargetsService = Depends(get_targets_service)
 ):
     """일별 매출 데이터 (그래프용)"""
+    year, month = _default_ym(year, month)
     return service.get_daily_sales_data(year, month, manager)
 
 
