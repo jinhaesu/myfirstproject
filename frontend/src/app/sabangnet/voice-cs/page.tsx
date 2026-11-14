@@ -1006,7 +1006,7 @@ export default function VoiceCsPage() {
                               className={`px-4 py-2 text-xs font-medium rounded-lg border transition-colors ${
                                 call.resolved
                                   ? 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-bg-secondary'
-                                  : 'bg-success text-white border-success hover:bg-success-hover'
+                                  : 'bg-success text-on-brand border-success hover:bg-success-hover'
                               }`}
                             >
                               {call.resolved ? '미해결로 변경' : '해결 완료'}

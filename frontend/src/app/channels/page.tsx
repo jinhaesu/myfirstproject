@@ -1707,7 +1707,7 @@ function UploadTab({
                     disabled={!c.has_parser}
                     className={`text-left text-xs px-3 py-2 rounded border transition-colors ${
                       selChannel?.id === c.id
-                        ? 'bg-accent border-accent text-white'
+                        ? 'bg-accent border-accent text-on-brand'
                         : c.has_parser
                           ? 'bg-bg-0 border-border-primary text-text-secondary hover:border-accent'
                           : 'bg-bg-0 border-bg-inset text-text-quaternary cursor-not-allowed'
@@ -1742,7 +1742,7 @@ function UploadTab({
               accept=".xlsx,.xls,.csv,.pdf"
               onChange={(e) => e.target.files && e.target.files[0] && upload(e.target.files[0])}
               disabled={uploading || !selChannel.has_parser}
-              className="w-full text-sm text-text-secondary file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-accent file:text-white file:cursor-pointer hover:file:bg-link disabled:opacity-50"
+              className="w-full text-sm text-text-secondary file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-accent file:text-on-brand file:cursor-pointer hover:file:bg-link disabled:opacity-50"
             />
             <div className="text-[11px] text-text-quaternary mt-2 leading-relaxed">
               · 동일 파일을 다시 올리면 자동 감지하여 중복 적재하지 않습니다.<br/>
@@ -1854,7 +1854,7 @@ function UploadTab({
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={downloadExcel} disabled={dlBusy}
-              className="px-4 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-4 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium disabled:opacity-50"
             >{dlBusy ? '준비 중…' : '다운로드'}</button>
             {dlError && <span className="text-[11px] text-danger">{dlError}</span>}
           </div>
@@ -1898,7 +1898,7 @@ function UploadTab({
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={deleteChannelData} disabled={delBusy}
-              className="px-4 py-1.5 bg-danger hover:brightness-90 text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-4 py-1.5 bg-danger hover:brightness-90 text-on-brand rounded text-xs font-medium disabled:opacity-50"
             >{delBusy ? '삭제 중…' : '데이터 삭제'}</button>
             {delError && <span className="text-[11px] text-danger">{delError}</span>}
           </div>
@@ -1938,7 +1938,7 @@ function UploadTab({
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={reprocessChannel} disabled={reproBusy}
-              className="px-4 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-4 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium disabled:opacity-50"
             >{reproBusy ? '재처리 요청 중…' : '최신 파서로 재처리'}</button>
             {reproError && <span className="text-[11px] text-danger">{reproError}</span>}
           </div>
@@ -2148,7 +2148,7 @@ function MappingTab({
           <button
             onClick={applyBulk}
             disabled={bulkBusy || (!bulkExcluded && !bulkProductId)}
-            className="px-3 py-1 bg-accent hover:bg-link disabled:opacity-40 text-white rounded text-xs font-medium whitespace-nowrap"
+            className="px-3 py-1 bg-accent hover:bg-link disabled:opacity-40 text-on-brand rounded text-xs font-medium whitespace-nowrap"
           >
             {bulkBusy ? '적용 중…' : `${selected.size}건 적용`}
           </button>
@@ -2358,7 +2358,7 @@ function UnmatchedRow({
           <button
             onClick={() => onResolve(item, excluded ? null : (productId || null) as number | null, unitPerSet, excluded)}
             disabled={busy || multiBusy || multiOpen || (!excluded && !productId)}
-            className="flex-1 px-1.5 py-1 bg-accent hover:bg-link disabled:opacity-40 text-white rounded text-[11px] font-medium"
+            className="flex-1 px-1.5 py-1 bg-accent hover:bg-link disabled:opacity-40 text-on-brand rounded text-[11px] font-medium"
           >
             {busy ? '…' : '저장'}
           </button>
@@ -2436,7 +2436,7 @@ function UnmatchedRow({
             <button
               onClick={handleMultiSave}
               disabled={multiBusy || !canSaveMulti}
-              className="px-3 py-1 bg-accent hover:bg-link disabled:opacity-40 text-white rounded text-[11px] font-medium"
+              className="px-3 py-1 bg-accent hover:bg-link disabled:opacity-40 text-on-brand rounded text-[11px] font-medium"
             >
               {multiBusy ? '저장 중…' : '다중 매핑 저장'}
             </button>
@@ -2864,7 +2864,7 @@ function CostRuleEditor({
             )}
             <button
               onClick={saveRule} disabled={busy}
-              className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium disabled:opacity-50"
             >{busy ? '저장…' : '+ 추가'}</button>
           </div>
           {/* 유효 기간 (시즌·행사 적용) */}
@@ -3045,7 +3045,7 @@ function MonthlyCostEditor({
                 onClick={() => save(c)}
                 disabled={savingChannel === c.id || !dirty}
                 className={`px-2 py-1 rounded text-[10px] font-medium ${
-                  dirty ? 'bg-accent text-white hover:bg-link' : 'bg-bg-inset text-text-muted'
+                  dirty ? 'bg-accent text-on-brand hover:bg-link' : 'bg-bg-inset text-text-muted'
                 } disabled:opacity-50`}
               >{savingChannel === c.id ? '…' : dirty ? '저장' : '✓'}</button>
             </div>
@@ -3168,7 +3168,7 @@ function PlanTab({
                 type="file" accept=".xlsx,.xls,.csv,.pdf"
                 onChange={(e) => e.target.files && e.target.files[0] && upload(e.target.files[0])}
                 disabled={busy}
-                className="flex-1 text-sm text-text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-accent file:text-white file:cursor-pointer hover:file:bg-link disabled:opacity-50"
+                className="flex-1 text-sm text-text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-accent file:text-on-brand file:cursor-pointer hover:file:bg-link disabled:opacity-50"
               />
             </div>
             {uploadMsg && (
@@ -3203,7 +3203,7 @@ function PlanTab({
                 }}
                 className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
                   upToToday
-                    ? 'bg-accent border-accent text-white'
+                    ? 'bg-accent border-accent text-on-brand'
                     : 'bg-bg-0 border-border-primary text-text-dim hover:border-accent hover:text-text-primary'
                 }`}
                 title="1월 1일부터 오늘까지 누계 분석 (계획은 오늘 기준 일자 비율로 안분)"
@@ -3641,7 +3641,7 @@ function AdminTab({
             </div>
             <button
               onClick={savePw}
-              className="px-4 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
+              className="px-4 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium"
             >저장</button>
           </div>
         ) : (
@@ -3676,7 +3676,7 @@ function AdminTab({
             <button
               onClick={() => runAdmin('run-retention-now', '즉시 실행')}
               disabled={adminBusy !== null}
-              className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
+              className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium"
             >{adminBusy === '즉시 실행' ? '실행 중…' : '지금 실행'}</button>
           </div>
         </div>
@@ -3797,7 +3797,7 @@ function AdminTab({
           </div>
           <button
             onClick={() => setEditingEmp({ email: '', name: '', role: 'staff', is_active: true })}
-            className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
+            className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium"
           >
             + 직원 추가
           </button>
@@ -3836,7 +3836,7 @@ function AdminTab({
                 </select>
               </div>
               <div className="flex gap-1.5">
-                <button onClick={saveEmployee} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">저장</button>
+                <button onClick={saveEmployee} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium">저장</button>
                 <button onClick={() => setEditingEmp(null)} className="px-3 py-1.5 bg-bg-inset hover:bg-border-primary text-text-secondary rounded text-xs">취소</button>
               </div>
             </div>
@@ -3945,7 +3945,7 @@ function AdminTab({
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setAssignTarget(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
-              <button onClick={saveAssign} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">저장 ({pendingChannels.length}개)</button>
+              <button onClick={saveAssign} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium">저장 ({pendingChannels.length}개)</button>
             </div>
           </div>
         </div>
@@ -4149,7 +4149,7 @@ function Segment<T extends string>({ label, options, value, onChange }: {
             key={o.v}
             onClick={() => onChange(o.v)}
             className={`px-2.5 py-1 text-xs rounded transition-colors ${
-              value === o.v ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-primary'
+              value === o.v ? 'bg-accent text-on-brand' : 'text-text-tertiary hover:text-text-primary'
             }`}
           >
             {o.l}
@@ -4393,7 +4393,7 @@ function ProductsTab({
           />
           <button
             onClick={() => { setEditProd({ name: '', default_unit_size: 1, is_active: true, sort_order: 100 }); setShowProdEditor(true); }}
-            className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
+            className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium"
           >+ 품목 추가</button>
         </div>
       </div>
@@ -4546,7 +4546,7 @@ function ProductsTab({
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setSelectedChannel(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
-              <button onClick={saveChannelProducts} disabled={busy} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50">
+              <button onClick={saveChannelProducts} disabled={busy} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium disabled:opacity-50">
                 {busy ? '저장 중…' : `저장 (${pendingPids.size}개)`}
               </button>
             </div>
@@ -4619,7 +4619,7 @@ function ProductsTab({
             </div>
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => { setShowProdEditor(false); setEditProd({}); }} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
-              <button onClick={saveProduct} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">저장</button>
+              <button onClick={saveProduct} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium">저장</button>
             </div>
           </div>
         </div>
@@ -5048,7 +5048,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
 
             <div className="flex justify-end gap-2">
               <button onClick={() => setEditCell(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
-              <button onClick={saveEdit} disabled={editBusy} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50">
+              <button onClick={saveEdit} disabled={editBusy} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium disabled:opacity-50">
                 {editBusy ? '저장 중…' : '저장'}
               </button>
             </div>
@@ -5075,7 +5075,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
             />
             <div className="flex justify-end gap-2">
               <button onClick={() => setAddRowParent(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
-              <button onClick={addRow} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">추가</button>
+              <button onClick={addRow} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium">추가</button>
             </div>
           </div>
         </div>

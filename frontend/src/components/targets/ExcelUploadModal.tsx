@@ -462,7 +462,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 <button
                   onClick={handleUpload}
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-success text-white rounded-lg hover:bg-success transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 bg-success text-on-brand rounded-lg hover:bg-success transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSubmitting ? (
                     <>

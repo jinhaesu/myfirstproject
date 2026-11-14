@@ -528,7 +528,7 @@ export default function InventoryPage() {
               {tab}
               {tab === '재고알림' && alertItems.length > 0 && (
                 <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
-                  activeTab === tab ? 'bg-bg-1/20 text-white' : 'bg-danger/15 text-danger'
+                  activeTab === tab ? 'bg-bg-1/20 text-on-brand' : 'bg-danger/15 text-danger'
                 }`}>
                   {alertItems.length}
                 </span>

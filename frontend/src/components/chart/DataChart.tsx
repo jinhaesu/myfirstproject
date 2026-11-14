@@ -246,10 +246,11 @@ export function DataChart({ columns, rows }: DataChartProps) {
               onClick={() => toggleYAxis(col)}
               className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                 selectedYAxes.includes(col)
-                  ? 'border-transparent text-white font-medium'
+                  ? 'text-text-primary font-medium'
                   : 'border-border-primary text-text-quaternary hover:text-text-tertiary hover:border-border-secondary'
               }`}
-              style={selectedYAxes.includes(col) ? { backgroundColor: COLORS[selectedYAxes.indexOf(col) % COLORS.length] } : {}}
+              // 차트 색은 명암 단계라 흰 글자가 안 읽히는 칸이 있다 → 옅은 바탕 + 같은 색 테두리 + 본문색 글자
+              style={selectedYAxes.includes(col) ? (() => { const c = COLORS[selectedYAxes.indexOf(col) % COLORS.length]; return { backgroundColor: `color-mix(in srgb, ${c} 22%, transparent)`, borderColor: c }; })() : {}}
             >
               {col}
             </button>

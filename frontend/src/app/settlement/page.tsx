@@ -560,7 +560,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           <div className="flex-1" />
           <button
             onClick={() => handleOpenManual()}
-            className="px-4 py-2 text-sm bg-success text-white rounded-lg hover:bg-success transition-colors"
+            className="px-4 py-2 text-sm bg-success text-on-brand rounded-lg hover:bg-success transition-colors"
           >
             + 수동 입력
           </button>
@@ -1956,7 +1956,7 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
                   <button
                     onClick={() => handleSendNow(report.id)}
                     disabled={sendingReportId === report.id}
-                    className="px-4 py-2 text-sm bg-success text-white rounded-lg hover:bg-success transition-colors disabled:opacity-50"
+                    className="px-4 py-2 text-sm bg-success text-on-brand rounded-lg hover:bg-success transition-colors disabled:opacity-50"
                   >
                     {sendingReportId === report.id ? '발송 중...' : '즉시 발송'}
                   </button>

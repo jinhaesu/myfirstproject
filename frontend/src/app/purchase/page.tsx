@@ -91,7 +91,7 @@ function TeamFilter({ value, onChange }: { value: string; onChange: (v: string) 
   return (
     <div className="flex rounded-lg overflow-hidden border border-border-primary">
       {[{ k: '', l: '전체팀' }, { k: '구매팀', l: '구매팀' }, { k: '물류팀', l: '물류팀' }].map((t) => (
-        <button key={t.k} onClick={() => onChange(t.k)} className={`px-2.5 py-2 text-xs font-semibold ${value === t.k ? (t.k === '물류팀' ? 'bg-info text-white' : 'bg-brand text-on-brand') : 'bg-bg-inset text-text-tertiary'}`}>{t.l}</button>
+        <button key={t.k} onClick={() => onChange(t.k)} className={`px-2.5 py-2 text-xs font-semibold ${value === t.k ? (t.k === '물류팀' ? 'bg-info text-on-brand' : 'bg-brand text-on-brand') : 'bg-bg-inset text-text-tertiary'}`}>{t.l}</button>
       ))}
     </div>
   );
@@ -370,7 +370,7 @@ function MonthlyMatrix({ defaultYear, team }: { defaultYear: number; team: strin
           {years.map((y) => <button key={y} onClick={() => setYear(y)} className={`px-2.5 py-1.5 text-xs font-semibold ${year === y ? 'bg-brand text-on-brand' : 'bg-bg-inset text-text-tertiary'}`}>{y}년</button>)}
         </div>
         <div className="flex rounded-lg overflow-hidden border border-border-primary">
-          {([['vendor', '거래처별'], ['material', '원부재료별']] as const).map(([k, l]) => <button key={k} onClick={() => setBy(k)} className={`px-2.5 py-1.5 text-xs font-semibold ${by === k ? 'bg-info text-white' : 'bg-bg-inset text-text-tertiary'}`}>{l}</button>)}
+          {([['vendor', '거래처별'], ['material', '원부재료별']] as const).map(([k, l]) => <button key={k} onClick={() => setBy(k)} className={`px-2.5 py-1.5 text-xs font-semibold ${by === k ? 'bg-info text-on-brand' : 'bg-bg-inset text-text-tertiary'}`}>{l}</button>)}
         </div>
         {team && <span className="text-xs text-info">· {team}</span>}
         <div className="ml-auto"><XlsxBtn kind="monthly" params={{ year, by, basis, team: team || undefined }} /></div>

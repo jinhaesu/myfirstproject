@@ -353,9 +353,9 @@ function ToastContainer({ toasts, onRemove }: { toasts: ToastMessage[]; onRemove
         <div
           key={t.id}
           className={`flex items-center gap-3 px-5 py-3 rounded-lg shadow-nd-f text-sm font-medium transition-[transform,opacity] animate-slide-up
-            ${t.type === 'success' ? 'bg-success text-white' : ''}
+            ${t.type === 'success' ? 'bg-success text-on-brand' : ''}
             ${t.type === 'info' ? 'bg-brand text-on-brand' : ''}
-            ${t.type === 'error' ? 'bg-danger text-white' : ''}
+            ${t.type === 'error' ? 'bg-danger text-on-brand' : ''}
           `}
         >
           <span>{t.text}</span>
@@ -1079,7 +1079,7 @@ export default function ProductionPlanPage() {
             {/* 계획 추가 */}
             <button
               onClick={addNewPlan}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-success text-white text-sm font-medium shadow-nd-s hover:bg-success-hover transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-success text-on-brand text-sm font-medium shadow-nd-s hover:bg-success-hover transition-colors"
             >
               <PlusIcon />
               <span>계획 추가</span>

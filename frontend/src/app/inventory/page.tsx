@@ -733,7 +733,7 @@ function SegmentedControl<T extends string>({ value, onChange, options }: { valu
           className={`px-4 py-1.5 rounded-lg transition-colors text-left ${
             value === o.v ? 'bg-brand text-on-brand shadow-nd-s' : 'text-text-tertiary hover:text-text-secondary'}`}>
           <span className="block text-[13px] font-semibold leading-tight">{o.label}</span>
-          {o.sub && <span className={`block text-[10px] leading-tight ${value === o.v ? 'text-white/75' : 'text-text-quaternary'}`}>{o.sub}</span>}
+          {o.sub && <span className={`block text-[10px] leading-tight ${value === o.v ? 'text-on-brand/75' : 'text-text-quaternary'}`}>{o.sub}</span>}
         </button>
       ))}
     </div>
@@ -815,16 +815,16 @@ function FlowBar({ opening, purchase, consumed, stock }: { opening: number; purc
         <div className="flex justify-between text-[11px] mb-1"><span className="text-text-tertiary">유입 (기초 + 매입)</span><span className="tabular-nums text-text-secondary">{won(opening + purchase)}</span></div>
         <div className="flex h-6 rounded-md overflow-hidden bg-bg-inset">
           {opening > 0 && <div className="flex items-center justify-center text-[10px] text-white/90" style={{ width: pct(opening), background: 'var(--color-text-quaternary)' }} title={`기초 ${won(opening)}`}>{opening / inflow > 0.08 ? '기초' : ''}</div>}
-          <div className="flex items-center justify-center text-[10px] text-white/90" style={{ width: pct(purchase), background: 'var(--color-warning)' }} title={`매입 ${won(purchase)}`}>{purchase / inflow > 0.12 ? `매입 ${wonShort(purchase)}` : ''}</div>
+          <div className="flex items-center justify-center text-[10px] text-on-brand/90" style={{ width: pct(purchase), background: 'var(--color-warning)' }} title={`매입 ${won(purchase)}`}>{purchase / inflow > 0.12 ? `매입 ${wonShort(purchase)}` : ''}</div>
         </div>
       </div>
       <div>
         <div className="flex justify-between text-[11px] mb-1"><span className="text-info">− 소모 (BOM 이론소요)</span><span className="tabular-nums text-info">{won(consumed)}</span></div>
-        <div className="flex h-6 rounded-md overflow-hidden bg-bg-inset"><div className="flex items-center justify-center text-[10px] text-white/90" style={{ width: pct(consumed), background: 'var(--color-info)' }}>{consumed / inflow > 0.12 ? `소모 ${wonShort(consumed)}` : ''}</div></div>
+        <div className="flex h-6 rounded-md overflow-hidden bg-bg-inset"><div className="flex items-center justify-center text-[10px] text-on-brand/90" style={{ width: pct(consumed), background: 'var(--color-info)' }}>{consumed / inflow > 0.12 ? `소모 ${wonShort(consumed)}` : ''}</div></div>
       </div>
       <div>
         <div className="flex justify-between text-[11px] mb-1"><span className="text-brand font-semibold">= 재고금액</span><span className="tabular-nums text-brand font-semibold">{won(stock)}</span></div>
-        <div className="flex h-7 rounded-md overflow-hidden bg-bg-inset"><div className="flex items-center justify-center text-[11px] font-semibold text-white" style={{ width: pct(stock), background: 'var(--color-brand)' }}>{stock / inflow > 0.1 ? won(stock) : ''}</div></div>
+        <div className="flex h-7 rounded-md overflow-hidden bg-bg-inset"><div className="flex items-center justify-center text-[11px] font-semibold text-on-brand" style={{ width: pct(stock), background: 'var(--color-brand-bg)' }}>{stock / inflow > 0.1 ? won(stock) : ''}</div></div>
       </div>
     </div>
   );

@@ -978,10 +978,10 @@ export default function CSPage() {
                 operationMode === 'auto' ? 'bg-brand' : 'bg-bg-quaternary'
               }`}
             >
-              <span className={`absolute left-2 text-xs font-medium transition-opacity ${operationMode === 'semi_auto' ? 'text-text-secondary opacity-100' : 'text-white opacity-50'}`}>
+              <span className={`absolute left-2 text-xs font-medium transition-opacity ${operationMode === 'semi_auto' ? 'text-text-secondary opacity-100' : 'text-on-brand opacity-50'}`}>
                 반자동 모드
               </span>
-              <span className={`absolute right-2 text-xs font-medium transition-opacity ${operationMode === 'auto' ? 'text-white opacity-100' : 'text-text-tertiary opacity-50'}`}>
+              <span className={`absolute right-2 text-xs font-medium transition-opacity ${operationMode === 'auto' ? 'text-on-brand opacity-100' : 'text-text-tertiary opacity-50'}`}>
                 자동 모드
               </span>
               <span className={`inline-block h-6 w-6 transform rounded-full bg-bg-1 shadow-nd-s transition-transform ${
@@ -1201,7 +1201,7 @@ export default function CSPage() {
                   </button>
                   <button
                     onClick={handleBulkApprove}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-white rounded-lg hover:bg-success-hover transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-on-brand rounded-lg hover:bg-success-hover transition-colors"
                   >
                     일괄 승인
                   </button>
@@ -1463,7 +1463,7 @@ export default function CSPage() {
                     {/* ── 하단 액션 버튼 (항상 노출) ── */}
                     <div className="px-4 pb-4 pt-2 flex items-center gap-2 flex-wrap">
                       {inquiry.status === 'new' && inquiry.ai_response && (
-                        <button onClick={() => handleApprove(inquiry.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-white rounded-lg hover:bg-success-hover transition-colors">
+                        <button onClick={() => handleApprove(inquiry.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-on-brand rounded-lg hover:bg-success-hover transition-colors">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> 승인
                         </button>
                       )}
@@ -1471,7 +1471,7 @@ export default function CSPage() {
                         <>
                           <button
                             onClick={() => handleApprove(inquiry.id, expandedId === inquiry.id ? editingResponse : undefined)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-white rounded-lg hover:bg-success-hover transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-on-brand rounded-lg hover:bg-success-hover transition-colors"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> 승인
                           </button>

@@ -1155,7 +1155,7 @@ export default function OrderPlanPage() {
             <p className="text-link/60 text-xs mt-1">등록된 품목</p>
           </div>
           {/* Total Planned Qty */}
-          <div className="bg-success rounded-2xl p-4 text-white shadow-nd-f">
+          <div className="bg-success rounded-2xl p-4 text-on-brand shadow-nd-f">
             <p className="text-success/15 text-xs font-medium mb-1">총 계획 수량</p>
             <p className="text-2xl font-semibold">{formatNumber(summary.totalPlanned)}</p>
             <p className="text-success/25 text-xs mt-1">전체 기간 합계</p>

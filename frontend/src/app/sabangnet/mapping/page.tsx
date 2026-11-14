@@ -832,7 +832,7 @@ export default function MappingPage() {
               <button
                 onClick={handleBulkApprove}
                 disabled={bulkApproving}
-                className="flex items-center gap-2 bg-success text-white hover:bg-success disabled:opacity-60 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+                className="flex items-center gap-2 bg-success text-on-brand hover:bg-success disabled:opacity-60 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
               >
                 {bulkApproving ? (
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -997,7 +997,7 @@ export default function MappingPage() {
                             <button
                               onClick={() => handleApprove(suggestion.id)}
                               disabled={isApproving}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-success text-white hover:bg-success disabled:opacity-60 transition-colors"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-success text-on-brand hover:bg-success disabled:opacity-60 transition-colors"
                             >
                               {isApproving ? (
                                 <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1890,7 +1890,7 @@ export default function MappingPage() {
                 </button>
                 <button onClick={handleManualMap}
                   disabled={!manualMapProductId}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-success text-white hover:bg-success disabled:opacity-50 transition-colors">
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-success text-on-brand hover:bg-success disabled:opacity-50 transition-colors">
                   매핑 연결
                 </button>
               </div>
