@@ -39,11 +39,12 @@ const CSS = `
 @media (prefers-reduced-motion:reduce){.ndbar a,.ndbar button{transition:none}}
 `;
 
+// 표준 아이콘 세트(Phosphor regular)의 lock 그림을 그대로 옮겼다(icons/phosphor-regular/lock.svg).
+// 이 파일은 혼자서 동작해야 하므로 아이콘 파일을 import 하지 않고 path 를 직접 넣는다.
 function LockIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="5" y="11" width="14" height="9" rx="2" />
-      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM96,56a32,32,0,0,1,64,0V80H96ZM208,208H48V96H208V208Zm-68-56a12,12,0,1,1-12-12A12,12,0,0,1,140,152Z" />
     </svg>
   );
 }

@@ -105,8 +105,9 @@ input, textarea, select {
   border-color: var(--color-border-primary);
 }
 
+/* 자리표시 글자는 설명 글자색(--nd-fg-3). --nd-fg-4 는 비활성 전용이다 */
 input::placeholder, textarea::placeholder {
-  color: var(--color-text-quaternary);
+  color: var(--color-text-tertiary);
 }
 
 /* select 드롭다운 옵션이 흰 배경+흰 글씨로 안 보이는 문제(윈도우 크롬) 방지 */
