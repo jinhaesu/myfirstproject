@@ -1,5 +1,5 @@
 'use client';
-import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
+import { ND_DASH, NdChartEmpty, ndArea, ndAxis, ndBar, ndFmt, ndGrid, ndLegend, ndLine, ndMargin, ndScale, ndTooltip } from '@/components/nd/NdChart';
 
 import { useState, useMemo, useEffect } from 'react';
 import {
@@ -35,8 +35,6 @@ interface PreviousPeriodData {
   year: number;
   month?: number;
 }
-
-const COLORS = ND_CHART;
 
 function parseNumber(value: string | number | undefined | null): number {
   if (value === null || value === undefined || value === '') return 0;
@@ -375,57 +373,62 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
   if (!isOpen) return null;
 
   const renderChart = () => {
-    const commonProps = {
-      data: chartData,
-      margin: { top: 5, right: 30, left: 20, bottom: 5 },
-    };
+    const displayLabel = showCumulative ? `${currentLabel} 누계` : currentLabel;
+    const compDisplayLabel = showCumulative ? `${comparisonLabel} 누계` : comparisonLabel;
+    const targetLabel = showCumulative ? '목표 누계' : '목표';
+    const hasPrevious = showComparison && !!previousData;
+    const hasTarget = showTargetComparison && !!targetData && type === 'sales';
 
+    // 그 축에 그려지는 가장 큰 값·작은 값(현재 · 비교 · 목표 모두)
+    const values = chartData
+      .flatMap((r) => Object.keys(r).filter((k) => k !== 'name').map((k) => Number(r[k])))
+      .filter((v) => isFinite(v));
+    const scale = ndScale(Math.max(0, ...values), ndFmt.axisNumBy, Math.min(0, ...values), { fraction: values.some((v) => !Number.isInteger(v)) });
+
+    // 실적(현재)만 1번 색 실선·면. 비교 대상은 중립색이고, 선·영역에서는 짧은 점선이다(목표는 2번 색 점선)
     const renderElements = () => {
       const elements = [];
-      const displayLabel = showCumulative ? `${currentLabel} 누계` : currentLabel;
-      const compDisplayLabel = showCumulative ? `${comparisonLabel} 누계` : comparisonLabel;
-      const targetLabel = showCumulative ? '목표 누계' : '목표';
 
       if (chartType === 'bar') {
         elements.push(
-          <Bar key="current" dataKey={displayLabel} fill={COLORS[0]} name={displayLabel} />
+          <Bar key="current" dataKey={displayLabel} name={displayLabel} {...ndBar(1)} />
         );
-        if (showComparison && previousData) {
+        if (hasPrevious) {
           elements.push(
-            <Bar key="previous" dataKey={compDisplayLabel} fill={COLORS[1]} name={compDisplayLabel} />
+            <Bar key="previous" dataKey={compDisplayLabel} name={compDisplayLabel} {...ndBar('context')} />
           );
         }
-        if (showTargetComparison && targetData && type === 'sales') {
+        if (hasTarget) {
           elements.push(
-            <Bar key="target" dataKey={targetLabel} fill="var(--color-orange)" name={targetLabel} />
+            <Bar key="target" dataKey={targetLabel} name={targetLabel} {...ndBar('context', { outline: true })} />
           );
         }
       } else if (chartType === 'line') {
         elements.push(
-          <Line key="current" type="monotone" dataKey={displayLabel} stroke={COLORS[0]} strokeWidth={2} name={displayLabel} />
+          <Line key="current" dataKey={displayLabel} name={displayLabel} {...ndLine(1)} />
         );
-        if (showComparison && previousData) {
+        if (hasPrevious) {
           elements.push(
-            <Line key="previous" type="monotone" dataKey={compDisplayLabel} stroke={COLORS[1]} strokeWidth={2} strokeDasharray="5 5" name={compDisplayLabel} />
+            <Line key="previous" dataKey={compDisplayLabel} name={compDisplayLabel} {...ndLine('context', { dashed: true })} />
           );
         }
-        if (showTargetComparison && targetData && type === 'sales') {
+        if (hasTarget) {
           elements.push(
-            <Line key="target" type="monotone" dataKey={targetLabel} stroke="var(--color-orange)" strokeWidth={2} strokeDasharray="3 3" name={targetLabel} />
+            <Line key="target" dataKey={targetLabel} name={targetLabel} {...ndLine(2, { dashed: true })} />
           );
         }
       } else {
         elements.push(
-          <Area key="current" type="monotone" dataKey={displayLabel} stroke={COLORS[0]} fill={COLORS[0]} fillOpacity={0.3} name={displayLabel} />
+          <Area key="current" dataKey={displayLabel} name={displayLabel} {...ndArea(1)} />
         );
-        if (showComparison && previousData) {
+        if (hasPrevious) {
           elements.push(
-            <Area key="previous" type="monotone" dataKey={compDisplayLabel} stroke={COLORS[1]} fill={COLORS[1]} fillOpacity={0.2} name={compDisplayLabel} />
+            <Area key="previous" dataKey={compDisplayLabel} name={compDisplayLabel} {...ndArea('context')} strokeDasharray={ND_DASH} />
           );
         }
-        if (showTargetComparison && targetData && type === 'sales') {
+        if (hasTarget) {
           elements.push(
-            <Area key="target" type="monotone" dataKey={targetLabel} stroke="var(--color-orange)" fill="var(--color-orange)" fillOpacity={0.15} name={targetLabel} />
+            <Area key="target" dataKey={targetLabel} name={targetLabel} {...ndArea(2)} strokeDasharray={ND_DASH} />
           );
         }
       }
@@ -436,15 +439,21 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
     const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'line' ? LineChart : AreaChart;
 
     return (
-      <ResponsiveContainer width="100%" height={400}>
-        <ChartComponent {...commonProps}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="name" />
-          <YAxis tickFormatter={(value) => new Intl.NumberFormat('ko-KR', { notation: 'compact' }).format(value)} />
+      <ResponsiveContainer width="100%" height={320}>
+        <ChartComponent data={chartData} margin={ndMargin}>
+          <CartesianGrid {...ndGrid} />
+          <XAxis dataKey="name" {...ndAxis.x} />
+          <YAxis {...ndAxis.y} {...scale} />
           <Tooltip
-            formatter={(value: number, name: string) => [new Intl.NumberFormat('ko-KR').format(value), name]}
+            {...ndTooltip({
+              kind: chartType === 'bar' ? 'bar' : 'line',
+              value: ndFmt.num,
+              mark: chartType === 'bar' ? {} : { [compDisplayLabel]: 'dash', [targetLabel]: 'dash' },
+            })}
           />
-          <Legend />
+          {(hasPrevious || hasTarget) && (
+            <Legend {...ndLegend({ names: { [displayLabel]: `${displayLabel} (현재)`, [compDisplayLabel]: `${compDisplayLabel} (비교)` } })} />
+          )}
           {renderElements()}
         </ChartComponent>
       </ResponsiveContainer>
@@ -639,37 +648,13 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
           </div>
 
           {/* 차트 */}
-          <div className="bg-bg-0 rounded-xl p-4">
+          <div className="bg-bg-0 rounded-xl p-4" style={{ ['--nd-chart-surface' as any]: 'var(--color-bg-level-0)' }}>
             {selectedRows.length > 0 ? (
               renderChart()
             ) : (
-              <div className="h-[400px] flex items-center justify-center text-text-tertiary">
-                표시할 항목을 선택해주세요
-              </div>
+              <NdChartEmpty height={320}>표시할 항목을 선택해주세요</NdChartEmpty>
             )}
           </div>
-
-          {/* 범례 설명 */}
-          {(showComparison && previousData) || showCumulative || (showTargetComparison && targetData) ? (
-            <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-text-tertiary">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[0] }} />
-                <span>{showCumulative ? `${currentLabel} 누계` : currentLabel} (현재)</span>
-              </div>
-              {showComparison && previousData && (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[1] }} />
-                  <span>{showCumulative ? `${comparisonLabel} 누계` : comparisonLabel} (비교)</span>
-                </div>
-              )}
-              {showTargetComparison && targetData && type === 'sales' && (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: 'var(--color-orange)' }} />
-                  <span>{showCumulative ? '목표 누계' : '목표'}</span>
-                </div>
-              )}
-            </div>
-          ) : null}
         </div>
       </div>
     </div>

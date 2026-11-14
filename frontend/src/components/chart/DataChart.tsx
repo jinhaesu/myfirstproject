@@ -1,5 +1,5 @@
 'use client';
-import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
+import { NdDonutList, NdKey, ndAlpha, ndArea, ndAxis, ndBar, ndColor, ndFmt, ndGrid, ndLine, ndMargin, ndPie, ndPieRows, ndRefLabel, ndRefLine, ndScale, ndSlotAt, ndTooltip, type NdMark, type NdSlot } from '@/components/nd/NdChart';
 
 import { useMemo, useState, useCallback } from 'react';
 import {
@@ -9,7 +9,6 @@ import {
   Line,
   PieChart,
   Pie,
-  Cell,
   AreaChart,
   Area,
   ComposedChart,
@@ -18,7 +17,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   ReferenceLine,
   Brush,
@@ -30,53 +28,6 @@ interface DataChartProps {
 }
 
 type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'composed';
-
-// Linear-inspired colorblind-safe palette
-const COLORS = ND_CHART;
-
-const GRADIENT_PAIRS = ND_CHART.slice(0, 4).map((c) => ({ start: c, end: c }));
-
-// Custom dark tooltip
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-bg-secondary border border-border-secondary rounded-xl px-4 py-3 shadow-nd-f">
-      <p className="text-text-tertiary text-xs mb-2 font-medium">{label}</p>
-      {payload.map((entry: any, i: number) => (
-        <div key={i} className="flex items-center gap-2 py-0.5">
-          <div
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className="text-text-secondary text-sm">{entry.name}:</span>
-          <span className="text-text-primary text-sm font-semibold">
-            {typeof entry.value === 'number'
-              ? entry.value.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
-              : entry.value}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// Custom legend
-const CustomLegend = ({ payload }: any) => {
-  if (!payload?.length) return null;
-  return (
-    <div className="flex flex-wrap justify-center gap-4 mt-3">
-      {payload.map((entry: any, i: number) => (
-        <div key={i} className="flex items-center gap-1.5">
-          <div
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className="text-text-tertiary text-xs font-medium">{entry.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
 
 // Summary stats card
 function StatCard({ label, value, color }: { label: string; value: string; color: string }) {
@@ -157,6 +108,24 @@ export function DataChart({ columns, rows }: DataChartProps) {
 
   // Average for reference line
   const avgValue = stats?.avg || 0;
+  const avgLabel = avgValue.toLocaleString('ko-KR', { maximumFractionDigits: 1 });
+
+  // 그래프(널담 그래프 부품)
+  // 계열 색: 숫자 열이 여섯 이하면 열마다 번호를 고정한다(고르는 순서가 바뀌어도 같은 색). 그보다 많으면 고른 순서대로 1~4번
+  const slotOf = (col: string): NdSlot =>
+    ndSlotAt(Math.max(0, numericColumns.length <= 6 ? numericColumns.indexOf(col) : selectedYAxes.indexOf(col)));
+  // 표식: 막대는 네모, 선·영역은 선. 복합은 첫째 막대 · 둘째 선 · 나머지 점
+  const markOf = (col: string): NdMark => {
+    if (chartType === 'bar') return 'rect';
+    if (chartType !== 'composed') return 'line';
+    const i = selectedYAxes.indexOf(col);
+    return i === 0 ? 'rect' : i === 1 ? 'line' : 'dot';
+  };
+  const yValues = chartData.flatMap((r) => selectedYAxes.map((c) => Number(r[c]))).filter((v) => isFinite(v));
+  const yScale = ndScale(Math.max(0, ...yValues), ndFmt.axisNumBy, Math.min(0, ...yValues), { fraction: yValues.some((v) => !Number.isInteger(v)) });
+  const tip = (kind: 'bar' | 'line') => ndTooltip({ kind, value: ndFmt.num, mark: (it) => markOf(String(it.dataKey ?? '')) });
+  // 도넛 행: 큰 것부터, 여섯째부터는 「기타」로 묶인다
+  const pieRows = ndPieRows([...pieData].sort((a, b) => b.value - a.value));
 
   if (rows.length === 0 || numericColumns.length === 0) {
     return (
@@ -178,18 +147,6 @@ export function DataChart({ columns, rows }: DataChartProps) {
     { type: 'composed', label: '복합', icon: 'M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z' },
     { type: 'pie', label: '원', icon: 'M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z' },
   ];
-
-  const commonAxisProps = {
-    tick: { fontSize: 11, fill: 'var(--color-text-tertiary)' },
-    axisLine: { stroke: 'var(--color-border-primary)' },
-    tickLine: { stroke: 'var(--color-border-primary)' },
-  };
-
-  const gridProps = {
-    strokeDasharray: '3 3',
-    stroke: 'var(--color-bg-secondary)',
-    vertical: false,
-  };
 
   return (
     <div className="space-y-4">
@@ -244,14 +201,15 @@ export function DataChart({ columns, rows }: DataChartProps) {
             <button
               key={col}
               onClick={() => toggleYAxis(col)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+              className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors ${
                 selectedYAxes.includes(col)
                   ? 'text-text-primary font-medium'
                   : 'border-border-primary text-text-quaternary hover:text-text-tertiary hover:border-border-secondary'
               }`}
-              // 차트 색은 명암 단계라 흰 글자가 안 읽히는 칸이 있다 → 옅은 바탕 + 같은 색 테두리 + 본문색 글자
-              style={selectedYAxes.includes(col) ? (() => { const c = COLORS[selectedYAxes.indexOf(col) % COLORS.length]; return { backgroundColor: `color-mix(in srgb, ${c} 22%, transparent)`, borderColor: c }; })() : {}}
+              // 이 단추들이 그래프의 범례다: 옅은 바탕 + 같은 색 테두리 + 본문색 글자 + 그래프와 같은 표식(원 그래프는 조각 색이 행마다라 중립색)
+              style={selectedYAxes.includes(col) ? (() => { const c = chartType === 'pie' ? 'context' : slotOf(col); return { backgroundColor: ndAlpha(c, 22), borderColor: ndColor(c) }; })() : {}}
             >
+              {selectedYAxes.includes(col) && chartType !== 'pie' && <NdKey slot={slotOf(col)} mark={markOf(col)} />}
               {col}
             </button>
           ))}
@@ -270,111 +228,72 @@ export function DataChart({ columns, rows }: DataChartProps) {
 
       {/* Chart */}
       <div className="bg-bg-1 border border-border-primary rounded-2xl p-4">
+        {chartType === 'pie' ? (
+          <div className="flex flex-col gap-4">
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieRows} dataKey="value" nameKey="name" {...ndPie()} />
+                  <Tooltip {...ndTooltip({ kind: 'none', value: ndFmt.num })} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <NdDonutList rows={pieRows} value={(pct, row) => `${ndFmt.num(row.value)} · ${ndFmt.pctOf(0)(pct)}`} />
+          </div>
+        ) : (
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             {chartType === 'bar' ? (
-              <BarChart data={chartData} barCategoryGap="20%">
-                <defs>
-                  {selectedYAxes.map((_, i) => (
-                    <linearGradient key={i} id={`barGrad${i}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={GRADIENT_PAIRS[i % GRADIENT_PAIRS.length].start} stopOpacity={1} />
-                      <stop offset="100%" stopColor={GRADIENT_PAIRS[i % GRADIENT_PAIRS.length].start} stopOpacity={0.6} />
-                    </linearGradient>
-                  ))}
-                </defs>
-                <CartesianGrid {...gridProps} />
-                <XAxis dataKey={selectedXAxis} {...commonAxisProps} tickFormatter={(v) => String(v).slice(0, 12)} />
-                <YAxis {...commonAxisProps} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                <Legend content={<CustomLegend />} />
-                {selectedYAxes.length === 1 && <ReferenceLine y={avgValue} stroke="var(--color-brand-bg)" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: `평균 ${avgValue.toFixed(0)}`, position: 'right', fill: 'var(--color-brand-bg)', fontSize: 10 }} />}
-                {selectedYAxes.map((col, i) => (
-                  <Bar key={col} dataKey={col} fill={`url(#barGrad${i})`} radius={[6, 6, 0, 0]} animationDuration={800} />
+              <BarChart data={chartData} margin={ndMargin}>
+                <CartesianGrid {...ndGrid} />
+                <XAxis dataKey={selectedXAxis} {...ndAxis.x} tickFormatter={(v) => String(v).slice(0, 12)} />
+                <YAxis {...ndAxis.y} {...yScale} />
+                <Tooltip {...tip('bar')} />
+                {selectedYAxes.map((col) => (
+                  <Bar key={col} dataKey={col} {...ndBar(slotOf(col))} />
                 ))}
-                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} stroke="var(--color-border-primary)" fill="var(--color-bg-level-1)" travellerWidth={8} />}
+                {selectedYAxes.length === 1 && <ReferenceLine y={avgValue} {...ndRefLine()} label={ndRefLabel(`평균 ${avgLabel}`)} />}
+                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} travellerWidth={8} />}
               </BarChart>
             ) : chartType === 'line' ? (
-              <LineChart data={chartData}>
-                <CartesianGrid {...gridProps} />
-                <XAxis dataKey={selectedXAxis} {...commonAxisProps} tickFormatter={(v) => String(v).slice(0, 12)} />
-                <YAxis {...commonAxisProps} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend content={<CustomLegend />} />
-                {selectedYAxes.length === 1 && <ReferenceLine y={avgValue} stroke="var(--color-brand-bg)" strokeDasharray="4 4" strokeOpacity={0.5} />}
-                {selectedYAxes.map((col, i) => (
-                  <Line key={col} type="monotone" dataKey={col} stroke={COLORS[i % COLORS.length]} strokeWidth={2.5}
-                    dot={{ fill: 'var(--color-bg-level-1)', stroke: COLORS[i % COLORS.length], strokeWidth: 2, r: 3 }}
-                    activeDot={{ r: 6, fill: COLORS[i % COLORS.length], stroke: 'var(--color-bg-level-1)', strokeWidth: 2 }}
-                    animationDuration={1000} />
+              <LineChart data={chartData} margin={ndMargin}>
+                <CartesianGrid {...ndGrid} />
+                <XAxis dataKey={selectedXAxis} {...ndAxis.x} tickFormatter={(v) => String(v).slice(0, 12)} />
+                <YAxis {...ndAxis.y} {...yScale} />
+                <Tooltip {...tip('line')} />
+                {selectedYAxes.map((col) => (
+                  <Line key={col} dataKey={col} {...ndLine(slotOf(col))} />
                 ))}
-                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} stroke="var(--color-border-primary)" fill="var(--color-bg-level-1)" />}
+                {selectedYAxes.length === 1 && <ReferenceLine y={avgValue} {...ndRefLine()} label={ndRefLabel(`평균 ${avgLabel}`)} />}
+                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} travellerWidth={8} />}
               </LineChart>
             ) : chartType === 'area' ? (
-              <AreaChart data={chartData}>
-                <defs>
-                  {selectedYAxes.map((_, i) => (
-                    <linearGradient key={i} id={`areaGrad${i}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0} />
-                    </linearGradient>
-                  ))}
-                </defs>
-                <CartesianGrid {...gridProps} />
-                <XAxis dataKey={selectedXAxis} {...commonAxisProps} tickFormatter={(v) => String(v).slice(0, 12)} />
-                <YAxis {...commonAxisProps} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend content={<CustomLegend />} />
-                {selectedYAxes.map((col, i) => (
-                  <Area key={col} type="monotone" dataKey={col} stroke={COLORS[i % COLORS.length]} strokeWidth={2}
-                    fill={`url(#areaGrad${i})`} animationDuration={1000} />
+              <AreaChart data={chartData} margin={ndMargin}>
+                <CartesianGrid {...ndGrid} />
+                <XAxis dataKey={selectedXAxis} {...ndAxis.x} tickFormatter={(v) => String(v).slice(0, 12)} />
+                <YAxis {...ndAxis.y} {...yScale} />
+                <Tooltip {...tip('line')} />
+                {selectedYAxes.map((col) => (
+                  <Area key={col} dataKey={col} {...ndArea(slotOf(col))} />
                 ))}
-                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} stroke="var(--color-border-primary)" fill="var(--color-bg-level-1)" />}
+                {chartData.length > 20 && <Brush dataKey={selectedXAxis} height={20} travellerWidth={8} />}
               </AreaChart>
-            ) : chartType === 'composed' ? (
-              <ComposedChart data={chartData}>
-                <CartesianGrid {...gridProps} />
-                <XAxis dataKey={selectedXAxis} {...commonAxisProps} tickFormatter={(v) => String(v).slice(0, 12)} />
-                <YAxis {...commonAxisProps} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend content={<CustomLegend />} />
+            ) : (
+              <ComposedChart data={chartData} margin={ndMargin}>
+                <CartesianGrid {...ndGrid} />
+                <XAxis dataKey={selectedXAxis} {...ndAxis.x} tickFormatter={(v) => String(v).slice(0, 12)} />
+                <YAxis {...ndAxis.y} {...yScale} />
+                <Tooltip {...tip('bar')} />
                 {selectedYAxes.map((col, i) => {
-                  if (i === 0) return <Bar key={col} dataKey={col} fill={COLORS[i]} radius={[4, 4, 0, 0]} opacity={0.8} animationDuration={800} />;
-                  if (i === 1) return <Line key={col} type="monotone" dataKey={col} stroke={COLORS[i]} strokeWidth={2.5} dot={{ fill: 'var(--color-bg-level-1)', stroke: COLORS[i], strokeWidth: 2, r: 3 }} />;
-                  return <Scatter key={col} dataKey={col} fill={COLORS[i]} />;
+                  if (i === 0) return <Bar key={col} dataKey={col} {...ndBar(slotOf(col))} />;
+                  if (i === 1) return <Line key={col} dataKey={col} {...ndLine(slotOf(col))} />;
+                  return <Scatter key={col} dataKey={col} fill={ndColor(slotOf(col))} />;
                 })}
               </ComposedChart>
-            ) : (
-              <PieChart>
-                <defs>
-                  {pieData.map((_, i) => (
-                    <linearGradient key={i} id={`pieGrad${i}`} x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity={1} />
-                      <stop offset="100%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.7} />
-                    </linearGradient>
-                  ))}
-                </defs>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={110}
-                  paddingAngle={2}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                  animationBegin={0}
-                  animationDuration={800}
-                >
-                  {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={`url(#pieGrad${index})`} stroke="var(--color-bg-level-1)" strokeWidth={2} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend content={<CustomLegend />} />
-              </PieChart>
             )}
           </ResponsiveContainer>
         </div>
+        )}
       </div>
 
       {rows.length > (chartType === 'pie' ? 12 : 50) && (

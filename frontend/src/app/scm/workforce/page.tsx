@@ -1,13 +1,13 @@
 'use client';
-import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
+import { NdDonutList, ndAxis, ndBar, ndBarsHeight, ndColor, ndFmt, ndGridVertical, ndMarginH, ndPie, ndPieRows, ndRefLabel, ndRefLine, ndScale, ndTooltip } from '@/components/nd/NdChart';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  PieChart, Pie, Cell, ResponsiveContainer, ReferenceLine,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  PieChart, Pie, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 
 // ---------------------------------------------------------------------------
@@ -93,7 +93,8 @@ const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
   '대기': 'bg-bg-2 text-text-tertiary',
 };
 
-const PIE_COLORS = ND_CHART;
+// 업무 상태의 그래프 색: 진행중은 1번, 완료는 '좋음', 대기는 중립색(표의 상태 칩과 같은 뜻)
+const taskStatusColor = (name: string): string => ndColor(name === '진행중' ? 1 : name === '완료' ? 'good' : 'context');
 
 // ---------------------------------------------------------------------------
 // Sample Data
@@ -894,6 +895,10 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
 }) {
   const getAssigneeName = (id: string) => staffList.find(s => s.id === id)?.name || '-';
 
+  // 그래프(널담 그래프 부품): 시간 축은 기준 40h 까지 담고, 도넛 행은 상태 색을 입힌다
+  const hoursScale = ndScale(Math.max(40, ...barChartData.map((r) => r.투입시간)), (m) => ndFmt.axisNumBy(m, 1, 'h'));
+  const statusPie = ndPieRows(pieData, { colorOf: taskStatusColor });
+
   return (
     <div className="space-y-6">
       {/* Task Table */}
@@ -997,84 +1002,31 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
         {/* Bar Chart: 담당자별 주간 투입시간 */}
         <div className="lg:col-span-2 bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
           <h3 className="text-base font-semibold text-text-primary mb-4">담당자별 주간 투입시간</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-secondary)" />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }}
-                  axisLine={{ stroke: 'var(--color-border-primary)' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }}
-                  axisLine={{ stroke: 'var(--color-border-primary)' }}
-                  tickLine={false}
-                  unit="h"
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--color-bg-secondary)',
-                    border: '1px solid var(--color-border-secondary)',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-                    fontSize: '13px',
-                  }}
-                  formatter={(value: number, name: string) => [`${value}h`, name]}
-                />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
-                <ReferenceLine y={40} stroke="var(--color-danger)" strokeDasharray="4 4" label={{ value: '기준 40h', position: 'right', fontSize: 11, fill: 'var(--color-danger)' }} />
-                <Bar dataKey="투입시간" fill="var(--color-brand-bg)" radius={[6, 6, 0, 0]} barSize={32} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <ResponsiveContainer width="100%" height={ndBarsHeight(barChartData.length) + 20}>
+            <BarChart data={barChartData} layout="vertical" margin={ndMarginH}>
+              <CartesianGrid {...ndGridVertical} />
+              <XAxis type="number" {...ndAxis.value} {...hoursScale} />
+              <YAxis type="category" dataKey="name" {...ndAxis.category} padding={{ top: 20 }} />
+              <Tooltip {...ndTooltip({ kind: 'bar', unit: 'h' })} />
+              <Bar dataKey="투입시간" {...ndBar(1, { horizontal: true })} />
+              <ReferenceLine x={40} {...ndRefLine()} label={ndRefLabel('기준 40h', { vertical: true, left: 40 / hoursScale.domain[1] > 0.7 })} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Pie Chart: 업무 상태 분포 */}
         <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
           <h3 className="text-base font-semibold text-text-primary mb-4">업무 상태 분포</h3>
-          <div className="h-80 flex flex-col items-center justify-center">
-            <ResponsiveContainer width="100%" height="75%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={4}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  {pieData.map((_, idx) => (
-                    <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--color-bg-secondary)',
-                    border: '1px solid var(--color-border-secondary)',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-                    fontSize: '13px',
-                  }}
-                  formatter={(value: number, name: string) => [`${value}건`, name]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex flex-wrap justify-center gap-3 mt-2">
-              {pieData.map((d, idx) => (
-                <div key={d.name} className="flex items-center gap-1.5 text-xs text-text-tertiary">
-                  <div
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }}
-                  />
-                  {d.name} ({d.value})
-                </div>
-              ))}
+          <div className="flex flex-col gap-4">
+            <div className="h-[180px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={statusPie} dataKey="value" nameKey="name" {...ndPie()} />
+                  <Tooltip {...ndTooltip({ kind: 'none', unit: '건' })} />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
+            <NdDonutList rows={statusPie} value={(pct, row) => `${row.value}건 · ${ndFmt.pctOf(0)(pct)}`} />
           </div>
         </div>
       </div>
@@ -1119,13 +1071,13 @@ function UtilizationChart({ tasks, staffList }: { tasks: Task[]; staffList: Staf
               <circle
                 cx="18" cy="18" r="14"
                 fill="none"
-                stroke="var(--color-bg-secondary)"
+                stroke={ndColor('context-soft')}
                 strokeWidth="3"
               />
               <circle
                 cx="18" cy="18" r="14"
                 fill="none"
-                stroke={d.value >= 80 ? 'var(--color-success)' : d.value >= 50 ? 'var(--color-brand-bg)' : 'var(--color-warning)'}
+                stroke={ndColor(d.value >= 80 ? 'good' : d.value >= 50 ? 1 : 'warn')}
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeDasharray={`${(d.value / 100) * 87.96} 87.96`}
