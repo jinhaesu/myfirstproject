@@ -1,6 +1,7 @@
 'use client';
 import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
+import { ArrowDownIcon, ArrowDownRightIcon, ArrowUUpLeftIcon, ArrowUpIcon, ArrowUpRightIcon, ArrowsLeftRightIcon, CaretDownIcon, CaretUpIcon, CheckIcon, InfoIcon, MinusIcon, XIcon } from '@/components/nd/icons';
 import { useEffect, useState, useCallback, Fragment, createContext, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -454,12 +455,12 @@ function RecordsTab() {
           {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setUnit(u)} className={`px-2.5 py-2 text-xs font-semibold ${unit === u ? 'bg-brand text-on-brand' : 'bg-bg-inset text-text-tertiary'}`}>{u === 'ea' ? '수량(ea)' : '중량(kg)'}</button>)}
         </div>
         <XlsxBtn kind="records" params={{ start: range.start, end: range.end, mclass: mclass || undefined, q: q || undefined, team: team || undefined }} />
-        {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가(VAT별도) {won(data.supply_total)} · 합계(VAT포함) {won(data.total_total || 0)} · <span title="전표 정산 체크(✓완료)를 안 한 줄의 합계입니다. 실제 지급 기록과는 별개 — 거래처별 실제 미지급은 매입채무 탭(지급 기록 기준)에서 확인하세요.">정산 미체크(VAT포함) {won(data.unpaid_total || 0)}</span>{data.total > 500 && ' (500건 표시)'}</span>}
+        {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가(VAT별도) {won(data.supply_total)} · 합계(VAT포함) {won(data.total_total || 0)} · <span title="전표 정산 체크(완료)를 안 한 줄의 합계입니다. 실제 지급 기록과는 별개 — 거래처별 실제 미지급은 매입채무 탭(지급 기록 기준)에서 확인하세요.">정산 미체크(VAT포함) {won(data.unpaid_total || 0)}</span>{data.total > 500 && ' (500건 표시)'}</span>}
       </div>
       {/* 정산완료 처리 툴바 — 체크박스로 행 선택 후 버튼 클릭 */}
       <div className="flex flex-wrap items-center gap-2 bg-bg-1 border border-border-primary rounded-lg px-3 py-2">
         <span className="text-xs text-text-tertiary">체크박스로 전표 선택 후 →</span>
-        <button onClick={() => applySettle(true)} disabled={!sel.size} className={`${C.btn} ${sel.size ? C.btnPrimary : C.btnGhost} text-xs py-1.5`}>✓ 정산완료 처리{sel.size ? ` (${sel.size}건)` : ''}</button>
+        <button onClick={() => applySettle(true)} disabled={!sel.size} className={`${C.btn} ${sel.size ? C.btnPrimary : C.btnGhost} text-xs py-1.5`}><CheckIcon inline /> 정산완료 처리{sel.size ? ` (${sel.size}건)` : ''}</button>
         <button onClick={() => applySettle(false)} disabled={!sel.size} className={`${C.btn} ${C.btnGhost} text-xs py-1.5`}>정산 해제</button>
         {!!sel.size && <button onClick={() => setSel(new Set())} className="text-xs text-text-quaternary hover:underline">선택 해제</button>}
       </div>
@@ -482,7 +483,7 @@ function RecordsTab() {
               <td className={`${C.td} text-right tabular-nums`}>{unit === 'kg' ? (kgOf(r) != null ? won(Math.round(kgOf(r) as number)) : '-') : won(Math.round(upOf(r)))}{r.price_incl_vat && <span className="ml-1 text-[10px] text-accent" title="VAT포함 단가로 입력된 전표 — 기준에 맞게 환산 표시">입력:포함</span>}{!r.price_incl_vat && r.vat === 0 && r.supply !== 0 && <span className="ml-1 text-[10px] text-text-quaternary" title="부가세 0 — 면세 또는 미기재">면세</span>}</td>
               <td className={`${C.td} text-right text-warning tabular-nums`}>{won(r.supply)}</td>
               <td className={`${C.td} text-right tabular-nums`}>{won(r.total)}</td>
-              <td className={`${C.td} text-center`}>{r.paid ? <span className="text-success-light text-xs" title={r.paid_date || ''}>✓ 완료</span> : <span className="text-text-quaternary text-xs" title="정산 체크 안 함 — 지급 기록과 별개">미체크</span>}</td>
+              <td className={`${C.td} text-center`}>{r.paid ? <span className="text-success-light text-xs" title={r.paid_date || ''}><CheckIcon inline /> 완료</span> : <span className="text-text-quaternary text-xs" title="정산 체크 안 함 — 지급 기록과 별개">미체크</span>}</td>
             </tr>
           ))}</tbody>
           {rows.length > 0 && (
@@ -511,7 +512,7 @@ function HistoryModal({ hist, onClose }: { hist: any; onClose: () => void }) {
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div><div className="text-xs text-text-tertiary">{isVendor ? '거래처 누적 이력' : '품목 구매 이력'}</div><div className="text-lg font-semibold text-text-primary">{isVendor ? hist.vendor : hist.item_name}</div></div>
-          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl" aria-label="닫기"><XIcon inline /></button>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-4">
           <StatCard label={`누적 구매액(${vatTag(hist.basis === 'total' ? 'total' : 'supply')})`} value={wonShort(hist.total_supply || 0)} tone="text-warning" />
@@ -642,10 +643,10 @@ function InputTab() {
                     placeholder="검색 또는 신규 입력" /></div>
                 <div className="w-28"><L>품목코드</L><input value={l.item_code} onChange={(e) => setLine(i, { item_code: e.target.value })} placeholder="신규 시 입력" className={`${C.input} py-1.5 w-full ${isNew ? 'border-info/50' : ''}`} /></div>
                 <div className="w-20"><L>규격</L><input value={l.spec} onChange={(e) => onSpecText(i, e.target.value)} placeholder="20kg" className={`${C.input} py-1.5 w-full`} title={l.boxKg ? `ea당 ${l.boxKg}kg` : 'kg 환산 없음'} /></div>
-                <div><L>단위</L><button type="button" onClick={() => toggleUnit(i)} className={`${C.btn} py-1.5 w-14 ${l.unit === 'kg' ? 'bg-info/20 text-info' : C.btnGhost}`} title="ea↔kg 전환(규격 필요)">{l.unit} ⇄</button></div>
+                <div><L>단위</L><button type="button" onClick={() => toggleUnit(i)} className={`${C.btn} py-1.5 w-14 ${l.unit === 'kg' ? 'bg-info/20 text-info' : C.btnGhost}`} title="ea↔kg 전환(규격 필요)">{l.unit} <ArrowsLeftRightIcon inline /></button></div>
                 <div className="w-24"><L>수량</L><input type="number" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} className={`${C.input} py-1.5 w-full text-right`} /></div>
                 <div className="w-28"><L>단가{l.vat_mode === 'incl' && <span className="text-accent"> (VAT포함)</span>}</L><input type="number" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} className={`${C.input} py-1.5 w-full text-right ${l.vat_mode === 'incl' ? 'border-accent/50' : ''}`} /></div>
-                <div className="w-28 text-right"><L>공급가{l.vat_mode === 'incl' && <span className="text-accent" title="부가세 포함단가 ÷ 1.1"> ↩</span>}</L><div className="text-warning tabular-nums text-sm py-1.5">{won(lineSupply(l))}</div></div>
+                <div className="w-28 text-right"><L>공급가{l.vat_mode === 'incl' && <span className="text-accent" title="부가세 포함단가 ÷ 1.1"> <ArrowUUpLeftIcon inline /></span>}</L><div className="text-warning tabular-nums text-sm py-1.5">{won(lineSupply(l))}</div></div>
                 <div className="w-24"><L>부가세</L><select value={l.vat_mode} onChange={(e) => setLine(i, { vat_mode: e.target.value })} className={`${C.input} py-1.5 w-full ${l.vat_mode === 'incl' ? 'text-accent font-semibold' : ''}`}><option value="auto">별도10%</option><option value="zero">면세</option><option value="incl">단가포함</option></select></div>
                 <div className="w-36"><L>비고</L><input value={l.note} onChange={(e) => setLine(i, { note: e.target.value })} placeholder="적요·메모" className={`${C.input} py-1.5 w-full`} /></div>
                 <div>{lines.length > 1 && <button onClick={() => rmLine(i)} className="text-danger text-xs hover:underline py-2">삭제</button>}</div>
@@ -715,7 +716,7 @@ function RecordEditModal({ rec, onClose, onSaved }: { rec: any; onClose: () => v
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4"><div className="text-lg font-semibold text-text-primary">실적 수정 (#{rec.id})</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button></div>
+        <div className="flex items-center justify-between mb-4"><div className="text-lg font-semibold text-text-primary">실적 수정 (#{rec.id})</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl" aria-label="닫기"><XIcon inline /></button></div>
         <div className="grid grid-cols-2 gap-3">
           <div><L>구매일자</L><input type="date" value={f.pdate} onChange={(e) => setF({ ...f, pdate: e.target.value })} className={`${C.input} w-full`} /></div>
           <div><L>거래처</L><Combobox<string> value={f.vendor} onChange={(v) => setF({ ...f, vendor: v })} fetcher={vendorFetcherTop} getLabel={(s) => s} render={(s) => <span className="text-text-primary">{s}</span>} /></div>
@@ -748,7 +749,9 @@ const SORTS: { k: string; label: string }[] = [
   { k: 'name', label: '품목명순' },
 ];
 function pctTone(p: number | null) { if (p == null) return 'text-text-quaternary'; if (p > 0) return 'text-danger'; if (p < 0) return 'text-info'; return 'text-text-tertiary'; }
-function pctStr(p: number | null) { if (p == null) return '-'; const s = p > 0 ? '▲' : p < 0 ? '▼' : '='; return `${s} ${Math.abs(p).toFixed(1)}%`; }
+function pctStr(p: number | null) { if (p == null) return '-'; const s = p > 0 ? '+' : p < 0 ? '−' : ''; return `${s}${Math.abs(p).toFixed(1)}%`; }
+// 표 칸의 증감: 방향은 아이콘으로, 색은 pctTone 이 준다
+function PctDelta({ p }: { p: number | null }) { if (p == null) return <>-</>; return <>{p > 0 ? <ArrowUpRightIcon inline /> : p < 0 ? <ArrowDownRightIcon inline /> : <MinusIcon inline />} {Math.abs(p).toFixed(1)}%</>; }
 
 function PriceTab() {
   const basis = useBasis();
@@ -802,7 +805,7 @@ function PriceTab() {
             <div>
               <div className="text-[11px] text-text-tertiary mb-1">기간 총 단가효과 (인하 절감 − 인상 부담) · 발주량 가중</div>
               <div className={`text-2xl font-semibold tabular-nums ${(data.net_savings ?? 0) >= 0 ? 'text-success' : 'text-danger'}`}>
-                {(data.net_savings ?? 0) >= 0 ? '▼ 절감 ' : '▲ 부담 '}{won(Math.abs(data.net_savings || 0))}
+                {(data.net_savings ?? 0) >= 0 ? <><ArrowDownRightIcon inline /> 절감 </> : <><ArrowUpRightIcon inline /> 부담 </>}{won(Math.abs(data.net_savings || 0))}
               </div>
               <div className="text-xs text-text-quaternary mt-1">
                 {(data.net_savings ?? 0) >= 0 ? '인하분이 인상분보다 커서 총액상 원가 절감 우위' : '인상분이 인하분보다 커서 총액상 원가 부담 우위'}
@@ -869,7 +872,7 @@ function PriceTab() {
               <td className={`${C.td} text-right tabular-nums`}>{it.buy_count}회</td>
               <td className={`${C.td} text-right tabular-nums`}>{V(it, 'first_price')}<div className="text-[10px] text-text-quaternary">{it.first_date?.slice(2)}</div></td>
               <td className={`${C.td} text-right tabular-nums text-text-primary`}>{V(it, 'last_price')}<div className="text-[10px] text-text-quaternary">{it.last_date?.slice(2)}</div></td>
-              <td className={`${C.td} text-right tabular-nums font-semibold ${pctTone(it.change_pct)}`}>{pctStr(it.change_pct)}</td>
+              <td className={`${C.td} text-right tabular-nums font-semibold ${pctTone(it.change_pct)}`}><PctDelta p={it.change_pct} /></td>
               <td className={`${C.td} text-right tabular-nums text-text-tertiary text-xs`}>{V(it, 'min_price')}~{V(it, 'max_price')}</td>
               <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{it.spread_pct != null ? `${it.spread_pct.toFixed(0)}%` : '-'}</td>
               <td className={`${C.td} text-right tabular-nums`}>{V(it, 'avg_price')}</td>
@@ -943,7 +946,7 @@ function APTab() {
   };
 
   const SortTh = ({ k, label, cls }: { k: string; label: string; cls?: string }) => (
-    <th className={`${C.th} cursor-pointer select-none hover:text-text-secondary ${cls || ''}`} onClick={() => setSortKey(k)}>{label}{sort.key === k ? (sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>
+    <th className={`${C.th} cursor-pointer select-none hover:text-text-secondary ${cls || ''}`} onClick={() => setSortKey(k)}>{label}{sort.key === k ? <>{' '}{sort.dir > 0 ? <ArrowUpIcon inline /> : <ArrowDownIcon inline />}</> : ''}</th>
   );
 
   return (
@@ -1104,7 +1107,7 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <div><div className="text-xs text-text-tertiary">거래처 정산 설정</div><div className="text-lg font-semibold text-text-primary">{vendor.vendor}</div></div>
-          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl" aria-label="닫기"><XIcon inline /></button>
         </div>
         <div className="grid grid-cols-3 gap-2 mb-4">
           <StatCard label="매입(VAT포함)" value={won(vendor.payable || 0)} />
@@ -1173,7 +1176,7 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
               <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary" title="실적 일자가 이번 달 1일 이전인 실적의 미지급 잔액">전월까지 실적분 (실적 일자 기준)</div><div className="text-sm font-semibold tabular-nums text-warning">{won(orders.closed_balance || 0)}</div></div>
               <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary">당월 실적분 ({orders.current_month}, 미마감)</div><div className="text-sm font-semibold tabular-nums text-text-secondary">{won(orders.current_balance || 0)}</div></div>
             </div>
-            <table className="w-full"><thead><tr><th className={C.th} title="구매실적 '일자'의 연-월">월(실적 일자)</th><th className={`${C.th} text-right`}>매입(VAT포함)</th><th className={`${C.th} text-right`} title="지급 총액을 오래된 실적부터 차례로 채웠을 때 이 달에 돌아간 금액">지급 배정 ⓘ</th><th className={`${C.th} text-right`}>미지급</th></tr></thead>
+            <table className="w-full"><thead><tr><th className={C.th} title="구매실적 '일자'의 연-월">월(실적 일자)</th><th className={`${C.th} text-right`}>매입(VAT포함)</th><th className={`${C.th} text-right`} title="지급 총액을 오래된 실적부터 차례로 채웠을 때 이 달에 돌아간 금액">지급 배정 <InfoIcon inline /></th><th className={`${C.th} text-right`}>미지급</th></tr></thead>
               <tbody>{orders.months.filter((m: any) => m.unpaid > 0).map((m: any) => (
                 <tr key={m.ym}>
                   <td className={C.td}>{m.ym}{m.ym === orders.current_month ? <span className="ml-1 text-[10px] text-text-quaternary">당월</span> : ''}</td>
@@ -1302,7 +1305,7 @@ function BomMapTab() {
               <td className={`${C.td} text-text-tertiary text-xs max-w-[120px] truncate`}>{x.vendor || x.supplier || '-'}</td>
               <td className={`${C.td} text-right tabular-nums`}>{won(x.master_price)}<div className="text-[10px] text-text-quaternary">{x.basis === 'kg' ? '/kg' : x.basis === 'roll' ? '/롤' : '/개'}</div></td>
               <td className={`${C.td} text-right tabular-nums text-text-primary`}>{x.buy_price != null ? won(x.buy_price) : '-'}</td>
-              <td className={`${C.td} text-right tabular-nums font-semibold ${x.gap_pct == null ? 'text-text-quaternary' : x.gap_pct > 0 ? 'text-danger' : 'text-info'}`}>{x.gap_pct == null ? '-' : `${x.gap_pct > 0 ? '▲' : '▼'}${Math.abs(x.gap_pct).toFixed(0)}%`}</td>
+              <td className={`${C.td} text-right tabular-nums font-semibold ${x.gap_pct == null ? 'text-text-quaternary' : x.gap_pct > 0 ? 'text-danger' : 'text-info'}`}>{x.gap_pct == null ? '-' : <>{x.gap_pct > 0 ? <ArrowUpRightIcon inline /> : <ArrowDownRightIcon inline />}{Math.abs(x.gap_pct).toFixed(0)}%</>}</td>
               <td className={`${C.td} text-center tabular-nums ${x.bom_uses ? '' : 'text-text-quaternary'}`}>{x.bom_uses}</td>
               <td className={`${C.td} text-text-tertiary text-xs`}>{x.last_date || '-'}</td>
               <td className={C.td}>{flagBadge(x.flags)}</td>
@@ -1355,7 +1358,7 @@ function MatTab() {
                   <>
                     <tr key={v.vendor} className="hover:bg-bg-1 cursor-pointer" onClick={() => setOpenVendor(openVendor === v.vendor ? null : v.vendor)}>
                       <td className={`${C.td} text-text-primary font-medium`}>{v.vendor}</td><td className={C.td}>{v.items}</td><td className={`${C.td} text-warning`}>{won(v.cost)}</td>
-                      <td className={C.td}><button onClick={(e) => { e.stopPropagation(); createPO(v.vendor); }} className="text-accent text-xs hover:underline">발주 생성</button> <span className="text-text-quaternary text-xs ml-2">{openVendor === v.vendor ? '▲' : '▼'}</span></td>
+                      <td className={C.td}><button onClick={(e) => { e.stopPropagation(); createPO(v.vendor); }} className="text-accent text-xs hover:underline">발주 생성</button> <span className="text-text-quaternary text-xs ml-2">{openVendor === v.vendor ? <CaretUpIcon inline /> : <CaretDownIcon inline />}</span></td>
                     </tr>
                     {openVendor === v.vendor && (
                       <tr key={`${v.vendor}-d`} className="bg-bg-0"><td colSpan={4} className="px-4 py-2 border-b border-bg-inset">
@@ -1444,7 +1447,7 @@ function POTab() {
               <tr key={p.id} className="hover:bg-bg-1 cursor-pointer" onClick={() => setOpen(open === p.id ? null : p.id)}>
                 <td className={C.td}>{p.order_date}</td><td className={`${C.td} text-text-primary`}>{p.vendor_name}</td><td className={C.td}>{p.line_count}</td><td className={`${C.td} text-warning`}>{won(p.total_amount)}<div className="text-[10px] text-text-quaternary">VAT포함 ≈ {won(Math.round((p.total_amount || 0) * 1.1))}</div></td>
                 <td className={C.td}><select value={p.status} onClick={(e) => e.stopPropagation()} onChange={(e) => setStatus(p.id, e.target.value)} className={`bg-bg-0 border border-border-primary rounded px-2 py-1 text-xs ${badge[p.status] || ''}`}>{STATUS.map((s) => <option key={s} value={s}>{s}</option>)}</select></td>
-                <td className={C.td}><button onClick={(e) => { e.stopPropagation(); issue(p); }} className="text-success text-xs hover:underline mr-2">발주서 발행</button><button onClick={(e) => { e.stopPropagation(); del(p.id); }} className="text-danger text-xs hover:underline">삭제</button> <span className="text-text-quaternary text-xs ml-1">{open === p.id ? '▲' : '▼'}</span></td>
+                <td className={C.td}><button onClick={(e) => { e.stopPropagation(); issue(p); }} className="text-success text-xs hover:underline mr-2">발주서 발행</button><button onClick={(e) => { e.stopPropagation(); del(p.id); }} className="text-danger text-xs hover:underline">삭제</button> <span className="text-text-quaternary text-xs ml-1">{open === p.id ? <CaretUpIcon inline /> : <CaretDownIcon inline />}</span></td>
               </tr>
               {open === p.id && <tr key={`${p.id}-d`} className="bg-bg-0"><td colSpan={6} className="px-4 py-2 border-b border-bg-inset"><table className="w-full"><thead><tr><th className={C.th}>자재</th><th className={C.th}>소요량</th><th className={C.th}>단가(VAT별도)</th><th className={C.th}>금액(VAT별도)</th></tr></thead><tbody>{p.lines.map((l: any) => (<tr key={l.id}><td className={C.td}>{l.material_name}</td><td className={C.td}>{fmt(l.qty)}{l.unit}</td><td className={C.td}>{won(l.unit_price)}</td><td className={C.td}>{won(l.amount)}</td></tr>))}</tbody></table></td></tr>}
             </>

@@ -1,6 +1,7 @@
 'use client';
 import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
+import { ChartBarIcon, ChartLineIcon, ChartPieIcon, PresentationChartIcon, TrendUpIcon, type NdIcon } from '@/components/nd/icons';
 import { useMemo, useState, useCallback } from 'react';
 import {
   BarChart,
@@ -161,9 +162,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
   if (rows.length === 0 || numericColumns.length === 0) {
     return (
       <div className="text-center text-text-tertiary py-12 bg-bg-1 rounded-2xl border border-border-primary">
-        <svg className="w-12 h-12 mx-auto mb-3 text-border-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
+        <ChartBarIcon className="w-12 h-12 mx-auto mb-3 text-border-secondary" />
         <p className="text-sm">
           {rows.length === 0 ? '차트를 표시할 데이터가 없습니다' : '숫자형 데이터가 없어 차트를 표시할 수 없습니다'}
         </p>
@@ -171,12 +170,12 @@ export function DataChart({ columns, rows }: DataChartProps) {
     );
   }
 
-  const chartTypes: { type: ChartType; label: string; icon: string }[] = [
-    { type: 'bar', label: '막대', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-    { type: 'line', label: '선', icon: 'M7 12l3-3 3 3 4-4' },
-    { type: 'area', label: '영역', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
-    { type: 'composed', label: '복합', icon: 'M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z' },
-    { type: 'pie', label: '원', icon: 'M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z' },
+  const chartTypes: { type: ChartType; label: string; icon: NdIcon }[] = [
+    { type: 'bar', label: '막대', icon: ChartBarIcon },
+    { type: 'line', label: '선', icon: ChartLineIcon },
+    { type: 'area', label: '영역', icon: TrendUpIcon },
+    { type: 'composed', label: '복합', icon: PresentationChartIcon },
+    { type: 'pie', label: '원', icon: ChartPieIcon },
   ];
 
   const commonAxisProps = {
@@ -207,7 +206,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
       <div className="flex flex-wrap items-center gap-3">
         {/* Chart type */}
         <div className="flex gap-0.5 bg-bg-2 border border-border-primary p-1 rounded-xl">
-          {chartTypes.map(({ type, label, icon }) => (
+          {chartTypes.map(({ type, label, icon: Icon }) => (
             <button
               key={type}
               onClick={() => setChartType(type)}
@@ -217,9 +216,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
                   : 'text-text-tertiary hover:text-text-primary hover:bg-bg-secondary'
               }`}
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
-              </svg>
+              <Icon className="w-3.5 h-3.5" />
               {label}
             </button>
           ))}

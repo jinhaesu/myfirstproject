@@ -1,5 +1,6 @@
 'use client';
 
+import { ArrowDownRightIcon, ArrowUpRightIcon, CaretDoubleLeftIcon, CaretDoubleRightIcon, CaretDownIcon, CaretLeftIcon, CaretRightIcon, CheckIcon, InfoIcon, MinusIcon, XIcon } from '@/components/nd/icons';
 import { Suspense, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -855,7 +856,7 @@ const DashboardTab = memo(function DashboardTab({
       {dashboardError && (
         <div className="flex items-center justify-between px-3 py-2 rounded-md bg-danger/10 border border-danger/30 text-danger text-xs">
           <span>{dashboardError}</span>
-          <button onClick={clearDashboardError} className="text-danger hover:text-text-primary px-2">✕</button>
+          <button onClick={clearDashboardError} className="text-danger hover:text-text-primary px-2" aria-label="닫기"><XIcon inline /></button>
         </div>
       )}
       {/* Filter bar */}
@@ -948,7 +949,7 @@ const DashboardTab = memo(function DashboardTab({
             onClick={() => setCompareOpen((v: boolean) => !v)}
             className="text-xs font-medium text-accent hover:text-brand-light flex items-center gap-1.5"
           >
-            <span className={`inline-block transition-transform ${compareOpen ? 'rotate-90' : ''}`}>▶</span>
+            <CaretRightIcon className={`transition-transform ${compareOpen ? 'rotate-90' : ''}`} />
             기간 비교 {compareOpen ? '닫기' : '열기'}
           </button>
           {compareOpen && (
@@ -1273,7 +1274,7 @@ const DashboardTab = memo(function DashboardTab({
       <div className={`${PANEL} p-5 mb-5`}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-text-primary">
-            품목별 상세{hasCompare && <span className="text-[10px] text-text-muted ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+            품목별 상세{hasCompare && <span className="text-[10px] text-text-muted ml-2 font-normal">(<ArrowUpRightIcon inline /><ArrowDownRightIcon inline /> 비교 기간 대비)</span>}
           </h2>
           <button
             className={DL_BTN}
@@ -1358,7 +1359,7 @@ const DashboardTab = memo(function DashboardTab({
       <div className={`${PANEL} p-5`}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-text-primary">
-            채널별 상세{hasCompare && <span className="text-[10px] text-text-muted ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+            채널별 상세{hasCompare && <span className="text-[10px] text-text-muted ml-2 font-normal">(<ArrowUpRightIcon inline /><ArrowDownRightIcon inline /> 비교 기간 대비)</span>}
           </h2>
           <button
             className={DL_BTN}
@@ -1769,7 +1770,7 @@ function UploadTab({
                     적재 처리 중... (대용량은 수십 초 걸릴 수 있어요)
                   </div>
                 ) : (
-                  <div className="text-success mb-1">✓ 업로드 성공</div>
+                  <div className="text-success mb-1"><CheckIcon inline /> 업로드 성공</div>
                 )}
                 <div className="grid grid-cols-5 gap-2 text-text-secondary tabular-nums">
                   <div><span className="text-text-quaternary">총행: </span>{result.row_total ?? '–'}</div>
@@ -1904,7 +1905,7 @@ function UploadTab({
           </div>
           {delResult && (
             <div className={`${SUBPANEL} p-3 mt-3 text-xs text-text-secondary`}>
-              <div className="text-success mb-1.5">✓ 삭제 완료 — {delResult.channel_name}{delResult.scoped ? ` (${delResult.period_start} ~ ${delResult.period_end})` : ' (전체)'}</div>
+              <div className="text-success mb-1.5"><CheckIcon inline /> 삭제 완료 — {delResult.channel_name}{delResult.scoped ? ` (${delResult.period_start} ~ ${delResult.period_end})` : ' (전체)'}</div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 tabular-nums">
                 <div><span className="text-text-quaternary">원본행: </span>{delResult.raw_lines_deleted}</div>
                 <div><span className="text-text-quaternary">집계행: </span>{delResult.daily_rows_deleted}</div>
@@ -1944,7 +1945,7 @@ function UploadTab({
           </div>
           {reproResult && (
             <div className={`${SUBPANEL} p-3 mt-3 text-xs text-text-secondary`}>
-              <div className="text-success mb-1.5">✓ 재처리를 큐에 넣었습니다 — {reproResult.channel_name}</div>
+              <div className="text-success mb-1.5"><CheckIcon inline /> 재처리를 큐에 넣었습니다 — {reproResult.channel_name}</div>
               <div className="text-[11px] text-text-quaternary">
                 보관 원본 {reproResult.file_count}개를 최신 파서로 다시 집계합니다. 위 업로드 이력 목록에서 진행 상황을 확인하세요.
               </div>
@@ -2226,11 +2227,11 @@ function MappingTab({
             <button
               onClick={() => setPage(1)} disabled={safePage === 1}
               className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
-            >« 처음</button>
+            ><CaretDoubleLeftIcon inline /> 처음</button>
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
               className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
-            >‹ 이전</button>
+            ><CaretLeftIcon inline /> 이전</button>
             <input
               type="number" min={1} max={totalPages} value={safePage}
               onChange={(e) => setPage(Math.max(1, Math.min(totalPages, parseInt(e.target.value) || 1)))}
@@ -2240,11 +2241,11 @@ function MappingTab({
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
               className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
-            >다음 ›</button>
+            >다음 <CaretRightIcon inline /></button>
             <button
               onClick={() => setPage(totalPages)} disabled={safePage === totalPages}
               className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
-            >끝 »</button>
+            >끝 <CaretDoubleRightIcon inline /></button>
           </div>
         </div>
       )}
@@ -2411,7 +2412,7 @@ function UnmatchedRow({
                   className="w-5 h-5 flex items-center justify-center text-text-quaternary hover:text-danger disabled:opacity-30 text-xs rounded border border-border-primary bg-bg-1"
                   title="삭제"
                 >
-                  ×
+                  <XIcon />
                 </button>
               </div>
             ))}
@@ -2680,7 +2681,7 @@ function CostTab({
             <br />&nbsp;&nbsp;− (주문건수 × <span className="text-success">운반비</span> + 주문건수 × <span className="text-success-light">포장비</span>)
           </div>
           <div className="mt-2 text-[11px] text-purple">
-            ⓘ 월정액 항목에 <span className="font-semibold">매출차감</span>을 체크하면 (예: 쿠팡 로켓프레시 월정액 수수료)
+            <InfoIcon inline /> 월정액 항목에 <span className="font-semibold">매출차감</span>을 체크하면 (예: 쿠팡 로켓프레시 월정액 수수료)
             해당 금액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다 — 대시보드 매출은 차감 후 실수령 기준으로 표시되고, 공헌이익 금액은 동일합니다.
           </div>
           <div className="mt-3 text-[11px]">
@@ -2774,7 +2775,7 @@ function CostRuleEditor({
           {item.name} — 규칙 편집
           <span className="ml-2 text-[10px] text-text-dim">{BASIS_LABEL[item.basis]}</span>
         </h3>
-        <button onClick={onClose} className="text-text-dim hover:text-text-primary text-xs">✕ 닫기</button>
+        <button onClick={onClose} className="text-text-dim hover:text-text-primary text-xs"><XIcon inline /> 닫기</button>
       </div>
 
       {item.description && <p className="text-xs text-text-dim mb-3">{item.description}</p>}
@@ -3000,7 +3001,7 @@ function MonthlyCostEditor({
   return (
     <div className={`${SUBPANEL} p-3 mb-3`}>
       <div className="mb-2 text-[10px] text-purple leading-relaxed">
-        ⓘ <span className="font-semibold">매출차감</span> 체크 시 이 월정액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다
+        <InfoIcon inline /> <span className="font-semibold">매출차감</span> 체크 시 이 월정액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다
         (정산금에서 공제되는 유형 — 예: 쿠팡 로켓프레시 월정액 수수료). 대시보드 매출은 차감 후 실수령 기준으로 표시되며 공헌이익 금액은 동일합니다.
       </div>
       <div className="flex items-center gap-2 mb-3">
@@ -3047,7 +3048,7 @@ function MonthlyCostEditor({
                 className={`px-2 py-1 rounded text-[10px] font-medium ${
                   dirty ? 'bg-accent text-on-brand hover:bg-link' : 'bg-bg-inset text-text-muted'
                 } disabled:opacity-50`}
-              >{savingChannel === c.id ? '…' : dirty ? '저장' : '✓'}</button>
+              >{savingChannel === c.id ? '…' : dirty ? '저장' : <CheckIcon inline aria-label="저장됨" />}</button>
             </div>
           );
         })}
@@ -3128,7 +3129,7 @@ function PlanTab({
       const data = await r.json();
       if (!r.ok) throw new Error(data.detail || 'upload failed');
       setUploadMsg(
-        `${data.status === 'done' ? '✓' : '주의'} 매출 ${data.revenue_rows}행 · 수량 ${data.qty_rows}행 · 품목류 ${data.category_rows}행 · 그룹 ${data.summary_rows}행`
+        `${data.status === 'done' ? '완료' : '주의'} · 매출 ${data.revenue_rows}행 · 수량 ${data.qty_rows}행 · 품목류 ${data.category_rows}행 · 그룹 ${data.summary_rows}행`
       );
       fetchData();
     } catch (e: any) {
@@ -3208,7 +3209,7 @@ function PlanTab({
                 }`}
                 title="1월 1일부터 오늘까지 누계 분석 (계획은 오늘 기준 일자 비율로 안분)"
               >
-                {upToToday ? '✓ 오늘 기준 YTD' : '오늘 기준 YTD'}
+                {upToToday && <><CheckIcon inline />{' '}</>}오늘 기준 YTD
               </button>
               <Segment
                 label="기준"
@@ -3607,7 +3608,7 @@ function AdminTab({
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.detail || '저장 실패');
-      setPwMsg('✓ 비밀번호가 저장되었습니다');
+      setPwMsg('비밀번호가 저장되었습니다');
       setNewPw('');
       fetchPwStatus();
     } catch (e: any) {
@@ -3701,7 +3702,7 @@ function AdminTab({
               <div className={`${SUBPANEL} p-3`}>
                 <div className="text-[10px] text-text-quaternary mb-1">월 파티션</div>
                 <div className="text-base tabular-nums text-text-primary">
-                  {storage.is_partitioned ? `✓ 활성 (${storage.partitions?.length || 0}개월)` : '단일 테이블 (전환 가능)'}
+                  {storage.is_partitioned ? <><CheckIcon inline /> 활성 ({storage.partitions?.length || 0}개월)</> : '단일 테이블 (전환 가능)'}
                 </div>
               </div>
               <div className={`${SUBPANEL} p-3`}>
@@ -3711,7 +3712,7 @@ function AdminTab({
                 </div>
                 {storage.cron_jobs?.map((j: any, i: number) => (
                   <div key={i} className="text-[10px] text-text-quaternary mt-0.5">
-                    {j.jobname} · {j.schedule} {j.active ? '✓' : '✗'}
+                    {j.jobname} · {j.schedule} {j.active ? <CheckIcon inline aria-label="켜짐" /> : <XIcon inline aria-label="꺼짐" />}
                   </div>
                 ))}
               </div>
@@ -3925,7 +3926,7 @@ function AdminTab({
           <div className={`${PANEL} p-5 max-w-2xl w-full max-h-[80vh] overflow-y-auto`}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">[{assignTarget.name}] 담당 채널 배정</h3>
-              <button onClick={() => setAssignTarget(null)} className="text-text-quaternary hover:text-text-primary">✕</button>
+              <button onClick={() => setAssignTarget(null)} className="text-text-quaternary hover:text-text-primary" aria-label="닫기"><XIcon inline /></button>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
               {channels.map(c => (
@@ -3975,7 +3976,7 @@ function DeltaBadge({ delta }: { delta: { pct: number; sign: 'up' | 'down' | 'fl
       : delta.sign === 'down'
         ? { bg: 'var(--nd-bad-soft)', color: 'var(--nd-bad)', border: 'transparent' }
         : { bg: 'rgba(122,127,138,0.12)', color: 'var(--color-text-dim)', border: 'rgba(122,127,138,0.25)' };
-  const arrow = delta.sign === 'up' ? '▲' : delta.sign === 'down' ? '▼' : '–';
+  const arrow = delta.sign === 'up' ? <ArrowUpRightIcon /> : delta.sign === 'down' ? <ArrowDownRightIcon /> : <MinusIcon />;
   return (
     <span
       className="text-[9px] ml-1.5 font-semibold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 border"
@@ -4008,7 +4009,7 @@ function CompactKpi({
     deltaSign = deltaPct > 0.05 ? 'up' : deltaPct < -0.05 ? 'down' : 'flat';
   }
   const deltaColor = deltaSign === 'up' ? 'var(--color-success)' : deltaSign === 'down' ? 'var(--color-danger)' : 'var(--color-text-muted)';
-  const arrow = deltaSign === 'up' ? '▲' : deltaSign === 'down' ? '▼' : '–';
+  const arrow = deltaSign === 'up' ? <ArrowUpRightIcon className="mr-0.5" /> : deltaSign === 'down' ? <ArrowDownRightIcon className="mr-0.5" /> : <MinusIcon className="mr-0.5" />;
 
   const accentColor = accent || TEXT_PRIMARY;
   // url(#id) 로 참조하므로 괄호·쉼표 같은 글자가 들어가면 채움이 깨진다 → 글자·숫자만 남긴다
@@ -4109,7 +4110,7 @@ function DonutCard({
           <div key={d.name} className="flex items-center gap-1.5 min-w-0">
             <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: palette[i % palette.length] }} />
             <span className="text-text-secondary truncate">{d.name}</span>
-            <span className="text-text-muted tabular-nums ml-auto flex-shrink-0">{total ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
+            <span className="text-text-muted font-mono ml-auto flex-shrink-0">{total ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
           </div>
         ))}
         {data.length > 8 && (
@@ -4199,7 +4200,7 @@ function MultiSelect({ label, options, value, onChange }: {
         className="bg-bg-0 border border-border-primary rounded-md px-3 py-1.5 text-sm text-text-primary min-w-[120px] text-left flex items-center justify-between"
       >
         <span>{value.length === 0 ? '전체' : `${value.length}개 선택`}</span>
-        <span className="text-text-quaternary ml-2">▾</span>
+        <CaretDownIcon className="text-text-quaternary ml-2" />
       </button>
       {open && (
         <div className="absolute z-20 top-full mt-1 left-0 w-72 max-h-[300px] overflow-y-auto bg-bg-1 border border-border-primary rounded-md shadow-nd-f p-2">
@@ -4524,7 +4525,7 @@ function ProductsTab({
                 <h3 className="text-sm font-semibold">[{selectedChannel.name}] 판매 품목 설정</h3>
                 <p className="text-[11px] text-text-dim mt-0.5">{pendingPids.size} / {products.length} 품목 선택</p>
               </div>
-              <button onClick={() => setSelectedChannel(null)} className="text-text-dim hover:text-text-primary">✕</button>
+              <button onClick={() => setSelectedChannel(null)} className="text-text-dim hover:text-text-primary" aria-label="닫기"><XIcon inline /></button>
             </div>
             <div className="flex items-center gap-2 mb-3">
               <button onClick={() => setPendingPids(new Set(products.map(p => p.id)))} className="text-[11px] px-2 py-1 bg-bg-inset hover:bg-border-primary text-text-secondary rounded">전체 선택</button>
@@ -4934,7 +4935,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
                           <button
                             onClick={() => toggleCollapse(row.id)}
                             className="text-text-dim hover:text-text-primary w-3 text-xs leading-none"
-                          >{isCollapsed ? '▶' : '▼'}</button>
+                           aria-label={isCollapsed ? '펼치기' : '접기'}>{isCollapsed ? <CaretRightIcon /> : <CaretDownIcon />}</button>
                         )}
                         <span className="w-1.5 h-3 rounded-sm" style={{ background: SECTION_COLOR[row.section] || 'var(--color-text-quaternary)' }} />
                         <span className={`${isMainSection ? 'font-semibold text-text-primary' : 'text-text-secondary'} ${formulaRow ? 'text-success' : ''}`}>

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { CaretDownIcon, CaretUpIcon } from '@/components/nd/icons';
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -102,7 +103,7 @@ export default function MappingPage() {
                     <td className={`${C.td} ${r.stock < 0 ? 'text-danger' : ''}`}>{numShort(r.stock)}</td>
                     <td className={C.td}>{r.bom_total > 0 ? <span className="text-cyan">완{r.bom_finished}/반{r.bom_semi}/세트{r.bom_set}</span> : <span className="text-danger text-xs">미연결</span>}</td>
                     <td className={C.td}><div className="flex gap-2"><Dot on={r.linked.sales} label="영업" /><Dot on={r.linked.production} label="생산" /><Dot on={r.linked.bom} label="BOM" /></div></td>
-                    <td className={C.td}><span className="text-text-quaternary text-xs">{openId === r.id ? '▲' : '▼'}</span></td>
+                    <td className={C.td}><span className="text-text-quaternary text-xs">{openId === r.id ? <CaretUpIcon inline /> : <CaretDownIcon inline />}</span></td>
                   </tr>
                   {openId === r.id && (
                     <tr key={`${r.id}-d`} className="bg-bg-0">

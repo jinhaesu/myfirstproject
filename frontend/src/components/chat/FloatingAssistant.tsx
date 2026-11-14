@@ -5,6 +5,7 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { useChat } from '@/hooks/useChat';
 import { useAuth } from '@/contexts/AuthContext';
+import { ChatIcon, TrashIcon, XIcon } from '@/components/nd/icons';
 
 const SUGGESTIONS = [
   '이번 달 매출과 매입액을 비교해줘',
@@ -54,9 +55,7 @@ export function FloatingAssistant() {
             aria-label="전사 AI 비서 열기"
             className="nd-press relative w-12 h-12 rounded-full bg-bg-1 border border-border-secondary text-text-secondary hover:text-text-primary hover:bg-bg-secondary shadow-nd-f flex items-center justify-center shrink-0"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
+            <ChatIcon className="w-5 h-5" />
           </button>
         </div>
       )}
@@ -75,15 +74,11 @@ export function FloatingAssistant() {
             <div className="flex items-center gap-1">
               {messages.length > 0 && (
                 <button onClick={clearMessages} title="초기화" className="p-2 text-text-tertiary hover:text-danger hover:bg-danger/10 rounded-lg transition-colors">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
+                  <TrashIcon className="w-4 h-4" />
                 </button>
               )}
               <button onClick={() => setOpen(false)} title="닫기" className="p-2 text-text-tertiary hover:text-text-primary hover:bg-bg-inset rounded-lg transition-colors">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <XIcon className="w-4 h-4" />
               </button>
             </div>
           </div>

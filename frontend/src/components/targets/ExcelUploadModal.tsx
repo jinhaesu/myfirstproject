@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { ArrowLeftIcon, CheckIcon, FileTextIcon, UploadIcon, XIcon } from '@/components/nd/icons';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -239,9 +240,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
             onClick={handleClose}
             className="p-2 text-text-quaternary hover:text-text-secondary transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <XIcon className="w-5 h-5" />
           </button>
         </div>
 
@@ -251,9 +250,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
           {successCount !== null ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="w-16 h-16 bg-success/15 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+                <CheckIcon className="w-8 h-8 text-success" />
               </div>
               <h3 className="text-lg font-semibold text-text-primary mb-2">업로드 완료</h3>
               <p className="text-text-tertiary mb-6">
@@ -292,9 +289,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 {file ? (
                   <div>
                     <div className="w-12 h-12 bg-success/15 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                      <FileTextIcon className="w-6 h-6 text-success" />
                     </div>
                     <p className="text-sm font-medium text-text-primary">{file.name}</p>
                     <p className="text-xs text-text-tertiary mt-1">
@@ -305,9 +300,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 ) : (
                   <div>
                     <div className="w-12 h-12 bg-bg-tertiary rounded-full flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-6 h-6 text-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
+                      <UploadIcon className="w-6 h-6 text-text-tertiary" />
                     </div>
                     <p className="text-sm font-medium text-text-secondary">
                       엑셀 파일을 드래그하거나 클릭하여 선택하세요
@@ -431,7 +424,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                   onClick={() => setStep(1)}
                   className="px-4 py-2 text-text-tertiary hover:bg-bg-secondary rounded-lg transition-colors text-sm"
                 >
-                  ← 파일 다시 선택
+                  <ArrowLeftIcon inline /> 파일 다시 선택
                 </button>
               )}
             </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { CaretDownIcon, ChartLineIcon, CheckCircleIcon, CheckIcon, DownloadIcon, EditIcon, FileTextIcon, MailIcon, TrashIcon, WarningIcon, XCircleIcon } from '@/components/nd/icons';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell,
@@ -1081,23 +1082,14 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand to-brand flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <ChartLineIcon className="w-5 h-5 text-white" />
               </div>
               <div className="text-left">
                 <h2 className="text-lg font-semibold text-text-primary">리포트 및 이메일 스케줄링</h2>
                 <p className="text-sm text-text-tertiary">목표 달성 현황 리포트를 생성하고 자동 이메일 발송을 설정합니다</p>
               </div>
             </div>
-            <svg
-              className={`w-5 h-5 text-text-quaternary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            <CaretDownIcon className={`w-5 h-5 text-text-quaternary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Collapsible Content */}
@@ -1125,9 +1117,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       </>
                     ) : (
                       <>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+                        <FileTextIcon className="w-5 h-5" />
                         리포트 생성
                       </>
                     )}
@@ -1147,9 +1137,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           </>
                         ) : (
                           <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                            <DownloadIcon className="w-4 h-4" />
                             PDF 다운로드
                           </>
                         )}
@@ -1167,9 +1155,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           </>
                         ) : (
                           <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
+                            <MailIcon className="w-4 h-4" />
                             리포트 이메일 발송
                           </>
                         )}
@@ -1483,9 +1469,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                     <div className="print-section">
                       <div className="bg-gradient-to-r from-danger/10 to-orange/10 border border-danger/30 rounded-xl overflow-hidden">
                         <div className="px-5 py-4 border-b border-danger/30 flex items-center gap-3">
-                          <svg className="w-6 h-6 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                          </svg>
+                          <WarningIcon className="w-6 h-6 text-danger" />
                           <h3 className="text-lg font-semibold text-danger">미입력자 경고</h3>
                           <span className="px-2.5 py-0.5 bg-danger/15 text-danger rounded-full text-xs font-semibold">
                             {missingEntryManagers.length}명
@@ -1542,17 +1526,11 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           >
                             <div className="flex-shrink-0 mt-0.5">
                               {cs.rate >= 100 ? (
-                                <svg className="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                <CheckCircleIcon className="w-5 h-5 text-success" />
                               ) : cs.rate >= 80 ? (
-                                <svg className="w-5 h-5 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                </svg>
+                                <WarningIcon className="w-5 h-5 text-orange" />
                               ) : (
-                                <svg className="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                <XCircleIcon className="w-5 h-5 text-danger" />
                               )}
                             </div>
                             <div className="flex-1">
@@ -1682,9 +1660,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           </>
                         ) : (
                           <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
+                            <CheckIcon className="w-4 h-4" />
                             {editingScheduleIdx !== null ? '수정' : '저장'}
                           </>
                         )}
@@ -1740,18 +1716,14 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                               className="p-2 text-text-quaternary hover:text-link hover:bg-brand/10 rounded-lg transition-colors"
                               title="수정"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
+                              <EditIcon className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteSchedule(idx)}
                               className="p-2 text-text-quaternary hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                               title="삭제"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
+                              <TrashIcon className="w-4 h-4" />
                             </button>
                           </div>
                         </div>

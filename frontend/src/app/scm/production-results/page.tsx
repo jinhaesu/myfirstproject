@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { ArrowDownIcon, ArrowDownRightIcon, ArrowUpIcon, ArrowUpRightIcon, ArrowsDownUpIcon, CaretRightIcon, CheckIcon, CopyIcon, DownloadIcon, PlusIcon, RefreshIcon, TrashIcon, XIcon } from '@/components/nd/icons';
 
 // ─────────────────────────────────────────────
 // API helper
@@ -882,12 +883,7 @@ export default function ProductionResultsPage() {
             className="w-full flex items-center justify-between px-5 py-3 hover:bg-bg-secondary transition"
           >
             <div className="flex items-center gap-2">
-              <svg
-                className={`w-4 h-4 text-text-tertiary transition-transform duration-200 ${productStatsOpen ? 'rotate-90' : ''}`}
-                fill="none" stroke="currentColor" viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+              <CaretRightIcon className={`w-4 h-4 text-text-tertiary transition-transform duration-200 ${productStatsOpen ? 'rotate-90' : ''}`} />
               <h3 className="text-sm font-semibold text-text-secondary">품목별 시간당 생산량</h3>
               <span className="text-xs text-text-quaternary ml-1">품목별 생산 효율 분석</span>
             </div>
@@ -908,7 +904,7 @@ export default function ProductionResultsPage() {
                   {syncingRates ? (
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    <RefreshIcon className="w-3.5 h-3.5" />
                   )}
                   품목 관리에 동기화
                 </button>
@@ -936,7 +932,7 @@ export default function ProductionResultsPage() {
                           <div className="flex items-center justify-between gap-1">
                             <span>{col.label}</span>
                             <span className="text-text-quaternary">
-                              {psSortField === col.field ? (psSortDir === 'asc' ? '\u25B2' : '\u25BC') : '\u25B4'}
+                              {psSortField === col.field ? (psSortDir === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />) : <ArrowsDownUpIcon className="opacity-40" />}
                             </span>
                           </div>
                         </th>
@@ -991,8 +987,8 @@ export default function ProductionResultsPage() {
                               </td>
                               <td className={`border-b border-border-primary px-3 py-2 text-right whitespace-nowrap ${rateColor}`}>
                                 {ps.hourlyRate.toFixed(1)}개/시
-                                {isTop && <span className="ml-1 text-success text-xs align-top">{'\u25B2'}</span>}
-                                {isBottom && <span className="ml-1 text-orange text-xs align-top">{'\u25BC'}</span>}
+                                {isTop && <ArrowUpRightIcon inline className="ml-1 text-success" aria-label="최고" />}
+                                {isBottom && <ArrowDownRightIcon inline className="ml-1 text-orange" aria-label="최저" />}
                               </td>
                               <td className="border-b border-border-primary px-3 py-2 text-center whitespace-nowrap text-text-tertiary">
                                 {ps.count}건
@@ -1026,7 +1022,7 @@ export default function ProductionResultsPage() {
             onClick={addRow}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand text-on-brand text-sm font-medium rounded-lg hover:bg-accent transition"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            <PlusIcon className="w-4 h-4" />
             행 추가
           </button>
           <button
@@ -1034,7 +1030,7 @@ export default function ProductionResultsPage() {
             disabled={selectedRows.size === 0}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-danger/10 text-danger text-sm font-medium rounded-lg hover:bg-danger/15 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            <TrashIcon className="w-4 h-4" />
             선택 삭제{selectedRows.size > 0 && ` (${selectedRows.size})`}
           </button>
           <div className="flex-1" />
@@ -1047,14 +1043,14 @@ export default function ProductionResultsPage() {
             onClick={saveAll}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-success text-on-brand text-sm font-medium rounded-lg hover:bg-success-hover transition"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            <CheckIcon className="w-4 h-4" />
             전체 저장
           </button>
           <button
             onClick={() => downloadExcel(filteredRows)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-bg-2 text-text-secondary text-sm font-medium rounded-lg hover:bg-bg-secondary transition"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            <DownloadIcon className="w-4 h-4" />
             Excel 내보내기
           </button>
         </div>
@@ -1091,7 +1087,7 @@ export default function ProductionResultsPage() {
                     <div className="flex items-center justify-between gap-1">
                       <span>{col.label}</span>
                       <span className="text-text-quaternary">
-                        {sortField === col.key ? (sortDir === 'asc' ? '\u25B2' : '\u25BC') : '\u25B4'}
+                        {sortField === col.key ? (sortDir === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />) : <ArrowsDownUpIcon className="opacity-40" />}
                       </span>
                     </div>
                   </th>
@@ -1225,14 +1221,14 @@ export default function ProductionResultsPage() {
                           title="복제"
                           className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-bg-secondary text-text-tertiary hover:text-link transition"
                         >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeWidth="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2" /></svg>
+                          <CopyIcon className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => deleteRow(row.id)}
                           title="삭제"
                           className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-danger/10 text-text-tertiary hover:text-danger transition"
                         >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          <XIcon className="w-3.5 h-3.5" />
                         </button>
                       </td>
                     </tr>
@@ -1263,7 +1259,7 @@ export default function ProductionResultsPage() {
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
           <div className="bg-bg-1 text-text-primary px-5 py-3 rounded-xl shadow-nd-f text-sm font-medium flex items-center gap-2">
-            <svg className="w-4 h-4 text-success-light" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            <CheckIcon className="w-4 h-4 text-success-light" />
             {toast}
           </div>
         </div>

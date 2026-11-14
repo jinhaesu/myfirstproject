@@ -1,5 +1,6 @@
 'use client';
 
+import { BellIcon, CartIcon, CheckIcon, DownloadIcon, PackageIcon, PlusIcon, SearchIcon, TagIcon, TruckIcon, WarningIcon, XIcon } from '@/components/nd/icons';
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -460,9 +461,7 @@ export default function InventoryPage() {
                 <p className="text-2xl font-semibold text-text-primary mt-1">{fmt(totalSKU)}</p>
               </div>
               <div className="w-11 h-11 bg-brand/15 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-link" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
+                <PackageIcon className="w-6 h-6 text-link" />
               </div>
             </div>
           </div>
@@ -475,9 +474,7 @@ export default function InventoryPage() {
                 <p className="text-2xl font-semibold text-text-primary mt-1">{fmt(totalStock)}</p>
               </div>
               <div className="w-11 h-11 bg-brand/15 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-link" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
+                <TagIcon className="w-6 h-6 text-link" />
               </div>
             </div>
           </div>
@@ -490,9 +487,7 @@ export default function InventoryPage() {
                 <p className="text-2xl font-semibold text-danger mt-1">{fmt(lowStockCount)}</p>
               </div>
               <div className="w-11 h-11 bg-danger/15 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
+                <WarningIcon className="w-6 h-6 text-danger" />
               </div>
             </div>
           </div>
@@ -505,9 +500,7 @@ export default function InventoryPage() {
                 <p className="text-2xl font-semibold text-text-primary mt-1">{fmt(todayOutbound)}</p>
               </div>
               <div className="w-11 h-11 bg-success/15 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                </svg>
+                <TruckIcon className="w-6 h-6 text-success" />
               </div>
             </div>
           </div>
@@ -547,9 +540,7 @@ export default function InventoryPage() {
               <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3">
                 {/* Search */}
                 <div className="relative flex-1 w-full lg:w-auto">
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-quaternary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-quaternary" />
                   <input
                     type="text"
                     placeholder="상품명 검색..."
@@ -589,18 +580,14 @@ export default function InventoryPage() {
                     onClick={downloadInventoryExcel}
                     className="flex items-center gap-1.5 px-4 py-2.5 bg-success/10 text-success rounded-lg text-sm font-medium hover:bg-success/15 transition-colors border border-success/25"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <DownloadIcon className="w-4 h-4" />
                     Excel 다운로드
                   </button>
                   <button
                     onClick={openAddInvModal}
                     className="flex items-center gap-1.5 px-4 py-2.5 bg-brand text-on-brand rounded-lg text-sm font-medium hover:bg-accent transition-colors shadow-nd-s"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
+                    <PlusIcon className="w-4 h-4" />
                     재고 등록
                   </button>
                 </div>
@@ -742,18 +729,14 @@ export default function InventoryPage() {
                     onClick={downloadOutboundExcel}
                     className="flex items-center gap-1.5 px-4 py-2.5 bg-success/10 text-success rounded-lg text-sm font-medium hover:bg-success/15 transition-colors border border-success/25"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <DownloadIcon className="w-4 h-4" />
                     Excel 다운로드
                   </button>
                   <button
                     onClick={openAddObModal}
                     className="flex items-center gap-1.5 px-4 py-2.5 bg-brand text-on-brand rounded-lg text-sm font-medium hover:bg-accent transition-colors shadow-nd-s"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
+                    <PlusIcon className="w-4 h-4" />
                     출고 등록
                   </button>
                 </div>
@@ -852,9 +835,7 @@ export default function InventoryPage() {
             {alertItems.length === 0 ? (
               <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-12 text-center">
                 <div className="w-16 h-16 bg-success/15 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+                  <CheckIcon className="w-8 h-8 text-success" />
                 </div>
                 <p className="text-lg font-semibold text-text-secondary">모든 재고가 정상입니다</p>
                 <p className="text-sm text-text-tertiary mt-1">재고 부족 알림이 없습니다.</p>
@@ -864,9 +845,7 @@ export default function InventoryPage() {
                 <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-danger/15 rounded-xl flex items-center justify-center">
-                      <svg className="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                      </svg>
+                      <BellIcon className="w-5 h-5 text-danger" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-text-primary">재고 부족 알림</h3>
@@ -904,9 +883,7 @@ export default function InventoryPage() {
                           onClick={() => handleOrderRequest(item)}
                           className="flex items-center gap-1 px-3 py-1.5 bg-brand text-on-brand rounded-lg text-xs font-semibold hover:bg-accent transition-colors shadow-nd-s shrink-0"
                         >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
-                          </svg>
+                          <CartIcon className="w-3.5 h-3.5" />
                           발주요청
                         </button>
                       </div>
@@ -979,9 +956,7 @@ export default function InventoryPage() {
                   onClick={() => setShowInvModal(false)}
                   className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-bg-secondary text-text-quaternary hover:text-text-secondary transition-colors"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <XIcon className="w-5 h-5" />
                 </button>
               </div>
 
@@ -1099,9 +1074,7 @@ export default function InventoryPage() {
                   onClick={() => setShowObModal(false)}
                   className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-bg-secondary text-text-quaternary hover:text-text-secondary transition-colors"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <XIcon className="w-5 h-5" />
                 </button>
               </div>
 

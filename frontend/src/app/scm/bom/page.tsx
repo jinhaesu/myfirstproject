@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import { ProductionMatchPanel } from '@/components/ProductionMatchPanel';
+import { CaretDownIcon, CheckIcon, InfoIcon, XIcon } from '@/components/nd/icons';
 
 // ─────────────────────────────────────────────
 // API helpers
@@ -383,7 +384,7 @@ export default function BomPage() {
               <h3 className="font-semibold text-text-primary">카테고리·유형별 BOM 원가 분석 <span className="text-xs font-normal text-text-quaternary ml-1">개당 재료원가(완전전개, VAT별도) 기준 · {analytics?.item_count ?? 0}개 품목</span></h3>
               <div className="flex items-center gap-2">
                 <button onClick={loadAnalytics} className="text-xs px-2 py-1 rounded border border-border-primary text-text-tertiary hover:bg-bg-secondary">새로고침</button>
-                <button onClick={() => setShowAnalytics(false)} className="text-text-quaternary hover:text-text-secondary">✕</button>
+                <button onClick={() => setShowAnalytics(false)} className="text-text-quaternary hover:text-text-secondary" aria-label="닫기"><XIcon inline /></button>
               </div>
             </div>
             {loadingAnalytics && <div className="py-8 text-center text-sm text-text-quaternary">분석 중… (BOM 전개 계산)</div>}
@@ -449,7 +450,7 @@ export default function BomPage() {
           <div className="bg-bg-1 rounded-xl border border-brand/30 p-4 mb-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-text-primary">생산소요 계산 <span className="text-xs font-normal text-text-quaternary ml-1">세트·완제품 담기 → 수량 입력 → 원부재료·원가 산출</span></h3>
-              <button onClick={() => setShowCalc(false)} className="text-text-quaternary hover:text-text-secondary">✕</button>
+              <button onClick={() => setShowCalc(false)} className="text-text-quaternary hover:text-text-secondary" aria-label="닫기"><XIcon inline /></button>
             </div>
             {cart.length === 0 && <div className="py-4 text-center text-xs text-text-quaternary">좌측 목록의 “담기” 버튼으로 추가하세요.</div>}
             <div className="grid lg:grid-cols-2 gap-4">
@@ -458,7 +459,7 @@ export default function BomPage() {
                   <div key={c.item.id} className="flex items-center gap-2">
                     <span className="text-sm text-text-secondary flex-1 truncate">{c.item.product_name}</span>
                     <input type="number" value={c.qty} onChange={(e) => setCartQty(c.item.id, Number(e.target.value))} className={`w-24 px-2 py-1 text-sm text-right ${inputCls}`} />
-                    <button onClick={() => removeCart(c.item.id)} className="text-text-quaternary hover:text-danger">✕</button>
+                    <button onClick={() => removeCart(c.item.id)} className="text-text-quaternary hover:text-danger" aria-label="빼기"><XIcon inline /></button>
                   </div>
                 ))}
                 {cart.length > 0 && <button onClick={compute} className="w-full py-2 rounded-lg bg-brand text-on-brand text-sm font-medium hover:bg-accent transition mt-1">소요량 계산</button>}
@@ -588,7 +589,7 @@ export default function BomPage() {
                           <span className="text-text-secondary truncate">{c.child_code ? <span className="font-mono text-xs text-text-quaternary mr-1.5">{c.child_code}</span> : null}{c.child_name}</span>
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="text-text-quaternary">×{c.qty}</span>
-                            <button onClick={async () => { await mutate(`/api/scm/items/components/${c.id}`, 'DELETE'); refreshDetail(); }} className="text-text-quaternary hover:text-danger text-xs">✕</button>
+                            <button onClick={async () => { await mutate(`/api/scm/items/components/${c.id}`, 'DELETE'); refreshDetail(); }} className="text-text-quaternary hover:text-danger text-xs" aria-label="빼기"><XIcon inline /></button>
                           </div>
                         </div>
                       ))}
@@ -655,8 +656,8 @@ export default function BomPage() {
                                   <div className="flex items-center justify-center gap-1.5">
                                     {editing ? (
                                       <>
-                                        <button onClick={() => saveLine(b)} className="text-success hover:text-success text-sm" title="저장">✓</button>
-                                        <button onClick={() => setEditLine(null)} className="text-text-quaternary hover:text-text-secondary text-xs" title="취소">✕</button>
+                                        <button onClick={() => saveLine(b)} className="text-success hover:text-success text-sm" title="저장"><CheckIcon inline /></button>
+                                        <button onClick={() => setEditLine(null)} className="text-text-quaternary hover:text-text-secondary text-xs" title="취소"><XIcon inline /></button>
                                       </>
                                     ) : (
                                       <>
@@ -726,10 +727,10 @@ export default function BomPage() {
         <details className="mt-6 bg-bg-1 rounded-xl border border-border-primary group" open>
           <summary className="flex items-center justify-between px-5 py-4 cursor-pointer select-none list-none">
             <div className="flex items-center gap-2">
-              <svg className="h-4 w-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <InfoIcon className="h-4 w-4 text-accent" />
               <h3 className="font-semibold text-text-primary text-sm">사용 가이드 — 품목·BOM·세트 관리</h3>
             </div>
-            <svg className="h-4 w-4 text-text-quaternary transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            <CaretDownIcon className="h-4 w-4 text-text-quaternary transition-transform group-open:rotate-180" />
           </summary>
           <div className="px-5 pb-5 pt-1 border-t border-border-primary grid md:grid-cols-2 gap-x-8 gap-y-5 text-sm text-text-secondary">
             <GuideBlock n="1" title="계층 구조" color="var(--color-accent-hover)">
@@ -988,7 +989,7 @@ function ModalShell({ title, children, onClose, onSave, saveLabel, wide }: { tit
       <div className={`relative bg-bg-1 rounded-2xl shadow-nd-f w-full ${wide ? 'max-w-xl' : 'max-w-md'} mx-4 max-h-[90vh] overflow-y-auto border border-border-primary`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-primary sticky top-0 bg-bg-1 z-10">
           <h2 className="text-base font-semibold text-text-primary">{title}</h2>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-bg-secondary text-text-quaternary">✕</button>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-bg-secondary text-text-quaternary" aria-label="닫기"><XIcon inline /></button>
         </div>
         <div className="px-5 py-4 space-y-3">{children}</div>
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border-primary bg-bg-0 rounded-b-2xl sticky bottom-0">

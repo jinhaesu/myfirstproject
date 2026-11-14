@@ -1,6 +1,7 @@
 'use client';
 import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
+import { ArrowLeftIcon, ArrowRightIcon, CaretRightIcon, CheckIcon, XIcon } from '@/components/nd/icons';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -310,7 +311,7 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
             <div className={`${C.card} p-4 border-l-2 border-l-cyan`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-semibold text-text-primary">물류 작업 요약 <span className="text-xs text-text-quaternary">({range.start}~{range.end})</span></div>
-                <a href="/inventory/logistics" className="text-xs text-accent hover:underline">물류 작업 실적 →</a>
+                <a href="/inventory/logistics" className="text-xs text-accent hover:underline">물류 작업 실적 <ArrowRightIcon inline /></a>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
                 <StatCard label="총 작업량" value={numShort(logi.total_qty)} sub={`${fmt(logi.record_count)}건`} />
@@ -1060,7 +1061,7 @@ function MaterialRegisterPanel({ range, onDone }: { range: { start: string; end:
           <button onClick={register} disabled={saving || selRows.length === 0} className={`${C.btn} ${C.btnPrimary} disabled:opacity-40`}>{saving ? '등록 중…' : `선택 ${selRows.length}건 SCM 등록`}</button>
         </div>
       </div>
-      <p className="text-[11px] text-text-quaternary">※ 자재 <b>마스터(이름·단가·거래처)만</b> 등록합니다. 실제 소모 차감은 이후 <b>SCM › BOM 화면에서 레시피(배합비) 연결</b> 시 반영됩니다(배합비는 여기서 다루지 않음). ‘유사 마스터 있음’은 이미 등록됐으니 그 마스터의 코드/별칭 보정이 우선입니다.</p>
+      <p className="text-[11px] text-text-quaternary">※ 자재 <b>마스터(이름·단가·거래처)만</b> 등록합니다. 실제 소모 차감은 이후 <b>SCM <CaretRightIcon inline /> BOM 화면에서 레시피(배합비) 연결</b> 시 반영됩니다(배합비는 여기서 다루지 않음). ‘유사 마스터 있음’은 이미 등록됐으니 그 마스터의 코드/별칭 보정이 우선입니다.</p>
       <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-bg-1"><tr>
@@ -1119,7 +1120,7 @@ function MaterialOpeningModal({ prefill, onClose, onSaved }: { prefill: any; onC
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4"><div className="text-lg font-semibold text-text-primary">기초재고 앵커 {f.id ? '수정' : '입력'}</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button></div>
+        <div className="flex items-center justify-between mb-4"><div className="text-lg font-semibold text-text-primary">기초재고 앵커 {f.id ? '수정' : '입력'}</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl" aria-label="닫기"><XIcon inline /></button></div>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2"><L>품목키(코드 또는 품목명) *</L><input value={f.material_key} onChange={(e) => up('material_key', e.target.value)} className={`${C.input} w-full`} placeholder="구매 item_code 또는 품목명" /></div>
           <div className="col-span-2"><L>품목명</L><input value={f.material_name} onChange={(e) => up('material_name', e.target.value)} className={`${C.input} w-full`} /></div>
@@ -1152,7 +1153,7 @@ function StockValuationPanel() {
         <div className="text-sm font-semibold text-text-primary">재고 가액</div>
         <div className="text-xs">
           {isCount
-            ? <span className="text-success-light">✔ 마지막 확정 실사 <b>{v.last_count_date}</b> 기준</span>
+            ? <span className="text-success-light"><CheckIcon inline /> 마지막 확정 실사 <b>{v.last_count_date}</b> 기준</span>
             : <span className="text-warning">확정 실사 없음 — {v.as_of} 시스템재고 기준</span>}
         </div>
       </div>
@@ -1340,7 +1341,7 @@ function CountDetail({ sessionId, onBack }: { sessionId: number; onBack: () => v
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className={`${C.btn} ${C.btnGhost}`}>← 목록</button>
+        <button onClick={onBack} className={`${C.btn} ${C.btnGhost}`}><ArrowLeftIcon inline /> 목록</button>
         {sess && <div className="text-sm text-text-secondary"><span className="font-semibold text-text-primary">{sess.warehouse_name}</span> · {sess.count_date} · {sess.title || '실사'}</div>}
         {locked && <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-success/15 text-success-light">확정됨 (읽기전용)</span>}
         <div className="ml-auto flex gap-2">

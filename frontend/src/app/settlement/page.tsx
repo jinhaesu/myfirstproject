@@ -1,6 +1,7 @@
 'use client';
 import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
+import { ArrowDownIcon, ArrowUpIcon, ArrowsDownUpIcon, CheckIcon, CurrencyKrwIcon, EditIcon, MoneyIcon, ReceiptIcon, StorefrontIcon, XIcon } from '@/components/nd/icons';
 import { Suspense, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -327,7 +328,7 @@ function SettlementPageContent() {
             }`}
           >
             <span className="text-sm">{toast.message}</span>
-            <button onClick={() => setToast(null)} className="ml-4 text-lg leading-none">&times;</button>
+            <button onClick={() => setToast(null)} className="ml-4 text-lg leading-none" aria-label="닫기"><XIcon inline /></button>
           </div>
         )}
 
@@ -456,8 +457,8 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
   };
 
   const sortIcon = (field: string) => {
-    if (sortField !== field) return ' ↕';
-    return sortDir === 'asc' ? ' ↑' : ' ↓';
+    if (sortField !== field) return <ArrowsDownUpIcon inline className="ml-1 opacity-40" />;
+    return sortDir === 'asc' ? <ArrowUpIcon inline className="ml-1" /> : <ArrowDownIcon inline className="ml-1" />;
   };
 
   // Actions
@@ -592,16 +593,16 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <SummaryCard label="총매출" value={fmtWon(summary.totalGross)} color="blue" icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <CurrencyKrwIcon className="w-6 h-6" />
             } />
             <SummaryCard label="정산금액" value={fmtWon(summary.totalSettlement)} color="emerald" icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
+              <ReceiptIcon className="w-6 h-6" />
             } />
             <SummaryCard label="수수료" value={fmtWon(summary.totalCommission)} color="amber" icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+              <MoneyIcon className="w-6 h-6" />
             } />
             <SummaryCard label="채널 수" value={`${summary.channelCount}개`} color="violet" icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+              <StorefrontIcon className="w-6 h-6" />
             } />
           </div>
 
@@ -742,7 +743,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                               className="p-1 text-link hover:bg-brand/10 rounded transition-colors"
                               title="수정"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                              <EditIcon className="w-4 h-4" />
                             </button>
                             {!r.is_confirmed && (
                               <button
@@ -750,7 +751,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                                 className="p-1 text-success hover:bg-success/10 rounded transition-colors"
                                 title="확정"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <CheckIcon className="w-4 h-4" />
                               </button>
                             )}
                           </div>

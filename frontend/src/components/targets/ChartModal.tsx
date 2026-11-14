@@ -1,6 +1,7 @@
 'use client';
 import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
+import { SpinnerIcon, XIcon } from '@/components/nd/icons';
 import { useState, useMemo, useEffect } from 'react';
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
@@ -464,9 +465,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
             onClick={onClose}
             className="p-2 text-text-quaternary hover:text-text-secondary transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <XIcon className="w-5 h-5" />
           </button>
         </div>
 
@@ -523,10 +522,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                   {type === 'target' ? '전년도 비교' : '전월 비교'}
                 </span>
                 {loadingPrevious && (
-                  <svg className="w-4 h-4 animate-spin text-link" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <SpinnerIcon className="w-4 h-4 animate-spin text-link" />
                 )}
               </label>
 
@@ -541,10 +537,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                   />
                   <span className="text-sm font-medium text-text-tertiary">목표 값 보기</span>
                   {loadingTarget && (
-                    <svg className="w-4 h-4 animate-spin text-orange" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
+                    <SpinnerIcon className="w-4 h-4 animate-spin text-orange" />
                   )}
                 </label>
               )}

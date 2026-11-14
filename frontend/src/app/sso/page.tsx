@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { WarningCircleIcon } from '@/components/nd/icons';
 
 // 대시보드/로그인과 동일하게 백엔드 절대주소를 직접 호출한다.
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '') + '/api';
@@ -71,9 +72,7 @@ export default function SSOPage() {
         {error ? (
           <div className="bg-bg-1 rounded-2xl shadow-nd-f p-8 border border-border-primary">
             <div className="p-4 bg-danger/10 border border-danger/30 rounded-xl text-danger text-sm flex items-center justify-center gap-2 mb-6">
-              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <WarningCircleIcon className="w-5 h-5 flex-shrink-0" />
               {error}
             </div>
             <a

@@ -1,5 +1,6 @@
 'use client';
 
+import { CheckIcon } from '@/components/nd/icons';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -122,12 +123,12 @@ export default function ManagementPage() {
             </div>
           </div>
         )}
-        {d && d.alerts?.length === 0 && <div className={`${C.card} p-4 mb-5 text-sm text-success-light`}>✔ 기간 내 특이 gap·경보 없음</div>}
+        {d && d.alerts?.length === 0 && <div className={`${C.card} p-4 mb-5 text-sm text-success-light`}><CheckIcon inline /> 기간 내 특이 gap·경보 없음</div>}
 
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
           <Stat label="순매출" value={wonShort(cp?.net_sales || 0)} tone="text-success" />
-          <Stat label="매출원가추정" value={wonShort(cp?.cogs_est || 0)} tone="text-warning" sub={cp?.cogs_ratio != null ? `매출比 ${cp.cogs_ratio}%` : ''} />
+          <Stat label="매출원가추정" value={wonShort(cp?.cogs_est || 0)} tone="text-warning" sub={cp?.cogs_ratio != null ? `매출 대비 ${cp.cogs_ratio}%` : ''} />
           <Stat label="BOM자재 구매" value={wonShort(cp?.purchase_bom_scope ?? cp?.purchase_actual ?? 0)} tone="text-info" sub={cp ? `전체 ${wonShort(cp.purchase_actual)} 중 비대상 ${wonShort(cp.purchase_excluded ?? 0)} 제외` : ''} />
           <Stat label="BOM자재구매−원가 gap" value={wonShort(cp?.gap || 0)} tone={(cp?.gap || 0) >= 0 ? 'text-danger' : 'text-success-light'} sub={(cp?.gap || 0) >= 0 ? '재고빌드/과다구매' : '재고소진'} />
           <Stat label="BOM소요 대비 구매" value={bp?.gap_pct != null ? `${bp.gap_pct}%` : '-'} tone="text-purple" sub="BOM자재 구매 기준" />

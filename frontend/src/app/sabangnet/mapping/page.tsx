@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { ArrowRightIcon, CartIcon, ChartBarIcon, CheckCircleIcon, ClockIcon, LinkIcon, PackageIcon, PlusIcon, RefreshIcon, RobotIcon, SaveIcon, StackIcon, UploadIcon, XIcon } from '@/components/nd/icons';
 
 // ─────────────────────────────────────────────
 // API helper
@@ -628,9 +629,7 @@ export default function MappingPage() {
               {collecting ? (
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
+                <UploadIcon className="w-4 h-4" />
               )}
               {collecting ? '수집 중...' : '미매핑 수집'}
             </button>
@@ -644,9 +643,7 @@ export default function MappingPage() {
                 {bulkSuggesting ? (
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
+                  <RobotIcon className="w-4 h-4" />
                 )}
                 {bulkSuggesting ? 'AI 매칭 중...' : `AI 매칭 요청 (${selectedUnmappedIds.size}건)`}
               </button>
@@ -745,9 +742,7 @@ export default function MappingPage() {
                               {isSuggesting ? (
                                 <span className="w-3 h-3 border-2 border-brand border-t-transparent rounded-full animate-spin" />
                               ) : (
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
+                                <RobotIcon className="w-3 h-3" />
                               )}
                               AI
                             </button>
@@ -755,18 +750,14 @@ export default function MappingPage() {
                               onClick={() => openManualMapModal(item)}
                               className="flex items-center gap-1 bg-success/10 text-success border border-success/25 hover:bg-success/15 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap"
                             >
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
-                              </svg>
+                              <LinkIcon className="w-3 h-3" />
                               매핑
                             </button>
                             <button
                               onClick={() => openRegisterMapModal(item)}
                               className="flex items-center gap-1 bg-warning/10 text-warning border border-warning/30 hover:bg-warning/15 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap"
                             >
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                              </svg>
+                              <PlusIcon className="w-3 h-3" />
                               신규
                             </button>
                           </div>
@@ -837,9 +828,7 @@ export default function MappingPage() {
                 {bulkApproving ? (
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <CheckCircleIcon className="w-4 h-4" />
                 )}
                 {bulkApproving ? '처리 중...' : `일괄 승인 (${selectedSuggestionIds.size}건)`}
               </button>
@@ -935,9 +924,7 @@ export default function MappingPage() {
 
                         {/* Arrow + confidence */}
                         <div className="flex flex-col items-center gap-1.5 pt-3 shrink-0">
-                          <svg className="w-5 h-5 text-text-quaternary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                          </svg>
+                          <ArrowRightIcon className="w-5 h-5 text-text-quaternary" />
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full text-bg-0 ${getConfidenceColor(suggestion.confidence)}`}>
                             {confidencePct}%
                           </span>
@@ -1037,9 +1024,7 @@ export default function MappingPage() {
             onClick={() => openProductModal()}
             className="flex items-center gap-2 bg-brand text-on-brand hover:bg-accent rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+            <PlusIcon className="w-4 h-4" />
             상품 등록
           </button>
 
@@ -1047,9 +1032,7 @@ export default function MappingPage() {
             onClick={handleInitSample}
             className="flex items-center gap-2 bg-bg-1 border border-border-primary text-text-secondary hover:bg-bg-secondary rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+            <RefreshIcon className="w-4 h-4" />
             샘플 데이터 초기화
           </button>
 
@@ -1121,9 +1104,7 @@ export default function MappingPage() {
                     <td className="px-4 py-3">
                       {product.is_set ? (
                         <span className="flex items-center gap-1 text-xs text-link font-semibold">
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                          </svg>
+                          <StackIcon className="w-3.5 h-3.5" />
                           세트
                         </span>
                       ) : (
@@ -1178,9 +1159,7 @@ export default function MappingPage() {
               <p className="text-3xl font-semibold text-text-primary mt-1">{dashboard.total_products.toLocaleString()}</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-link" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
+              <PackageIcon className="w-5 h-5 text-link" />
             </div>
           </div>
         </div>
@@ -1194,9 +1173,7 @@ export default function MappingPage() {
               <p className="text-xs text-text-quaternary mt-1">매핑됨 {dashboard.mapped_count} / 미매핑 {dashboard.unmapped_count}</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-link" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
+              <CartIcon className="w-5 h-5 text-link" />
             </div>
           </div>
         </div>
@@ -1209,9 +1186,7 @@ export default function MappingPage() {
               <p className="text-3xl font-semibold text-text-primary mt-1">{dashboard.mapping_rate.toFixed(1)}%</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
+              <ChartBarIcon className="w-5 h-5 text-success" />
             </div>
           </div>
           <div className="w-full h-2 bg-bg-2 rounded-full overflow-hidden">
@@ -1231,9 +1206,7 @@ export default function MappingPage() {
               <p className="text-xs text-text-quaternary mt-1">오늘 처리 {dashboard.today_processed}건</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <ClockIcon className="w-5 h-5 text-warning" />
             </div>
           </div>
         </div>
@@ -1426,9 +1399,7 @@ export default function MappingPage() {
         {savingConfig ? (
           <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
         ) : (
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-          </svg>
+          <SaveIcon className="w-4 h-4" />
         )}
         {savingConfig ? '저장 중...' : '설정 저장'}
       </button>
@@ -1473,9 +1444,7 @@ export default function MappingPage() {
               onClick={() => { setShowProductModal(false); setEditingProduct(null); }}
               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-bg-secondary text-text-quaternary hover:text-text-secondary transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <XIcon className="w-4 h-4" />
             </button>
           </div>
 
@@ -1545,9 +1514,7 @@ export default function MappingPage() {
                     onClick={addComponent}
                     className="flex items-center gap-1 text-xs text-link hover:text-link font-semibold"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
+                    <PlusIcon className="w-3.5 h-3.5" />
                     구성 추가
                   </button>
                 </div>
@@ -1573,9 +1540,7 @@ export default function MappingPage() {
                         onClick={() => removeComponent(i)}
                         className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-danger/10 text-text-quaternary hover:text-danger transition-colors"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <XIcon className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   ))}
@@ -1682,7 +1647,7 @@ export default function MappingPage() {
                   <p className="text-xs text-text-tertiary mt-1">새 상품을 등록하고 바로 매핑합니다</p>
                 </div>
                 <button onClick={() => setShowRegisterMapModal(false)} className="text-text-quaternary hover:text-text-secondary">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  <XIcon className="w-5 h-5" />
                 </button>
               </div>
 
@@ -1780,7 +1745,7 @@ export default function MappingPage() {
                           }))}
                           className="text-danger hover:text-danger"
                         >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          <XIcon className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
@@ -1817,7 +1782,7 @@ export default function MappingPage() {
                   <p className="text-xs text-text-tertiary mt-1">기존 자사 상품에 직접 매핑합니다</p>
                 </div>
                 <button onClick={() => setShowManualMapModal(false)} className="text-text-quaternary hover:text-text-secondary">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  <XIcon className="w-5 h-5" />
                 </button>
               </div>
 
@@ -1868,9 +1833,7 @@ export default function MappingPage() {
                             {p.category && <span className="text-xs bg-bg-2 text-text-tertiary px-2 py-0.5 rounded">{p.category}</span>}
                             {p.is_set && <span className="text-xs bg-brand/15 text-link px-2 py-0.5 rounded">세트</span>}
                             {manualMapProductId === p.id && (
-                              <svg className="w-5 h-5 text-link" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
+                              <CheckCircleIcon className="w-5 h-5 text-link" />
                             )}
                           </div>
                         </div>
