@@ -18,7 +18,7 @@ export function TableSelector({
   isLoading,
 }: TableSelectorProps) {
   return (
-    <div className="bg-bg-1 rounded-lg shadow p-4">
+    <div className="bg-bg-1 rounded-lg shadow-nd-s p-4">
       <h2 className="text-lg font-semibold mb-3">테이블 선택</h2>
 
       {/* 안내 메시지 */}

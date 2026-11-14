@@ -1,4 +1,5 @@
 'use client';
+import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
 import { useState, useMemo, useEffect } from 'react';
 import {
@@ -35,7 +36,7 @@ interface PreviousPeriodData {
   month?: number;
 }
 
-const COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#EB5757', '#7070FF', '#EB5757'];
+const COLORS = ND_CHART;
 
 function parseNumber(value: string | number | undefined | null): number {
   if (value === null || value === undefined || value === '') return 0;
@@ -453,7 +454,7 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* 헤더 */}
         <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary">
@@ -487,8 +488,8 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                     onClick={() => setChartType(option.value as 'bar' | 'line' | 'area')}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                       chartType === option.value
-                        ? 'bg-brand text-white'
-                        : 'bg-bg-2 text-text-secondary hover:bg-white/5'
+                        ? 'bg-brand text-on-brand'
+                        : 'bg-bg-2 text-text-secondary hover:bg-bg-secondary'
                     }`}
                   >
                     {option.label}
@@ -622,8 +623,8 @@ export function ChartModal({ isOpen, onClose, data, type }: ChartModalProps) {
                   onClick={() => toggleRow(row.index)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     selectedRows.includes(row.index)
-                      ? 'bg-brand text-white'
-                      : 'bg-bg-2 text-text-secondary hover:bg-white/5'
+                      ? 'bg-brand text-on-brand'
+                      : 'bg-bg-2 text-text-secondary hover:bg-bg-secondary'
                   }`}
                 >
                   {row.name}

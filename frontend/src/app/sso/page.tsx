@@ -66,10 +66,10 @@ export default function SSOPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-bg-0 flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center">
         {error ? (
-          <div className="bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] p-8 border border-border-primary">
+          <div className="bg-bg-1 rounded-2xl shadow-nd-f p-8 border border-border-primary">
             <div className="p-4 bg-danger/10 border border-danger/30 rounded-xl text-danger text-sm flex items-center justify-center gap-2 mb-6">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -86,7 +86,7 @@ export default function SSOPage() {
         ) : (
           <div className="flex flex-col items-center gap-4 text-text-tertiary">
             <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-            <p>회사 계정으로 로그인 중...</p>
+            <p className="text-sm">회사 계정으로 로그인 중</p>
           </div>
         )}
       </div>

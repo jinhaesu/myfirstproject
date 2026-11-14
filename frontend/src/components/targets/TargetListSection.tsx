@@ -221,7 +221,7 @@ export function TargetListSection({
 
   return (
     <section className="mb-8">
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+      <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary overflow-hidden">
         {/* 헤더 */}
         <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary">목표 리스트</h2>
@@ -231,7 +231,7 @@ export function TargetListSection({
                 setEditingTarget(null);
                 setIsModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg hover:bg-accent transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -240,7 +240,7 @@ export function TargetListSection({
             </button>
             <button
               onClick={() => setIsUploadModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-success text-white rounded-lg hover:bg-success transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-success text-on-brand rounded-lg hover:bg-success transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -286,13 +286,13 @@ export function TargetListSection({
                 <p className="text-sm text-text-tertiary mb-1">
                   총 목표 매출 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                 </p>
-                <p className="text-xl font-bold text-link">
+                <p className="text-xl font-semibold text-link">
                   {summary.total_sales > 0 ? `${formatNumber(summary.total_sales)}원` : '없음'}
                 </p>
               </div>
               <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
                 <p className="text-sm text-text-tertiary mb-1">총 판매량</p>
-                <p className="text-xl font-bold text-success">
+                <p className="text-xl font-semibold text-success">
                   {summary.total_quantity > 0 ? formatNumber(summary.total_quantity, false) : '없음'}
                 </p>
               </div>
@@ -300,7 +300,7 @@ export function TargetListSection({
                 <p className="text-sm text-text-tertiary mb-1">
                   공헌이익액 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                 </p>
-                <p className="text-xl font-bold text-link">
+                <p className="text-xl font-semibold text-link">
                   {summary.total_contribution > 0 ? `${formatNumber(summary.total_contribution)}원` : '없음'}
                 </p>
               </div>
@@ -308,7 +308,7 @@ export function TargetListSection({
                 <p className="text-sm text-text-tertiary mb-1">
                   광고선전비 합계 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                 </p>
-                <p className="text-xl font-bold text-orange">
+                <p className="text-xl font-semibold text-orange">
                   {summary.total_advertising > 0 ? `${formatNumber(summary.total_advertising)}원` : '없음'}
                 </p>
               </div>
@@ -408,7 +408,7 @@ export function TargetListSection({
             </div>
           ) : (
             targets.map((target) => (
-              <div key={target.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5">
+              <div key={target.id} className="px-6 py-4 flex items-center justify-between hover:bg-bg-secondary">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="px-2 py-0.5 bg-brand/15 text-accent text-xs font-medium rounded">

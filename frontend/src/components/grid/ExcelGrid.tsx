@@ -192,7 +192,7 @@ export function ExcelGrid({
           </thead>
           <tbody>
             {data.map((row, rowIndex) => (
-              <tr key={rowIndex} className="hover:bg-white/5 group">
+              <tr key={rowIndex} className="hover:bg-bg-secondary group">
                 {/* 행 관리 버튼들 */}
                 {allowAddRow && (
                   <td className="border-r border-b border-border-primary px-1 py-1 bg-bg-0">

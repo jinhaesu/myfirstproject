@@ -93,7 +93,7 @@ const LOCATIONS = ['1층', '2층', '3층'];
 const ITEM_TYPES = ['완제품', '반제품', '세트', '혼합세트', '원재료', '부자재'];
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  '마카롱': { bg: 'bg-danger/10', text: 'text-[#D04040]', border: 'border-danger/25' },
+  '마카롱': { bg: 'bg-danger/10', text: 'text-danger', border: 'border-danger/25' },
   '케이크': { bg: 'bg-warning/10', text: 'text-warning', border: 'border-warning/30' },
   '쿠키':   { bg: 'bg-orange/10', text: 'text-orange', border: 'border-orange/30' },
   '베이글': { bg: 'bg-success/10', text: 'text-success', border: 'border-success/25' },
@@ -459,7 +459,7 @@ export default function ProductsPage() {
         {/* ── Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">품목 관리</h1>
+            <h1 className="text-2xl font-semibold text-text-primary">품목 관리</h1>
             <p className="text-sm text-text-tertiary mt-1">SCM 전체 품목 마스터 관리</p>
           </div>
           <div className="flex items-center gap-2">
@@ -477,14 +477,14 @@ export default function ProductsPage() {
             </button>
             <button
               onClick={() => downloadCSV(filteredProducts)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border-primary bg-bg-1 text-text-secondary hover:bg-white/5 transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border-primary bg-bg-1 text-text-secondary hover:bg-bg-secondary transition"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               CSV 다운로드
             </button>
             <button
               onClick={openAddModal}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-accent transition shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-brand text-on-brand hover:bg-accent transition shadow-nd-s"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
               품목 추가
@@ -500,8 +500,8 @@ export default function ProductsPage() {
                 <svg className="h-5 w-5 text-link" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
               </div>
               <div>
-                <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider">총 등록 품목</p>
-                <p className="text-2xl font-bold text-text-primary">{fmt(stats.total)}</p>
+                <p className="text-xs font-medium text-text-tertiary">총 등록 품목</p>
+                <p className="text-2xl font-semibold text-text-primary">{fmt(stats.total)}</p>
               </div>
             </div>
           </div>
@@ -511,8 +511,8 @@ export default function ProductsPage() {
                 <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
               <div>
-                <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider">활성 품목</p>
-                <p className="text-2xl font-bold text-text-primary">{fmt(stats.active)}</p>
+                <p className="text-xs font-medium text-text-tertiary">활성 품목</p>
+                <p className="text-2xl font-semibold text-text-primary">{fmt(stats.active)}</p>
               </div>
             </div>
           </div>
@@ -522,8 +522,8 @@ export default function ProductsPage() {
                 <svg className="h-5 w-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
               </div>
               <div>
-                <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider">평균 시간당 생산량</p>
-                <p className="text-2xl font-bold text-text-primary">{fmt(stats.avgRate)}<span className="text-sm font-normal text-text-quaternary ml-1">개/h</span></p>
+                <p className="text-xs font-medium text-text-tertiary">평균 시간당 생산량</p>
+                <p className="text-2xl font-semibold text-text-primary">{fmt(stats.avgRate)}<span className="text-sm font-normal text-text-quaternary ml-1">개/h</span></p>
               </div>
             </div>
           </div>
@@ -533,8 +533,8 @@ export default function ProductsPage() {
                 <svg className={`h-5 w-5 ${stats.belowSafety > 0 ? 'text-danger' : 'text-text-quaternary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
               </div>
               <div>
-                <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider">안전재고 미달</p>
-                <p className={`text-2xl font-bold ${stats.belowSafety > 0 ? 'text-danger' : 'text-text-primary'}`}>{stats.belowSafety}<span className="text-sm font-normal text-text-quaternary ml-1">건</span></p>
+                <p className="text-xs font-medium text-text-tertiary">안전재고 미달</p>
+                <p className={`text-2xl font-semibold ${stats.belowSafety > 0 ? 'text-danger' : 'text-text-primary'}`}>{stats.belowSafety}<span className="text-sm font-normal text-text-quaternary ml-1">건</span></p>
               </div>
             </div>
           </div>
@@ -568,7 +568,7 @@ export default function ProductsPage() {
                       ? cat === '전체'
                         ? 'bg-bg-0 text-text-primary border-border-secondary'
                         : `${color!.bg} ${color!.text} ${color!.border} ring-2 ring-offset-1 ring-current`
-                      : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-white/5'
+                      : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-bg-secondary'
                   }`}
                 >
                   {cat}
@@ -586,8 +586,8 @@ export default function ProductsPage() {
                   onClick={() => setTypeFilter(t)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-full border transition ${
                     typeFilter === t
-                      ? 'bg-brand text-white border-brand'
-                      : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-white/5'
+                      ? 'bg-brand text-on-brand border-brand'
+                      : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-bg-secondary'
                   }`}
                 >
                   {t}
@@ -632,13 +632,13 @@ export default function ProductsPage() {
                     <th
                       key={col.field}
                       onClick={() => handleSort(col.field)}
-                      className={`px-3 py-3 ${col.w} ${col.align} font-semibold text-xs text-text-tertiary uppercase tracking-wider cursor-pointer hover:bg-white/5 transition select-none whitespace-nowrap`}
+                      className={`px-3 py-3 ${col.w} ${col.align} font-semibold text-xs text-text-tertiary cursor-pointer hover:bg-bg-secondary transition select-none whitespace-nowrap`}
                     >
                       {col.label}
                       <SortIcon field={col.field} />
                     </th>
                   ))}
-                  <th className="px-3 py-3 w-28 text-center font-semibold text-xs text-text-tertiary uppercase tracking-wider">액션</th>
+                  <th className="px-3 py-3 w-28 text-center font-semibold text-xs text-text-tertiary">액션</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-primary">
@@ -664,7 +664,7 @@ export default function ProductsPage() {
                     return (
                       <tr
                         key={product.id}
-                        className={`hover:bg-white/5 transition ${rowClass}`}
+                        className={`hover:bg-bg-secondary transition ${rowClass}`}
                       >
                         {/* Category badge */}
                         <td className="px-3 py-3 text-center">
@@ -730,7 +730,7 @@ export default function ProductsPage() {
                             onClick={() => handleToggleActive(product)}
                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${product.is_active ? 'bg-success' : 'bg-bg-quaternary'}`}
                           >
-                            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-bg-1 transition-transform shadow-[0px_1px_3px_rgba(0,0,0,0.2)] ${product.is_active ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-bg-1 transition-transform shadow-nd-s ${product.is_active ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
                           </button>
                         </td>
                         {/* Actions */}
@@ -747,13 +747,13 @@ export default function ProductsPage() {
                               <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => handleDelete(product.id)}
-                                  className="px-2 py-1 text-xs rounded bg-danger text-white hover:brightness-90 transition"
+                                  className="px-2 py-1 text-xs rounded bg-danger text-on-brand hover:brightness-90 transition"
                                 >
                                   확인
                                 </button>
                                 <button
                                   onClick={() => setDeleteConfirmId(null)}
-                                  className="px-2 py-1 text-xs rounded bg-bg-tertiary text-text-tertiary hover:bg-white/5 transition"
+                                  className="px-2 py-1 text-xs rounded bg-bg-tertiary text-text-tertiary hover:bg-bg-secondary transition"
                                 >
                                   취소
                                 </button>
@@ -781,7 +781,7 @@ export default function ProductsPage() {
         {/* ── Toast ── */}
         {toast && (
           <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
-            <div className="bg-bg-0 text-text-primary px-5 py-3 rounded-xl shadow-2xl text-sm flex items-center gap-2">
+            <div className="bg-bg-0 text-text-primary px-5 py-3 rounded-xl shadow-nd-f text-sm flex items-center gap-2">
               <svg className="h-4 w-4 text-success-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
               {toast}
             </div>
@@ -795,13 +795,13 @@ export default function ProductsPage() {
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeModal} />
 
             {/* Modal content */}
-            <div className="relative bg-bg-1 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="relative bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-border-primary">
-                <h2 className="text-lg font-bold text-text-primary">
+                <h2 className="text-lg font-semibold text-text-primary">
                   {editingProduct ? '품목 수정' : '품목 추가'}
                 </h2>
-                <button onClick={closeModal} className="p-1 rounded-lg hover:bg-white/5 transition">
+                <button onClick={closeModal} className="p-1 rounded-lg hover:bg-bg-secondary transition">
                   <svg className="h-5 w-5 text-text-quaternary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -967,7 +967,7 @@ export default function ProductsPage() {
                         onClick={() => handleFormChange('is_active', !formData.is_active)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.is_active ? 'bg-success' : 'bg-bg-quaternary'}`}
                       >
-                        <span className={`inline-block h-4 w-4 rounded-full bg-bg-1 transition-transform shadow-[0px_1px_3px_rgba(0,0,0,0.2)] ${formData.is_active ? 'translate-x-6' : 'translate-x-1'}`} />
+                        <span className={`inline-block h-4 w-4 rounded-full bg-bg-1 transition-transform shadow-nd-s ${formData.is_active ? 'translate-x-6' : 'translate-x-1'}`} />
                       </button>
                       <span className="text-sm text-text-tertiary">{formData.is_active ? '활성' : '비활성'}</span>
                     </div>
@@ -989,7 +989,7 @@ export default function ProductsPage() {
                 {/* Info (read-only fields for edit mode) */}
                 {editingProduct && (
                   <div className="bg-bg-0 rounded-lg p-4 border border-border-primary">
-                    <p className="text-xs font-semibold text-text-tertiary mb-2 uppercase tracking-wider">생산 실적 (자동 계산)</p>
+                    <p className="text-xs font-semibold text-text-tertiary mb-2">생산 실적 (자동 계산)</p>
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
                         <span className="text-text-quaternary">시간당 생산량</span>
@@ -1012,13 +1012,13 @@ export default function ProductsPage() {
               <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border-primary bg-bg-0 rounded-b-2xl">
                 <button
                   onClick={closeModal}
-                  className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-1 border border-border-primary rounded-lg hover:bg-white/5 transition"
+                  className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-1 border border-border-primary rounded-lg hover:bg-bg-secondary transition"
                 >
                   취소
                 </button>
                 <button
                   onClick={handleSaveProduct}
-                  className="px-5 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-accent transition shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                  className="px-5 py-2 text-sm font-medium text-on-brand bg-brand rounded-lg hover:bg-accent transition shadow-nd-s"
                 >
                   {editingProduct ? '수정' : '추가'}
                 </button>
@@ -1031,10 +1031,10 @@ export default function ProductsPage() {
         {showBomPicker && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowBomPicker(false)} />
-            <div className="relative bg-bg-1 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] overflow-hidden border border-border-primary flex flex-col">
+            <div className="relative bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-lg mx-4 max-h-[85vh] overflow-hidden border border-border-primary flex flex-col">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border-primary">
-                <h2 className="text-base font-bold text-text-primary">BOM 리스트에서 불러오기</h2>
-                <button onClick={() => setShowBomPicker(false)} className="p-1 rounded-lg hover:bg-white/5 text-text-quaternary">
+                <h2 className="text-base font-semibold text-text-primary">BOM 리스트에서 불러오기</h2>
+                <button onClick={() => setShowBomPicker(false)} className="p-1 rounded-lg hover:bg-bg-secondary text-text-quaternary">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -1042,7 +1042,7 @@ export default function ProductsPage() {
                 <div className="flex gap-1.5 flex-wrap">
                   {(['완제품', '반제품', '세트', '원재료', '부자재'] as const).map(t => (
                     <button key={t} onClick={() => setPickerTab(t)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${pickerTab === t ? 'bg-brand text-white border-brand' : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-white/5'}`}>{t}</button>
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${pickerTab === t ? 'bg-brand text-on-brand border-brand' : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-bg-secondary'}`}>{t}</button>
                   ))}
                 </div>
                 <input value={pickerSearch} onChange={e => setPickerSearch(e.target.value)} placeholder="이름·코드 검색..."
@@ -1055,7 +1055,7 @@ export default function ProductsPage() {
                   const code = isMat ? row.erp_code : row.product_code;
                   const price = isMat ? (pickerTab === '원재료' ? `${fmt(row.kg_price || 0)}/kg` : `${fmt(row.unit_price || 0)}/${row.unit || 'ea'}`) : '';
                   return (
-                    <button key={row.id} onClick={() => pickFromBom(row)} className="w-full text-left px-3 py-2.5 hover:bg-white/5 rounded-lg flex items-center justify-between">
+                    <button key={row.id} onClick={() => pickFromBom(row)} className="w-full text-left px-3 py-2.5 hover:bg-bg-secondary rounded-lg flex items-center justify-between">
                       <div className="min-w-0">
                         <div className="text-sm text-text-secondary truncate">{name}</div>
                         <div className="text-xs text-text-quaternary truncate">{code ? `${code} · ` : ''}{isMat ? (row.supplier || '') : (row.product_category || '')}{row.flavor_group ? ` · ${row.flavor_group}` : ''}</div>

@@ -36,7 +36,7 @@ const presets = () => {
 };
 
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
-  return <div className={`${C.card} p-4`}><div className="text-[11px] text-text-tertiary mb-1 truncate">{label}</div><div className={`text-lg font-bold tabular-nums ${tone || 'text-text-primary'}`}>{value}</div>{sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}</div>;
+  return <div className={`${C.card} p-4`}><div className="text-[11px] text-text-tertiary mb-1 truncate">{label}</div><div className={`text-lg font-semibold tabular-nums ${tone || 'text-text-primary'}`}>{value}</div>{sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}</div>;
 }
 
 export default function ManagementPage() {
@@ -68,14 +68,14 @@ export default function ManagementPage() {
       <Navigation />
       <main className="max-w-[1400px] mx-auto px-4 py-6 relative">
         <LoadingOverlay show={loading} />
-        <div className="mb-4"><h1 className="text-xl font-bold text-text-primary">경영관리 · 교차분석</h1><p className="text-sm text-text-tertiary mt-0.5">영업·구매·생산·물류·재고 데이터를 대조해 경영 관점의 gap·이상치를 요약합니다. <b className="text-text-secondary">모든 금액은 공급가(VAT별도)</b> — 매출·구매·BOM원가 동일 기준.</p></div>
+        <div className="mb-4"><h1 className="text-xl font-semibold text-text-primary">경영관리 · 교차분석</h1><p className="text-sm text-text-tertiary mt-0.5">영업·구매·생산·물류·재고 데이터를 대조해 경영 관점의 gap·이상치를 요약합니다. <b className="text-text-secondary">모든 금액은 공급가(VAT별도)</b> — 매출·구매·BOM원가 동일 기준.</p></div>
         <div className="flex flex-wrap items-center gap-2 mb-1">
-          {Object.entries(presets()).map(([k, v]) => { const on = range.start === v.start && range.end === v.end; return <button key={k} onClick={() => apply(v)} className={`${C.btn} ${on ? 'bg-brand text-white' : C.btnGhost}`}>{k}</button>; })}
+          {Object.entries(presets()).map(([k, v]) => { const on = range.start === v.start && range.end === v.end; return <button key={k} onClick={() => apply(v)} className={`${C.btn} ${on ? 'bg-brand text-on-brand' : C.btnGhost}`}>{k}</button>; })}
           <input type="date" value={draft.start} onChange={(e) => setDraft({ ...draft, start: e.target.value })} className={C.input} />
           <span className="text-text-quaternary">~</span>
           <input type="date" value={draft.end} onChange={(e) => setDraft({ ...draft, end: e.target.value })} className={C.input} />
-          <button onClick={() => setRange(draft)} className={`${C.btn} bg-brand text-white hover:bg-brand-hover ${draft.start !== range.start || draft.end !== range.end ? 'ring-2 ring-brand/50' : ''}`}>조회</button>
-          <div className="flex gap-1 ml-auto"><span className="text-xs text-text-quaternary self-center mr-1">추이 단위</span>{(['day', 'week', 'month'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} ${gran === g ? 'bg-brand text-white' : C.btnGhost}`}>{g === 'day' ? '일' : g === 'week' ? '주' : '월'}</button>)}</div>
+          <button onClick={() => setRange(draft)} className={`${C.btn} bg-brand text-on-brand hover:bg-brand-hover ${draft.start !== range.start || draft.end !== range.end ? 'ring-2 ring-brand/50' : ''}`}>조회</button>
+          <div className="flex gap-1 ml-auto"><span className="text-xs text-text-quaternary self-center mr-1">추이 단위</span>{(['day', 'week', 'month'] as const).map((g) => <button key={g} onClick={() => setGran(g)} className={`${C.btn} ${gran === g ? 'bg-brand text-on-brand' : C.btnGhost}`}>{g === 'day' ? '일' : g === 'week' ? '주' : '월'}</button>)}</div>
           {loading && <span className="text-xs text-text-quaternary">집계 중…</span>}
         </div>
         <p className="text-xs text-text-quaternary mb-4">기간·날짜를 바꾼 뒤 <b className="text-text-tertiary">조회</b>를 눌러야 반영됩니다(프리셋은 즉시 적용). 시작·종료일 모두 반영됩니다.</p>

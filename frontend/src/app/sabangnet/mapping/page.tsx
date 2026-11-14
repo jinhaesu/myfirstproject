@@ -585,7 +585,7 @@ export default function MappingPage() {
   // ── Loading / Auth ──
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0/30 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-0 flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -618,12 +618,12 @@ export default function MappingPage() {
     return (
       <div className="space-y-4">
         {/* Action bar */}
-        <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+        <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-4">
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={handleCollect}
               disabled={collecting}
-              className="flex items-center gap-2 bg-brand text-white hover:bg-accent disabled:opacity-60 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+              className="flex items-center gap-2 bg-brand text-on-brand hover:bg-accent disabled:opacity-60 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
             >
               {collecting ? (
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -639,7 +639,7 @@ export default function MappingPage() {
               <button
                 onClick={handleBulkSuggest}
                 disabled={bulkSuggesting}
-                className="flex items-center gap-2 bg-brand text-white hover:bg-accent disabled:opacity-60 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+                className="flex items-center gap-2 bg-brand text-on-brand hover:bg-accent disabled:opacity-60 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
               >
                 {bulkSuggesting ? (
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -676,7 +676,7 @@ export default function MappingPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+        <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -689,12 +689,12 @@ export default function MappingPage() {
                       className="rounded border-border-primary text-link focus:ring-brand/50"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">쇼핑몰</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">상품코드</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">상품명</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">옵션</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">수집일시</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">액션</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">쇼핑몰</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">상품코드</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">상품명</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">옵션</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">수집일시</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">액션</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-primary">
@@ -709,7 +709,7 @@ export default function MappingPage() {
                     const mallColor = getMallColor(item.mall_name);
                     const isSuggesting = suggestingIds.has(item.id);
                     return (
-                      <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                      <tr key={item.id} className="hover:bg-bg-secondary transition-colors">
                         <td className="px-4 py-3">
                           <input
                             type="checkbox"
@@ -825,14 +825,14 @@ export default function MappingPage() {
     return (
       <div className="space-y-4">
         {/* Filter bar */}
-        <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+        <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-4">
           <div className="flex flex-wrap items-center gap-3">
             {/* Bulk approve */}
             {selectedSuggestionIds.size > 0 && (
               <button
                 onClick={handleBulkApprove}
                 disabled={bulkApproving}
-                className="flex items-center gap-2 bg-success text-white hover:bg-success disabled:opacity-60 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+                className="flex items-center gap-2 bg-success text-on-brand hover:bg-success disabled:opacity-60 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
               >
                 {bulkApproving ? (
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -883,7 +883,7 @@ export default function MappingPage() {
         {/* Cards */}
         <div className="space-y-3">
           {filteredSuggestions.length === 0 ? (
-            <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-12 text-center text-text-quaternary text-sm">
+            <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-12 text-center text-text-quaternary text-sm">
               매칭 제안이 없습니다
             </div>
           ) : (
@@ -897,7 +897,7 @@ export default function MappingPage() {
               const isPending = suggestion.status === 'pending';
 
               return (
-                <div key={suggestion.id} className={`bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5 ${isPending ? 'hover:border-brand/30' : 'opacity-80'} transition-colors`}>
+                <div key={suggestion.id} className={`bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5 ${isPending ? 'hover:border-brand/30' : 'opacity-80'} transition-colors`}>
                   <div className="flex items-start gap-3">
                     {/* Checkbox (pending only) */}
                     <div className="pt-1">
@@ -938,7 +938,7 @@ export default function MappingPage() {
                           <svg className="w-5 h-5 text-text-quaternary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                           </svg>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full text-bg-0 ${getConfidenceColor(suggestion.confidence)}`}>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full text-bg-0 ${getConfidenceColor(suggestion.confidence)}`}>
                             {confidencePct}%
                           </span>
                           <div className="w-16 h-1.5 bg-bg-2 rounded-full overflow-hidden">
@@ -990,14 +990,14 @@ export default function MappingPage() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleReject(suggestion.id)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border-primary text-text-tertiary hover:bg-white/5 transition-colors"
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border-primary text-text-tertiary hover:bg-bg-secondary transition-colors"
                             >
                               거부
                             </button>
                             <button
                               onClick={() => handleApprove(suggestion.id)}
                               disabled={isApproving}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-success text-white hover:bg-success disabled:opacity-60 transition-colors"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-success text-on-brand hover:bg-success disabled:opacity-60 transition-colors"
                             >
                               {isApproving ? (
                                 <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1031,11 +1031,11 @@ export default function MappingPage() {
   const renderProductsTab = () => (
     <div className="space-y-4">
       {/* Action bar */}
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+      <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-4">
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => openProductModal()}
-            className="flex items-center gap-2 bg-brand text-white hover:bg-accent rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+            className="flex items-center gap-2 bg-brand text-on-brand hover:bg-accent rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1045,7 +1045,7 @@ export default function MappingPage() {
 
           <button
             onClick={handleInitSample}
-            className="flex items-center gap-2 bg-bg-1 border border-border-primary text-text-secondary hover:bg-white/5 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+            className="flex items-center gap-2 bg-bg-1 border border-border-primary text-text-secondary hover:bg-bg-secondary rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1076,18 +1076,18 @@ export default function MappingPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+      <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-bg-0 border-b border-border-primary">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">상품코드</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">상품명</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">카테고리</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">세트</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">매핑수</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">상태</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">액션</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">상품코드</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">상품명</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">카테고리</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">세트</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">매핑수</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">상태</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">액션</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-primary">
@@ -1099,7 +1099,7 @@ export default function MappingPage() {
                 </tr>
               ) : (
                 filteredProducts.map(product => (
-                  <tr key={product.id} className="hover:bg-white/5 transition-colors">
+                  <tr key={product.id} className="hover:bg-bg-secondary transition-colors">
                     <td className="px-4 py-3 font-mono text-xs text-text-tertiary">{product.sabangnet_product_code}</td>
                     <td className="px-4 py-3">
                       <span className="text-text-primary font-medium">{product.product_name}</span>
@@ -1143,7 +1143,7 @@ export default function MappingPage() {
                     <td className="px-4 py-3">
                       <button
                         onClick={() => openProductModal(product)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border-primary text-text-tertiary hover:bg-white/5 transition-colors"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border-primary text-text-tertiary hover:bg-bg-secondary transition-colors"
                       >
                         수정
                       </button>
@@ -1171,11 +1171,11 @@ export default function MappingPage() {
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total products */}
-        <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+        <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">총 자사 상품</p>
-              <p className="text-3xl font-bold text-text-primary mt-1">{dashboard.total_products.toLocaleString()}</p>
+              <p className="text-xs font-semibold text-text-tertiary">총 자사 상품</p>
+              <p className="text-3xl font-semibold text-text-primary mt-1">{dashboard.total_products.toLocaleString()}</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-link" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1186,11 +1186,11 @@ export default function MappingPage() {
         </div>
 
         {/* Total mall products */}
-        <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+        <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">쇼핑몰 상품</p>
-              <p className="text-3xl font-bold text-text-primary mt-1">{dashboard.total_mall_products.toLocaleString()}</p>
+              <p className="text-xs font-semibold text-text-tertiary">쇼핑몰 상품</p>
+              <p className="text-3xl font-semibold text-text-primary mt-1">{dashboard.total_mall_products.toLocaleString()}</p>
               <p className="text-xs text-text-quaternary mt-1">매핑됨 {dashboard.mapped_count} / 미매핑 {dashboard.unmapped_count}</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
@@ -1202,11 +1202,11 @@ export default function MappingPage() {
         </div>
 
         {/* Mapping rate */}
-        <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+        <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
           <div className="flex items-start justify-between mb-3">
             <div>
-              <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">매핑률</p>
-              <p className="text-3xl font-bold text-text-primary mt-1">{dashboard.mapping_rate.toFixed(1)}%</p>
+              <p className="text-xs font-semibold text-text-tertiary">매핑률</p>
+              <p className="text-3xl font-semibold text-text-primary mt-1">{dashboard.mapping_rate.toFixed(1)}%</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1216,18 +1216,18 @@ export default function MappingPage() {
           </div>
           <div className="w-full h-2 bg-bg-2 rounded-full overflow-hidden">
             <div
-              className="h-full bg-success rounded-full transition-all"
+              className="h-full bg-success rounded-full transition-[width]"
               style={{ width: `${Math.min(dashboard.mapping_rate, 100)}%` }}
             />
           </div>
         </div>
 
         {/* Pending suggestions */}
-        <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+        <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">대기 제안</p>
-              <p className="text-3xl font-bold text-text-primary mt-1">{dashboard.pending_suggestions.toLocaleString()}</p>
+              <p className="text-xs font-semibold text-text-tertiary">대기 제안</p>
+              <p className="text-3xl font-semibold text-text-primary mt-1">{dashboard.pending_suggestions.toLocaleString()}</p>
               <p className="text-xs text-text-quaternary mt-1">오늘 처리 {dashboard.today_processed}건</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
@@ -1240,8 +1240,8 @@ export default function MappingPage() {
       </div>
 
       {/* By mall */}
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
-        <h3 className="text-sm font-bold text-text-secondary mb-4">쇼핑몰별 매핑 현황</h3>
+      <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
+        <h3 className="text-sm font-semibold text-text-secondary mb-4">쇼핑몰별 매핑 현황</h3>
         <div className="space-y-3">
           {dashboard.by_mall.map(mall => {
             const mallColor = getMallColor(mall.mall_name);
@@ -1275,19 +1275,19 @@ export default function MappingPage() {
       </div>
 
       {/* Logs */}
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+      <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary overflow-hidden">
         <div className="px-5 py-4 border-b border-border-primary">
-          <h3 className="text-sm font-bold text-text-secondary">최근 작업 이력</h3>
+          <h3 className="text-sm font-semibold text-text-secondary">최근 작업 이력</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-bg-0 border-b border-border-primary">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">시간</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">액션</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">쇼핑몰</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">처리</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary uppercase tracking-wider">결과</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">시간</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">액션</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">쇼핑몰</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">처리</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-tertiary">결과</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-primary">
@@ -1299,7 +1299,7 @@ export default function MappingPage() {
                 </tr>
               ) : (
                 logs.map(log => (
-                  <tr key={log.id} className="hover:bg-white/5 transition-colors">
+                  <tr key={log.id} className="hover:bg-bg-secondary transition-colors">
                     <td className="px-4 py-3 text-xs text-text-quaternary whitespace-nowrap">{formatDate(log.created_at)}</td>
                     <td className="px-4 py-3">
                       <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-bg-0 text-text-tertiary border-border-primary">
@@ -1333,8 +1333,8 @@ export default function MappingPage() {
   const renderSettingsTab = () => (
     <div className="max-w-2xl space-y-5">
       {/* Operation mode */}
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-6">
-        <h3 className="text-sm font-bold text-text-secondary mb-4">운영 모드</h3>
+      <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-6">
+        <h3 className="text-sm font-semibold text-text-secondary mb-4">운영 모드</h3>
         <div className="space-y-3">
           {[
             {
@@ -1374,12 +1374,12 @@ export default function MappingPage() {
       </div>
 
       {/* Auto-approve threshold */}
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-6">
-        <h3 className="text-sm font-bold text-text-secondary mb-4">자동 승인 기준 신뢰도</h3>
+      <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-6">
+        <h3 className="text-sm font-semibold text-text-secondary mb-4">자동 승인 기준 신뢰도</h3>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs text-text-tertiary">최소 신뢰도</span>
-            <span className="text-lg font-bold text-link">
+            <span className="text-lg font-semibold text-link">
               {(config.auto_approve_threshold * 100).toFixed(0)}%
             </span>
           </div>
@@ -1405,8 +1405,8 @@ export default function MappingPage() {
       </div>
 
       {/* API Key */}
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-6">
-        <h3 className="text-sm font-bold text-text-secondary mb-4">사방넷 API 키</h3>
+      <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-6">
+        <h3 className="text-sm font-semibold text-text-secondary mb-4">사방넷 API 키</h3>
         <input
           type="text"
           placeholder="사방넷 API 키를 입력하세요"
@@ -1421,7 +1421,7 @@ export default function MappingPage() {
       <button
         onClick={handleSaveConfig}
         disabled={savingConfig}
-        className="flex items-center gap-2 bg-brand text-white hover:bg-accent disabled:opacity-60 rounded-lg px-6 py-2.5 text-sm font-semibold transition-colors"
+        className="flex items-center gap-2 bg-brand text-on-brand hover:bg-accent disabled:opacity-60 rounded-lg px-6 py-2.5 text-sm font-semibold transition-colors"
       >
         {savingConfig ? (
           <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1464,14 +1464,14 @@ export default function MappingPage() {
 
     return (
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-bg-1 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-lg max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between px-6 py-4 border-b border-border-primary">
-            <h2 className="text-base font-bold text-text-primary">
+            <h2 className="text-base font-semibold text-text-primary">
               {editingProduct ? '상품 수정' : '상품 등록'}
             </h2>
             <button
               onClick={() => { setShowProductModal(false); setEditingProduct(null); }}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 text-text-quaternary hover:text-text-secondary transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-bg-secondary text-text-quaternary hover:text-text-secondary transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1530,7 +1530,7 @@ export default function MappingPage() {
                   }))}
                   className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${productForm.is_set ? 'bg-brand' : 'bg-bg-tertiary'}`}
                 >
-                  <span className={`absolute top-0.5 w-5 h-5 bg-bg-1 rounded-full shadow transition-transform ${productForm.is_set ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  <span className={`absolute top-0.5 w-5 h-5 bg-bg-1 rounded-full shadow-nd-s transition-transform ${productForm.is_set ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </div>
                 <span className="text-sm font-semibold text-text-secondary">세트 상품</span>
               </label>
@@ -1590,14 +1590,14 @@ export default function MappingPage() {
           <div className="flex justify-end gap-2 px-6 py-4 border-t border-border-primary">
             <button
               onClick={() => { setShowProductModal(false); setEditingProduct(null); }}
-              className="px-4 py-2 rounded-lg text-sm font-semibold border border-border-primary text-text-tertiary hover:bg-white/5 transition-colors"
+              className="px-4 py-2 rounded-lg text-sm font-semibold border border-border-primary text-text-tertiary hover:bg-bg-secondary transition-colors"
             >
               취소
             </button>
             <button
               onClick={handleSaveProduct}
               disabled={!productForm.sabangnet_product_code || !productForm.product_name}
-              className="px-4 py-2 rounded-lg text-sm font-semibold bg-brand text-white hover:bg-accent disabled:opacity-60 transition-colors"
+              className="px-4 py-2 rounded-lg text-sm font-semibold bg-brand text-on-brand hover:bg-accent disabled:opacity-60 transition-colors"
             >
               {editingProduct ? '수정 저장' : '등록'}
             </button>
@@ -1613,18 +1613,18 @@ export default function MappingPage() {
   const pendingSuggestionsCount = suggestions.filter(s => s.status === 'pending').length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0/30">
+    <div className="min-h-screen bg-bg-0">
       <Navigation />
 
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         {/* Page header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-text-primary">매핑 자동화</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">매핑 자동화</h1>
           <p className="text-sm text-text-tertiary mt-1">사방넷 상품 매핑을 AI로 자동화합니다</p>
         </div>
 
         {/* Tab navigation */}
-        <div className="flex gap-1 mb-6 bg-bg-1 rounded-xl p-1 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-x-auto">
+        <div className="flex gap-1 mb-6 bg-bg-1 rounded-xl p-1 shadow-nd-s border border-border-primary overflow-x-auto">
           {[
             { key: 'unmapped', label: '미매핑 상품', count: filteredUnmapped.length },
             { key: 'suggestions', label: 'AI 매칭 제안', count: pendingSuggestionsCount },
@@ -1635,10 +1635,10 @@ export default function MappingPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as TabType)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap ${
                 activeTab === tab.key
-                  ? 'bg-brand text-white shadow-[0px_1px_3px_rgba(0,0,0,0.2)]'
-                  : 'text-text-tertiary hover:bg-white/5'
+                  ? 'bg-brand text-on-brand shadow-nd-s'
+                  : 'text-text-tertiary hover:bg-bg-secondary'
               }`}
             >
               {tab.label}
@@ -1663,7 +1663,7 @@ export default function MappingPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-bg-0 text-text-primary px-5 py-3 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm z-50 animate-fade-in">
+        <div className="fixed bottom-6 right-6 bg-bg-0 text-text-primary px-5 py-3 rounded-xl shadow-nd-f text-sm z-50 animate-fade-in">
           {toast}
         </div>
       )}
@@ -1674,11 +1674,11 @@ export default function MappingPage() {
       {/* 신규 등록 + 즉시 매핑 모달 */}
       {showRegisterMapModal && registerMapTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-bg-1 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h3 className="text-lg font-bold text-text-primary">신규 상품 등록 & 매핑</h3>
+                  <h3 className="text-lg font-semibold text-text-primary">신규 상품 등록 & 매핑</h3>
                   <p className="text-xs text-text-tertiary mt-1">새 상품을 등록하고 바로 매핑합니다</p>
                 </div>
                 <button onClick={() => setShowRegisterMapModal(false)} className="text-text-quaternary hover:text-text-secondary">
@@ -1736,7 +1736,7 @@ export default function MappingPage() {
                     onClick={() => setRegisterMapForm(prev => ({ ...prev, is_set: !prev.is_set }))}
                     className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${registerMapForm.is_set ? 'bg-brand' : 'bg-bg-tertiary'}`}
                   >
-                    <span className={`inline-block h-5 w-5 rounded-full bg-bg-1 shadow transform transition-transform mt-0.5 ${registerMapForm.is_set ? 'translate-x-5 ml-0.5' : 'translate-x-0.5'}`} />
+                    <span className={`inline-block h-5 w-5 rounded-full bg-bg-1 shadow-nd-s transform transition-transform mt-0.5 ${registerMapForm.is_set ? 'translate-x-5 ml-0.5' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
                 {registerMapForm.is_set && (
@@ -1791,12 +1791,12 @@ export default function MappingPage() {
               {/* 버튼 */}
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border-primary">
                 <button onClick={() => setShowRegisterMapModal(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-border-primary text-text-tertiary hover:bg-white/5 transition-colors">
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-border-primary text-text-tertiary hover:bg-bg-secondary transition-colors">
                   취소
                 </button>
                 <button onClick={handleRegisterAndMap}
                   disabled={savingRegisterMap || !registerMapForm.sabangnet_product_code || !registerMapForm.product_name}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-brand text-white hover:bg-accent disabled:opacity-50 transition-colors">
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-brand text-on-brand hover:bg-accent disabled:opacity-50 transition-colors">
                   {savingRegisterMap && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                   등록 & 매핑
                 </button>
@@ -1809,11 +1809,11 @@ export default function MappingPage() {
       {/* 수동 매핑 모달 (기존 자사 상품 선택) */}
       {showManualMapModal && manualMapTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-bg-1 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h3 className="text-lg font-bold text-text-primary">수동 매핑</h3>
+                  <h3 className="text-lg font-semibold text-text-primary">수동 매핑</h3>
                   <p className="text-xs text-text-tertiary mt-1">기존 자사 상품에 직접 매핑합니다</p>
                 </div>
                 <button onClick={() => setShowManualMapModal(false)} className="text-text-quaternary hover:text-text-secondary">
@@ -1856,7 +1856,7 @@ export default function MappingPage() {
                         className={`w-full text-left rounded-xl p-3 border transition-colors ${
                           manualMapProductId === p.id
                             ? 'border-brand/50 bg-brand/10 ring-2 ring-brand/25'
-                            : 'border-border-primary hover:border-border-primary hover:bg-white/5'
+                            : 'border-border-primary hover:border-border-primary hover:bg-bg-secondary'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -1885,12 +1885,12 @@ export default function MappingPage() {
               {/* 버튼 */}
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border-primary">
                 <button onClick={() => setShowManualMapModal(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-border-primary text-text-tertiary hover:bg-white/5 transition-colors">
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-border-primary text-text-tertiary hover:bg-bg-secondary transition-colors">
                   취소
                 </button>
                 <button onClick={handleManualMap}
                   disabled={!manualMapProductId}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-success text-white hover:bg-success disabled:opacity-50 transition-colors">
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-success text-on-brand hover:bg-success disabled:opacity-50 transition-colors">
                   매핑 연결
                 </button>
               </div>

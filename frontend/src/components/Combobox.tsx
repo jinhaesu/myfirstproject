@@ -48,7 +48,7 @@ export function Combobox<T>({ value, onChange, fetcher, render, getLabel, onPick
         className={className || `${INPUT_CLS} w-full`}
       />
       {open && opts.length > 0 && (
-        <div className="absolute z-30 mt-1 w-full max-h-64 overflow-y-auto bg-bg-1 border border-border-primary rounded-lg shadow-lg">
+        <div className="absolute z-30 mt-1 w-full max-h-64 overflow-y-auto bg-bg-1 border border-border-primary rounded-lg shadow-nd-f">
           {opts.map((it, i) => (
             <button
               key={i}

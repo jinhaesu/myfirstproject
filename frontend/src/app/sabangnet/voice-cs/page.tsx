@@ -136,10 +136,10 @@ const CALL_STATUS: Record<string, { bg: string; text: string; border: string; la
   'ringing':     { bg: 'bg-warning/10',   text: 'text-warning',   border: 'border-warning/30',   label: '수신중' },
 };
 
-const SENTIMENT_BADGE: Record<string, { bg: string; text: string; icon: string }> = {
-  'positive': { bg: 'bg-success/10 text-success', text: '긍정', icon: '😊' },
-  'neutral':  { bg: 'bg-bg-0 text-text-tertiary',     text: '중립', icon: '😐' },
-  'negative': { bg: 'bg-danger/10 text-danger',         text: '부정', icon: '😟' },
+const SENTIMENT_BADGE: Record<string, { bg: string; text: string }> = {
+  'positive': { bg: 'bg-success/10 text-success', text: '긍정' },
+  'neutral':  { bg: 'bg-bg-0 text-text-tertiary',     text: '중립' },
+  'negative': { bg: 'bg-danger/10 text-danger',         text: '부정' },
 };
 
 const MANUAL_CATEGORIES = ['전체', '인사말', '배송', '교환/반품', '상품문의', '에스컬레이션', '기타'];
@@ -350,7 +350,7 @@ const renderTranscript = (transcript: string) => {
               className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
                 isCustomer
                   ? 'bg-bg-2 text-text-primary rounded-tl-sm'
-                  : 'bg-brand text-white rounded-tr-sm'
+                  : 'bg-brand text-on-brand rounded-tr-sm'
               }`}
             >
               <p className={`text-xs font-semibold mb-1 ${isCustomer ? 'text-text-tertiary' : 'text-link/40'}`}>
@@ -658,7 +658,7 @@ export default function VoiceCsPage() {
 
       {/* ── Toast ── */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-bg-1 text-text-primary text-sm px-4 py-3 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] animate-fade-in">
+        <div className="fixed top-4 right-4 z-50 bg-bg-1 text-text-primary text-sm px-4 py-3 rounded-xl shadow-nd-f animate-fade-in">
           {toast}
         </div>
       )}
@@ -675,14 +675,14 @@ export default function VoiceCsPage() {
               </svg>
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-text-primary">AI 음성 전화 CS</h1>
+              <h1 className="text-2xl font-semibold text-text-primary">AI 음성 전화 CS</h1>
               <p className="text-sm text-text-tertiary mt-0.5">AI가 전화 상담을 자동 처리하고 분석합니다</p>
             </div>
           </div>
         </div>
 
         {/* ── Tabs ── */}
-        <div className="flex gap-1 mb-6 bg-bg-1 rounded-xl p-1 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary w-fit">
+        <div className="flex gap-1 mb-6 bg-bg-1 rounded-xl p-1 shadow-nd-s border border-border-primary w-fit">
           {(
             [
               { id: 'calls',    label: '통화 내역' },
@@ -694,10 +694,10 @@ export default function VoiceCsPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-2 text-sm font-medium rounded-lg transition-all ${
+              className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-brand text-white shadow-[0px_1px_3px_rgba(0,0,0,0.2)]'
-                  : 'text-text-tertiary hover:text-text-primary hover:bg-white/5'
+                  ? 'bg-brand text-on-brand shadow-nd-s'
+                  : 'text-text-tertiary hover:text-text-primary hover:bg-bg-secondary'
               }`}
             >
               {tab.label}
@@ -712,28 +712,28 @@ export default function VoiceCsPage() {
           <div className="space-y-6">
             {/* Dashboard Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-bg-1 rounded-xl p-4 border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <div className="bg-bg-1 rounded-xl p-4 border border-border-primary shadow-nd-s">
                 <p className="text-xs text-text-tertiary font-medium mb-1">총 통화</p>
-                <p className="text-2xl font-bold text-text-primary">{dashboard.total_calls.toLocaleString()}</p>
+                <p className="text-2xl font-semibold text-text-primary">{dashboard.total_calls.toLocaleString()}</p>
               </div>
-              <div className="bg-bg-1 rounded-xl p-4 border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <div className="bg-bg-1 rounded-xl p-4 border border-border-primary shadow-nd-s">
                 <p className="text-xs text-text-tertiary font-medium mb-1">오늘 통화</p>
-                <p className="text-2xl font-bold text-text-primary">{dashboard.today_calls.toLocaleString()}</p>
+                <p className="text-2xl font-semibold text-text-primary">{dashboard.today_calls.toLocaleString()}</p>
               </div>
-              <div className="bg-bg-1 rounded-xl p-4 border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <div className="bg-bg-1 rounded-xl p-4 border border-border-primary shadow-nd-s">
                 <p className="text-xs text-text-tertiary font-medium mb-1">평균 통화시간</p>
-                <p className="text-2xl font-bold text-text-primary">
+                <p className="text-2xl font-semibold text-text-primary">
                   {Math.floor(dashboard.avg_duration / 60)}분 {dashboard.avg_duration % 60}초
                 </p>
               </div>
-              <div className="bg-bg-1 rounded-xl p-4 border border-danger/15 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] bg-danger/10">
+              <div className="bg-bg-1 rounded-xl p-4 border border-danger/15 shadow-nd-s bg-danger/10">
                 <p className="text-xs text-danger font-medium mb-1">미해결 건</p>
-                <p className="text-2xl font-bold text-danger">{dashboard.unresolved_count.toLocaleString()}</p>
+                <p className="text-2xl font-semibold text-danger">{dashboard.unresolved_count.toLocaleString()}</p>
               </div>
             </div>
 
             {/* Filters */}
-            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-4">
+            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-nd-s p-4">
               <div className="flex flex-wrap gap-3">
                 {/* Status filter */}
                 <div className="flex gap-1 flex-wrap">
@@ -741,9 +741,9 @@ export default function VoiceCsPage() {
                     <button
                       key={s}
                       onClick={() => setCallStatusFilter(s)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
                         callStatusFilter === s
-                          ? 'bg-brand text-white border-brand'
+                          ? 'bg-brand text-on-brand border-brand'
                           : 'bg-bg-1 text-text-tertiary border-border-primary hover:border-brand/40'
                       }`}
                     >
@@ -789,7 +789,7 @@ export default function VoiceCsPage() {
                   return (
                     <div
                       key={call.id}
-                      className={`bg-bg-1 rounded-xl border shadow-[0px_1px_3px_rgba(0,0,0,0.2)] transition-all ${
+                      className={`bg-bg-1 rounded-xl border shadow-nd-s transition-colors ${
                         call.resolved ? 'border-border-primary' : 'border-orange/30'
                       }`}
                     >
@@ -838,7 +838,6 @@ export default function VoiceCsPage() {
                                 {/* Sentiment badge */}
                                 {sentiment && (
                                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${sentiment.bg}`}>
-                                    <span>{sentiment.icon}</span>
                                     <span>{sentiment.text}</span>
                                   </span>
                                 )}
@@ -897,7 +896,7 @@ export default function VoiceCsPage() {
                           {call.transcript ? (
                             <div>
                               <div className="flex items-center justify-between mt-4 mb-2">
-                                <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">전체 대화 내역</p>
+                                <p className="text-xs font-semibold text-text-tertiary">전체 대화 내역</p>
                                 <button
                                   onClick={() =>
                                     setExpandedTranscriptIds(prev => {
@@ -925,7 +924,7 @@ export default function VoiceCsPage() {
                           {/* Order Info */}
                           {call.order_info && (
                             <div>
-                              <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-2">주문 정보</p>
+                              <p className="text-xs font-semibold text-text-tertiary mb-2">주문 정보</p>
                               <div className="bg-warning/10 rounded-lg p-3 text-xs space-y-1">
                                 {Object.entries(call.order_info).map(([k, v]) => (
                                   <div key={k} className="flex gap-2">
@@ -940,7 +939,7 @@ export default function VoiceCsPage() {
                           {/* Action Items */}
                           {call.action_items && call.action_items.length > 0 && (
                             <div>
-                              <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-2">액션 아이템</p>
+                              <p className="text-xs font-semibold text-text-tertiary mb-2">액션 아이템</p>
                               <div className="space-y-2">
                                 {call.action_items.map((item, idx) => (
                                   <div
@@ -981,7 +980,7 @@ export default function VoiceCsPage() {
                           {/* Notes */}
                           {call.notes && (
                             <div>
-                              <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-1">메모</p>
+                              <p className="text-xs font-semibold text-text-tertiary mb-1">메모</p>
                               <p className="text-xs text-text-secondary bg-bg-0 rounded-lg p-3">{call.notes}</p>
                             </div>
                           )}
@@ -991,7 +990,7 @@ export default function VoiceCsPage() {
                             <button
                               onClick={() => handleSummarize(call.id)}
                               disabled={isSummarizing || !call.transcript}
-                              className="flex items-center gap-2 px-4 py-2 text-xs font-medium bg-brand text-white rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              className="flex items-center gap-2 px-4 py-2 text-xs font-medium bg-brand text-on-brand rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                               {isSummarizing ? (
                                 <>
@@ -1006,8 +1005,8 @@ export default function VoiceCsPage() {
                               onClick={() => handleToggleResolved(call)}
                               className={`px-4 py-2 text-xs font-medium rounded-lg border transition-colors ${
                                 call.resolved
-                                  ? 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-white/5'
-                                  : 'bg-success text-white border-success hover:bg-success-hover'
+                                  ? 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-bg-secondary'
+                                  : 'bg-success text-on-brand border-success hover:bg-success-hover'
                               }`}
                             >
                               {call.resolved ? '미해결로 변경' : '해결 완료'}
@@ -1034,9 +1033,9 @@ export default function VoiceCsPage() {
                   <button
                     key={cat}
                     onClick={() => setManualCategoryFilter(cat)}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg border transition-all ${
+                    className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
                       manualCategoryFilter === cat
-                        ? 'bg-brand text-white border-brand'
+                        ? 'bg-brand text-on-brand border-brand'
                         : 'bg-bg-1 text-text-tertiary border-border-primary hover:border-brand/40'
                     }`}
                   >
@@ -1046,7 +1045,7 @@ export default function VoiceCsPage() {
               </div>
               <button
                 onClick={() => openManualModal()}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-brand text-white rounded-lg hover:bg-accent transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors shadow-nd-s"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1066,7 +1065,7 @@ export default function VoiceCsPage() {
                   return (
                     <div
                       key={manual.id}
-                      className={`bg-bg-1 rounded-xl border shadow-[0px_1px_3px_rgba(0,0,0,0.2)] transition-all ${
+                      className={`bg-bg-1 rounded-xl border shadow-nd-s transition-colors ${
                         manual.is_active ? 'border-border-primary' : 'border-border-primary opacity-60'
                       }`}
                     >
@@ -1187,7 +1186,7 @@ export default function VoiceCsPage() {
               <h2 className="text-sm font-semibold text-text-secondary">등록된 전화번호 {phoneNumbers.length}개</h2>
               <button
                 onClick={() => setShowPhoneModal(true)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-brand text-white rounded-lg hover:bg-accent transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors shadow-nd-s"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1205,13 +1204,13 @@ export default function VoiceCsPage() {
                 phoneNumbers.map(phone => (
                   <div
                     key={phone.id}
-                    className={`bg-bg-1 rounded-xl border shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-5 transition-all ${
+                    className={`bg-bg-1 rounded-xl border shadow-nd-s p-5 transition-colors ${
                       phone.is_active ? 'border-border-primary' : 'border-border-primary opacity-60'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xl font-bold text-text-primary font-mono">{phone.phone_number}</p>
+                        <p className="text-xl font-semibold text-text-primary font-mono">{phone.phone_number}</p>
                         {phone.label && <p className="text-sm text-text-tertiary mt-0.5">{phone.label}</p>}
                         <div className="flex items-center gap-2 mt-2">
                           <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${
@@ -1236,7 +1235,7 @@ export default function VoiceCsPage() {
                           }`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-bg-1 shadow transition-transform ${
+                            className={`inline-block h-4 w-4 transform rounded-full bg-bg-1 shadow-nd-s transition-transform ${
                               phone.is_active ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
@@ -1266,7 +1265,7 @@ export default function VoiceCsPage() {
         ════════════════════════════════════════ */}
         {activeTab === 'settings' && (
           <div className="max-w-2xl space-y-6">
-            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] divide-y divide-border-primary">
+            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-nd-s divide-y divide-border-primary">
               {/* Vapi API Key */}
               <div className="p-5">
                 <label className="block text-sm font-semibold text-text-primary mb-1">Vapi API 키</label>
@@ -1358,7 +1357,7 @@ export default function VoiceCsPage() {
                     }`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-bg-1 shadow transition-transform ${
+                      className={`inline-block h-4 w-4 transform rounded-full bg-bg-1 shadow-nd-s transition-transform ${
                         config.auto_order_lookup ? 'translate-x-6' : 'translate-x-1'
                       }`}
                     />
@@ -1372,7 +1371,7 @@ export default function VoiceCsPage() {
               <button
                 onClick={handleSaveConfig}
                 disabled={savingConfig}
-                className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-brand text-white rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-brand text-on-brand rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-nd-s"
               >
                 {savingConfig ? (
                   <>
@@ -1394,15 +1393,15 @@ export default function VoiceCsPage() {
       {showManualModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-bg-0/50 backdrop-blur-sm" onClick={() => setShowManualModal(false)} />
-          <div className="relative bg-bg-1 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-bg-1 border-b border-border-primary px-6 py-4 rounded-t-2xl">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-text-primary">
+                <h2 className="text-base font-semibold text-text-primary">
                   {editingManual ? '매뉴얼 수정' : '매뉴얼 추가'}
                 </h2>
                 <button
                   onClick={() => setShowManualModal(false)}
-                  className="p-1.5 text-text-quaternary hover:text-text-secondary hover:bg-white/5 rounded-lg transition-colors"
+                  className="p-1.5 text-text-quaternary hover:text-text-secondary hover:bg-bg-secondary rounded-lg transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1490,14 +1489,14 @@ export default function VoiceCsPage() {
             <div className="sticky bottom-0 bg-bg-1 border-t border-border-primary px-6 py-4 rounded-b-2xl flex justify-end gap-3">
               <button
                 onClick={() => setShowManualModal(false)}
-                className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-bg-secondary transition-colors"
               >
                 취소
               </button>
               <button
                 onClick={handleSaveManual}
                 disabled={savingManual}
-                className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-brand text-white rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-brand text-on-brand rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
               >
                 {savingManual ? (
                   <>
@@ -1519,13 +1518,13 @@ export default function VoiceCsPage() {
       {showPhoneModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-bg-0/50 backdrop-blur-sm" onClick={() => setShowPhoneModal(false)} />
-          <div className="relative bg-bg-1 rounded-2xl shadow-2xl w-full max-w-md">
+          <div className="relative bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-md">
             <div className="border-b border-border-primary px-6 py-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-text-primary">전화번호 등록</h2>
+                <h2 className="text-base font-semibold text-text-primary">전화번호 등록</h2>
                 <button
                   onClick={() => setShowPhoneModal(false)}
-                  className="p-1.5 text-text-quaternary hover:text-text-secondary hover:bg-white/5 rounded-lg transition-colors"
+                  className="p-1.5 text-text-quaternary hover:text-text-secondary hover:bg-bg-secondary rounded-lg transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1576,14 +1575,14 @@ export default function VoiceCsPage() {
             <div className="border-t border-border-primary px-6 py-4 flex justify-end gap-3">
               <button
                 onClick={() => setShowPhoneModal(false)}
-                className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-bg-secondary transition-colors"
               >
                 취소
               </button>
               <button
                 onClick={handleSavePhone}
                 disabled={savingPhone}
-                className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-brand text-white rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-brand text-on-brand rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
               >
                 {savingPhone ? (
                   <>

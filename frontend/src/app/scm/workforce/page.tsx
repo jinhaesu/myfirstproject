@@ -1,4 +1,5 @@
 'use client';
+import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -92,7 +93,7 @@ const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
   '대기': 'bg-bg-2 text-text-tertiary',
 };
 
-const PIE_COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#EB5757', '#7070FF', '#ec4899'];
+const PIE_COLORS = ND_CHART;
 
 // ---------------------------------------------------------------------------
 // Sample Data
@@ -314,7 +315,7 @@ export default function WorkforcePage() {
   // ---------------------------------------------------------------------------
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
           <p className="text-text-tertiary">로딩 중...</p>
@@ -340,13 +341,13 @@ export default function WorkforcePage() {
   // JSX
   // ---------------------------------------------------------------------------
   return (
-    <main className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0">
+    <main className="min-h-screen bg-bg-0">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-text-primary">인력배치 / 공수 관리</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">인력배치 / 공수 관리</h1>
           <p className="text-text-tertiary mt-1">SCM 인력 현황과 업무 공수를 관리하세요</p>
         </div>
 
@@ -399,15 +400,15 @@ export default function WorkforcePage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-bg-1 rounded-xl p-1 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary w-fit">
+        <div className="flex gap-1 mb-6 bg-bg-1 rounded-xl p-1 shadow-nd-s border border-border-primary w-fit">
           {(['인력현황', '주간스케줄', '공수관리'] as TabKey[]).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === tab
-                  ? 'bg-brand text-white shadow-[0px_3px_12px_rgba(0,0,0,0.2)]'
-                  : 'text-text-tertiary hover:bg-white/5'
+                  ? 'bg-brand text-on-brand shadow-nd-f'
+                  : 'text-text-tertiary hover:bg-bg-secondary'
               }`}
             >
               {tab}
@@ -482,13 +483,13 @@ function SummaryCard({ label, value, unit, icon, accent }: {
   accent: string;
 }) {
   return (
-    <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5 flex items-center gap-4">
+    <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5 flex items-center gap-4">
       <div className={`w-12 h-12 rounded-xl bg-${accent}-50 flex items-center justify-center shrink-0`}>
         {icon}
       </div>
       <div>
         <p className="text-sm text-text-tertiary">{label}</p>
-        <p className="text-2xl font-bold text-text-primary mt-0.5">
+        <p className="text-2xl font-semibold text-text-primary mt-0.5">
           {value}
           <span className="text-sm font-normal text-text-quaternary ml-1">{unit}</span>
         </p>
@@ -509,7 +510,7 @@ function StaffTab({ staff, departmentFilter, onFilterChange, onAdd, onEdit, onDe
   onDelete: (id: string) => void;
 }) {
   return (
-    <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+    <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary overflow-hidden">
       {/* Toolbar */}
       <div className="p-4 border-b border-border-primary flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -518,10 +519,10 @@ function StaffTab({ staff, departmentFilter, onFilterChange, onAdd, onEdit, onDe
             <button
               key={dep}
               onClick={() => onFilterChange(dep)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 departmentFilter === dep
-                  ? 'bg-brand text-white'
-                  : 'bg-bg-2 text-text-tertiary hover:bg-white/5'
+                  ? 'bg-brand text-on-brand'
+                  : 'bg-bg-2 text-text-tertiary hover:bg-bg-secondary'
               }`}
             >
               {dep}
@@ -530,7 +531,7 @@ function StaffTab({ staff, departmentFilter, onFilterChange, onAdd, onEdit, onDe
         </div>
         <button
           onClick={onAdd}
-          className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-accent transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 bg-brand text-on-brand text-sm font-medium rounded-lg hover:bg-accent transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -560,7 +561,7 @@ function StaffTab({ staff, departmentFilter, onFilterChange, onAdd, onEdit, onDe
               </tr>
             )}
             {staff.map(s => (
-              <tr key={s.id} className="border-t border-border-primary hover:bg-white/5 transition-colors">
+              <tr key={s.id} className="border-t border-border-primary hover:bg-bg-secondary transition-colors">
                 <td className="px-4 py-3 font-medium text-text-primary">{s.name}</td>
                 <td className="px-4 py-3">
                   <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand/10 text-accent">
@@ -642,10 +643,10 @@ function StaffModal({ staff, onSave, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg overflow-hidden">
+      <div className="bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
-          <h3 className="text-lg font-bold text-text-primary">{isEdit ? '인력 수정' : '인력 추가'}</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5 text-text-quaternary hover:text-text-secondary transition-colors">
+          <h3 className="text-lg font-semibold text-text-primary">{isEdit ? '인력 수정' : '인력 추가'}</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-bg-secondary text-text-quaternary hover:text-text-secondary transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -696,10 +697,10 @@ function StaffModal({ staff, onSave, onClose }: {
                   key={st}
                   type="button"
                   onClick={() => setForm(p => ({ ...p, status: st }))}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
                     form.status === st
                       ? `${STATUS_COLORS[st]} border-current`
-                      : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-white/5'
+                      : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-bg-secondary'
                   }`}
                 >
                   {st}
@@ -734,13 +735,13 @@ function StaffModal({ staff, onSave, onClose }: {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-bg-secondary transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-accent transition-colors"
+              className="px-4 py-2 text-sm font-medium text-on-brand bg-brand rounded-lg hover:bg-accent transition-colors"
             >
               {isEdit ? '수정' : '추가'}
             </button>
@@ -769,22 +770,22 @@ function ScheduleTab({ staff, schedule, weekDates, weekLabel, onShiftChange, onW
   };
 
   return (
-    <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+    <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary overflow-hidden">
       {/* Week navigation */}
       <div className="p-4 border-b border-border-primary flex items-center justify-between">
         <button
           onClick={() => onWeekNav(-1)}
-          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-bg-secondary transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           이전 주
         </button>
-        <h3 className="text-sm font-bold text-text-secondary">{weekLabel}</h3>
+        <h3 className="text-sm font-semibold text-text-secondary">{weekLabel}</h3>
         <button
           onClick={() => onWeekNav(1)}
-          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-bg-secondary transition-colors"
         >
           다음 주
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -832,10 +833,10 @@ function ScheduleTab({ staff, schedule, weekDates, weekLabel, onShiftChange, onW
           </thead>
           <tbody>
             {staff.map(s => (
-              <tr key={s.id} className="border-t border-border-primary hover:bg-white/5 transition-colors">
+              <tr key={s.id} className="border-t border-border-primary hover:bg-bg-secondary transition-colors">
                 <td className="px-4 py-2 font-medium text-text-primary sticky left-0 bg-bg-1 z-10">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-brand/15 text-link flex items-center justify-center text-xs font-bold shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-brand/15 text-link flex items-center justify-center text-xs font-semibold shrink-0">
                       {s.name[0]}
                     </div>
                     <div>
@@ -851,7 +852,7 @@ function ScheduleTab({ staff, schedule, weekDates, weekLabel, onShiftChange, onW
                     <td key={i} className="px-1 py-1.5 text-center">
                       <button
                         onClick={() => onShiftChange(s.id, dateStr)}
-                        className={`w-full px-2 py-1.5 rounded-lg text-xs font-medium border transition-all hover:scale-105 hover:shadow-[0px_1px_3px_rgba(0,0,0,0.2)] cursor-pointer ${SHIFT_COLORS[shift]}`}
+                        className={`w-full px-2 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:shadow-nd-s cursor-pointer ${SHIFT_COLORS[shift]}`}
                         title={`클릭하여 변경 (현재: ${shift})`}
                       >
                         {shift}
@@ -896,12 +897,12 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
   return (
     <div className="space-y-6">
       {/* Task Table */}
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+      <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary overflow-hidden">
         <div className="p-4 border-b border-border-primary flex items-center justify-between">
-          <h3 className="text-base font-bold text-text-primary">업무 목록</h3>
+          <h3 className="text-base font-semibold text-text-primary">업무 목록</h3>
           <button
             onClick={onAdd}
-            className="flex items-center gap-1.5 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-accent transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand text-on-brand text-sm font-medium rounded-lg hover:bg-accent transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -930,11 +931,11 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
                 </tr>
               )}
               {tasks.map(t => (
-                <tr key={t.id} className="border-t border-border-primary hover:bg-white/5 transition-colors">
+                <tr key={t.id} className="border-t border-border-primary hover:bg-bg-secondary transition-colors">
                   <td className="px-4 py-3 font-medium text-text-primary">{t.name}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-bold shrink-0">
+                      <span className="w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-semibold shrink-0">
                         {getAssigneeName(t.assigneeId)[0]}
                       </span>
                       <span className="text-text-secondary">{getAssigneeName(t.assigneeId)}</span>
@@ -946,7 +947,7 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
                     <div className="flex items-center gap-2 justify-center">
                       <div className="w-20 h-2 bg-bg-tertiary rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${
+                          className={`h-full rounded-full transition-colors ${
                             t.progress >= 100
                               ? 'bg-success'
                               : t.progress >= 50
@@ -994,8 +995,8 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Bar Chart: 담당자별 주간 투입시간 */}
-        <div className="lg:col-span-2 bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
-          <h3 className="text-base font-bold text-text-primary mb-4">담당자별 주간 투입시간</h3>
+        <div className="lg:col-span-2 bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
+          <h3 className="text-base font-semibold text-text-primary mb-4">담당자별 주간 투입시간</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
@@ -1031,8 +1032,8 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
         </div>
 
         {/* Pie Chart: 업무 상태 분포 */}
-        <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
-          <h3 className="text-base font-bold text-text-primary mb-4">업무 상태 분포</h3>
+        <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
+          <h3 className="text-base font-semibold text-text-primary mb-4">업무 상태 분포</h3>
           <div className="h-80 flex flex-col items-center justify-center">
             <ResponsiveContainer width="100%" height="75%">
               <PieChart>
@@ -1079,8 +1080,8 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
       </div>
 
       {/* Utilization Pie Chart */}
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
-        <h3 className="text-base font-bold text-text-primary mb-4">담당자별 공수 활용률</h3>
+      <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
+        <h3 className="text-base font-semibold text-text-primary mb-4">담당자별 공수 활용률</h3>
         <UtilizationChart tasks={tasks} staffList={staffList} />
       </div>
     </div>
@@ -1131,7 +1132,7 @@ function UtilizationChart({ tasks, staffList }: { tasks: Task[]; staffList: Staf
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xs font-bold text-text-secondary">{d.value}%</span>
+              <span className="text-xs font-semibold text-text-secondary">{d.value}%</span>
             </div>
           </div>
           <span className="text-xs font-medium text-text-tertiary">{d.name}</span>
@@ -1167,10 +1168,10 @@ function TaskModal({ staffList, onSave, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg overflow-hidden">
+      <div className="bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
-          <h3 className="text-lg font-bold text-text-primary">업무 추가</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5 text-text-quaternary hover:text-text-secondary transition-colors">
+          <h3 className="text-lg font-semibold text-text-primary">업무 추가</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-bg-secondary text-text-quaternary hover:text-text-secondary transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -1228,7 +1229,7 @@ function TaskModal({ staffList, onSave, onClose }: {
           {/* Progress */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1">
-              진행률: <span className="text-link font-bold">{form.progress}%</span>
+              진행률: <span className="text-link font-semibold">{form.progress}%</span>
             </label>
             <input
               type="range"
@@ -1254,10 +1255,10 @@ function TaskModal({ staffList, onSave, onClose }: {
                   key={st}
                   type="button"
                   onClick={() => setForm(p => ({ ...p, status: st }))}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
                     form.status === st
                       ? `${TASK_STATUS_COLORS[st]} border-current`
-                      : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-white/5'
+                      : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-bg-secondary'
                   }`}
                 >
                   {st}
@@ -1270,13 +1271,13 @@ function TaskModal({ staffList, onSave, onClose }: {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 rounded-lg hover:bg-bg-secondary transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-accent transition-colors"
+              className="px-4 py-2 text-sm font-medium text-on-brand bg-brand rounded-lg hover:bg-accent transition-colors"
             >
               추가
             </button>

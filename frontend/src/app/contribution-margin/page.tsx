@@ -17,7 +17,7 @@ interface ChannelRow {
   returnRate: number;
 }
 
-const PANEL = 'bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary';
+const PANEL = 'bg-bg-1 rounded-xl shadow-nd-s border border-border-primary';
 const SUBPANEL = 'bg-bg-0 rounded-lg border border-border-primary';
 
 export default function ContributionMarginPage() {
@@ -157,7 +157,7 @@ export default function ContributionMarginPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
           <p className="text-text-tertiary">로딩 중...</p>
@@ -176,7 +176,7 @@ export default function ContributionMarginPage() {
   } as const;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 text-text-primary">
+    <main className="min-h-screen bg-bg-0 text-text-primary">
       <Navigation />
 
       <div className="max-w-[1400px] mx-auto px-4 py-6">
@@ -385,7 +385,7 @@ export default function ContributionMarginPage() {
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  className={`font-mono text-xs tracking-wider px-4 py-2.5 rounded-lg transition-colors ${
+                  className={`font-mono text-xs px-4 py-2.5 rounded-lg transition-colors ${
                     tab === t.id
                       ? 'bg-brand/15 text-accent'
                       : 'text-text-tertiary hover:bg-white/[0.03] hover:text-text-primary'
@@ -607,7 +607,7 @@ export default function ContributionMarginPage() {
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-xs">
                   <div className={`${SUBPANEL} p-4`}>
-                    <div className="font-mono text-[10px] tracking-wider text-text-quaternary uppercase mb-1.5">
+                    <div className="font-mono text-[10px] text-text-quaternary mb-1.5">
                       AOV — Average Order Value
                     </div>
                     <div className="text-text-secondary leading-relaxed">
@@ -616,7 +616,7 @@ export default function ContributionMarginPage() {
                     </div>
                   </div>
                   <div className={`${SUBPANEL} p-4`}>
-                    <div className="font-mono text-[10px] tracking-wider text-text-quaternary uppercase mb-1.5">
+                    <div className="font-mono text-[10px] text-text-quaternary mb-1.5">
                       CAC — Customer Acquisition Cost
                     </div>
                     <div className="text-text-secondary leading-relaxed">
@@ -638,7 +638,7 @@ export default function ContributionMarginPage() {
                 </div>
 
                 <div className={`${SUBPANEL} p-4 mb-6 text-xs`}>
-                  <div className="font-mono text-[10px] tracking-wider text-text-quaternary uppercase mb-1.5">
+                  <div className="font-mono text-[10px] text-text-quaternary mb-1.5">
                     PAYBACK — 월 공헌이익 누적 방식
                   </div>
                   <div className="font-mono text-[11px] text-accent bg-bg-1 border border-border-primary inline-block px-2.5 py-1 rounded mb-2">
@@ -918,7 +918,7 @@ function NumberInput({
           {help}
         </div>
       )}
-      <div className="flex items-center border border-border-primary bg-bg-0 rounded-lg focus-within:border-brand focus-within:shadow-[0_0_0_1px_var(--color-brand-bg)] transition-all">
+      <div className="flex items-center border border-border-primary bg-bg-0 rounded-lg focus-within:border-brand focus-within:shadow-[0_0_0_1px_var(--color-brand-bg)] transition-colors">
         <span className="text-text-quaternary text-sm px-2.5">₩</span>
         <input
           type="text"
@@ -1043,7 +1043,7 @@ function RoasTooltip({
 }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div className="bg-bg-1 border border-border-primary rounded-lg px-3 py-2.5 shadow-[0px_7px_32px_rgba(0,0,0,0.35)]">
+    <div className="bg-bg-1 border border-border-primary rounded-lg px-3 py-2.5 shadow-nd-f">
       <div className="text-[11px] text-text-tertiary font-mono mb-2">
         광고 ROAS <span className="text-text-primary font-semibold">{label}%</span>
       </div>
@@ -1073,7 +1073,7 @@ function RoasTooltip({
 function Tip({ title, body }: { title: string; body: string }) {
   return (
     <div className="border-t-2 border-brand pt-3">
-      <div className="font-mono text-[10px] tracking-wider text-text-quaternary uppercase mb-1">
+      <div className="font-mono text-[10px] text-text-quaternary mb-1">
         {title}
       </div>
       <div className="text-xs text-text-secondary leading-relaxed">{body}</div>

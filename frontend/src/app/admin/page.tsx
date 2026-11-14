@@ -92,12 +92,13 @@ export default function AdminPage() {
     <div className="min-h-screen bg-bg-0">
       <Navigation />
       <main className="max-w-[900px] mx-auto px-4 py-8">
-        <h1 className="text-xl font-bold text-text-primary mb-1">관리자</h1>
+        <h1 className="text-xl font-semibold text-text-primary mb-1">관리자</h1>
         <p className="text-sm text-text-tertiary mb-6">보안 게이트 암호 등 전역 설정을 관리합니다. (대표 전용)</p>
 
         {isOwner === false && (
-          <div className="bg-bg-1 border border-danger/40 rounded-xl p-6 text-center">
-            <div className="text-2xl mb-2">🚫</div>
+          <div className="bg-bg-1 border border-border-primary rounded-xl p-6 text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons3d/empty.png" alt="" width={88} height={88} className="nd-icon3d w-[88px] h-[88px] mx-auto mb-3" />
             <div className="text-text-primary font-semibold">접근 권한이 없습니다</div>
             <div className="text-xs text-text-tertiary mt-1">이 페이지는 대표 계정({ownerEmail || 'lion9080@joinandjoin.com'})만 사용할 수 있습니다.</div>
           </div>
@@ -123,7 +124,7 @@ export default function AdminPage() {
                       <input type="password" value={pw[g.key] || ''} onChange={(e) => setPw((p) => ({ ...p, [g.key]: e.target.value }))}
                         placeholder={g.is_set ? '새 암호로 변경' : '암호 설정'}
                         className="flex-1 bg-bg-0 border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary" />
-                      <button onClick={() => savePw(g.key)} className="px-3 py-2 rounded-lg text-sm font-semibold bg-brand hover:bg-brand-hover text-white">{g.is_set ? '변경' : '설정'}</button>
+                      <button onClick={() => savePw(g.key)} className="px-3 py-2 rounded-lg text-sm font-semibold bg-brand hover:bg-brand-hover text-on-brand">{g.is_set ? '변경' : '설정'}</button>
                     </div>
                   </div>
                 ))}
@@ -155,7 +156,7 @@ export default function AdminPage() {
                         {!row.in_directory && <span className="text-[10px] text-text-quaternary">미로그인</span>}
                       </div>
                       {!row.is_owner && (
-                        <button onClick={() => saveRow(row.email)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand hover:bg-brand-hover text-white">저장</button>
+                        <button onClick={() => saveRow(row.email)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand hover:bg-brand-hover text-on-brand">저장</button>
                       )}
                     </div>
                     <div className="text-[11px] text-text-quaternary mb-2">

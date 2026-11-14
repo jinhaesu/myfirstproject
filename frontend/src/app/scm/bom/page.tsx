@@ -302,8 +302,9 @@ export default function BomPage() {
         <Navigation />
         <div className="max-w-md mx-auto mt-24 px-4">
           <div className="bg-bg-1 border border-border-primary rounded-xl p-6 text-center">
-            <div className="text-3xl mb-2">🔒</div>
-            <h1 className="text-lg font-bold text-text-primary mb-1">BOM·원부재료 (보안)</h1>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons3d/empty.png" alt="" width={88} height={88} className="nd-icon3d w-[88px] h-[88px] mx-auto mb-3" />
+            <h1 className="text-lg font-semibold text-text-primary mb-1">BOM·원부재료 (보안)</h1>
             <p className="text-xs text-text-tertiary mb-4">원가·배합비 등 보안 정보입니다. 접근 암호를 입력하세요.</p>
             <input
               type="password" autoFocus value={bomPwInput}
@@ -313,7 +314,7 @@ export default function BomPage() {
               className={`w-full bg-bg-0 border rounded-lg px-3 py-2 text-sm text-text-primary mb-2 ${bomPwErr ? 'border-danger' : 'border-border-primary'}`}
             />
             {bomPwErr && <div className="text-xs text-danger mb-2">암호가 올바르지 않습니다.</div>}
-            <button onClick={tryUnlock} className="w-full bg-brand hover:bg-brand-hover text-white rounded-lg px-3 py-2 text-sm font-semibold">진입</button>
+            <button onClick={tryUnlock} className="w-full bg-brand hover:bg-brand-hover text-on-brand rounded-lg px-3 py-2 text-sm font-semibold">진입</button>
           </div>
         </div>
       </div>
@@ -327,15 +328,15 @@ export default function BomPage() {
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">BOM · 원부재료</h1>
+            <h1 className="text-2xl font-semibold text-text-primary">BOM · 원부재료</h1>
             <p className="text-sm text-text-tertiary mt-1">품목 배합비(BOM)·세트 구성 관리 + 판매·생산 수량 기반 원부재료 소요량·원가 산출</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => setMatModal({ kind: 'raw', data: null })} className="px-3 py-2 text-sm font-medium rounded-lg border border-info/30 bg-info/10 text-info hover:bg-info/15 transition">+ 원재료</button>
-            <button onClick={() => setMatModal({ kind: 'sub', data: null })} className="px-3 py-2 text-sm font-medium rounded-lg border border-border-primary bg-bg-1 text-text-secondary hover:bg-white/5 transition">+ 부자재</button>
-            <button onClick={toggleAnalytics} className={`px-3 py-2 text-sm font-medium rounded-lg border transition ${showAnalytics ? 'border-brand/50 bg-brand/10 text-accent' : 'border-border-primary bg-bg-1 text-text-secondary hover:bg-white/5'}`}>카테고리 분석</button>
-            <button onClick={() => setShowCalc((v) => !v)} className="px-3 py-2 text-sm font-medium rounded-lg border border-border-primary bg-bg-1 text-text-secondary hover:bg-white/5 transition">생산소요 계산{cart.length > 0 ? ` (${cart.length})` : ''}</button>
-            <label title="단일 레시피 제품 시트를 품목명 기준으로 비파괴 반영(마카롱·뚱낭시에·비건·LLB 도넛 등 합성 구조 시트는 제외)" className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition ${importing ? 'bg-bg-1 text-text-quaternary border border-border-primary' : 'bg-brand text-white hover:bg-accent'}`}>
+            <button onClick={() => setMatModal({ kind: 'sub', data: null })} className="px-3 py-2 text-sm font-medium rounded-lg border border-border-primary bg-bg-1 text-text-secondary hover:bg-bg-secondary transition">+ 부자재</button>
+            <button onClick={toggleAnalytics} className={`px-3 py-2 text-sm font-medium rounded-lg border transition ${showAnalytics ? 'border-brand/50 bg-brand/10 text-accent' : 'border-border-primary bg-bg-1 text-text-secondary hover:bg-bg-secondary'}`}>카테고리 분석</button>
+            <button onClick={() => setShowCalc((v) => !v)} className="px-3 py-2 text-sm font-medium rounded-lg border border-border-primary bg-bg-1 text-text-secondary hover:bg-bg-secondary transition">생산소요 계산{cart.length > 0 ? ` (${cart.length})` : ''}</button>
+            <label title="단일 레시피 제품 시트를 품목명 기준으로 비파괴 반영(마카롱·뚱낭시에·비건·LLB 도넛 등 합성 구조 시트는 제외)" className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg cursor-pointer transition ${importing ? 'bg-bg-1 text-text-quaternary border border-border-primary' : 'bg-brand text-on-brand hover:bg-accent'}`}>
               {importing ? '반영 중…' : 'BOM 엑셀 반영'}
               <input type="file" accept=".xlsx,.xls" className="hidden" disabled={importing} onChange={(e) => e.target.files?.[0] && onImport(e.target.files[0])} />
             </label>
@@ -351,24 +352,24 @@ export default function BomPage() {
               <button key={k} onClick={() => { setTab(k); setSelected(null); setBom(null); clearPick(); }}
                 className={`text-left bg-bg-1 rounded-xl border p-3.5 transition hover:border-border-secondary ${tab === k ? 'border-brand/50' : 'border-border-primary'}`}>
                 <p className="text-xs font-medium text-text-tertiary">{k}</p>
-                <p className="text-2xl font-bold text-text-primary mt-1">{summary.by_type?.[k] ?? 0}</p>
+                <p className="text-2xl font-semibold text-text-primary mt-1">{summary.by_type?.[k] ?? 0}</p>
               </button>
             ))}
             <button onClick={() => { setTab('원재료'); setSelected(null); clearPick(); }} className={`text-left bg-bg-1 rounded-xl border p-3.5 transition hover:border-border-secondary ${tab === '원재료' ? 'border-info/50' : 'border-border-primary'}`}>
               <p className="text-xs font-medium text-text-tertiary">원재료</p>
-              <p className="text-2xl font-bold text-info mt-1">{summary.raw_materials}</p>
+              <p className="text-2xl font-semibold text-info mt-1">{summary.raw_materials}</p>
             </button>
             <button onClick={() => { setTab('부자재'); setSelected(null); clearPick(); }} className={`text-left bg-bg-1 rounded-xl border p-3.5 transition hover:border-border-secondary ${tab === '부자재' ? 'border-border-secondary' : 'border-border-primary'}`}>
               <p className="text-xs font-medium text-text-tertiary">부자재</p>
-              <p className="text-2xl font-bold text-text-secondary mt-1">{summary.sub_materials}</p>
+              <p className="text-2xl font-semibold text-text-secondary mt-1">{summary.sub_materials}</p>
             </button>
             <div className="bg-bg-1 rounded-xl border border-border-primary p-3.5">
               <p className="text-xs font-medium text-text-tertiary">BOM 라인</p>
-              <p className="text-2xl font-bold text-text-primary mt-1">{(summary.bom_lines ?? 0).toLocaleString('ko-KR')}</p>
+              <p className="text-2xl font-semibold text-text-primary mt-1">{(summary.bom_lines ?? 0).toLocaleString('ko-KR')}</p>
             </div>
             <div className="bg-bg-1 rounded-xl border border-border-primary p-3.5">
               <p className="text-xs font-medium text-text-tertiary">구성</p>
-              <p className="text-2xl font-bold text-text-primary mt-1">{summary.components}</p>
+              <p className="text-2xl font-semibold text-text-primary mt-1">{summary.components}</p>
             </div>
           </div>
         )}
@@ -379,9 +380,9 @@ export default function BomPage() {
         {showAnalytics && (
           <div className="bg-bg-1 rounded-xl border border-brand/30 p-4 mb-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-text-primary">카테고리·유형별 BOM 원가 분석 <span className="text-xs font-normal text-text-quaternary ml-1">개당 재료원가(완전전개, VAT별도) 기준 · {analytics?.item_count ?? 0}개 품목</span></h3>
+              <h3 className="font-semibold text-text-primary">카테고리·유형별 BOM 원가 분석 <span className="text-xs font-normal text-text-quaternary ml-1">개당 재료원가(완전전개, VAT별도) 기준 · {analytics?.item_count ?? 0}개 품목</span></h3>
               <div className="flex items-center gap-2">
-                <button onClick={loadAnalytics} className="text-xs px-2 py-1 rounded border border-border-primary text-text-tertiary hover:bg-white/5">새로고침</button>
+                <button onClick={loadAnalytics} className="text-xs px-2 py-1 rounded border border-border-primary text-text-tertiary hover:bg-bg-secondary">새로고침</button>
                 <button onClick={() => setShowAnalytics(false)} className="text-text-quaternary hover:text-text-secondary">✕</button>
               </div>
             </div>
@@ -393,7 +394,7 @@ export default function BomPage() {
                   {analytics.by_category.map((c: any) => (
                     <div key={c.category} className="bg-bg-0 rounded-lg border border-border-primary p-3">
                       <p className="text-xs font-medium text-text-tertiary truncate">{c.category} <span className="text-text-quaternary">· {c.count}종</span></p>
-                      <p className="text-xl font-bold text-text-primary mt-1">{won(c.avg_cost)}<span className="text-xs font-normal text-text-quaternary ml-1">평균/개</span></p>
+                      <p className="text-xl font-semibold text-text-primary mt-1">{won(c.avg_cost)}<span className="text-xs font-normal text-text-quaternary ml-1">평균/개</span></p>
                       <p className="text-xs text-text-quaternary mt-0.5">합 {won(c.total_cost)} · {won(c.min_cost)}~{won(c.max_cost)}</p>
                     </div>
                   ))}
@@ -401,7 +402,7 @@ export default function BomPage() {
                 <div className="grid lg:grid-cols-2 gap-4">
                   {/* 매트릭스 */}
                   <div>
-                    <div className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2">카테고리 × 유형 (평균 개당원가)</div>
+                    <div className="text-xs font-semibold text-text-tertiary mb-2">카테고리 × 유형 (평균 개당원가)</div>
                     <div className="overflow-hidden rounded-lg border border-border-primary">
                       <table className="w-full text-sm">
                         <thead><tr className="bg-bg-0 text-text-quaternary text-xs">
@@ -427,7 +428,7 @@ export default function BomPage() {
                   </div>
                   {/* 최고원가 TOP */}
                   <div>
-                    <div className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2">개당 재료원가 상위 5</div>
+                    <div className="text-xs font-semibold text-text-tertiary mb-2">개당 재료원가 상위 5</div>
                     <div className="space-y-1">
                       {analytics.top_cost.map((t: any, i: number) => (
                         <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-bg-0 border border-bg-inset">
@@ -447,7 +448,7 @@ export default function BomPage() {
         {showCalc && (
           <div className="bg-bg-1 rounded-xl border border-brand/30 p-4 mb-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-text-primary">생산소요 계산 <span className="text-xs font-normal text-text-quaternary ml-1">세트·완제품 담기 → 수량 입력 → 원부재료·원가 산출</span></h3>
+              <h3 className="font-semibold text-text-primary">생산소요 계산 <span className="text-xs font-normal text-text-quaternary ml-1">세트·완제품 담기 → 수량 입력 → 원부재료·원가 산출</span></h3>
               <button onClick={() => setShowCalc(false)} className="text-text-quaternary hover:text-text-secondary">✕</button>
             </div>
             {cart.length === 0 && <div className="py-4 text-center text-xs text-text-quaternary">좌측 목록의 “담기” 버튼으로 추가하세요.</div>}
@@ -460,13 +461,13 @@ export default function BomPage() {
                     <button onClick={() => removeCart(c.item.id)} className="text-text-quaternary hover:text-danger">✕</button>
                   </div>
                 ))}
-                {cart.length > 0 && <button onClick={compute} className="w-full py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-accent transition mt-1">소요량 계산</button>}
+                {cart.length > 0 && <button onClick={compute} className="w-full py-2 rounded-lg bg-brand text-on-brand text-sm font-medium hover:bg-accent transition mt-1">소요량 계산</button>}
               </div>
               {req && (
                 <div className="bg-bg-0 rounded-lg border border-border-primary p-3">
                   <div className="flex justify-between items-baseline mb-2 pb-2 border-b border-border-primary">
                     <span className="text-xs font-semibold text-text-tertiary">예상 재료원가 (VAT별도)</span>
-                    <span className="text-xl font-bold text-text-primary">{won(req.total_material_cost)}</span>
+                    <span className="text-xl font-semibold text-text-primary">{won(req.total_material_cost)}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -499,7 +500,7 @@ export default function BomPage() {
             <div className="flex gap-1.5 mb-3 flex-wrap">
               {TYPE_TABS.map((t) => (
                 <button key={t} onClick={() => { setTab(t); setSelected(null); setBom(null); clearPick(); }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${tab === t ? 'bg-brand text-white border-brand' : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-white/5'}`}>{t}</button>
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${tab === t ? 'bg-brand text-on-brand border-brand' : 'bg-bg-1 text-text-tertiary border-border-primary hover:bg-bg-secondary'}`}>{t}</button>
               ))}
             </div>
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름·코드 검색..." className={`w-full px-3 py-2 mb-3 text-sm ${inputCls}`} />
@@ -510,8 +511,8 @@ export default function BomPage() {
                 <span className="text-xs text-accent font-medium">{picked.size}개 선택</span>
                 <div className="flex gap-1.5">
                   <button onClick={() => setComposeModal({ targetType: tab === '완제품' ? '세트' : '완제품', children: pickedItems })}
-                    className="text-xs px-2.5 py-1 rounded bg-brand text-white hover:bg-accent">{tab === '완제품' ? '세트로 묶기' : '완제품으로 묶기'}</button>
-                  <button onClick={clearPick} className="text-xs px-2 py-1 rounded text-text-tertiary hover:bg-white/5">취소</button>
+                    className="text-xs px-2.5 py-1 rounded bg-brand text-on-brand hover:bg-accent">{tab === '완제품' ? '세트로 묶기' : '완제품으로 묶기'}</button>
+                  <button onClick={clearPick} className="text-xs px-2 py-1 rounded text-text-tertiary hover:bg-bg-secondary">취소</button>
                 </div>
               </div>
             )}
@@ -519,7 +520,7 @@ export default function BomPage() {
             <div className="max-h-[620px] overflow-auto divide-y divide-bg-inset">
               {/* 자재 (원재료/부자재) */}
               {tab === '원재료' && rawList.map((r) => (
-                <button key={r.id} onClick={() => setMatModal({ kind: 'raw', data: r })} className="w-full text-left py-2.5 px-2 hover:bg-white/5 rounded-lg flex justify-between items-center group">
+                <button key={r.id} onClick={() => setMatModal({ kind: 'raw', data: r })} className="w-full text-left py-2.5 px-2 hover:bg-bg-secondary rounded-lg flex justify-between items-center group">
                   <div className="min-w-0">
                     <div className="text-sm text-text-secondary truncate">{r.name}</div>
                     <div className="text-xs text-text-quaternary truncate">{r.erp_code}{r.supplier ? ` · ${r.supplier}` : ''}</div>
@@ -528,7 +529,7 @@ export default function BomPage() {
                 </button>
               ))}
               {tab === '부자재' && subList.map((r) => (
-                <button key={r.id} onClick={() => setMatModal({ kind: 'sub', data: r })} className="w-full text-left py-2.5 px-2 hover:bg-white/5 rounded-lg flex justify-between items-center">
+                <button key={r.id} onClick={() => setMatModal({ kind: 'sub', data: r })} className="w-full text-left py-2.5 px-2 hover:bg-bg-secondary rounded-lg flex justify-between items-center">
                   <div className="min-w-0">
                     <div className="text-sm text-text-secondary truncate">{r.name}</div>
                     <div className="text-xs text-text-quaternary truncate">{r.erp_code}{r.supplier ? ` · ${r.supplier}` : ''}</div>
@@ -538,7 +539,7 @@ export default function BomPage() {
               ))}
               {/* 품목 (세트/완제품/반제품) */}
               {ITEM_TABS.includes(tab) && items.map((it) => (
-                <div key={it.id} className={`py-2 px-2 flex items-center gap-2 rounded-lg ${selected?.id === it.id ? 'bg-brand/10' : 'hover:bg-white/5'}`}>
+                <div key={it.id} className={`py-2 px-2 flex items-center gap-2 rounded-lg ${selected?.id === it.id ? 'bg-brand/10' : 'hover:bg-bg-secondary'}`}>
                   {(tab === '완제품' || tab === '반제품') && (
                     <input type="checkbox" checked={picked.has(it.id)} onChange={() => togglePick(it.id)} className="rounded border-border-secondary text-link focus:ring-brand shrink-0" />
                   )}
@@ -563,13 +564,13 @@ export default function BomPage() {
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-xs px-2 py-0.5 rounded border ${TYPE_BADGE[selected.item_type] || 'bg-bg-0 text-text-tertiary border-border-primary'}`}>{selected.item_type}</span>
-                    <h3 className="font-bold text-text-primary text-lg">{selected.product_name}</h3>
+                    <h3 className="font-semibold text-text-primary text-lg">{selected.product_name}</h3>
                     {bom.item?.product_code && <span className="text-xs font-mono text-text-quaternary">{bom.item.product_code}</span>}
                   </div>
                   {/* kg/g 토글 */}
                   <div className="flex items-center rounded-lg border border-border-primary overflow-hidden shrink-0">
                     {(['kg', 'g'] as const).map((u) => (
-                      <button key={u} onClick={() => setWeightUnit(u)} className={`px-3 py-1 text-xs font-medium transition ${weightUnit === u ? 'bg-brand text-white' : 'bg-bg-1 text-text-tertiary hover:bg-white/5'}`}>{u}</button>
+                      <button key={u} onClick={() => setWeightUnit(u)} className={`px-3 py-1 text-xs font-medium transition ${weightUnit === u ? 'bg-brand text-on-brand' : 'bg-bg-1 text-text-tertiary hover:bg-bg-secondary'}`}>{u}</button>
                     ))}
                   </div>
                 </div>
@@ -577,7 +578,7 @@ export default function BomPage() {
                 {/* 구성 품목 */}
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">구성 품목 ({bom.components.length})</div>
+                    <div className="text-xs font-semibold text-text-tertiary">구성 품목 ({bom.components.length})</div>
                     <button onClick={() => setCompModal({ item: selected })} className="text-xs px-2 py-1 rounded bg-brand/10 text-accent hover:bg-brand/20">+ 구성 추가</button>
                   </div>
                   {bom.components.length > 0 ? (
@@ -598,7 +599,7 @@ export default function BomPage() {
                 {/* 자재 라인 (금액 포함) */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">자재 · 개당 투입량 ({bom.bom_lines.length})</div>
+                    <div className="text-xs font-semibold text-text-tertiary">자재 · 개당 투입량 ({bom.bom_lines.length})</div>
                     <button onClick={() => setLineModal({ item: selected })} className="text-xs px-2 py-1 rounded bg-info/10 text-info hover:bg-info/20">+ 자재 추가</button>
                   </div>
                   {bom.bom_lines.length > 0 ? (
@@ -654,13 +655,13 @@ export default function BomPage() {
                                   <div className="flex items-center justify-center gap-1.5">
                                     {editing ? (
                                       <>
-                                        <button onClick={() => saveLine(b)} className="text-success hover:text-[#3AD668] text-sm" title="저장">✓</button>
+                                        <button onClick={() => saveLine(b)} className="text-success hover:text-success text-sm" title="저장">✓</button>
                                         <button onClick={() => setEditLine(null)} className="text-text-quaternary hover:text-text-secondary text-xs" title="취소">✕</button>
                                       </>
                                     ) : (
                                       <>
-                                        {editable && <button onClick={() => startEdit(b)} className="text-text-quaternary hover:text-accent text-xs" title="투입량·단가 수정">✎</button>}
-                                        <button onClick={async () => { await mutate(`/api/scm/bom-lines/${b.id}`, 'DELETE'); refreshDetail(); }} className="text-text-quaternary hover:text-danger text-xs" title="삭제">🗑</button>
+                                        {editable && <button onClick={() => startEdit(b)} className="text-text-quaternary hover:text-accent text-xs" title="투입량·단가 수정">수정</button>}
+                                        <button onClick={async () => { await mutate(`/api/scm/bom-lines/${b.id}`, 'DELETE'); refreshDetail(); }} className="text-text-quaternary hover:text-danger text-xs" title="삭제">삭제</button>
                                       </>
                                     )}
                                   </div>
@@ -672,7 +673,7 @@ export default function BomPage() {
                         <tfoot>
                           <tr className="border-t border-border-primary bg-bg-0">
                             <td className="px-3 py-2.5 font-semibold text-text-primary" colSpan={3}>개당 재료원가 합계 (VAT별도)</td>
-                            <td className="px-3 py-2.5 text-right font-bold text-brand tabular-nums">{won(bom.bom_cost)}</td>
+                            <td className="px-3 py-2.5 text-right font-semibold text-brand tabular-nums">{won(bom.bom_cost)}</td>
                             <td />
                           </tr>
                         </tfoot>
@@ -683,7 +684,7 @@ export default function BomPage() {
                   {/* 중량 · 공정 유실율 */}
                   {bom.weight && ((bom.weight.exploded_input_g || bom.weight.direct_input_g) > 0 || bom.weight.standard_g) && (
                     <div className="mt-3 rounded-lg border border-border-primary bg-bg-0 p-3">
-                      <div className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2.5">중량 · 공정 유실율</div>
+                      <div className="text-xs font-semibold text-text-tertiary mb-2.5">중량 · 공정 유실율</div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                         <div>
                           <p className="text-xs text-text-quaternary">총 투입 중량{bom.weight.has_components ? ' (전개)' : ''}</p>
@@ -701,7 +702,7 @@ export default function BomPage() {
                         </div>
                         <div>
                           <p className="text-xs text-text-quaternary">공정 유실율</p>
-                          <p className={`font-bold mt-0.5 tabular-nums ${lossColor(bom.weight.loss_rate)}`}>{bom.weight.loss_rate != null ? `${bom.weight.loss_rate}%` : '—'}</p>
+                          <p className={`font-semibold mt-0.5 tabular-nums ${lossColor(bom.weight.loss_rate)}`}>{bom.weight.loss_rate != null ? `${bom.weight.loss_rate}%` : '—'}</p>
                         </div>
                       </div>
                       {bom.weight.standard_g == null ? (
@@ -726,7 +727,7 @@ export default function BomPage() {
           <summary className="flex items-center justify-between px-5 py-4 cursor-pointer select-none list-none">
             <div className="flex items-center gap-2">
               <svg className="h-4 w-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <h3 className="font-bold text-text-primary text-sm">사용 가이드 — 품목·BOM·세트 관리</h3>
+              <h3 className="font-semibold text-text-primary text-sm">사용 가이드 — 품목·BOM·세트 관리</h3>
             </div>
             <svg className="h-4 w-4 text-text-quaternary transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
           </summary>
@@ -914,13 +915,13 @@ function BomLineModal({ item, onClose, onSaved }: { item: Item; onClose: () => v
     <ModalShell title={`자재 추가 — ${item.product_name}`} onClose={onClose} onSave={save} saveLabel="추가" wide>
       <div className="flex gap-1.5 mb-2">
         {(['raw', 'sub'] as const).map((k) => (
-          <button key={k} onClick={() => { setMatKind(k); setSel(null); }} className={`px-3 py-1.5 rounded-full text-xs font-medium border ${matKind === k ? 'bg-brand text-white border-brand' : 'bg-bg-1 text-text-tertiary border-border-primary'}`}>{k === 'raw' ? '원재료' : '부자재'}</button>
+          <button key={k} onClick={() => { setMatKind(k); setSel(null); }} className={`px-3 py-1.5 rounded-full text-xs font-medium border ${matKind === k ? 'bg-brand text-on-brand border-brand' : 'bg-bg-1 text-text-tertiary border-border-primary'}`}>{k === 'raw' ? '원재료' : '부자재'}</button>
         ))}
       </div>
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="자재 검색..." className={`w-full px-3 py-2 text-sm mb-2 ${inputCls}`} />
       <div className="max-h-48 overflow-auto divide-y divide-bg-inset border border-bg-inset rounded-lg mb-3">
         {list.map((m) => (
-          <button key={m.id} onClick={() => setSel(m)} className={`w-full text-left px-3 py-2 text-sm flex justify-between ${sel?.id === m.id ? 'bg-brand/15 text-text-primary' : 'text-text-secondary hover:bg-white/5'}`}>
+          <button key={m.id} onClick={() => setSel(m)} className={`w-full text-left px-3 py-2 text-sm flex justify-between ${sel?.id === m.id ? 'bg-brand/15 text-text-primary' : 'text-text-secondary hover:bg-bg-secondary'}`}>
             <span className="truncate">{m.name}</span>
             <span className="text-xs text-text-quaternary shrink-0 ml-2">{matKind === 'raw' ? `${won(m.kg_price || 0)}/kg` : `${won(m.unit_price || 0)}/${m.unit || 'ea'}`}</span>
           </button>
@@ -934,7 +935,7 @@ function BomLineModal({ item, onClose, onSaved }: { item: Item; onClose: () => v
           </Field>
           {matKind === 'raw' && (
             <div className="flex items-center rounded-lg border border-border-primary overflow-hidden mb-0.5">
-              {(['kg', 'g'] as const).map((u) => <button key={u} onClick={() => setUnitMode(u)} className={`px-3 py-2 text-xs ${unitMode === u ? 'bg-brand text-white' : 'text-text-tertiary'}`}>{u}</button>)}
+              {(['kg', 'g'] as const).map((u) => <button key={u} onClick={() => setUnitMode(u)} className={`px-3 py-2 text-xs ${unitMode === u ? 'bg-brand text-on-brand' : 'text-text-tertiary'}`}>{u}</button>)}
             </div>
           )}
         </div>
@@ -965,7 +966,7 @@ function ComponentModal({ item, onClose, onSaved }: { item: Item; onClose: () =>
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="하위 품목 검색 (반제품·완제품)..." className={`w-full px-3 py-2 text-sm mb-2 ${inputCls}`} />
       <div className="max-h-56 overflow-auto divide-y divide-bg-inset border border-bg-inset rounded-lg mb-3">
         {list.map((m) => (
-          <button key={m.id} onClick={() => setSel(m)} className={`w-full text-left px-3 py-2 text-sm flex justify-between items-center ${sel?.id === m.id ? 'bg-brand/15 text-text-primary' : 'text-text-secondary hover:bg-white/5'}`}>
+          <button key={m.id} onClick={() => setSel(m)} className={`w-full text-left px-3 py-2 text-sm flex justify-between items-center ${sel?.id === m.id ? 'bg-brand/15 text-text-primary' : 'text-text-secondary hover:bg-bg-secondary'}`}>
             <span className="truncate">{m.product_name}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ml-2 ${TYPE_BADGE[m.item_type] || 'text-text-quaternary border-border-primary'}`}>{m.item_type}</span>
           </button>
@@ -984,15 +985,15 @@ function ModalShell({ title, children, onClose, onSave, saveLabel, wide }: { tit
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative bg-bg-1 rounded-2xl shadow-2xl w-full ${wide ? 'max-w-xl' : 'max-w-md'} mx-4 max-h-[90vh] overflow-y-auto border border-border-primary`}>
+      <div className={`relative bg-bg-1 rounded-2xl shadow-nd-f w-full ${wide ? 'max-w-xl' : 'max-w-md'} mx-4 max-h-[90vh] overflow-y-auto border border-border-primary`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-primary sticky top-0 bg-bg-1 z-10">
-          <h2 className="text-base font-bold text-text-primary">{title}</h2>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5 text-text-quaternary">✕</button>
+          <h2 className="text-base font-semibold text-text-primary">{title}</h2>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-bg-secondary text-text-quaternary">✕</button>
         </div>
         <div className="px-5 py-4 space-y-3">{children}</div>
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border-primary bg-bg-0 rounded-b-2xl sticky bottom-0">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-1 border border-border-primary rounded-lg hover:bg-white/5">취소</button>
-          <button onClick={onSave} className="px-5 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-accent">{saveLabel}</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-1 border border-border-primary rounded-lg hover:bg-bg-secondary">취소</button>
+          <button onClick={onSave} className="px-5 py-2 text-sm font-medium text-on-brand bg-brand rounded-lg hover:bg-accent">{saveLabel}</button>
         </div>
       </div>
     </div>
@@ -1012,7 +1013,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function GuideBlock({ n, title, color, children }: { n: string; title: string; color: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-3">
-      <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: `${color}22`, color }}>{n}</span>
+      <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold" style={{ backgroundColor: `${color}22`, color }}>{n}</span>
       <div>
         <p className="font-semibold text-text-primary mb-1">{title}</p>
         <p className="text-[13px] leading-relaxed text-text-tertiary">{children}</p>

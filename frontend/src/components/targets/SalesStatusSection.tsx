@@ -518,7 +518,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
 
   return (
     <section className="mb-8">
-      <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+      <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary overflow-hidden">
         {/* 헤더 */}
         <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary">매출 현황 및 실시간</h2>
@@ -527,7 +527,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               setEditingSale(null);
               setIsModalOpen(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-success text-white rounded-lg hover:bg-success transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-success text-on-brand rounded-lg hover:bg-success transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -587,13 +587,13 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                   <p className="text-sm text-text-tertiary mb-1">
                     매출 합계 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                   </p>
-                  <p className="text-xl font-bold text-link">
+                  <p className="text-xl font-semibold text-link">
                     {comparison.current.total_sales > 0 ? `${formatNumber(comparison.current.total_sales)}원` : '없음'}
                   </p>
                 </div>
                 <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
                   <p className="text-sm text-text-tertiary mb-1">판매수량 합계</p>
-                  <p className="text-xl font-bold text-success">
+                  <p className="text-xl font-semibold text-success">
                     {comparison.current.total_quantity > 0 ? formatNumberRaw(comparison.current.total_quantity) : '없음'}
                   </p>
                 </div>
@@ -601,7 +601,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                   <p className="text-sm text-text-tertiary mb-1">
                     마케팅비 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                   </p>
-                  <p className="text-xl font-bold text-orange">
+                  <p className="text-xl font-semibold text-orange">
                     {comparison.current.total_marketing > 0 ? `${formatNumber(comparison.current.total_marketing)}원` : '없음'}
                   </p>
                 </div>
@@ -609,7 +609,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                   <p className="text-sm text-text-tertiary mb-1">
                     공헌이익 합계 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                   </p>
-                  <p className="text-xl font-bold text-link">
+                  <p className="text-xl font-semibold text-link">
                     {comparison.current.total_contribution > 0 ? `${formatNumber(comparison.current.total_contribution)}원` : '없음'}
                   </p>
                 </div>
@@ -630,19 +630,19 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <p className="text-xs text-text-tertiary">매출</p>
-                      <p className="text-lg font-bold">{renderRate(comparison.vs_target.sales_rate)}</p>
+                      <p className="text-lg font-semibold">{renderRate(comparison.vs_target.sales_rate)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-text-tertiary">판매량</p>
-                      <p className="text-lg font-bold">{renderRate(comparison.vs_target.quantity_rate)}</p>
+                      <p className="text-lg font-semibold">{renderRate(comparison.vs_target.quantity_rate)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-text-tertiary">공헌이익</p>
-                      <p className="text-lg font-bold">{renderRate(comparison.vs_target.contribution_rate)}</p>
+                      <p className="text-lg font-semibold">{renderRate(comparison.vs_target.contribution_rate)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-text-tertiary">마케팅비</p>
-                      <p className="text-lg font-bold">{renderRate(comparison.vs_target.marketing_rate, false)}</p>
+                      <p className="text-lg font-semibold">{renderRate(comparison.vs_target.marketing_rate, false)}</p>
                     </div>
                   </div>
                 </div>
@@ -657,19 +657,19 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <p className="text-xs text-text-tertiary">매출</p>
-                        <p className="text-lg font-bold">{renderChange(comparison.vs_previous.sales_change)}</p>
+                        <p className="text-lg font-semibold">{renderChange(comparison.vs_previous.sales_change)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-text-tertiary">판매량</p>
-                        <p className="text-lg font-bold">{renderChange(comparison.vs_previous.quantity_change)}</p>
+                        <p className="text-lg font-semibold">{renderChange(comparison.vs_previous.quantity_change)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-text-tertiary">공헌이익</p>
-                        <p className="text-lg font-bold">{renderChange(comparison.vs_previous.contribution_change)}</p>
+                        <p className="text-lg font-semibold">{renderChange(comparison.vs_previous.contribution_change)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-text-tertiary">마케팅비</p>
-                        <p className="text-lg font-bold">{renderChange(comparison.vs_previous.marketing_change)}</p>
+                        <p className="text-lg font-semibold">{renderChange(comparison.vs_previous.marketing_change)}</p>
                       </div>
                     </div>
                   ) : (
@@ -780,7 +780,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
 
         {/* 실시간 지표 섹션 */}
         {realtime && (
-          <div className="px-6 py-4 bg-gradient-to-r from-bg-0 to-brand/10 border-b border-border-primary">
+          <div className="px-6 py-4 bg-bg-0 border-b border-border-primary">
             <div className="flex items-center justify-between mb-4">
               <div className="flex flex-col">
                 <h3 className="text-md font-semibold text-text-primary flex items-center gap-2">
@@ -799,7 +799,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
               </div>
               <button
                 onClick={() => setShowRealtimeChart(!showRealtimeChart)}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-1 border border-border-primary rounded-lg hover:bg-white/5 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-1 border border-border-primary rounded-lg hover:bg-bg-secondary transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -810,33 +810,33 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
 
             {/* 당일 기준 목표 대비 달성률 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-nd-s">
                 <p className="text-sm text-text-tertiary mb-1">
                   당일 기준 매출 목표 <span className="text-xs text-text-quaternary">({excludeVat ? '부가세 별도' : '부가세 합계'})</span>
                 </p>
-                <p className="text-lg font-bold text-text-secondary">
+                <p className="text-lg font-semibold text-text-secondary">
                   {formatNumber(realtime.daily_target.total_sales)}원
                 </p>
                 <p className="text-xs text-text-quaternary mt-1">
                   실적: {formatNumber(realtime.current.total_sales)}원
                 </p>
               </div>
-              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-nd-s">
                 <p className="text-sm text-text-tertiary mb-1">당일 기준 매출 달성률</p>
-                <p className="text-2xl font-bold">{renderRate(realtime.achievement_rate.sales_rate)}</p>
+                <p className="text-2xl font-semibold">{renderRate(realtime.achievement_rate.sales_rate)}</p>
               </div>
-              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-nd-s">
                 <p className="text-sm text-text-tertiary mb-1">당일 기준 판매량 목표</p>
-                <p className="text-lg font-bold text-text-secondary">
+                <p className="text-lg font-semibold text-text-secondary">
                   {formatNumberRaw(realtime.daily_target.total_quantity)}
                 </p>
                 <p className="text-xs text-text-quaternary mt-1">
                   실적: {formatNumberRaw(realtime.current.total_quantity)}
                 </p>
               </div>
-              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+              <div className="bg-bg-1 p-4 rounded-xl border border-brand/20 shadow-nd-s">
                 <p className="text-sm text-text-tertiary mb-1">당일 기준 판매량 달성률</p>
-                <p className="text-2xl font-bold">{renderRate(realtime.achievement_rate.quantity_rate)}</p>
+                <p className="text-2xl font-semibold">{renderRate(realtime.achievement_rate.quantity_rate)}</p>
               </div>
             </div>
 
@@ -850,8 +850,8 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       onClick={() => setChartMode('daily')}
                       className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                         chartMode === 'daily'
-                          ? 'bg-brand text-white'
-                          : 'bg-bg-2 text-text-secondary hover:bg-white/5'
+                          ? 'bg-brand text-on-brand'
+                          : 'bg-bg-2 text-text-secondary hover:bg-bg-secondary'
                       }`}
                     >
                       일계
@@ -860,8 +860,8 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       onClick={() => setChartMode('cumulative')}
                       className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                         chartMode === 'cumulative'
-                          ? 'bg-brand text-white'
-                          : 'bg-bg-2 text-text-secondary hover:bg-white/5'
+                          ? 'bg-brand text-on-brand'
+                          : 'bg-bg-2 text-text-secondary hover:bg-bg-secondary'
                       }`}
                     >
                       누계
@@ -954,7 +954,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
             </div>
           ) : (
             sales.map((sale) => (
-              <div key={sale.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5">
+              <div key={sale.id} className="px-6 py-4 flex items-center justify-between hover:bg-bg-secondary">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="px-2 py-0.5 bg-success/15 text-success text-xs font-medium rounded">

@@ -958,7 +958,7 @@ export default function CSPage() {
       {/* ── Toast ── */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-2">
-          <div className="bg-bg-0 text-text-primary px-4 py-3 rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm flex items-center gap-2">
+          <div className="bg-bg-0 text-text-primary px-4 py-3 rounded-lg shadow-nd-f text-sm flex items-center gap-2">
             <svg className="w-4 h-4 text-success-light flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             {toast}
           </div>
@@ -969,7 +969,7 @@ export default function CSPage() {
         {/* ── Top Bar ── */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-text-primary">게시판 CS 대응</h1>
+            <h1 className="text-2xl font-semibold text-text-primary">게시판 CS 대응</h1>
 
             {/* Mode toggle */}
             <button
@@ -978,13 +978,13 @@ export default function CSPage() {
                 operationMode === 'auto' ? 'bg-brand' : 'bg-bg-quaternary'
               }`}
             >
-              <span className={`absolute left-2 text-xs font-medium transition-opacity ${operationMode === 'semi_auto' ? 'text-text-secondary opacity-100' : 'text-white opacity-50'}`}>
+              <span className={`absolute left-2 text-xs font-medium transition-opacity ${operationMode === 'semi_auto' ? 'text-text-secondary opacity-100' : 'text-on-brand opacity-50'}`}>
                 반자동 모드
               </span>
-              <span className={`absolute right-2 text-xs font-medium transition-opacity ${operationMode === 'auto' ? 'text-white opacity-100' : 'text-text-tertiary opacity-50'}`}>
+              <span className={`absolute right-2 text-xs font-medium transition-opacity ${operationMode === 'auto' ? 'text-on-brand opacity-100' : 'text-text-tertiary opacity-50'}`}>
                 자동 모드
               </span>
-              <span className={`inline-block h-6 w-6 transform rounded-full bg-bg-1 shadow transition-transform ${
+              <span className={`inline-block h-6 w-6 transform rounded-full bg-bg-1 shadow-nd-s transition-transform ${
                 operationMode === 'auto' ? 'translate-x-[108px]' : 'translate-x-1'
               }`} />
             </button>
@@ -993,23 +993,23 @@ export default function CSPage() {
           <div className="flex items-center gap-3 flex-wrap">
             {/* Stats badges */}
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-bg-2 text-text-secondary border border-border-primary">
-              총 <span className="font-bold text-text-primary">{fmt(totalStats?.total || 0)}건</span>
+              총 <span className="font-semibold text-text-primary">{fmt(totalStats?.total || 0)}건</span>
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-bg-2 text-text-secondary border border-border-primary">
-              미답변 <span className="font-bold text-text-primary">{fmt(totalStats?.new || 0)}건</span>
+              미답변 <span className="font-semibold text-text-primary">{fmt(totalStats?.new || 0)}건</span>
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-brand/10 text-accent border border-brand/30">
-              AI 답변 <span className="font-bold text-text-primary">{fmt(totalStats?.real_ai_responses || 0)}건</span>
+              AI 답변 <span className="font-semibold text-text-primary">{fmt(totalStats?.real_ai_responses || 0)}건</span>
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-danger/10 text-danger border border-danger/30">
-              템플릿 <span className="font-bold text-text-primary">{fmt(totalStats?.template_responses || 0)}건</span>
+              템플릿 <span className="font-semibold text-text-primary">{fmt(totalStats?.template_responses || 0)}건</span>
             </span>
 
             {/* Collect button */}
             <button
               onClick={handleCollect}
               disabled={collecting}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-brand text-on-brand text-sm font-medium rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
             >
               {collecting ? (
                 <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
@@ -1032,7 +1032,7 @@ export default function CSPage() {
               <button
                 onClick={handleBulkAiAll}
                 disabled={bulkAiAllRunning}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-brand text-on-brand text-sm font-medium rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
               >
                 {bulkAiAllRunning ? (
                   <>
@@ -1101,7 +1101,7 @@ export default function CSPage() {
         {activeTab === 'inquiries' && (
           <div>
             {/* Filter Bar */}
-            <div className="bg-bg-1 rounded-xl border border-border-primary p-4 mb-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <div className="bg-bg-1 rounded-xl border border-border-primary p-4 mb-4 shadow-nd-s">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
                 {/* Status filter */}
                 <div>
@@ -1190,7 +1190,7 @@ export default function CSPage() {
                   <button
                     onClick={handleBulkGenerateAI}
                     disabled={bulkGenerating}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-brand text-white rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-brand text-on-brand rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
                   >
                     {bulkGenerating ? (
                       <>
@@ -1201,14 +1201,14 @@ export default function CSPage() {
                   </button>
                   <button
                     onClick={handleBulkApprove}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-white rounded-lg hover:bg-success-hover transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-on-brand rounded-lg hover:bg-success-hover transition-colors"
                   >
                     일괄 승인
                   </button>
                   <button
                     onClick={handleBulkSend}
                     disabled={bulkSending}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-text-primary rounded-lg hover:bg-white/5 disabled:opacity-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-text-primary rounded-lg hover:bg-bg-secondary disabled:opacity-50 transition-colors"
                   >
                     {bulkSending ? (
                       <>
@@ -1232,7 +1232,7 @@ export default function CSPage() {
               <div className="mb-4">
                 <div className="w-full bg-bg-tertiary rounded-full h-2">
                   <div
-                    className="bg-brand h-2 rounded-full transition-all duration-300"
+                    className="bg-brand h-2 rounded-full transition-[width] duration-300"
                     style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
                   />
                 </div>
@@ -1259,7 +1259,7 @@ export default function CSPage() {
             {/* Inquiry List */}
             <div className="space-y-3">
               {filteredInquiries.length === 0 && (
-                <div className="bg-bg-1 rounded-xl border border-border-primary p-12 text-center shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+                <div className="bg-bg-1 rounded-xl border border-border-primary p-12 text-center shadow-nd-s">
                   <svg className="w-12 h-12 text-text-quaternary mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
                   <p className="text-text-tertiary text-sm">조건에 맞는 문의가 없습니다.</p>
                 </div>
@@ -1273,7 +1273,7 @@ export default function CSPage() {
                 const isSending = sendingIds.has(inquiry.id);
 
                 return (
-                  <div key={inquiry.id} className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden">
+                  <div key={inquiry.id} className="bg-bg-1 rounded-xl border border-border-primary shadow-nd-s overflow-hidden">
                     {/* ── 상단: 배지 + 상태 + 삭제 ── */}
                     <div className="px-4 pt-4 pb-2">
                       <div className="flex items-start gap-3">
@@ -1331,7 +1331,6 @@ export default function CSPage() {
                             action.priority === 'medium' ? 'bg-warning/15 text-warning border border-warning/30' :
                             'bg-bg-2 text-text-tertiary border border-border-primary'
                           }`}>
-                            {action.type === 'refund' ? '💰' : action.type === 'exchange' ? '🔄' : action.type === 'damage' ? '📦' : action.type === 'delivery' ? '🚚' : '📋'}
                             {action.label}
                           </span>
                         ))}
@@ -1371,7 +1370,7 @@ export default function CSPage() {
                               loadInquiries();
                             }}
                             disabled={fetchingOrderIds.has(inquiry.id)}
-                            className="text-[11px] px-2 py-0.5 bg-brand text-white rounded hover:bg-accent disabled:opacity-50 transition-colors"
+                            className="text-[11px] px-2 py-0.5 bg-brand text-on-brand rounded hover:bg-accent disabled:opacity-50 transition-colors"
                           >
                             {fetchingOrderIds.has(inquiry.id) ? '조회중...' : '사방넷 동기화'}
                           </button>
@@ -1390,11 +1389,11 @@ export default function CSPage() {
                                 <div><span className="text-text-quaternary">상품</span> <span className="font-medium text-text-primary">{od.PRODUCT_NM || od.PRODUCT_NAME || inquiry.product_name || '-'}</span></div>
                                 <div><span className="text-text-quaternary">쇼핑몰</span> <span className="font-medium text-text-primary">{od.MALL_ID || inquiry.mall_name}</span></div>
                                 <div><span className="text-text-quaternary">문의상태</span>{' '}
-                                  <span className={`font-bold ${od.CS_STATUS === '답변전송' ? 'text-success' : od.CS_STATUS === '신규접수' ? 'text-danger' : 'text-text-secondary'}`}>
+                                  <span className={`font-semibold ${od.CS_STATUS === '답변전송' ? 'text-success' : od.CS_STATUS === '신규접수' ? 'text-danger' : 'text-text-secondary'}`}>
                                     {od.CS_STATUS || '-'}
                                   </span>
                                 </div>
-                                <div><span className="text-text-quaternary">주문상태</span> <span className={`font-medium ${od.ORDER_STATUS ? 'text-accent font-bold' : 'text-text-quaternary'}`}>{od.ORDER_STATUS || '미확인'}</span></div>
+                                <div><span className="text-text-quaternary">주문상태</span> <span className={`font-medium ${od.ORDER_STATUS ? 'text-accent font-semibold' : 'text-text-quaternary'}`}>{od.ORDER_STATUS || '미확인'}</span></div>
                                 <div><span className="text-text-quaternary">택배사</span> <span className={`font-medium ${dt.courier_name ? 'text-text-primary' : 'text-text-quaternary'}`}>{dt.courier_name || od.DELIVERY_COMPANY_NM || '미확인'}</span></div>
                                 <div><span className="text-text-quaternary">운송장</span> <span className={`font-medium ${dt.tracking_number ? 'text-text-primary' : 'text-text-quaternary'}`}>{dt.tracking_number || od.DELIVERY_NO || '미확인'}</span></div>
                                 <div><span className="text-text-quaternary">결제금액</span> <span className="font-medium text-text-primary">{od.ORDER_TOTAL_PRICE ? `${Number(od.ORDER_TOTAL_PRICE).toLocaleString()}원` : '미확인'}</span></div>
@@ -1449,7 +1448,7 @@ export default function CSPage() {
                           <button
                             onClick={() => handleGenerateAI(inquiry.id)}
                             disabled={isGenerating}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-brand text-white rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-brand text-on-brand rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
                           >
                             {isGenerating ? (
                               <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 생성 중...</>
@@ -1464,7 +1463,7 @@ export default function CSPage() {
                     {/* ── 하단 액션 버튼 (항상 노출) ── */}
                     <div className="px-4 pb-4 pt-2 flex items-center gap-2 flex-wrap">
                       {inquiry.status === 'new' && inquiry.ai_response && (
-                        <button onClick={() => handleApprove(inquiry.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-white rounded-lg hover:bg-success-hover transition-colors">
+                        <button onClick={() => handleApprove(inquiry.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-on-brand rounded-lg hover:bg-success-hover transition-colors">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> 승인
                         </button>
                       )}
@@ -1472,20 +1471,20 @@ export default function CSPage() {
                         <>
                           <button
                             onClick={() => handleApprove(inquiry.id, expandedId === inquiry.id ? editingResponse : undefined)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-white rounded-lg hover:bg-success-hover transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-on-brand rounded-lg hover:bg-success-hover transition-colors"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> 승인
                           </button>
                           <button
                             onClick={() => handleApproveAndSend(inquiry.id, expandedId === inquiry.id ? editingResponse : undefined)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-text-primary rounded-lg hover:bg-white/5 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-text-primary rounded-lg hover:bg-bg-secondary transition-colors"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 승인+발송
                           </button>
                         </>
                       )}
                       {inquiry.status === 'approved' && (
-                        <button onClick={() => handleSend(inquiry.id)} disabled={isSending} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-text-primary rounded-lg hover:bg-white/5 disabled:opacity-50 transition-colors">
+                        <button onClick={() => handleSend(inquiry.id)} disabled={isSending} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-text-primary rounded-lg hover:bg-bg-secondary disabled:opacity-50 transition-colors">
                           {isSending ? <><svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 발송 중...</> : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 발송</>}
                         </button>
                       )}
@@ -1505,7 +1504,7 @@ export default function CSPage() {
 
         {/* Pagination */}
         {activeTab === 'inquiries' && totalCount > PAGE_SIZE && (
-          <div className="flex items-center justify-between mt-4 bg-bg-1 rounded-xl border border-border-primary p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+          <div className="flex items-center justify-between mt-4 bg-bg-1 rounded-xl border border-border-primary p-4 shadow-nd-s">
             <span className="text-sm text-text-tertiary">
               총 {totalCount.toLocaleString()}건 · {currentPage}/{Math.ceil(totalCount / PAGE_SIZE)} 페이지
             </span>
@@ -1513,7 +1512,7 @@ export default function CSPage() {
               <button
                 onClick={() => loadInquiries(currentPage - 1)}
                 disabled={currentPage <= 1}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-border-primary text-text-tertiary hover:bg-white/5 disabled:opacity-40 transition-colors"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-border-primary text-text-tertiary hover:bg-bg-secondary disabled:opacity-40 transition-colors"
               >
                 이전
               </button>
@@ -1536,8 +1535,8 @@ export default function CSPage() {
                     onClick={() => loadInquiries(pageNum)}
                     className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
                       currentPage === pageNum
-                        ? 'bg-brand text-white'
-                        : 'text-text-tertiary hover:bg-white/5'
+                        ? 'bg-brand text-on-brand'
+                        : 'text-text-tertiary hover:bg-bg-secondary'
                     }`}
                   >
                     {pageNum}
@@ -1547,7 +1546,7 @@ export default function CSPage() {
               <button
                 onClick={() => loadInquiries(currentPage + 1)}
                 disabled={currentPage >= Math.ceil(totalCount / PAGE_SIZE)}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-border-primary text-text-tertiary hover:bg-white/5 disabled:opacity-40 transition-colors"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-border-primary text-text-tertiary hover:bg-bg-secondary disabled:opacity-40 transition-colors"
               >
                 다음
               </button>
@@ -1561,14 +1560,14 @@ export default function CSPage() {
         {activeTab === 'analytics' && (
           <div className="space-y-6">
             {/* ── 문의 수량 통계 ── */}
-            <div className="bg-bg-1 rounded-xl border border-border-primary p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <div className="bg-bg-1 rounded-xl border border-border-primary p-5 shadow-nd-s">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-text-primary">문의 수량 추이</h3>
+                <h3 className="text-base font-semibold text-text-primary">문의 수량 추이</h3>
                 <div className="flex gap-1 bg-bg-2 rounded-lg p-0.5">
                   {(['daily', 'monthly'] as const).map(p => (
                     <button key={p} onClick={() => setVolumePeriod(p)}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-                        volumePeriod === p ? 'bg-bg-1 text-link shadow-[0px_1px_3px_rgba(0,0,0,0.2)]' : 'text-text-tertiary hover:text-text-secondary'
+                        volumePeriod === p ? 'bg-bg-1 text-link shadow-nd-s' : 'text-text-tertiary hover:text-text-secondary'
                       }`}>
                       {p === 'daily' ? '일별' : '월별'}
                     </button>
@@ -1585,10 +1584,10 @@ export default function CSPage() {
                       const pct = (d.total / maxTotal) * 100;
                       return (
                         <div key={i} className="flex flex-col items-center gap-1 min-w-[32px] flex-1">
-                          <span className="text-[10px] font-bold text-text-secondary">{d.total}</span>
+                          <span className="text-[10px] font-semibold text-text-secondary">{d.total}</span>
                           <div className="w-full bg-bg-2 rounded-t-md relative" style={{ height: '120px' }}>
                             <div
-                              className="absolute bottom-0 w-full bg-gradient-to-t from-brand to-brand rounded-t-md transition-all"
+                              className="absolute bottom-0 w-full bg-brand rounded-t-md transition-[height]"
                               style={{ height: `${Math.max(pct, 4)}%` }}
                             />
                           </div>
@@ -1614,7 +1613,7 @@ export default function CSPage() {
                               <div className="flex-1 h-4 bg-bg-2 rounded-full overflow-hidden">
                                 <div className={`h-full rounded-full ${mc.bg} border ${mc.border}`} style={{ width: `${(count / mallMax) * 100}%` }} />
                               </div>
-                              <span className="text-[10px] font-bold text-text-secondary w-6 text-right">{count}</span>
+                              <span className="text-[10px] font-semibold text-text-secondary w-6 text-right">{count}</span>
                             </div>
                           );
                         })}
@@ -1631,7 +1630,7 @@ export default function CSPage() {
                               <div className="flex-1 h-4 bg-bg-2 rounded-full overflow-hidden">
                                 <div className="h-full rounded-full bg-bg-quaternary" style={{ width: `${(count / catMax) * 100}%` }} />
                               </div>
-                              <span className="text-[10px] font-bold text-text-secondary w-6 text-right">{count}</span>
+                              <span className="text-[10px] font-semibold text-text-secondary w-6 text-right">{count}</span>
                             </div>
                           );
                         })}
@@ -1645,10 +1644,10 @@ export default function CSPage() {
             </div>
 
             {/* ── 키워드 분석 ── */}
-            <div className="bg-bg-1 rounded-xl border border-border-primary p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <div className="bg-bg-1 rounded-xl border border-border-primary p-5 shadow-nd-s">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-base font-bold text-text-primary">주요 키워드 분석</h3>
+                  <h3 className="text-base font-semibold text-text-primary">주요 키워드 분석</h3>
                   {keywordsSample && <span className="text-[10px] px-2 py-0.5 bg-warning/10 text-warning rounded-full border border-warning/30">샘플 데이터 - 실제 문의가 수집되면 AI 분석됩니다</span>}
                 </div>
                 <button onClick={async () => {
@@ -1673,21 +1672,21 @@ export default function CSPage() {
                       const maxCount = Math.max(...keywords.map(k => k.count), 1);
                       const pct = (kw.count / maxCount) * 100;
                       return (
-                        <div key={i} className="flex items-center gap-2 bg-bg-0 rounded-lg px-3 py-2 group hover:bg-white/5 transition-colors relative">
+                        <div key={i} className="flex items-center gap-2 bg-bg-0 rounded-lg px-3 py-2 group hover:bg-bg-secondary transition-colors relative">
                           <span className={`w-2 h-2 rounded-full shrink-0 ${
                             kw.importance === 'high' ? 'bg-danger' : kw.importance === 'medium' ? 'bg-warning/80' : 'bg-bg-quaternary'
                           }`} />
-                          <span className="text-xs font-bold text-text-primary shrink-0">{kw.keyword}</span>
+                          <span className="text-xs font-semibold text-text-primary shrink-0">{kw.keyword}</span>
                           <div className="flex-1 h-3 bg-bg-tertiary rounded-full overflow-hidden mx-1">
-                            <div className={`h-full rounded-full transition-all ${
+                            <div className={`h-full rounded-full transition-[width] ${
                               kw.importance === 'high' ? 'bg-danger/80' : kw.importance === 'medium' ? 'bg-warning/60' : 'bg-bg-quaternary'
                             }`} style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="text-xs font-bold text-text-secondary shrink-0 w-8 text-right">{kw.count}</span>
+                          <span className="text-xs font-semibold text-text-secondary shrink-0 w-8 text-right">{kw.count}</span>
                           <span className="text-[9px] text-text-quaternary shrink-0 w-14">{kw.category}</span>
                           {/* 호버 시 샘플 표시 */}
                           {kw.sample_inquiries?.length > 0 && (
-                            <div className="absolute left-0 top-full mt-1 z-10 hidden group-hover:block bg-bg-1 border border-border-primary rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] p-2 w-full max-w-xs">
+                            <div className="absolute left-0 top-full mt-1 z-10 hidden group-hover:block bg-bg-1 border border-border-primary rounded-lg shadow-nd-f p-2 w-full max-w-xs">
                               {kw.sample_inquiries.slice(0, 2).map((s, j) => (
                                 <p key={j} className="text-[10px] text-text-tertiary truncate">&quot;{s}&quot;</p>
                               ))}
@@ -1704,15 +1703,15 @@ export default function CSPage() {
             </div>
 
             {/* ── 액션 아이템 추천 ── */}
-            <div className="bg-bg-1 rounded-xl border border-border-primary p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <div className="bg-bg-1 rounded-xl border border-border-primary p-5 shadow-nd-s">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-base font-bold text-text-primary">대응 액션 아이템</h3>
+                  <h3 className="text-base font-semibold text-text-primary">대응 액션 아이템</h3>
                   <p className="text-xs text-text-tertiary mt-0.5">고객 문의 분석 기반 AI 추천</p>
                 </div>
                 <button onClick={handleGenerateActions}
                   disabled={loadingActions}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-accent disabled:opacity-50 transition-colors">
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-brand text-on-brand text-sm font-medium rounded-lg hover:bg-accent disabled:opacity-50 transition-colors">
                   {loadingActions ? (
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                   ) : (
@@ -1734,10 +1733,10 @@ export default function CSPage() {
                     return (
                       <div key={i} className={`border border-border-primary border-l-4 ${prioColor} rounded-xl p-4`}>
                         <div className="flex items-start gap-3">
-                          <span className="text-lg font-bold text-text-quaternary mt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                          <span className="text-lg font-semibold text-text-quaternary mt-0.5">{String(i + 1).padStart(2, '0')}</span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1.5">
-                              <h4 className="text-sm font-bold text-text-primary">{item.title}</h4>
+                              <h4 className="text-sm font-semibold text-text-primary">{item.title}</h4>
                               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${prioBadge}`}>
                                 {item.priority === 'high' ? '긴급' : item.priority === 'medium' ? '중요' : '참고'}
                               </span>
@@ -1797,7 +1796,7 @@ export default function CSPage() {
 
               <button
                 onClick={openAddRef}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-brand text-white rounded-lg hover:bg-accent transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                 참고 데이터 추가
@@ -1807,7 +1806,7 @@ export default function CSPage() {
             {/* Reference Data List */}
             <div className="space-y-3">
               {filteredRefData.length === 0 && (
-                <div className="bg-bg-1 rounded-xl border border-border-primary p-12 text-center shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+                <div className="bg-bg-1 rounded-xl border border-border-primary p-12 text-center shadow-nd-s">
                   <p className="text-text-tertiary text-sm">참고 데이터가 없습니다.</p>
                 </div>
               )}
@@ -1818,13 +1817,13 @@ export default function CSPage() {
                   '교환/반품 정책': { bg: 'bg-orange/10', text: 'text-orange', border: 'border-orange/30' },
                   'FAQ': { bg: 'bg-brand/10', text: 'text-accent', border: 'border-brand/30' },
                   '상품정보': { bg: 'bg-success/10', text: 'text-success', border: 'border-success/25' },
-                  '인사말/맺음말': { bg: 'bg-danger/10', text: 'text-[#D04040]', border: 'border-danger/25' },
+                  '인사말/맺음말': { bg: 'bg-danger/10', text: 'text-danger', border: 'border-danger/25' },
                   '프로모션': { bg: 'bg-warning/10', text: 'text-warning', border: 'border-warning/30' },
                 };
                 const catColor = catColors[ref.category] || DEFAULT_BADGE;
 
                 return (
-                  <div key={ref.id} className={`bg-bg-1 rounded-xl border shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden ${ref.is_active ? 'border-border-primary' : 'border-border-primary opacity-60'}`}>
+                  <div key={ref.id} className={`bg-bg-1 rounded-xl border shadow-nd-s overflow-hidden ${ref.is_active ? 'border-border-primary' : 'border-border-primary opacity-60'}`}>
                     <div className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -1886,7 +1885,7 @@ export default function CSPage() {
                             }`}
                             title={ref.is_active ? '비활성화' : '활성화'}
                           >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-bg-1 shadow transition-transform ${
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-bg-1 shadow-nd-s transition-transform ${
                               ref.is_active ? 'translate-x-[18px]' : 'translate-x-[3px]'
                             }`} />
                           </button>
@@ -1919,10 +1918,10 @@ export default function CSPage() {
             {/* Add/Edit Reference Data Modal */}
             {showRefModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <div className="bg-bg-1 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+                <div className="bg-bg-1 rounded-xl shadow-nd-f w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-lg font-bold text-text-primary">
+                      <h3 className="text-lg font-semibold text-text-primary">
                         {editingRef ? '참고 데이터 수정' : '참고 데이터 추가'}
                       </h3>
                       <button
@@ -2056,7 +2055,7 @@ export default function CSPage() {
                             refForm.is_active ? 'bg-brand' : 'bg-bg-quaternary'
                           }`}
                         >
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-bg-1 shadow transition-transform ${
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-bg-1 shadow-nd-s transition-transform ${
                             refForm.is_active ? 'translate-x-6' : 'translate-x-1'
                           }`} />
                         </button>
@@ -2068,14 +2067,14 @@ export default function CSPage() {
                     <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border-primary">
                       <button
                         onClick={() => { setShowRefModal(false); setEditingRef(null); }}
-                        className="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-1 border border-border-primary rounded-lg hover:bg-white/5 transition-colors"
+                        className="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-1 border border-border-primary rounded-lg hover:bg-bg-secondary transition-colors"
                       >
                         취소
                       </button>
                       <button
                         onClick={handleSaveRef}
                         disabled={uploadingRef}
-                        className="px-4 py-2 text-sm font-medium bg-brand text-white rounded-lg hover:bg-accent disabled:opacity-50 transition-colors inline-flex items-center gap-2"
+                        className="px-4 py-2 text-sm font-medium bg-brand text-on-brand rounded-lg hover:bg-accent disabled:opacity-50 transition-colors inline-flex items-center gap-2"
                       >
                         {uploadingRef ? (
                           <>
@@ -2097,7 +2096,7 @@ export default function CSPage() {
         {/* ═══════════════════════════════════════════ */}
         {activeTab === 'settings' && (
           <div className="max-w-2xl">
-            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] divide-y divide-border-primary">
+            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-nd-s divide-y divide-border-primary">
               {/* Operation mode */}
               <div className="p-6">
                 <div className="flex items-center justify-between">
@@ -2118,7 +2117,7 @@ export default function CSPage() {
                       config.operation_mode === 'auto' ? 'bg-brand' : 'bg-bg-quaternary'
                     }`}
                   >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-bg-1 shadow transition-transform ${
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-bg-1 shadow-nd-s transition-transform ${
                       config.operation_mode === 'auto' ? 'translate-x-6' : 'translate-x-1'
                     }`} />
                   </button>
@@ -2193,7 +2192,7 @@ export default function CSPage() {
                 <button
                   onClick={handleSaveConfig}
                   disabled={savingConfig}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-brand text-white rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-brand text-on-brand rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
                 >
                   {savingConfig ? (
                     <>

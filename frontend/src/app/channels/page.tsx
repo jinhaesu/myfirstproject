@@ -12,7 +12,7 @@ import {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Linear 다크 팔레트 (contribution-margin 페이지와 통일)
-const PANEL = 'bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary';
+const PANEL = 'bg-bg-1 rounded-xl shadow-nd-s border border-border-primary';
 const SUBPANEL = 'bg-bg-0 rounded-lg border border-border-primary';
 const TEXT_PRIMARY = 'var(--color-text-primary)';
 const TEXT_DIM = 'var(--color-text-dim)';     // 8A8F98보다 밝게 — 가시성 개선
@@ -33,16 +33,14 @@ const TOOLTIP_LABEL_STYLE: React.CSSProperties = { color: 'var(--color-text-dim)
 const TOOLTIP_ITEM_STYLE: React.CSSProperties = { color: 'var(--color-text-primary)' };
 
 // 차트 공통 props
+import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
+import SkyBand from '@/components/SkyBand';
+
 const CHART_GRID = { stroke: 'var(--color-border-primary)', strokeDasharray: '3 3' };
 const AXIS_TICK = { fill: 'var(--color-text-dim)', fontSize: 11 };
 const LEGEND_STYLE = { fontSize: 11, color: 'var(--color-text-secondary)' };
 
-const PALETTE = [
-  '#828FFF', '#27A644', '#F0BF00', '#EB5757', '#06B6D4',
-  '#A855F7', '#FC7840', '#5E6AD2', '#68CC58', '#00B8CC',
-  '#FF6B9D', '#7070FF', '#22C55E', '#FBBF24', '#F472B6',
-  '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#3B82F6',
-];
+const PALETTE = ND_CHART;
 
 type Granularity = 'day' | 'month' | 'quarter' | 'year';
 
@@ -162,7 +160,7 @@ const downloadCsv = (filename: string, headers: string[], rows: (string | number
   URL.revokeObjectURL(url);
 };
 
-const DL_BTN = 'px-2.5 py-1 rounded-md text-[11px] bg-bg-inset border border-border-subtle text-text-dim hover:text-text-primary hover:border-[#4C5EF7] transition-colors';
+const DL_BTN = 'px-2.5 py-1 rounded-md text-[11px] bg-bg-inset border border-border-subtle text-text-dim hover:text-text-primary hover:border-brand transition-colors';
 
 const today = new Date();
 const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -514,21 +512,21 @@ function Header({
 
   return (
     <div className="mb-6">
-      <div className="flex items-baseline justify-between mb-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">채널별 매출 취합·분석</h1>
-          <p className="text-sm text-text-tertiary mt-1">
-            채널 엑셀 업로드 → 자동 정규화 → 실시간 공헌이익 분석.
-            {' '}<span className="text-text-quaternary">파서 준비 채널 {parsersReady}/{channels.length}</span>
-          </p>
-        </div>
-      </div>
-      <div className="flex gap-1 border-b border-border-primary">
+      <SkyBand
+        className="nd-rise mb-4"
+        title="채널별 매출 취합·분석"
+        meta={`매출·SCM · 파서 준비 채널 ${parsersReady}/${channels.length}`}
+      >
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--nd-sky-fg-2)' }}>
+          채널 엑셀 업로드, 자동 정규화, 실시간 공헌이익 분석
+        </p>
+      </SkyBand>
+      <div className="flex gap-1 border-b border-border-primary overflow-x-auto">
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5 ${
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === t.key
                 ? 'text-text-primary border-accent'
                 : 'text-text-tertiary border-transparent hover:text-text-secondary'
@@ -691,18 +689,18 @@ function MatrixSection({ title, by, authHeaders, categoryToggle = false }: {
           {categoryToggle && (
             <button
               onClick={() => setByCategory(v => !v)}
-              className={`${DL_BTN} ${byCategory ? 'text-accent border-[#4C5EF7]' : ''}`}
+              className={`${DL_BTN} ${byCategory ? 'text-accent border-brand' : ''}`}
             >
               {byCategory ? '카테고리별' : '품목별'}
             </button>
           )}
-          <button onClick={download} className={DL_BTN}>⬇ 엑셀 다운로드</button>
+          <button onClick={download} className={DL_BTN}>엑셀 다운로드</button>
         </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-[12px] whitespace-nowrap">
           <thead>
-            <tr className="border-b border-border-primary text-[10px] uppercase tracking-wider text-text-quaternary">
+            <tr className="border-b border-border-primary text-[10px] text-text-quaternary">
               <th className="text-left py-2 px-2 sticky left-0 bg-bg-1">{rowLabel}</th>
               {months.map(m => <th key={m} className="text-right py-2 px-2">{m}월</th>)}
               <th className="text-right py-2 px-2 text-text-dim">합계</th>
@@ -848,16 +846,16 @@ const DashboardTab = memo(function DashboardTab({
       {/* 기간/필터 변경으로 재조회 중일 때 — 기존 데이터는 유지한 채 살짝 딤 처리만 */}
       {loading && data && (
         <div className="absolute inset-0 z-20 bg-bg-0/55 backdrop-blur-[1px] flex items-start justify-center pt-24 pointer-events-none rounded-xl">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-bg-inset border border-border-subtle shadow-lg text-xs text-text-secondary">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-bg-inset border border-border-subtle shadow-nd-f text-xs text-text-secondary">
             <span className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             데이터 불러오는 중…
           </div>
         </div>
       )}
       {dashboardError && (
-        <div className="flex items-center justify-between px-3 py-2 rounded-md bg-[#3A1418] border border-[#5C1F26] text-[#FCA5A5] text-xs">
+        <div className="flex items-center justify-between px-3 py-2 rounded-md bg-danger/10 border border-danger/30 text-danger text-xs">
           <span>{dashboardError}</span>
-          <button onClick={clearDashboardError} className="text-[#FCA5A5]/70 hover:text-[#FCA5A5] px-2">✕</button>
+          <button onClick={clearDashboardError} className="text-danger hover:text-text-primary px-2">✕</button>
         </div>
       )}
       {/* Filter bar */}
@@ -869,8 +867,8 @@ const DashboardTab = memo(function DashboardTab({
             onClick={onApplyDates}
             className={`h-[38px] self-end px-4 rounded-lg text-sm font-semibold transition-colors ${
               (draftStart !== periodStart || draftEnd !== periodEnd)
-                ? 'bg-brand text-white ring-2 ring-brand/40 hover:bg-brand-hover'
-                : 'bg-brand text-white hover:bg-brand-hover'
+                ? 'bg-brand text-on-brand ring-2 ring-brand/40 hover:bg-brand-hover'
+                : 'bg-brand text-on-brand hover:bg-brand-hover'
             }`}
           >조회</button>
           {(draftStart !== periodStart || draftEnd !== periodEnd) && (
@@ -932,7 +930,7 @@ const DashboardTab = memo(function DashboardTab({
                 onClick={() => applyPreset(r.start, r.end)}
                 className={`text-[11px] px-2.5 py-1 rounded border transition-colors ${
                   active
-                    ? 'border-accent text-brand-light bg-[#1B1D2A]'
+                    ? 'border-brand text-accent bg-brand/10'
                     : 'border-border-primary text-text-dim hover:text-text-primary hover:bg-bg-2'
                 }`}
               >
@@ -1053,7 +1051,7 @@ const DashboardTab = memo(function DashboardTab({
         <div className={`${PANEL} p-4 lg:col-span-2`}>
           <div className="flex items-baseline justify-between mb-2">
             <h3 className="text-sm font-semibold text-text-primary">매출 & 공헌이익 추이</h3>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-text-dim">
+            <span className="text-[10px] font-mono text-text-dim">
               {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
             </span>
           </div>
@@ -1063,11 +1061,11 @@ const DashboardTab = memo(function DashboardTab({
                 <defs>
                   <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-brand-light)" stopOpacity={0.95} />
-                    <stop offset="100%" stopColor="#5560C8" stopOpacity={0.55} />
+                    <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={0.55} />
                   </linearGradient>
                   <linearGradient id="gradRevenueCmp" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.55} />
-                    <stop offset="100%" stopColor="#3A3D45" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.25} />
                   </linearGradient>
                   <linearGradient id="gradCmArea" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.4} />
@@ -1106,8 +1104,8 @@ const DashboardTab = memo(function DashboardTab({
               <BarChart data={costBreakdown} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
                 <defs>
                   <linearGradient id="gradCost" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#C03030" stopOpacity={0.85} />
-                    <stop offset="100%" stopColor="#FF7A7A" stopOpacity={1} />
+                    <stop offset="0%" stopColor="var(--color-danger)" stopOpacity={0.85} />
+                    <stop offset="100%" stopColor="var(--color-danger)" stopOpacity={1} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid {...CHART_GRID} />
@@ -1140,7 +1138,7 @@ const DashboardTab = memo(function DashboardTab({
               </span>
             )}
           </h3>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-text-dim">
+          <span className="text-[10px] font-mono text-text-dim">
             {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
           </span>
         </div>
@@ -1150,7 +1148,7 @@ const DashboardTab = memo(function DashboardTab({
               <defs>
                 <linearGradient id="gradPcsLine" x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor="var(--color-brand-light)" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#5560C8" stopOpacity={1} />
+                  <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={1} />
                 </linearGradient>
               </defs>
               <CartesianGrid {...CHART_GRID} />
@@ -1196,20 +1194,20 @@ const DashboardTab = memo(function DashboardTab({
               <BarChart data={channelsWithCmp.slice(0, 10)} margin={{ left: 8, right: 12, top: 5, bottom: 78 }} barCategoryGap="22%">
                 <defs>
                   <linearGradient id="gradTopRev" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="#5560C8" stopOpacity={0.8} />
+                    <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.8} />
                     <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
                   </linearGradient>
                   <linearGradient id="gradTopRevCmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.5} />
+                    <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.5} />
                     <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.7} />
                   </linearGradient>
                   <linearGradient id="gradTopCm" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="#1F7A38" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="#3DD971" stopOpacity={1} />
+                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={1} />
                   </linearGradient>
                   <linearGradient id="gradTopCmCmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="#1A4023" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="#3F6E4D" stopOpacity={0.6} />
+                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0.6} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid {...CHART_GRID} />
@@ -1236,20 +1234,20 @@ const DashboardTab = memo(function DashboardTab({
               <BarChart data={productsWithCmp.slice(0, 12)} margin={{ left: 8, right: 12, top: 5, bottom: 78 }} barCategoryGap="20%">
                 <defs>
                   <linearGradient id="gradTopRev2" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="#5560C8" stopOpacity={0.8} />
+                    <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.8} />
                     <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
                   </linearGradient>
                   <linearGradient id="gradTopRev2Cmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.5} />
+                    <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.5} />
                     <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.7} />
                   </linearGradient>
                   <linearGradient id="gradTopCm2" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="#1F7A38" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="#3DD971" stopOpacity={1} />
+                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={1} />
                   </linearGradient>
                   <linearGradient id="gradTopCm2Cmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="#1A4023" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="#3F6E4D" stopOpacity={0.6} />
+                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0.6} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid {...CHART_GRID} />
@@ -1292,12 +1290,12 @@ const DashboardTab = memo(function DashboardTab({
               downloadCsv(`품목별상세_${periodStart}~${periodEnd}.csv`,
                 ['품목', '낱개수량', '주문건수', '매출(VAT-)', '객단가', '공헌이익', '공헌이익률(%)'], rows);
             }}
-          >⬇ 엑셀 다운로드</button>
+          >엑셀 다운로드</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
+              <tr className="border-b border-border-primary text-[11px] text-text-quaternary">
                 <th className="text-left py-2.5 px-2">품목</th>
                 <th className="text-right py-2.5 px-2">낱개수량</th>
                 <th className="text-right py-2.5 px-2">주문건수</th>
@@ -1377,12 +1375,12 @@ const DashboardTab = memo(function DashboardTab({
               downloadCsv(`채널별상세_${periodStart}~${periodEnd}.csv`,
                 ['채널', '카테고리', '담당자', '낱개수량', '주문건수', '매출(VAT-)', '객단가', '공헌이익', '공헌이익률(%)'], rows);
             }}
-          >⬇ 엑셀 다운로드</button>
+          >엑셀 다운로드</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
+              <tr className="border-b border-border-primary text-[11px] text-text-quaternary">
                 <th className="text-left py-2.5 px-2">채널</th>
                 <th className="text-left py-2.5 px-2">카테고리</th>
                 <th className="text-left py-2.5 px-2">담당자</th>
@@ -1407,7 +1405,7 @@ const DashboardTab = memo(function DashboardTab({
                         {c.owner ? (
                           <span className="text-text-tertiary">{c.owner}</span>
                         ) : (
-                          <span className="text-[11px] font-semibold text-[#F59E0B] bg-[#F59E0B]/10 rounded px-1.5 py-0.5" title="담당자가 배정되지 않은 채널입니다 — 직원 관리 탭에서 배정하세요">미배정</span>
+                          <span className="text-[11px] font-semibold text-warning bg-warning/10 rounded px-1.5 py-0.5" title="담당자가 배정되지 않은 채널입니다 — 직원 관리 탭에서 배정하세요">미배정</span>
                         )}
                       </td>
                       <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(c.pcs))}</td>
@@ -1417,7 +1415,7 @@ const DashboardTab = memo(function DashboardTab({
                         title={c.revenue_deduction ? `총매출 ₩${fmtNum(Math.round(c.revenue + c.revenue_deduction))} − 월정액수수료 ₩${fmtNum(Math.round(c.revenue_deduction))} = 순매출 ₩${fmtNum(Math.round(c.revenue))}` : undefined}
                       >
                         ₩{fmtKR(c.revenue)}
-                        {c.revenue_deduction ? <span className="ml-1 text-[9px] text-[#C084FC]" title="월정액수수료 매출차감 적용 채널">차감후</span> : null}
+                        {c.revenue_deduction ? <span className="ml-1 text-[9px] text-purple" title="월정액수수료 매출차감 적용 채널">차감후</span> : null}
                         {revDelta && <DeltaBadge delta={revDelta} />}
                       </td>
                       <td className="py-2 px-2 text-right font-mono text-text-dim">
@@ -1444,7 +1442,7 @@ const DashboardTab = memo(function DashboardTab({
                     <td className="py-2.5 px-2 text-text-primary">합계</td>
                     <td className="py-2.5 px-2 text-text-tertiary">-</td>
                     <td className="py-2.5 px-2 text-[11px]">
-                      {unassigned ? <span className="text-[#F59E0B]">미배정 {unassigned}개</span> : <span className="text-success">전부 배정됨</span>}
+                      {unassigned ? <span className="text-warning">미배정 {unassigned}개</span> : <span className="text-success">전부 배정됨</span>}
                     </td>
                     <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(Math.round(t.pcs))}</td>
                     <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(t.orders)}</td>
@@ -1700,7 +1698,7 @@ function UploadTab({
         <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
           {Object.entries(categories).map(([cat, list]) => (
             <div key={cat}>
-              <div className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1.5">{cat}</div>
+              <div className="text-[10px] text-text-quaternary mb-1.5">{cat}</div>
               <div className="grid grid-cols-2 gap-1.5">
                 {list.map(c => (
                   <button
@@ -1709,7 +1707,7 @@ function UploadTab({
                     disabled={!c.has_parser}
                     className={`text-left text-xs px-3 py-2 rounded border transition-colors ${
                       selChannel?.id === c.id
-                        ? 'bg-accent border-accent text-white'
+                        ? 'bg-accent border-accent text-on-brand'
                         : c.has_parser
                           ? 'bg-bg-0 border-border-primary text-text-secondary hover:border-accent'
                           : 'bg-bg-0 border-bg-inset text-text-quaternary cursor-not-allowed'
@@ -1744,7 +1742,7 @@ function UploadTab({
               accept=".xlsx,.xls,.csv,.pdf"
               onChange={(e) => e.target.files && e.target.files[0] && upload(e.target.files[0])}
               disabled={uploading || !selChannel.has_parser}
-              className="w-full text-sm text-text-secondary file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-accent file:text-white file:cursor-pointer hover:file:bg-link disabled:opacity-50"
+              className="w-full text-sm text-text-secondary file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-accent file:text-on-brand file:cursor-pointer hover:file:bg-link disabled:opacity-50"
             />
             <div className="text-[11px] text-text-quaternary mt-2 leading-relaxed">
               · 동일 파일을 다시 올리면 자동 감지하여 중복 적재하지 않습니다.<br/>
@@ -1762,9 +1760,9 @@ function UploadTab({
             {result && !result.error && (
               <div className={`${SUBPANEL} p-3 mt-4 text-xs`}>
                 {result.duplicate_file ? (
-                  <div className="text-warning mb-1">⚠ 이미 업로드된 파일입니다.</div>
+                  <div className="text-warning mb-1">이미 업로드된 파일입니다.</div>
                 ) : result.status === 'failed' ? (
-                  <div className="text-danger mb-1">❌ 처리 실패{result.error_message ? `: ${result.error_message}` : ''}</div>
+                  <div className="text-danger mb-1">처리 실패{result.error_message ? `: ${result.error_message}` : ''}</div>
                 ) : result.processing ? (
                   <div className="text-accent mb-1 flex items-center gap-1.5">
                     <div className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -1778,7 +1776,7 @@ function UploadTab({
                   <div><span className="text-text-quaternary">신규: </span>{result.row_inserted ?? '–'}</div>
                   <div><span className="text-text-quaternary">중복: </span>{result.row_duplicate ?? '–'}</div>
                   <div><span className="text-text-quaternary">미매핑: </span>{result.row_unmatched ?? '–'}</div>
-                  <div><span className="text-text-quaternary">취소/환불: </span><span className={result.row_cancelled ? 'text-[#EB9F57]' : ''}>{result.row_cancelled ?? 0}</span></div>
+                  <div><span className="text-text-quaternary">취소/환불: </span><span className={result.row_cancelled ? 'text-warning' : ''}>{result.row_cancelled ?? 0}</span></div>
                 </div>
                 {result.period_start && (
                   <div className="text-[10px] text-text-quaternary mt-1.5 font-mono">기간: {result.period_start} ~ {result.period_end}</div>
@@ -1786,7 +1784,7 @@ function UploadTab({
               </div>
             )}
             {result?.error && (
-              <div className="mt-4 text-sm text-danger">❌ {result.error}</div>
+              <div className="mt-4 text-sm text-danger">{result.error}</div>
             )}
           </>
         ) : (
@@ -1795,7 +1793,7 @@ function UploadTab({
 
         <div className="mt-6 pt-4 border-t border-border-primary">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-quaternary">최근 업로드 이력</h3>
+            <h3 className="text-xs font-semibold text-text-quaternary">최근 업로드 이력</h3>
             <button onClick={() => refreshBatches()} className="text-[10px] text-accent hover:underline">새로고침</button>
           </div>
           <div className="space-y-1.5 max-h-[260px] overflow-y-auto">
@@ -1820,7 +1818,7 @@ function UploadTab({
         </div>
 
         <div className="mt-6 pt-4 border-t border-border-primary">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-text-quaternary mb-1">원본 양식 다운로드</h3>
+          <h3 className="text-xs font-semibold text-text-quaternary mb-1">원본 양식 다운로드</h3>
           <div className="text-[11px] text-text-quaternary mb-3 leading-relaxed">
             채널 + 기간을 지정하면 업로드했던 <span className="text-text-secondary">원본 엑셀 양식 그대로</span> 해당 기간 행만 모아 내려받습니다.
           </div>
@@ -1856,14 +1854,14 @@ function UploadTab({
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={downloadExcel} disabled={dlBusy}
-              className="px-4 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-4 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium disabled:opacity-50"
             >{dlBusy ? '준비 중…' : '다운로드'}</button>
             {dlError && <span className="text-[11px] text-danger">{dlError}</span>}
           </div>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-[#3A2326]">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-danger mb-1">데이터 삭제</h3>
+        <div className="mt-6 pt-4 border-t border-danger/30">
+          <h3 className="text-xs font-semibold text-danger mb-1">데이터 삭제</h3>
           <div className="text-[11px] text-text-quaternary mb-3 leading-relaxed">
             잘못/중복 업로드한 데이터를 정리할 때 사용합니다. 채널을 선택하고 <span className="text-text-secondary">기간을 비우면 그 채널의 전체 데이터</span>,
             기간을 지정하면 해당 기간 데이터만 삭제합니다. <span className="text-danger">삭제 후 되돌릴 수 없습니다.</span>
@@ -1900,7 +1898,7 @@ function UploadTab({
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={deleteChannelData} disabled={delBusy}
-              className="px-4 py-1.5 bg-danger hover:brightness-90 text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-4 py-1.5 bg-danger hover:brightness-90 text-on-brand rounded text-xs font-medium disabled:opacity-50"
             >{delBusy ? '삭제 중…' : '데이터 삭제'}</button>
             {delError && <span className="text-[11px] text-danger">{delError}</span>}
           </div>
@@ -1919,7 +1917,7 @@ function UploadTab({
         </div>
 
         <div className="mt-6 pt-4 border-t border-border-primary">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-accent mb-1">최신 파서로 재처리</h3>
+          <h3 className="text-xs font-semibold text-accent mb-1">최신 파서로 재처리</h3>
           <div className="text-[11px] text-text-quaternary mb-3 leading-relaxed">
             파서 로직이 바뀌었을 때, <span className="text-text-secondary">재업로드 없이</span> DB에 보관된 원본 엑셀을 최신 파서로 다시 파싱·집계합니다.
             보관 원본은 그대로 유지되며, 집계 데이터만 새로 만들어집니다. (보관 원본이 없는 채널은 한 번 재업로드가 필요합니다.)
@@ -1940,7 +1938,7 @@ function UploadTab({
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={reprocessChannel} disabled={reproBusy}
-              className="px-4 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-4 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium disabled:opacity-50"
             >{reproBusy ? '재처리 요청 중…' : '최신 파서로 재처리'}</button>
             {reproError && <span className="text-[11px] text-danger">{reproError}</span>}
           </div>
@@ -2150,7 +2148,7 @@ function MappingTab({
           <button
             onClick={applyBulk}
             disabled={bulkBusy || (!bulkExcluded && !bulkProductId)}
-            className="px-3 py-1 bg-accent hover:bg-link disabled:opacity-40 text-white rounded text-xs font-medium whitespace-nowrap"
+            className="px-3 py-1 bg-accent hover:bg-link disabled:opacity-40 text-on-brand rounded text-xs font-medium whitespace-nowrap"
           >
             {bulkBusy ? '적용 중…' : `${selected.size}건 적용`}
           </button>
@@ -2164,7 +2162,7 @@ function MappingTab({
 
       {/* 헤더 (sticky) */}
       {pageItems.length > 0 && (
-        <div className="sticky top-0 z-10 bg-bg-1 border-b border-border-primary flex items-center gap-2 px-2 py-1.5 text-[9px] uppercase tracking-wider text-text-quaternary">
+        <div className="sticky top-0 z-10 bg-bg-1 border-b border-border-primary flex items-center gap-2 px-2 py-1.5 text-[9px] text-text-quaternary">
           <input
             type="checkbox"
             checked={allChecked}
@@ -2360,7 +2358,7 @@ function UnmatchedRow({
           <button
             onClick={() => onResolve(item, excluded ? null : (productId || null) as number | null, unitPerSet, excluded)}
             disabled={busy || multiBusy || multiOpen || (!excluded && !productId)}
-            className="flex-1 px-1.5 py-1 bg-accent hover:bg-link disabled:opacity-40 text-white rounded text-[11px] font-medium"
+            className="flex-1 px-1.5 py-1 bg-accent hover:bg-link disabled:opacity-40 text-on-brand rounded text-[11px] font-medium"
           >
             {busy ? '…' : '저장'}
           </button>
@@ -2438,7 +2436,7 @@ function UnmatchedRow({
             <button
               onClick={handleMultiSave}
               disabled={multiBusy || !canSaveMulti}
-              className="px-3 py-1 bg-accent hover:bg-link disabled:opacity-40 text-white rounded text-[11px] font-medium"
+              className="px-3 py-1 bg-accent hover:bg-link disabled:opacity-40 text-on-brand rounded text-[11px] font-medium"
             >
               {multiBusy ? '저장 중…' : '다중 매핑 저장'}
             </button>
@@ -2573,7 +2571,7 @@ function CostTab({
               onClick={() => runSync(true)}
               disabled={syncing}
               title="SCM BOM에서 산출된 제품별 개당 재료원가와 개당 노무비를 원가·노무비 변동비 규칙으로 자동 반영합니다."
-              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-brand text-white hover:bg-brand-hover disabled:opacity-50 transition-colors"
+              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-brand text-on-brand hover:bg-brand-hover disabled:opacity-50 transition-colors"
             >
               {syncing ? '동기화 중…' : 'SCM BOM 원가·노무비 동기화'}
             </button>
@@ -2681,7 +2679,7 @@ function CostTab({
             <br />&nbsp;&nbsp;− (매출 × <span className="text-accent">정률 수수료</span> + 주문건수 × <span className="text-link">정액 수수료</span>)
             <br />&nbsp;&nbsp;− (주문건수 × <span className="text-success">운반비</span> + 주문건수 × <span className="text-success-light">포장비</span>)
           </div>
-          <div className="mt-2 text-[11px] text-[#C084FC]">
+          <div className="mt-2 text-[11px] text-purple">
             ⓘ 월정액 항목에 <span className="font-semibold">매출차감</span>을 체크하면 (예: 쿠팡 로켓프레시 월정액 수수료)
             해당 금액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다 — 대시보드 매출은 차감 후 실수령 기준으로 표시되고, 공헌이익 금액은 동일합니다.
           </div>
@@ -2795,7 +2793,7 @@ function CostRuleEditor({
       {/* 규칙 추가 (정률·정액) */}
       {item.basis !== 'channel_monthly_fixed' && (
         <div className={`${SUBPANEL} p-3 mb-3`}>
-          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-2">+ 새 규칙 추가</div>
+          <div className="text-[10px] text-text-dim mb-2">+ 새 규칙 추가</div>
           <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
             <div className="md:col-span-2">
               <label className="block text-[10px] text-text-muted mb-1">채널 (선택 시 그 채널만)</label>
@@ -2866,7 +2864,7 @@ function CostRuleEditor({
             )}
             <button
               onClick={saveRule} disabled={busy}
-              className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50"
+              className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium disabled:opacity-50"
             >{busy ? '저장…' : '+ 추가'}</button>
           </div>
           {/* 유효 기간 (시즌·행사 적용) */}
@@ -2902,7 +2900,7 @@ function CostRuleEditor({
       {/* 기존 규칙 리스트 */}
       {item.basis !== 'channel_monthly_fixed' && (
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-2">기존 규칙 ({rules.length})</div>
+          <div className="text-[10px] text-text-dim mb-2">기존 규칙 ({rules.length})</div>
           {rules.length === 0 ? (
             <div className="text-xs text-text-muted py-3">설정된 규칙이 없습니다. 위에서 추가하세요.</div>
           ) : (
@@ -3001,12 +2999,12 @@ function MonthlyCostEditor({
 
   return (
     <div className={`${SUBPANEL} p-3 mb-3`}>
-      <div className="mb-2 text-[10px] text-[#C084FC] leading-relaxed">
+      <div className="mb-2 text-[10px] text-purple leading-relaxed">
         ⓘ <span className="font-semibold">매출차감</span> 체크 시 이 월정액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다
         (정산금에서 공제되는 유형 — 예: 쿠팡 로켓프레시 월정액 수수료). 대시보드 매출은 차감 후 실수령 기준으로 표시되며 공헌이익 금액은 동일합니다.
       </div>
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-[10px] uppercase tracking-wider text-text-dim">기간:</span>
+        <span className="text-[10px] text-text-dim">기간:</span>
         <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
           className="w-20 bg-bg-1 border border-border-subtle rounded px-2 py-1 text-xs text-text-primary font-mono text-center" />
         <span className="text-text-dim text-xs">년</span>
@@ -3025,14 +3023,14 @@ function MonthlyCostEditor({
             <div key={c.id} className="flex items-center gap-2 bg-bg-1 border border-border-primary rounded p-2 text-xs">
               <div className="flex-1 min-w-0 truncate text-text-primary">{c.name}</div>
               <label
-                className={`flex items-center gap-1 text-[9px] cursor-pointer select-none ${deduct ? 'text-[#C084FC]' : 'text-text-muted'}`}
+                className={`flex items-center gap-1 text-[9px] cursor-pointer select-none ${deduct ? 'text-purple' : 'text-text-muted'}`}
                 title="체크 시 변동비가 아니라 매출에서 차감 (정산차감형 — 예: 쿠팡 로켓프레시)"
               >
                 <input
                   type="checkbox"
                   checked={deduct}
                   onChange={(e) => setDeductDraft(d => ({ ...d, [c.id]: e.target.checked }))}
-                  className="accent-[#C084FC] w-3 h-3"
+                  className="accent-purple w-3 h-3"
                 />
                 매출차감
               </label>
@@ -3047,7 +3045,7 @@ function MonthlyCostEditor({
                 onClick={() => save(c)}
                 disabled={savingChannel === c.id || !dirty}
                 className={`px-2 py-1 rounded text-[10px] font-medium ${
-                  dirty ? 'bg-accent text-white hover:bg-link' : 'bg-bg-inset text-text-muted'
+                  dirty ? 'bg-accent text-on-brand hover:bg-link' : 'bg-bg-inset text-text-muted'
                 } disabled:opacity-50`}
               >{savingChannel === c.id ? '…' : dirty ? '저장' : '✓'}</button>
             </div>
@@ -3130,11 +3128,11 @@ function PlanTab({
       const data = await r.json();
       if (!r.ok) throw new Error(data.detail || 'upload failed');
       setUploadMsg(
-        `${data.status === 'done' ? '✓' : '⚠'} 매출 ${data.revenue_rows}행 · 수량 ${data.qty_rows}행 · 품목류 ${data.category_rows}행 · 그룹 ${data.summary_rows}행`
+        `${data.status === 'done' ? '✓' : '주의'} 매출 ${data.revenue_rows}행 · 수량 ${data.qty_rows}행 · 품목류 ${data.category_rows}행 · 그룹 ${data.summary_rows}행`
       );
       fetchData();
     } catch (e: any) {
-      setUploadMsg(`❌ ${e.message || e}`);
+      setUploadMsg(`오류: ${e.message || e}`);
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -3158,7 +3156,7 @@ function PlanTab({
             </p>
             <div className="flex items-end gap-2">
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-text-quaternary block mb-1">연도</label>
+                <label className="text-[10px] text-text-quaternary block mb-1">연도</label>
                 <input
                   type="number" value={year}
                   onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
@@ -3170,7 +3168,7 @@ function PlanTab({
                 type="file" accept=".xlsx,.xls,.csv,.pdf"
                 onChange={(e) => e.target.files && e.target.files[0] && upload(e.target.files[0])}
                 disabled={busy}
-                className="flex-1 text-sm text-text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-accent file:text-white file:cursor-pointer hover:file:bg-link disabled:opacity-50"
+                className="flex-1 text-sm text-text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-accent file:text-on-brand file:cursor-pointer hover:file:bg-link disabled:opacity-50"
               />
             </div>
             {uploadMsg && (
@@ -3182,7 +3180,7 @@ function PlanTab({
             <h2 className="text-sm font-semibold mb-2">비교 필터</h2>
             <div className="flex flex-wrap gap-2 items-end">
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-text-quaternary block mb-1">월</label>
+                <label className="text-[10px] text-text-quaternary block mb-1">월</label>
                 <select
                   value={month}
                   disabled={upToToday}
@@ -3205,7 +3203,7 @@ function PlanTab({
                 }}
                 className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
                   upToToday
-                    ? 'bg-accent border-accent text-white'
+                    ? 'bg-accent border-accent text-on-brand'
                     : 'bg-bg-0 border-border-primary text-text-dim hover:border-accent hover:text-text-primary'
                 }`}
                 title="1월 1일부터 오늘까지 누계 분석 (계획은 오늘 기준 일자 비율로 안분)"
@@ -3309,11 +3307,11 @@ function PlanTab({
                 <BarChart data={top} layout="vertical" margin={{ left: 90, right: 12, top: 4, bottom: 4 }} barCategoryGap={3}>
                   <defs>
                     <linearGradient id="gradPlanTarget" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#3A3D45" stopOpacity={0.6} />
+                      <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.6} />
                       <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.85} />
                     </linearGradient>
                     <linearGradient id="gradPlanActual" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#5560C8" stopOpacity={0.85} />
+                      <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.85} />
                       <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
                     </linearGradient>
                   </defs>
@@ -3340,7 +3338,7 @@ function PlanTab({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
+              <tr className="border-b border-border-primary text-[11px] text-text-quaternary">
                 <th className="text-left py-2 px-2">대상</th>
                 <th className="text-right py-2 px-2">계획 매출</th>
                 <th className="text-right py-2 px-2">실적 매출</th>
@@ -3384,7 +3382,7 @@ function PlanTab({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
+                <tr className="border-b border-border-primary text-[11px] text-text-quaternary">
                   <th className="text-left py-2 px-2">채널 × 품목</th>
                   <th className="text-right py-2 px-2">매출(VAT-)</th>
                   <th className="text-right py-2 px-2">낱개수량</th>
@@ -3613,7 +3611,7 @@ function AdminTab({
       setNewPw('');
       fetchPwStatus();
     } catch (e: any) {
-      setPwMsg(`❌ ${e.message || e}`);
+      setPwMsg(`오류: ${e.message || e}`);
     }
   };
 
@@ -3633,7 +3631,7 @@ function AdminTab({
         {isOwner ? (
           <div className="flex items-end gap-2">
             <div className="flex-1">
-              <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">새 비밀번호</label>
+              <label className="text-[10px] text-text-dim block mb-1">새 비밀번호</label>
               <input
                 type="password" value={newPw}
                 onChange={(e) => setNewPw(e.target.value)}
@@ -3643,7 +3641,7 @@ function AdminTab({
             </div>
             <button
               onClick={savePw}
-              className="px-4 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
+              className="px-4 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium"
             >저장</button>
           </div>
         ) : (
@@ -3678,7 +3676,7 @@ function AdminTab({
             <button
               onClick={() => runAdmin('run-retention-now', '즉시 실행')}
               disabled={adminBusy !== null}
-              className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
+              className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium"
             >{adminBusy === '즉시 실행' ? '실행 중…' : '지금 실행'}</button>
           </div>
         </div>
@@ -3688,26 +3686,26 @@ function AdminTab({
             {/* DB 사용량 게이지 */}
             <div className={`${SUBPANEL} p-4 mb-3`}>
               <div className="flex items-baseline justify-between mb-2">
-                <span className="text-xs font-mono uppercase tracking-wider text-text-quaternary">SUPABASE DB 사용량</span>
+                <span className="text-xs font-mono text-text-quaternary">SUPABASE DB 사용량</span>
                 <span className="text-sm font-mono text-text-primary">
                   {storage.db_size?.s || '?'} <span className="text-text-quaternary">/ 8 GB ({dbPct.toFixed(1)}%)</span>
                 </span>
               </div>
               <div className="h-2 bg-bg-1 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, dbPct)}%`, background: dbBarColor }} />
+                <div className="h-full rounded-full transition-[width]" style={{ width: `${Math.min(100, dbPct)}%`, background: dbBarColor }} />
               </div>
             </div>
 
             {/* 상태 카드 */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
               <div className={`${SUBPANEL} p-3`}>
-                <div className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">월 파티션</div>
+                <div className="text-[10px] text-text-quaternary mb-1">월 파티션</div>
                 <div className="text-base font-mono text-text-primary">
                   {storage.is_partitioned ? `✓ 활성 (${storage.partitions?.length || 0}개월)` : '단일 테이블 (전환 가능)'}
                 </div>
               </div>
               <div className={`${SUBPANEL} p-3`}>
-                <div className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">pg_cron 스케줄</div>
+                <div className="text-[10px] text-text-quaternary mb-1">pg_cron 스케줄</div>
                 <div className="text-base font-mono text-text-primary">
                   {(storage.cron_jobs?.length || 0)}개 등록
                 </div>
@@ -3718,7 +3716,7 @@ function AdminTab({
                 ))}
               </div>
               <div className={`${SUBPANEL} p-3`}>
-                <div className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">최근 retention 실행</div>
+                <div className="text-[10px] text-text-quaternary mb-1">최근 retention 실행</div>
                 <div className="text-base font-mono text-text-primary">
                   {storage.recent_runs?.[0]?.ran_at ? new Date(storage.recent_runs[0].ran_at).toLocaleString('ko-KR') : '없음'}
                 </div>
@@ -3732,7 +3730,7 @@ function AdminTab({
                 <div className="mt-2 overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-border-primary text-[10px] uppercase tracking-wider text-text-quaternary">
+                      <tr className="border-b border-border-primary text-[10px] text-text-quaternary">
                         <th className="text-left py-1.5 px-2">테이블</th>
                         <th className="text-right py-1.5 px-2">용량</th>
                         <th className="text-right py-1.5 px-2">행 수 (추정)</th>
@@ -3799,7 +3797,7 @@ function AdminTab({
           </div>
           <button
             onClick={() => setEditingEmp({ email: '', name: '', role: 'staff', is_active: true })}
-            className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
+            className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium"
           >
             + 직원 추가
           </button>
@@ -3809,7 +3807,7 @@ function AdminTab({
           <div className={`${SUBPANEL} p-3 mb-4`}>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
               <div className="md:col-span-2">
-                <label className="text-[10px] uppercase tracking-wider text-text-quaternary block mb-1">이메일</label>
+                <label className="text-[10px] text-text-quaternary block mb-1">이메일</label>
                 <input
                   type="email" value={editingEmp.email || ''}
                   onChange={(e) => setEditingEmp({ ...editingEmp, email: e.target.value })}
@@ -3818,7 +3816,7 @@ function AdminTab({
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-text-quaternary block mb-1">이름</label>
+                <label className="text-[10px] text-text-quaternary block mb-1">이름</label>
                 <input
                   type="text" value={editingEmp.name || ''}
                   onChange={(e) => setEditingEmp({ ...editingEmp, name: e.target.value })}
@@ -3826,7 +3824,7 @@ function AdminTab({
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-text-quaternary block mb-1">역할</label>
+                <label className="text-[10px] text-text-quaternary block mb-1">역할</label>
                 <select
                   value={editingEmp.role || 'staff'}
                   onChange={(e) => setEditingEmp({ ...editingEmp, role: e.target.value })}
@@ -3838,7 +3836,7 @@ function AdminTab({
                 </select>
               </div>
               <div className="flex gap-1.5">
-                <button onClick={saveEmployee} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">저장</button>
+                <button onClick={saveEmployee} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium">저장</button>
                 <button onClick={() => setEditingEmp(null)} className="px-3 py-1.5 bg-bg-inset hover:bg-border-primary text-text-secondary rounded text-xs">취소</button>
               </div>
             </div>
@@ -3848,7 +3846,7 @@ function AdminTab({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
+              <tr className="border-b border-border-primary text-[11px] text-text-quaternary">
                 <th className="text-left py-2 px-2">이름</th>
                 <th className="text-left py-2 px-2">이메일</th>
                 <th className="text-left py-2 px-2">역할</th>
@@ -3893,7 +3891,7 @@ function AdminTab({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border-primary text-[11px] uppercase tracking-wider text-text-quaternary">
+              <tr className="border-b border-border-primary text-[11px] text-text-quaternary">
                 <th className="text-left py-2 px-2">채널</th>
                 <th className="text-left py-2 px-2">카테고리</th>
                 <th className="text-left py-2 px-2">구분 (사업계획 분류)</th>
@@ -3947,7 +3945,7 @@ function AdminTab({
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setAssignTarget(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
-              <button onClick={saveAssign} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">저장 ({pendingChannels.length}개)</button>
+              <button onClick={saveAssign} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium">저장 ({pendingChannels.length}개)</button>
             </div>
           </div>
         </div>
@@ -3963,7 +3961,7 @@ function AdminTab({
 function KpiCard({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
   return (
     <div className={`${PANEL} p-5`}>
-      <div className="text-[10px] font-mono uppercase tracking-wider text-text-dim mb-2">{label}</div>
+      <div className="text-[10px] font-mono text-text-dim mb-2">{label}</div>
       <div className="text-2xl font-semibold tracking-tight" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
       {hint && <div className="text-[11px] text-text-dim mt-1.5">{hint}</div>}
     </div>
@@ -3973,9 +3971,9 @@ function KpiCard({ label, value, hint, accent }: { label: string; value: string;
 function DeltaBadge({ delta }: { delta: { pct: number; sign: 'up' | 'down' | 'flat' } }) {
   const styles =
     delta.sign === 'up'
-      ? { bg: 'rgba(39,166,68,0.15)', color: '#3DD971', border: 'rgba(39,166,68,0.35)' }
+      ? { bg: 'var(--nd-good-soft)', color: 'var(--nd-good)', border: 'transparent' }
       : delta.sign === 'down'
-        ? { bg: 'rgba(235,87,87,0.15)', color: '#FF7A7A', border: 'rgba(235,87,87,0.35)' }
+        ? { bg: 'var(--nd-bad-soft)', color: 'var(--nd-bad)', border: 'transparent' }
         : { bg: 'rgba(122,127,138,0.12)', color: 'var(--color-text-dim)', border: 'rgba(122,127,138,0.25)' };
   const arrow = delta.sign === 'up' ? '▲' : delta.sign === 'down' ? '▼' : '–';
   return (
@@ -4013,12 +4011,13 @@ function CompactKpi({
   const arrow = deltaSign === 'up' ? '▲' : deltaSign === 'down' ? '▼' : '–';
 
   const accentColor = accent || TEXT_PRIMARY;
-  const gradId = `kpi-grad-${label.replace(/\s/g, '')}-${(accent || 'def').replace('#', '')}`;
+  // url(#id) 로 참조하므로 괄호·쉼표 같은 글자가 들어가면 채움이 깨진다 → 글자·숫자만 남긴다
+  const gradId = `kpi-grad-${`${label}-${accent || 'def'}`.replace(/[^0-9A-Za-z가-힣]/g, '')}`;
   const deltaBadgeStyle =
     deltaSign === 'up'
-      ? { bg: 'rgba(39,166,68,0.18)', color: '#3DD971', border: 'rgba(39,166,68,0.4)' }
+      ? { bg: 'var(--nd-good-soft)', color: 'var(--nd-good)', border: 'transparent' }
       : deltaSign === 'down'
-        ? { bg: 'rgba(235,87,87,0.18)', color: '#FF7A7A', border: 'rgba(235,87,87,0.4)' }
+        ? { bg: 'var(--nd-bad-soft)', color: 'var(--nd-bad)', border: 'transparent' }
         : { bg: 'rgba(122,127,138,0.15)', color: 'var(--color-text-dim)', border: 'rgba(122,127,138,0.3)' };
 
   return (
@@ -4041,7 +4040,7 @@ function CompactKpi({
           </ResponsiveContainer>
         </div>
       )}
-      <div className="text-[10px] font-mono uppercase tracking-wider text-text-dim mb-1 pl-1.5">{label}</div>
+      <div className="text-[10px] font-mono text-text-dim mb-1 pl-1.5">{label}</div>
       <div className="text-lg font-semibold tracking-tight truncate pl-1.5" style={{ color: accentColor }}>{value}</div>
       <div className="flex items-center gap-1.5 mt-1 pl-1.5">
         {deltaPct !== null && (
@@ -4124,7 +4123,7 @@ function DonutCard({
 function DateInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex flex-col">
-      <label className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">{label}</label>
+      <label className="text-[10px] text-text-quaternary mb-1">{label}</label>
       <input
         type="date"
         value={value}
@@ -4143,14 +4142,14 @@ function Segment<T extends string>({ label, options, value, onChange }: {
 }) {
   return (
     <div className="flex flex-col">
-      <label className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">{label}</label>
+      <label className="text-[10px] text-text-quaternary mb-1">{label}</label>
       <div className="flex bg-bg-0 border border-border-primary rounded-md p-0.5">
         {options.map(o => (
           <button
             key={o.v}
             onClick={() => onChange(o.v)}
             className={`px-2.5 py-1 text-xs rounded transition-colors ${
-              value === o.v ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-primary'
+              value === o.v ? 'bg-accent text-on-brand' : 'text-text-tertiary hover:text-text-primary'
             }`}
           >
             {o.l}
@@ -4194,7 +4193,7 @@ function MultiSelect({ label, options, value, onChange }: {
 
   return (
     <div className="flex flex-col relative" ref={wrapRef}>
-      <label className="text-[10px] uppercase tracking-wider text-text-quaternary mb-1">{label}</label>
+      <label className="text-[10px] text-text-quaternary mb-1">{label}</label>
       <button
         onClick={() => setOpen(o => !o)}
         className="bg-bg-0 border border-border-primary rounded-md px-3 py-1.5 text-sm text-text-primary min-w-[120px] text-left flex items-center justify-between"
@@ -4203,10 +4202,10 @@ function MultiSelect({ label, options, value, onChange }: {
         <span className="text-text-quaternary ml-2">▾</span>
       </button>
       {open && (
-        <div className="absolute z-20 top-full mt-1 left-0 w-72 max-h-[300px] overflow-y-auto bg-bg-1 border border-border-primary rounded-md shadow-xl p-2">
+        <div className="absolute z-20 top-full mt-1 left-0 w-72 max-h-[300px] overflow-y-auto bg-bg-1 border border-border-primary rounded-md shadow-nd-f p-2">
           {Object.entries(grouped).map(([g, opts]) => (
             <div key={g} className="mb-1">
-              {g !== '_' && <div className="text-[10px] uppercase tracking-wider text-text-quaternary px-2 py-1">{g}</div>}
+              {g !== '_' && <div className="text-[10px] text-text-quaternary px-2 py-1">{g}</div>}
               {opts.map(o => (
                 <label key={o.v} className="flex items-center gap-2 px-2 py-1 hover:bg-bg-inset rounded cursor-pointer text-xs">
                   <input
@@ -4394,7 +4393,7 @@ function ProductsTab({
           />
           <button
             onClick={() => { setEditProd({ name: '', default_unit_size: 1, is_active: true, sort_order: 100 }); setShowProdEditor(true); }}
-            className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium"
+            className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium"
           >+ 품목 추가</button>
         </div>
       </div>
@@ -4467,7 +4466,7 @@ function ProductsTab({
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="bg-bg-1 sticky top-0 z-10">
-                <th className="text-left py-2 px-3 border-b-2 border-border-subtle text-[10px] uppercase tracking-wider text-text-dim sticky left-0 bg-bg-1 min-w-[140px]">
+                <th className="text-left py-2 px-3 border-b-2 border-border-subtle text-[10px] text-text-dim sticky left-0 bg-bg-1 min-w-[140px]">
                   채널 \ 품목
                 </th>
                 {products.map(p => (
@@ -4547,7 +4546,7 @@ function ProductsTab({
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setSelectedChannel(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
-              <button onClick={saveChannelProducts} disabled={busy} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50">
+              <button onClick={saveChannelProducts} disabled={busy} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium disabled:opacity-50">
                 {busy ? '저장 중…' : `저장 (${pendingPids.size}개)`}
               </button>
             </div>
@@ -4562,7 +4561,7 @@ function ProductsTab({
             <h3 className="text-sm font-semibold mb-3">{editProd.id ? `'${editProd.name}' 수정` : '새 품목 추가'}</h3>
             <div className="space-y-2">
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-text-dim mb-1">품목명</label>
+                <label className="block text-[10px] text-text-dim mb-1">품목명</label>
                 <input
                   type="text"
                   value={editProd.name || ''}
@@ -4574,7 +4573,7 @@ function ProductsTab({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-text-dim mb-1">코드</label>
+                  <label className="block text-[10px] text-text-dim mb-1">코드</label>
                   <input
                     type="text"
                     value={editProd.code || ''}
@@ -4583,7 +4582,7 @@ function ProductsTab({
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-text-dim mb-1">카테고리</label>
+                  <label className="block text-[10px] text-text-dim mb-1">카테고리</label>
                   <input
                     type="text"
                     value={editProd.category || ''}
@@ -4595,7 +4594,7 @@ function ProductsTab({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-text-dim mb-1">기본 입수</label>
+                  <label className="block text-[10px] text-text-dim mb-1">기본 입수</label>
                   <input
                     type="number"
                     min={1}
@@ -4605,7 +4604,7 @@ function ProductsTab({
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-text-dim mb-1">정렬 순서</label>
+                  <label className="block text-[10px] text-text-dim mb-1">정렬 순서</label>
                   <input
                     type="number"
                     value={editProd.sort_order || 100}
@@ -4620,7 +4619,7 @@ function ProductsTab({
             </div>
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => { setShowProdEditor(false); setEditProd({}); }} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
-              <button onClick={saveProduct} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">저장</button>
+              <button onClick={saveProduct} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium">저장</button>
             </div>
           </div>
         </div>
@@ -4827,7 +4826,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
         <div className="flex flex-wrap gap-3 items-end justify-between">
           <div className="flex items-end gap-3">
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">연도</label>
+              <label className="text-[10px] text-text-dim block mb-1">연도</label>
               <input
                 type="number" value={year}
                 onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
@@ -4874,7 +4873,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
             <div>매출·변동비는 <span className="text-accent">실제 업로드된 엑셀 + 변동비 규칙</span>에서 자동 산출.</div>
             <div>원재료·부재료·고정비는 직접 입력. 셀 클릭 시 비밀번호 모달.</div>
             {!pwStatus?.is_set && (
-              <div className="text-warning mt-1">⚠ 수정 비밀번호 미설정 — 직원·채널 관리 탭에서 설정</div>
+              <div className="text-warning mt-1">수정 비밀번호 미설정 — 직원·채널 관리 탭에서 설정</div>
             )}
           </div>
         </div>
@@ -4892,24 +4891,24 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="bg-bg-1 sticky top-0 z-10">
-                <th className="text-left py-2.5 px-3 border-b-2 border-border-subtle text-[10px] uppercase tracking-wider text-text-dim sticky left-0 bg-bg-1 min-w-[200px]">
+                <th className="text-left py-2.5 px-3 border-b-2 border-border-subtle text-[10px] text-text-dim sticky left-0 bg-bg-1 min-w-[200px]">
                   계정과목
                 </th>
                 {scope !== 'plan' && MONTHS.map(m => (
-                  <th key={`a-${m}`} className="text-right py-2.5 px-2 border-b-2 border-border-subtle text-[10px] uppercase tracking-wider text-accent min-w-[80px]">
+                  <th key={`a-${m}`} className="text-right py-2.5 px-2 border-b-2 border-border-subtle text-[10px] text-accent min-w-[80px]">
                     {m}월
                   </th>
                 ))}
                 {scope === 'both' && <th className="border-b-2 border-l border-border-subtle" />}
                 {scope !== 'actual' && MONTHS.map(m => (
-                  <th key={`p-${m}`} className="text-right py-2.5 px-2 border-b-2 border-border-subtle text-[10px] uppercase tracking-wider text-text-dim min-w-[80px]">
+                  <th key={`p-${m}`} className="text-right py-2.5 px-2 border-b-2 border-border-subtle text-[10px] text-text-dim min-w-[80px]">
                     {m}월{scope === 'both' && <span className="block text-[8px] text-text-muted">(계획)</span>}
                   </th>
                 ))}
               </tr>
               {scope === 'both' && (
-                <tr className="bg-[#0A0B0D]">
-                  <th className="border-b border-border-subtle sticky left-0 bg-[#0A0B0D]" />
+                <tr className="bg-bg-0">
+                  <th className="border-b border-border-subtle sticky left-0 bg-bg-0" />
                   {MONTHS.map(m => (
                     <th key={`ah-${m}`} className="text-[9px] text-accent text-right px-2 py-1 border-b border-border-subtle">실적</th>
                   ))}
@@ -5020,7 +5019,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
             </h3>
             <p className="text-xs text-text-dim mb-3">변경 시 P&L 비밀번호가 필요합니다.</p>
 
-            <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">값 (원)</label>
+            <label className="text-[10px] text-text-dim block mb-1">값 (원)</label>
             <input
               type="number"
               value={editValue} onChange={(e) => setEditValue(e.target.value)}
@@ -5030,7 +5029,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
 
             {pwStatus?.is_set && (
               <>
-                <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">비밀번호</label>
+                <label className="text-[10px] text-text-dim block mb-1">비밀번호</label>
                 <input
                   type="password"
                   value={editPw} onChange={(e) => setEditPw(e.target.value)}
@@ -5049,7 +5048,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
 
             <div className="flex justify-end gap-2">
               <button onClick={() => setEditCell(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
-              <button onClick={saveEdit} disabled={editBusy} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium disabled:opacity-50">
+              <button onClick={saveEdit} disabled={editBusy} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium disabled:opacity-50">
                 {editBusy ? '저장 중…' : '저장'}
               </button>
             </div>
@@ -5062,21 +5061,21 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className={`${PANEL} p-5 max-w-md w-full`}>
             <h3 className="text-sm font-semibold mb-3">'{addRowParent.label}' 하위 행 추가</h3>
-            <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">행 이름</label>
+            <label className="text-[10px] text-text-dim block mb-1">행 이름</label>
             <input
               type="text" value={newRowLabel} onChange={(e) => setNewRowLabel(e.target.value)}
               placeholder="예: 임차료, 인건비"
               className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-2 text-sm text-text-primary mb-3"
               autoFocus
             />
-            <label className="text-[10px] uppercase tracking-wider text-text-dim block mb-1">비밀번호</label>
+            <label className="text-[10px] text-text-dim block mb-1">비밀번호</label>
             <input
               type="password" value={addRowPw} onChange={(e) => setAddRowPw(e.target.value)}
               className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-2 text-sm text-text-primary mb-3"
             />
             <div className="flex justify-end gap-2">
               <button onClick={() => setAddRowParent(null)} className="px-3 py-1.5 bg-bg-inset text-text-secondary rounded text-xs">취소</button>
-              <button onClick={addRow} className="px-3 py-1.5 bg-accent hover:bg-link text-white rounded text-xs font-medium">추가</button>
+              <button onClick={addRow} className="px-3 py-1.5 bg-accent hover:bg-link text-on-brand rounded text-xs font-medium">추가</button>
             </div>
           </div>
         </div>
@@ -5138,14 +5137,14 @@ function SalesHeatmap({
         {/* 담당자별 행 */}
         {hm.employees.map((emp) => (
           <div key={emp} className="flex items-center">
-            <div className="shrink-0 w-[96px] pr-2 text-[11px] text-[#C7CCD4] truncate text-right">{emp}</div>
+            <div className="shrink-0 w-[96px] pr-2 text-[11px] text-text-secondary truncate text-right">{emp}</div>
             {hm.periods.map((p) => {
               const c = cellMap.get(`${emp}|||${p}`);
               const rev = c?.revenue || 0;
               return (
                 <div
                   key={p}
-                  className="shrink-0 m-[1px] rounded-[3px] cursor-default transition-transform hover:scale-110 hover:ring-1 hover:ring-brand-light"
+                  className="shrink-0 m-[1px] rounded-[3px] cursor-default transition-transform hover:ring-1 hover:ring-brand-light"
                   style={{ width: cellW - 2, height: 22, background: cellColor(rev) }}
                   onMouseEnter={(e) => setHover({
                     x: e.clientX, y: e.clientY, emp, period: p,
@@ -5170,14 +5169,14 @@ function SalesHeatmap({
 
       {hover && (
         <div
-          className="fixed z-50 pointer-events-none rounded-lg border border-border-subtle bg-bg-inset px-3 py-2 shadow-xl"
+          className="fixed z-50 pointer-events-none rounded-lg border border-border-subtle bg-bg-inset px-3 py-2 shadow-nd-f"
           style={{ left: Math.min(hover.x + 14, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 180), top: hover.y + 14 }}
         >
           <div className="text-[11px] font-semibold text-text-primary">{hover.emp}</div>
           <div className="text-[10px] text-text-dim mb-1">{hover.period}</div>
           <div className="text-[11px] text-brand-light">매출 ₩{Math.round(hover.revenue).toLocaleString()}</div>
-          <div className="text-[10px] text-[#C7CCD4]">수량 {Math.round(hover.pcs).toLocaleString()}개</div>
-          <div className="text-[10px] text-[#3DD971]">공헌이익 ₩{Math.round(hover.cm).toLocaleString()}</div>
+          <div className="text-[10px] text-text-secondary">수량 {Math.round(hover.pcs).toLocaleString()}개</div>
+          <div className="text-[10px] text-success">공헌이익 ₩{Math.round(hover.cm).toLocaleString()}</div>
         </div>
       )}
     </div>

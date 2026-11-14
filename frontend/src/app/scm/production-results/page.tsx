@@ -195,7 +195,7 @@ function MiniBarChart({ data, labelKey, valueKey, color = 'var(--color-brand-bg)
       {data.map((d, i) => (
         <div key={i} className="flex flex-col items-center flex-1 min-w-0">
           <div
-            className="w-full rounded-t transition-all duration-300 min-h-[2px]"
+            className="w-full rounded-t transition-[height] duration-300 min-h-[2px]"
             style={{ height: `${(d[valueKey] / max) * 100}%`, backgroundColor: color }}
             title={`${d[labelKey]}: ${formatNumber(d[valueKey])}`}
           />
@@ -517,7 +517,7 @@ export default function ProductionResultsPage() {
 
   // Category badge colors
   const CATEGORY_BADGE: Record<string, { bg: string; text: string }> = {
-    '마카롱': { bg: 'bg-danger/15', text: 'text-[#D04040]' },
+    '마카롱': { bg: 'bg-danger/15', text: 'text-danger' },
     '케이크': { bg: 'bg-warning/15', text: 'text-warning' },
     '쿠키':   { bg: 'bg-orange/15', text: 'text-orange' },
     '비누':   { bg: 'bg-success/15', text: 'text-success' },
@@ -778,12 +778,12 @@ export default function ProductionResultsPage() {
       <main className="max-w-[1800px] mx-auto px-4 sm:px-6 py-6">
         {/* ── Page Header ── */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-text-primary">생산 결과 (Production Results)</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">생산 결과 (Production Results)</h1>
           <p className="text-sm text-text-tertiary mt-1">생산일보 RAW-DATA 관리 및 분석</p>
         </div>
 
         {/* ── Filters Bar ── */}
-        <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4 mb-6">
+        <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4 mb-6">
           <div className="flex flex-wrap items-end gap-4">
             <div>
               <label className="block text-xs font-medium text-text-tertiary mb-1">시작일</label>
@@ -833,24 +833,24 @@ export default function ProductionResultsPage() {
 
         {/* ── Summary Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+          <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
             <div className="text-xs text-text-tertiary mb-1">총 생산량</div>
-            <div className="text-2xl font-bold text-text-primary">{formatNumber(summary.totalQuantity)}</div>
+            <div className="text-2xl font-semibold text-text-primary">{formatNumber(summary.totalQuantity)}</div>
             <div className="text-xs text-success mt-1">{summary.totalRows}건 기록</div>
           </div>
-          <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+          <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
             <div className="text-xs text-text-tertiary mb-1">총 생산액</div>
-            <div className="text-2xl font-bold text-link">{formatNumber(summary.totalValue)}</div>
+            <div className="text-2xl font-semibold text-link">{formatNumber(summary.totalValue)}</div>
             <div className="text-xs text-text-quaternary mt-1">원</div>
           </div>
-          <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+          <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
             <div className="text-xs text-text-tertiary mb-1">총 투여 시간</div>
-            <div className="text-2xl font-bold text-success">{summary.totalHours.toLocaleString('ko-KR', { minimumFractionDigits: 1 })}h</div>
+            <div className="text-2xl font-semibold text-success">{summary.totalHours.toLocaleString('ko-KR', { minimumFractionDigits: 1 })}h</div>
             <div className="text-xs text-text-quaternary mt-1">생산 투여 총 시간 합계</div>
           </div>
-          <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+          <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
             <div className="text-xs text-text-tertiary mb-1">평균 원가율</div>
-            <div className="text-2xl font-bold text-warning">{summary.avgCostRate.toFixed(1)}%</div>
+            <div className="text-2xl font-semibold text-warning">{summary.avgCostRate.toFixed(1)}%</div>
             <div className="text-xs text-text-quaternary mt-1">원가 총액 / 총 생산액</div>
           </div>
         </div>
@@ -858,28 +858,28 @@ export default function ProductionResultsPage() {
         {/* ── Charts Section ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           {/* Daily production value trend */}
-          <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+          <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
             <h3 className="text-sm font-semibold text-text-secondary mb-3">일별 총 생산액 추이</h3>
             <MiniLineChart data={dailyTrendData} labelKey="label" valueKey="value" color="var(--color-brand-bg)" />
           </div>
           {/* Production value by category */}
-          <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+          <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
             <h3 className="text-sm font-semibold text-text-secondary mb-3">품목류별 총 생산액</h3>
             <MiniBarChart data={categoryChartData} labelKey="label" valueKey="value" color="#10b981" />
           </div>
           {/* Category quantity distribution */}
-          <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+          <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
             <h3 className="text-sm font-semibold text-text-secondary mb-3">품목류별 생산량 분포</h3>
             <MiniPieChart data={categoryPieData} />
           </div>
         </div>
 
         {/* ── 품목별 시간당 생산량 Section ── */}
-        <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary mb-6 overflow-hidden">
+        <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary mb-6 overflow-hidden">
           {/* Collapsible header */}
           <button
             onClick={() => setProductStatsOpen(prev => !prev)}
-            className="w-full flex items-center justify-between px-5 py-3 hover:bg-white/5 transition"
+            className="w-full flex items-center justify-between px-5 py-3 hover:bg-bg-secondary transition"
           >
             <div className="flex items-center gap-2">
               <svg
@@ -903,7 +903,7 @@ export default function ProductionResultsPage() {
                 <button
                   onClick={syncRatesToProducts}
                   disabled={syncingRates || productStats.length === 0}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand text-white text-xs font-medium rounded-lg hover:bg-accent transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand text-on-brand text-xs font-medium rounded-lg hover:bg-accent transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {syncingRates ? (
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -929,7 +929,7 @@ export default function ProductionResultsPage() {
                       ]).map(col => (
                         <th
                           key={col.field}
-                          className="border-b border-border-primary px-3 py-2 text-xs font-semibold text-text-secondary cursor-pointer hover:bg-white/5 select-none whitespace-nowrap"
+                          className="border-b border-border-primary px-3 py-2 text-xs font-semibold text-text-secondary cursor-pointer hover:bg-bg-secondary select-none whitespace-nowrap"
                           style={{ textAlign: col.align as any }}
                           onClick={() => handlePsSort(col.field)}
                         >
@@ -1001,7 +1001,7 @@ export default function ProductionResultsPage() {
                                 <div className="flex items-center gap-2">
                                   <div className="flex-1 h-3 bg-bg-2 rounded-full overflow-hidden" style={{ minWidth: '80px' }}>
                                     <div
-                                      className="h-full rounded-full transition-all duration-500"
+                                      className="h-full rounded-full transition-[width] duration-500"
                                       style={{ width: `${barPct}%`, backgroundColor: barColor }}
                                     />
                                   </div>
@@ -1021,10 +1021,10 @@ export default function ProductionResultsPage() {
         </div>
 
         {/* ── Toolbar ── */}
-        <div className="bg-bg-1 rounded-t-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary border-b-0 px-4 py-3 flex flex-wrap items-center gap-2">
+        <div className="bg-bg-1 rounded-t-xl shadow-nd-s border border-border-primary border-b-0 px-4 py-3 flex flex-wrap items-center gap-2">
           <button
             onClick={addRow}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand text-white text-sm font-medium rounded-lg hover:bg-accent transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand text-on-brand text-sm font-medium rounded-lg hover:bg-accent transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             행 추가
@@ -1045,14 +1045,14 @@ export default function ProductionResultsPage() {
           )}
           <button
             onClick={saveAll}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-success text-white text-sm font-medium rounded-lg hover:bg-success-hover transition"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-success text-on-brand text-sm font-medium rounded-lg hover:bg-success-hover transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             전체 저장
           </button>
           <button
             onClick={() => downloadExcel(filteredRows)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-bg-2 text-text-secondary text-sm font-medium rounded-lg hover:bg-white/5 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-bg-2 text-text-secondary text-sm font-medium rounded-lg hover:bg-bg-secondary transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             Excel 내보내기
@@ -1062,7 +1062,7 @@ export default function ProductionResultsPage() {
         {/* ── Data Grid ── */}
         <div
           ref={tableRef}
-          className="bg-bg-1 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary rounded-b-xl overflow-auto max-h-[70vh]"
+          className="bg-bg-1 shadow-nd-s border border-border-primary rounded-b-xl overflow-auto max-h-[70vh]"
           onCopy={handleCopy}
           onPaste={handlePaste}
           tabIndex={0}
@@ -1084,7 +1084,7 @@ export default function ProductionResultsPage() {
                 {COLUMNS.map(col => (
                   <th
                     key={col.key}
-                    className="border border-border-primary px-2 py-2 text-xs font-semibold text-text-secondary cursor-pointer hover:bg-white/5 select-none whitespace-nowrap"
+                    className="border border-border-primary px-2 py-2 text-xs font-semibold text-text-secondary cursor-pointer hover:bg-bg-secondary select-none whitespace-nowrap"
                     style={{ width: col.width, textAlign: col.align }}
                     onClick={() => handleSort(col.key)}
                   >
@@ -1223,7 +1223,7 @@ export default function ProductionResultsPage() {
                         <button
                           onClick={() => duplicateRow(row.id)}
                           title="복제"
-                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-white/5 text-text-tertiary hover:text-link transition"
+                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-bg-secondary text-text-tertiary hover:text-link transition"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeWidth="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2" /></svg>
                         </button>
@@ -1262,7 +1262,7 @@ export default function ProductionResultsPage() {
       {/* ── Toast notification ── */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className="bg-bg-1 text-text-primary px-5 py-3 rounded-xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm font-medium flex items-center gap-2">
+          <div className="bg-bg-1 text-text-primary px-5 py-3 rounded-xl shadow-nd-f text-sm font-medium flex items-center gap-2">
             <svg className="w-4 h-4 text-success-light" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             {toast}
           </div>

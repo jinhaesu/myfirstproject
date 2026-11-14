@@ -1,5 +1,9 @@
 import type { Config } from 'tailwindcss';
 
+// 색은 CSS 변수라 Tailwind 가 투명도를 계산할 수 없다. color-mix 로 감싸야
+// bg-brand/10, border-danger/30 같은 투명도 표기가 실제 CSS 로 만들어진다.
+const c = (v: string) => `color-mix(in srgb, var(${v}) calc(<alpha-value> * 100%), transparent)`;
+
 const config: Config = {
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -24,40 +28,58 @@ const config: Config = {
       // 값은 src/app/globals.css의 :root / :root[data-theme="light"]에서 정의됨.
       colors: {
         // Backgrounds (레벨별 표면)
-        'bg-0': 'var(--color-bg-level-0)',
-        'bg-1': 'var(--color-bg-level-1)',
-        'bg-2': 'var(--color-bg-level-2)',
-        'bg-secondary': 'var(--color-bg-secondary)',
-        'bg-tertiary': 'var(--color-bg-tertiary)',
-        'bg-quaternary': 'var(--color-bg-quaternary)',
-        'bg-inset': 'var(--color-bg-inset)',
+        'bg-0': c('--color-bg-level-0'),
+        'bg-1': c('--color-bg-level-1'),
+        'bg-2': c('--color-bg-level-2'),
+        'bg-secondary': c('--color-bg-secondary'),
+        'bg-tertiary': c('--color-bg-tertiary'),
+        'bg-quaternary': c('--color-bg-quaternary'),
+        'bg-inset': c('--color-bg-inset'),
         // Text
-        'text-primary': 'var(--color-text-primary)',
-        'text-secondary': 'var(--color-text-secondary)',
-        'text-tertiary': 'var(--color-text-tertiary)',
-        'text-quaternary': 'var(--color-text-quaternary)',
-        'text-dim': 'var(--color-text-dim)',
-        'text-muted': 'var(--color-text-muted)',
+        'text-primary': c('--color-text-primary'),
+        'text-secondary': c('--color-text-secondary'),
+        'text-tertiary': c('--color-text-tertiary'),
+        'text-quaternary': c('--color-text-quaternary'),
+        'text-dim': c('--color-text-dim'),
+        'text-muted': c('--color-text-muted'),
         // Borders
-        'border-primary': 'var(--color-border-primary)',
-        'border-secondary': 'var(--color-border-secondary)',
-        'border-subtle': 'var(--color-border-subtle)',
+        'border-primary': c('--color-border-primary'),
+        'border-secondary': c('--color-border-secondary'),
+        'border-subtle': c('--color-border-subtle'),
         // Brand family (다크/라이트 공통 유지)
-        'brand': 'var(--color-brand-bg)',
-        'brand-hover': 'var(--color-brand-hover)',
-        'brand-light': 'var(--color-brand-light)',
-        'link': 'var(--color-link-primary)',
-        'accent': 'var(--color-accent-hover)',
+        'brand': c('--color-brand-bg'),
+        'brand-hover': c('--color-brand-hover'),
+        'brand-light': c('--color-brand-light'),
+        'link': c('--color-link-primary'),
+        'accent': c('--color-accent-hover'),
         // Semantic status
-        'danger': 'var(--color-danger)',
-        'success': 'var(--color-success)',
-        'success-hover': 'var(--color-success-hover)',
-        'success-light': 'var(--color-success-light)',
-        'warning': 'var(--color-warning)',
-        'orange': 'var(--color-orange)',
-        'info': 'var(--color-info)',
-        'cyan': 'var(--color-cyan)',
-        'purple': 'var(--color-purple)',
+        'danger': c('--color-danger'),
+        'success': c('--color-success'),
+        'success-hover': c('--color-success-hover'),
+        'success-light': c('--color-success-light'),
+        'warning': c('--color-warning'),
+        'orange': c('--color-orange'),
+        'info': c('--color-info'),
+        'cyan': c('--color-cyan'),
+        'purple': c('--color-purple'),
+        // 강조색 위의 글자(어두운 화면에서는 거의 검정)
+        'on-brand': c('--color-on-brand'),
+      },
+      // 깊이: 밝은 화면은 옅은 그림자, 어두운 화면은 그림자 없이 면 단계와 가는 선
+      boxShadow: {
+        'nd-s': 'var(--nd-shadow-s)',
+        'nd-f': 'var(--nd-shadow-f)',
+      },
+      // 움직임: 곡선 하나, 길이 셋 (styles/nd-cosmos.css)
+      transitionTimingFunction: {
+        DEFAULT: 'var(--nd-ease)',
+        nd: 'var(--nd-ease)',
+      },
+      transitionDuration: {
+        DEFAULT: 'var(--nd-fast)',
+        fast: 'var(--nd-fast)',
+        mid: 'var(--nd-mid)',
+        slow: 'var(--nd-slow)',
       },
     },
   },

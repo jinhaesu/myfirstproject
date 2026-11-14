@@ -1,4 +1,5 @@
 'use client';
+import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -71,7 +72,7 @@ const C = {
   card: 'bg-bg-1 border border-border-primary rounded-xl',
   input: 'bg-bg-0 border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-brand',
   btn: 'px-3 py-2 rounded-lg text-sm font-semibold transition-colors',
-  btnPrimary: 'bg-brand hover:bg-brand-hover text-white',
+  btnPrimary: 'bg-brand hover:bg-brand-hover text-on-brand',
   btnGhost: 'bg-bg-inset hover:bg-border-primary text-text-secondary border border-border-primary',
   th: 'text-left text-xs font-semibold text-text-tertiary px-3 py-2 border-b border-border-primary whitespace-nowrap',
   td: 'px-3 py-2 text-sm text-text-secondary border-b border-bg-inset whitespace-nowrap',
@@ -84,7 +85,7 @@ const wonShort = (n: number) => '₩' + numShort(n);
 function StatusBadge({ s }: { s: string }) {
   const m: Record<string, string> = {
     정상: 'bg-success/15 text-success-light', 주의: 'bg-warning/15 text-warning',
-    부족: 'bg-danger/15 text-danger', 품절: 'bg-danger/25 text-[#FF7A7A]',
+    부족: 'bg-danger/15 text-danger', 품절: 'bg-danger/25 text-danger',
   };
   return <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${m[s] || 'bg-border-primary text-text-tertiary'}`}>{s}</span>;
 }
@@ -93,7 +94,7 @@ function StatCard({ label, value, sub, tone }: { label: string; value: string; s
   return (
     <div className={`${C.card} p-4`}>
       <div className="text-[11px] text-text-tertiary mb-1 truncate" title={label}>{label}</div>
-      <div className={`text-lg font-bold tabular-nums leading-tight break-keep ${tone || 'text-text-primary'}`}>{value}</div>
+      <div className={`text-lg font-semibold tabular-nums leading-tight break-keep ${tone || 'text-text-primary'}`}>{value}</div>
       {sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}
     </div>
   );
@@ -120,7 +121,7 @@ const RANGE_PRESETS: [string, string][] = [
   ['7d', '7일'], ['14d', '14일'], ['thisMonth', '당월'], ['lastMonth', '전월'],
   ['thisQuarter', '당분기'], ['lastQuarter', '전분기'], ['lastYear', '전년도'],
 ];
-const CHART_COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#00B8CC', '#EB5757', '#A855F7', '#F97316', '#14B8A6'];
+const CHART_COLORS = ND_CHART;
 
 // ═════════════════════════════════════════════════════════
 // Main
@@ -146,12 +147,12 @@ export default function InventoryPage() {
 
   if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
 
-  const tabs: { key: Tab; icon: string; sub: string }[] = [
-    { key: '대시보드', icon: '📊', sub: '요약·흐름' },
-    { key: '재고 현황', icon: '📦', sub: '제품·원부재료·포장재' },
-    { key: '재고 실사', icon: '📋', sub: '실사·가액' },
-    { key: '보충 알림', icon: '🔔', sub: '재주문' },
-    { key: '설정', icon: '⚙️', sub: '창고·매핑' },
+  const tabs: { key: Tab; sub: string }[] = [
+    { key: '대시보드', sub: '요약·흐름' },
+    { key: '재고 현황', sub: '제품·원부재료·포장재' },
+    { key: '재고 실사', sub: '실사·가액' },
+    { key: '보충 알림', sub: '재주문' },
+    { key: '설정', sub: '창고·매핑' },
   ];
 
   return (
@@ -160,7 +161,7 @@ export default function InventoryPage() {
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-text-primary">재고 관리</h1>
+            <h1 className="text-xl font-semibold text-text-primary">재고 관리</h1>
             <p className="text-sm text-text-tertiary mt-0.5">완제품(판매연동)·원부재료·포장재 재고와 실사·가액을 한 곳에서 관리합니다.</p>
           </div>
         </div>
@@ -168,11 +169,10 @@ export default function InventoryPage() {
         <div className="flex gap-1.5 mb-5 flex-wrap">
           {tabs.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all ${
+              className={`group flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-colors ${
                 tab === t.key
-                  ? 'bg-brand/10 border-brand/40 text-accent shadow-[0_1px_3px_rgba(0,0,0,0.15)]'
+                  ? 'bg-brand/10 border-brand/40 text-accent shadow-nd-s'
                   : 'bg-bg-1 border-border-primary text-text-tertiary hover:text-text-secondary hover:border-border-secondary'}`}>
-              <span className="text-base leading-none">{t.icon}</span>
               <span className="text-left leading-tight">
                 <span className="block text-[13px] font-semibold">{t.key}</span>
                 <span className={`block text-[10px] ${tab === t.key ? 'text-accent/70' : 'text-text-quaternary'}`}>{t.sub}</span>
@@ -505,7 +505,7 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
                 }}
                 disabled={!netMx?.period_rows?.length}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-bg-inset border border-border-primary text-text-secondary hover:bg-border-primary disabled:opacity-40"
-              >⬇ 엑셀 다운로드</button>
+              >엑셀 다운로드</button>
             </div>
             <div className="overflow-x-auto max-h-[360px] overflow-y-auto mt-2">
               <table className="w-full">
@@ -516,7 +516,7 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
                   {!netMx?.period_rows?.length ? (
                     <tr><td colSpan={3} className="px-3 py-8 text-center text-sm text-text-quaternary">데이터 없음</td></tr>
                   ) : netMx.period_rows.map((r: any, i: number) => (
-                    <tr key={i} className="hover:bg-white/5">
+                    <tr key={i} className="hover:bg-bg-secondary">
                       <td className={`${C.td} text-text-tertiary`}>{r.category}</td>
                       <td className={`${C.td} text-text-primary`}>{r.product}</td>
                       <td className={`${C.td} text-right font-semibold ${r.net < 0 ? 'text-danger' : 'text-success-light'}`}>{r.net > 0 ? '+' : ''}{fmt(r.net)}</td>
@@ -613,7 +613,7 @@ function StockTab({ warehouses, categories }: { warehouses: Warehouse[]; categor
           <option value="">전체 카테고리</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        {mode === 'snapshot' && <button onClick={download} className={`${C.btn} ${C.btnGhost}`}>📥 리포트 다운로드</button>}
+        {mode === 'snapshot' && <button onClick={download} className={`${C.btn} ${C.btnGhost}`}>리포트 다운로드</button>}
         {loading && <span className="text-xs text-text-quaternary">불러오는 중…</span>}
       </div>
 
@@ -730,10 +730,10 @@ function SegmentedControl<T extends string>({ value, onChange, options }: { valu
     <div className="inline-flex bg-bg-0 border border-border-primary rounded-xl p-1 gap-1">
       {options.map((o) => (
         <button key={o.v} onClick={() => onChange(o.v)}
-          className={`px-4 py-1.5 rounded-lg transition-all text-left ${
-            value === o.v ? 'bg-brand text-white shadow-[0_1px_3px_rgba(0,0,0,0.2)]' : 'text-text-tertiary hover:text-text-secondary'}`}>
+          className={`px-4 py-1.5 rounded-lg transition-colors text-left ${
+            value === o.v ? 'bg-brand text-on-brand shadow-nd-s' : 'text-text-tertiary hover:text-text-secondary'}`}>
           <span className="block text-[13px] font-semibold leading-tight">{o.label}</span>
-          {o.sub && <span className={`block text-[10px] leading-tight ${value === o.v ? 'text-white/75' : 'text-text-quaternary'}`}>{o.sub}</span>}
+          {o.sub && <span className={`block text-[10px] leading-tight ${value === o.v ? 'text-on-brand/75' : 'text-text-quaternary'}`}>{o.sub}</span>}
         </button>
       ))}
     </div>
@@ -815,16 +815,16 @@ function FlowBar({ opening, purchase, consumed, stock }: { opening: number; purc
         <div className="flex justify-between text-[11px] mb-1"><span className="text-text-tertiary">유입 (기초 + 매입)</span><span className="tabular-nums text-text-secondary">{won(opening + purchase)}</span></div>
         <div className="flex h-6 rounded-md overflow-hidden bg-bg-inset">
           {opening > 0 && <div className="flex items-center justify-center text-[10px] text-white/90" style={{ width: pct(opening), background: 'var(--color-text-quaternary)' }} title={`기초 ${won(opening)}`}>{opening / inflow > 0.08 ? '기초' : ''}</div>}
-          <div className="flex items-center justify-center text-[10px] text-white/90" style={{ width: pct(purchase), background: 'var(--color-warning)' }} title={`매입 ${won(purchase)}`}>{purchase / inflow > 0.12 ? `매입 ${wonShort(purchase)}` : ''}</div>
+          <div className="flex items-center justify-center text-[10px] text-on-brand/90" style={{ width: pct(purchase), background: 'var(--color-warning)' }} title={`매입 ${won(purchase)}`}>{purchase / inflow > 0.12 ? `매입 ${wonShort(purchase)}` : ''}</div>
         </div>
       </div>
       <div>
         <div className="flex justify-between text-[11px] mb-1"><span className="text-info">− 소모 (BOM 이론소요)</span><span className="tabular-nums text-info">{won(consumed)}</span></div>
-        <div className="flex h-6 rounded-md overflow-hidden bg-bg-inset"><div className="flex items-center justify-center text-[10px] text-white/90" style={{ width: pct(consumed), background: 'var(--color-info)' }}>{consumed / inflow > 0.12 ? `소모 ${wonShort(consumed)}` : ''}</div></div>
+        <div className="flex h-6 rounded-md overflow-hidden bg-bg-inset"><div className="flex items-center justify-center text-[10px] text-on-brand/90" style={{ width: pct(consumed), background: 'var(--color-info)' }}>{consumed / inflow > 0.12 ? `소모 ${wonShort(consumed)}` : ''}</div></div>
       </div>
       <div>
         <div className="flex justify-between text-[11px] mb-1"><span className="text-brand font-semibold">= 재고금액</span><span className="tabular-nums text-brand font-semibold">{won(stock)}</span></div>
-        <div className="flex h-7 rounded-md overflow-hidden bg-bg-inset"><div className="flex items-center justify-center text-[11px] font-semibold text-white" style={{ width: pct(stock), background: 'var(--color-brand)' }}>{stock / inflow > 0.1 ? won(stock) : ''}</div></div>
+        <div className="flex h-7 rounded-md overflow-hidden bg-bg-inset"><div className="flex items-center justify-center text-[11px] font-semibold text-on-brand" style={{ width: pct(stock), background: 'var(--color-brand-bg)' }}>{stock / inflow > 0.1 ? won(stock) : ''}</div></div>
       </div>
     </div>
   );
@@ -908,7 +908,7 @@ function MaterialInventoryTab({ initialTeam = '' }: { initialTeam?: string } = {
       {d && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <div className={`${C.card} p-4 lg:col-span-2`}>
-            <div className="text-sm font-bold text-text-primary mb-3">재고 흐름 · 가액 기준 <span className="text-xs text-text-quaternary font-normal">{range.start} ~ {range.end}</span></div>
+            <div className="text-sm font-semibold text-text-primary mb-3">재고 흐름 · 가액 기준 <span className="text-xs text-text-quaternary font-normal">{range.start} ~ {range.end}</span></div>
             <FlowBar opening={d.total_opening} purchase={d.total_purchase} consumed={d.total_req_cost} stock={d.total_stock_value} />
           </div>
           <div className={`${C.card} p-4 flex flex-col`}>
@@ -1051,7 +1051,7 @@ function MaterialRegisterPanel({ range, onDone }: { range: { start: string; end:
     <div className={`${C.card} p-4 space-y-3 border border-warning/30`}>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <div className="text-sm font-bold text-text-primary">BOM 미등록 매입 자재 <span className="text-warning">{fmt(d.count)}건</span></div>
+          <div className="text-sm font-semibold text-text-primary">BOM 미등록 매입 자재 <span className="text-warning">{fmt(d.count)}건</span></div>
           <div className="text-[11px] text-text-quaternary">미등록 매입액 합 {won(d.total_unregistered_value)} · 유사 마스터 있음 {fmt(d.has_similar_master)}건(코드/이름 불일치)</div>
         </div>
         <div className="flex items-center gap-2">
@@ -1119,7 +1119,7 @@ function MaterialOpeningModal({ prefill, onClose, onSaved }: { prefill: any; onC
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4"><div className="text-lg font-bold text-text-primary">기초재고 앵커 {f.id ? '수정' : '입력'}</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button></div>
+        <div className="flex items-center justify-between mb-4"><div className="text-lg font-semibold text-text-primary">기초재고 앵커 {f.id ? '수정' : '입력'}</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button></div>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2"><L>품목키(코드 또는 품목명) *</L><input value={f.material_key} onChange={(e) => up('material_key', e.target.value)} className={`${C.input} w-full`} placeholder="구매 item_code 또는 품목명" /></div>
           <div className="col-span-2"><L>품목명</L><input value={f.material_name} onChange={(e) => up('material_name', e.target.value)} className={`${C.input} w-full`} /></div>
@@ -1149,7 +1149,7 @@ function StockValuationPanel() {
   return (
     <div className={`${C.card} p-4 space-y-3`}>
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="text-sm font-bold text-text-primary">재고 가액</div>
+        <div className="text-sm font-semibold text-text-primary">재고 가액</div>
         <div className="text-xs">
           {isCount
             ? <span className="text-success-light">✔ 마지막 확정 실사 <b>{v.last_count_date}</b> 기준</span>

@@ -46,7 +46,7 @@ export function ExcludedPurchaseNotice({ start, end, team, endpoint = '/purchase
             <div className="flex items-start justify-between mb-3">
               <div>
                 <div className="text-xs text-text-tertiary">{start} ~ {end} · 공급가(VAT별도)</div>
-                <div className="text-lg font-bold text-text-primary">원가 비교에서 제외한 구매 {wonShort(d.excluded)}</div>
+                <div className="text-lg font-semibold text-text-primary">원가 비교에서 제외한 구매 {wonShort(d.excluded)}</div>
                 <div className="text-xs text-text-quaternary mt-1">원재료·개당 포장(롤지·인쇄필름·지퍼백)이 아닌 구매입니다 — 판매단위 포장, 물류·보냉자재, 제판비 등. 원가 gap은 BOM자재 구매 {wonShort(d.bom_scope)}만으로 비교합니다.</div>
               </div>
               <button onClick={() => setOpen(false)} className="text-text-tertiary hover:text-text-primary text-xl">×</button>

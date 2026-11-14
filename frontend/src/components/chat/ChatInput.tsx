@@ -37,13 +37,13 @@ export function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
             placeholder={placeholder || '데이터에 대해 질문하세요...'}
             disabled={disabled}
             rows={2}
-            className="w-full p-4 pr-12 border border-border-primary rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent disabled:bg-bg-0 disabled:text-text-quaternary transition-all shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+            className="w-full p-4 pr-12 border border-border-primary rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent disabled:bg-bg-0 disabled:text-text-quaternary transition-colors shadow-nd-s"
           />
         </div>
         <button
           type="submit"
           disabled={disabled || !input.trim()}
-          className="px-6 py-4 bg-gradient-to-r from-brand to-brand text-white rounded-xl font-semibold hover:from-brand hover:to-[#4B55A5] disabled:from-bg-secondary disabled:to-bg-tertiary disabled:cursor-not-allowed transition-all shadow-[0px_3px_12px_rgba(0,0,0,0.2)] hover:shadow-[0px_7px_32px_rgba(0,0,0,0.35)] disabled:shadow-none flex items-center gap-2"
+          className="px-6 py-4 bg-brand text-on-brand rounded-xl font-semibold hover:bg-brand-hover disabled:bg-bg-secondary disabled:cursor-not-allowed transition-colors shadow-nd-f hover:shadow-nd-f disabled:shadow-none flex items-center gap-2"
         >
           {disabled ? (
             <>
