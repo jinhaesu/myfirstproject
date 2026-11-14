@@ -9,7 +9,7 @@ import { Navigation } from '@/components/layout/Navigation';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { ExcludedPurchaseNotice } from '@/components/ExcludedPurchaseNotice';
 import { Combobox } from '@/components/Combobox';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie, Legend, ComposedChart, ScatterChart, Scatter, ZAxis, ReferenceLine } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Legend, ScatterChart, Scatter, ZAxis, ReferenceLine } from 'recharts';
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;

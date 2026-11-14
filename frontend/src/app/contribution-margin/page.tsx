@@ -962,44 +962,6 @@ function MiniStat({
   );
 }
 
-function RoasTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string; dataKey: string }>;
-  label?: number;
-}) {
-  if (!active || !payload || payload.length === 0) return null;
-  return (
-    <div className="bg-bg-1 border border-border-primary rounded-lg px-3 py-2.5 shadow-nd-f">
-      <div className="text-[11px] text-text-tertiary font-mono mb-2">
-        광고 ROAS <span className="text-text-primary font-semibold">{label}%</span>
-      </div>
-      <div className="text-[10px] tracking-[0.12em] text-text-quaternary uppercase font-mono mb-1.5">
-        최종 공헌이익율
-      </div>
-      <div className="space-y-1">
-        {payload.map((p, i) => (
-          <div key={i} className="flex items-center justify-between gap-6 text-xs font-mono">
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block w-2.5 h-0.5"
-                style={{ background: p.color }}
-              />
-              <span className="text-text-secondary">{p.name}</span>
-            </div>
-            <span className="font-semibold" style={{ color: p.color }}>
-              {p.value.toFixed(1)}%
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function Tip({ title, body }: { title: string; body: string }) {
   return (
     <div className="border-t-2 border-brand pt-3">
