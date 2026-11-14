@@ -1,0 +1,141 @@
+/* ============================================================
+   널담 디자인 기준 2 — 글자 (2026-11-14, 검수 반영판)
+   글꼴은 두 가지뿐이다: 본문 Pretendard Variable, 고정폭 Geist Mono. 명조(세리프) 금지.
+   (목록에 함께 있는 "ND Sans Extra" 는 Pretendard 에서 잘라 낸 기호 보충 묶음이다. 새 글꼴이 아니다)
+
+   이 파일이 원본이고, 두 가지 형태로 쓴다.
+   · nd-type.css      기본형(층 없음). Tailwind 3 · Tailwind 없는 시스템 · MUI 시스템.
+                      반드시 Tailwind CSS 와 시스템 CSS 보다 먼저 불러온다
+                      (같은 우선순위에서는 나중에 오는 Tailwind 유틸리티와 시스템 규칙이 이긴다).
+   · nd-type.tw4.css  Tailwind 4 용. 변수는 층 밖, 요소 규칙은 @layer base, .nd-* 는 @layer components.
+                      `node build-variants.mjs` 가 이 파일에서 만든다. 직접 고치지 않는다.
+   불러오는 순서: fonts/nd-fonts.css → nd-cosmos.css → 이 파일 → Tailwind · 시스템 CSS.
+
+   이 파일의 요소 규칙은 일부러 우선순위가 가장 낮다. 시스템에 옛 글꼴을 직접 적은 선언
+   (body { font-family: … }, fontFamily: '…')이 남아 있으면 그쪽이 이긴다 → 그 선언을 지우거나
+   var(--nd-font-sans) · var(--nd-font-mono) 로 바꾸고, 계산된 값으로 확인한다.
+   Tailwind 는 fontFamily.sans / mono(4 는 @theme 의 --font-sans / --font-mono)를 아래 변수에 연결한다.
+
+   아래 「@nd-layer 이름」 주석은 build-variants.mjs 가 읽는 구획 표시다. 지우지 않는다.
+   ============================================================ */
+
+/* @nd-layer none — 변수. 어느 형태에서도 층 밖에 둔다 */
+:root {
+  /* "ND Sans Extra" 는 Pretendard 묶음에 빠진 기호(빼기 −, 위·아래첨자, ✓ 등)를 받는 보충 글꼴이다(fonts/nd-fonts.css 맨 아래).
+     두 목록 모두 "Pretendard Variable" 바로 뒤에 둔다. 글꼴 목록을 따로 적지 말고 이 변수를 쓴다(따로 적으면 그 기호가 기기 글꼴로 나온다) */
+  --nd-font-sans: "Pretendard Variable", "ND Sans Extra", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+    "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+  /* 고정폭 글꼴에는 한글이 없다. 한글이 굴림체로 떨어지지 않게 Pretendard 로 받는다 */
+  --nd-font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono",
+    "Pretendard Variable", "ND Sans Extra", Pretendard, "Malgun Gothic", monospace;
+
+  /* 굵기는 네 단계. 300 은 24px 이상 큰 제목에만, 600 은 드물게. 700 이상은 쓰지 않는다 */
+  --nd-w-light: 300;
+  --nd-w-regular: 400;
+  --nd-w-medium: 500;
+  --nd-w-semibold: 600;
+
+  /* 크기 단계 (px / 줄 높이) */
+  --nd-t-micro: 11px;     /* 16  — 촘촘한 표·배지의 가장 작은 글자. 이보다 작게 쓰지 않는다 */
+  --nd-t-meta: 12px;      /* 16  — 시각, 건수, 단위 */
+  --nd-t-caption: 13px;   /* 20  — 보조 설명, 표 머리 */
+  --nd-t-body: 14px;      /* 22  — 본문, 메뉴, 표 */
+  --nd-t-body-lg: 15px;   /* 24  — 읽는 글 */
+  --nd-t-h3: 16px;        /* 24  — 카드 제목 (500) */
+  --nd-t-h2: 20px;        /* 28  — 구역 제목 (500) */
+  --nd-t-title: 28px;     /* 1.2 — 화면 제목 (300~400, 자간 -0.01em) */
+  --nd-t-figure: 30px;    /* 1   — 카드의 큰 숫자 (500) */
+  --nd-t-display: 44px;   /* 1.15 — 로그인·첫 화면 큰 글 (300, 자간 -0.02em) */
+
+  --nd-lh-tight: 1.2;
+  --nd-lh-snug: 1.4;
+  --nd-lh-body: 1.55;
+}
+
+/* @nd-layer base — 요소에 거는 바탕 규칙 */
+html {
+  font-family: var(--nd-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--nd-font-sans);
+  /* 한글은 낱말 단위로 줄을 바꾼다. 띄어쓰기 없는 긴 글자열은 넘치기 전에 끊는다 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+code, kbd, pre, samp {
+  font-family: var(--nd-font-mono);
+}
+
+/* 초기화 CSS(Tailwind 바탕 정리, MUI CssBaseline)가 없는 시스템에서도 입력 요소가 본문 글꼴을 따른다 */
+:where(button, input, optgroup, select, textarea) {
+  font-family: inherit;
+}
+
+/* 굵은 글씨는 600 까지. Tailwind 의 바탕 정리(b, strong { font-weight: bolder })가 있으면 그쪽이 이긴다 */
+:where(b, strong) {
+  font-weight: var(--nd-w-semibold);
+}
+
+/* 표 머리 칸은 500. 브라우저 기본이 700 이고 Tailwind 의 바탕 정리(3 · 4)도 th 굵기는 건드리지 않는다.
+   우선순위가 가장 낮아서 시스템이 th 에 건 굵기(font-semibold 같은 클래스, th { … } 규칙)는 그대로 이긴다 */
+:where(th) {
+  font-weight: var(--nd-w-medium);
+}
+
+/* 표의 숫자는 자릿수를 맞춘다. 큰 단독 숫자(.nd-figure)는 맞추지 않는다.
+   표 칸은 낱말 단위 줄바꿈을 풀어 둔다(띄어쓰기 없는 한글 때문에 좁은 표가 틀 밖으로 넘치지 않게).
+   표 칸의 줄바꿈을 따로 정하려면 표 바깥이 아니라 칸(td · th)이나 칸 안 요소에 직접 건다 */
+:where(td, th) {
+  font-variant-numeric: tabular-nums;
+  word-break: normal;
+}
+
+/* 인쇄용 화면(라벨·영수증·명세서)의 맨 바깥 요소에 붙이면 위 규칙(줄바꿈·자릿수 맞춤·굵기)이 꺼진다.
+   글꼴은 되돌려 줄 수 없으니, 그 화면이 쓰던 글꼴 이름을 같은 요소에 font-family 로 직접 적어 고정한다 */
+:where(.nd-print-keep) {
+  word-break: normal;
+  overflow-wrap: normal;
+}
+:where(.nd-print-keep) :where(td, th) {
+  font-variant-numeric: inherit;
+  word-break: inherit;
+}
+:where(.nd-print-keep) :where(b, strong) {
+  font-weight: bolder;
+}
+:where(.nd-print-keep) :where(th) {
+  font-weight: bold;
+}
+
+/* @nd-layer components — 글자 유틸. Tailwind 유틸리티(text-[13px] font-semibold 등)를 함께 달면 Tailwind 쪽이 이긴다 */
+.nd-display { font-size: var(--nd-t-display); line-height: 1.15; font-weight: var(--nd-w-light); letter-spacing: -0.02em; }
+.nd-title { font-size: var(--nd-t-title); line-height: var(--nd-lh-tight); font-weight: var(--nd-w-regular); letter-spacing: -0.01em; }
+.nd-h2 { font-size: var(--nd-t-h2); line-height: 28px; font-weight: var(--nd-w-medium); }
+.nd-h3 { font-size: var(--nd-t-h3); line-height: 24px; font-weight: var(--nd-w-medium); }
+.nd-body { font-size: var(--nd-t-body); line-height: 22px; font-weight: var(--nd-w-regular); }
+.nd-caption { font-size: var(--nd-t-caption); line-height: 20px; color: var(--nd-fg-2); }
+.nd-meta { font-size: var(--nd-t-meta); line-height: 16px; color: var(--nd-fg-3); }
+.nd-micro { font-size: var(--nd-t-micro); line-height: 16px; }
+/* 고정폭은 코드·주소·식별자(계정 코드, 전표 번호, 계좌 번호)에만. 금액·수량은 .nd-num (Pretendard + 자릿수 맞춤) */
+.nd-mono { font-family: var(--nd-font-mono); font-variant-numeric: tabular-nums; }
+.nd-figure { font-size: var(--nd-t-figure); line-height: 1; font-weight: var(--nd-w-medium); letter-spacing: -0.01em; font-variant-numeric: normal; }
+.nd-num { font-variant-numeric: tabular-nums; }
+
+/* @nd-layer none — 외부 부품. 테마 CSS 가 층 밖에서 나중에 실리므로 여기만 우선순위를 한 단계 올린다 */
+/* AG Grid: 글꼴 변수, 머리 굵기(alpine 700 · balham·material 600 → 500) */
+:root [class*="ag-theme-"] {
+  --ag-font-family: var(--nd-font-sans);
+}
+:root [class*="ag-theme-"] .ag-header-cell,
+:root [class*="ag-theme-"] .ag-header-group-cell {
+  font-weight: var(--nd-w-medium);
+}
+/* alpine 테마만 쪽 번호·상태 줄 값이 700 이다 → 600 */
+:root [class*="ag-theme-alpine"] :is(.ag-paging-number, .ag-paging-row-summary-panel-number, .ag-status-name-value-value) {
+  font-weight: var(--nd-w-semibold);
+}

@@ -1,6 +1,7 @@
 'use client';
-import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
+import { NdChartEmpty, NdDonutList, NdTooltipContent, ndAxis, ndBar, ndBarsHeight, ndColor, ndFmt, ndGrid, ndGridVertical, ndHeat, ndHeatText, ndLegend, ndLine, ndMargin, ndMarginH, ndPie, ndPieRows, ndRefLine, ndScale, ndSlots, ndTooltip } from '@/components/nd/NdChart';
 
+import { ArrowDownIcon, ArrowDownRightIcon, ArrowUUpLeftIcon, ArrowUpIcon, ArrowUpRightIcon, ArrowsLeftRightIcon, CaretDownIcon, CaretUpIcon, CheckIcon, InfoIcon, MinusIcon, XIcon } from '@/components/nd/icons';
 import { useEffect, useState, useCallback, Fragment, createContext, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +9,7 @@ import { Navigation } from '@/components/layout/Navigation';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { ExcludedPurchaseNotice } from '@/components/ExcludedPurchaseNotice';
 import { Combobox } from '@/components/Combobox';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie, Legend, ComposedChart, ScatterChart, Scatter, ZAxis, ReferenceLine } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Legend, ScatterChart, Scatter, ZAxis, ReferenceLine } from 'recharts';
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -58,8 +59,10 @@ const C = { card: 'bg-bg-1 border border-border-primary rounded-xl', input: 'bg-
 const fmt = (n: number) => Number(n || 0).toLocaleString('ko-KR');
 const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
 const wonShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억'; if (a >= 1e4) return Math.round(n / 1e4).toLocaleString('ko-KR') + '만'; return '₩' + Math.round(n || 0).toLocaleString('ko-KR'); };
-const COLORS = ND_CHART;
-const TT = { background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8, color: 'var(--color-text-primary)', fontSize: 12 } as const;
+// 그래프(널담 그래프 부품): 원/부재료는 어느 화면에서도 같은 색 번호, 축 범위는 그 축에 그려지는 가장 큰·작은 값
+const CLASS_COLOR = ndSlots(['원재료', '부재료']);
+const topOf = (rows: readonly any[] | undefined, ...keys: string[]) => Math.max(0, ...(rows || []).map((r) => Math.max(...keys.map((k) => Number(r?.[k]) || 0))));
+const lowOf = (rows: readonly any[] | undefined, ...keys: string[]) => Math.min(0, ...(rows || []).map((r) => Math.min(...keys.map((k) => Number(r?.[k]) || 0))));
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const thisMonth = () => { const n = new Date(); return { start: iso(new Date(n.getFullYear(), n.getMonth(), 1)), end: iso(new Date(n.getFullYear(), n.getMonth() + 1, 0)) }; };
 function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
@@ -212,6 +215,7 @@ function DashTab() {
   useEffect(() => { getJSON<any>(`/purchase/records/gap-trend?start=${ap.start}&end=${ap.end}&granularity=${gran}${tq()}`, null).then(setGapT); }, [ap, gran]);
   const dirty = dr.start !== ap.start || dr.end !== ap.end || dr.vendor !== ap.vendor || dr.mclass !== ap.mclass || dr.q !== ap.q;
   const classData = (d?.by_class || []).map((x: any) => ({ name: x.mclass, value: x.supply }));
+  const classPie = ndPieRows([...classData].sort((a: any, b: any) => b.value - a.value), { colorOf: CLASS_COLOR });
   return (
     <div className="space-y-5 relative">
       <LoadingOverlay show={loading} />
@@ -248,13 +252,31 @@ function DashTab() {
         <div className={`${C.card} p-4`}>
           <div className="text-sm font-semibold text-text-primary mb-3">원/부재료 구성<VatBadge b={basis} /></div>
           {classData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}><PieChart><Pie data={classData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={(e: any) => `${e.name} ${Math.round(e.percent * 100)}%`} labelLine={false}>{classData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /></PieChart></ResponsiveContainer>
+            <div className="flex flex-col gap-4">
+              <div className="h-[180px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={classPie} dataKey="value" nameKey="name" {...ndPie()} />
+                    <Tooltip {...ndTooltip({ kind: 'none', value: (v) => won(v) })} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <NdDonutList rows={classPie} value={(pct, row) => `${wonShort(row.value)} · ${ndFmt.pctOf(0)(pct)}`} />
+            </div>
           ) : <Empty />}
         </div>
         <div className={`${C.card} p-4 lg:col-span-2`}>
           <div className="text-sm font-semibold text-text-primary mb-3">거래처별 구매액 (Top 12)<VatBadge b={basis} /></div>
           {d?.by_vendor?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}><BarChart data={d.by_vendor.slice(0, 12)} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis type="category" dataKey="vendor" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} width={110} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" radius={[0, 4, 4, 0]}>{d.by_vendor.slice(0, 12).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={ndBarsHeight(d.by_vendor.slice(0, 12).length)}>
+              <BarChart data={d.by_vendor.slice(0, 12)} layout="vertical" margin={ndMarginH}>
+                <CartesianGrid {...ndGridVertical} />
+                <XAxis type="number" {...ndAxis.value} {...ndScale(topOf(d.by_vendor.slice(0, 12), 'supply'), ndFmt.axisWonBy, lowOf(d.by_vendor.slice(0, 12), 'supply'))} />
+                <YAxis type="category" dataKey="vendor" {...ndAxis.categoryOf(128)} />
+                <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => won(v) })} />
+                <Bar dataKey="supply" name="구매액" {...ndBar(1, { horizontal: true })} />
+              </BarChart>
+            </ResponsiveContainer>
           ) : <Empty />}
         </div>
       </div>
@@ -262,7 +284,19 @@ function DashTab() {
       <div className={`${C.card} p-4`}>
         <div className="text-sm font-semibold text-text-primary mb-3">매출 대비 구매 누적비율 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}<VatBadge b="supply" fixed /> {ratio?.cum_ratio != null && <span className="text-purple ml-2">기간 누적 {ratio.cum_ratio}%</span>}{ap.team && <span className="text-xs text-info ml-2">· {ap.team} 구매기준(매출=전사)</span>}</div>
         {ratio?.series?.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}><LineChart data={ratio.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-purple)', fontSize: 10 }} tickFormatter={(v) => `${v}%`} /><Tooltip contentStyle={TT} formatter={(v: any, n: any) => n.includes('비율') ? `${v}%` : won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Line yAxisId="l" type="monotone" dataKey="purchase" name="구매액" stroke="var(--color-warning)" strokeWidth={2} dot={false} /><Line yAxisId="l" type="monotone" dataKey="sales" name="매출액" stroke="var(--color-success)" strokeWidth={2} dot={false} /><Line yAxisId="r" type="monotone" dataKey="cum_ratio" name="누적 구매/매출 비율" stroke="var(--color-purple)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={ratio.series} margin={ndMargin}>
+              <CartesianGrid {...ndGrid} />
+              <XAxis dataKey="bucket" {...ndAxis.x} />
+              <YAxis yAxisId="l" {...ndAxis.y} {...ndScale(topOf(ratio.series, 'purchase', 'sales'), ndFmt.axisWonBy, lowOf(ratio.series, 'purchase', 'sales'))} />
+              <YAxis yAxisId="r" orientation="right" {...ndAxis.y} {...ndScale(topOf(ratio.series, 'cum_ratio'), () => ndFmt.axisPct)} />
+              <Tooltip {...ndTooltip({ kind: 'line', value: (v, n) => ((n || '').includes('비율') ? `${v}%` : won(v)) })} />
+              <Legend {...ndLegend()} />
+              <Line yAxisId="l" dataKey="purchase" name="구매액" {...ndLine(1)} />
+              <Line yAxisId="l" dataKey="sales" name="매출액" {...ndLine(2)} />
+              <Line yAxisId="r" dataKey="cum_ratio" name="누적 구매/매출 비율" {...ndLine(3)} />
+            </LineChart>
+          </ResponsiveContainer>
         ) : <Empty />}
       </div>
 
@@ -273,14 +307,34 @@ function DashTab() {
           <div className="text-sm font-semibold text-text-primary mb-1">BOM 이론소요 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}<VatBadge b="supply" fixed />{ap.team && <span className="text-xs text-info ml-2">· {ap.team} 구매</span>}</div>
           <p className="text-xs text-text-quaternary mb-3">생산량×BOM개당원가(이론소요) 대비 BOM 원부재료 매입. BOM에 없는 포장·물류자재 구매는 제외(위 안내 클릭 시 내역). gap=재고 증감.</p>
           {gapT?.series?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}><ComposedChart data={gapT.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="bom_req" name="BOM이론소요" fill="var(--color-purple)" radius={[3, 3, 0, 0]} /><Bar dataKey="purchase_bom" name="BOM자재 구매" fill="var(--color-info)" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={gapT.series} margin={ndMargin}>
+                <CartesianGrid {...ndGrid} />
+                <XAxis dataKey="bucket" {...ndAxis.x} />
+                <YAxis {...ndAxis.y} {...ndScale(topOf(gapT.series, 'bom_req', 'purchase_bom'), ndFmt.axisWonBy, lowOf(gapT.series, 'bom_req', 'purchase_bom'))} />
+                <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => won(v) })} />
+                <Legend {...ndLegend()} />
+                <Bar dataKey="bom_req" name="BOM이론소요" {...ndBar('context')} />
+                <Bar dataKey="purchase_bom" name="BOM자재 구매" {...ndBar(1)} />
+              </BarChart>
+            </ResponsiveContainer>
           ) : <Empty />}
         </div>
         <div className={`${C.card} p-4`}>
           <div className="text-sm font-semibold text-text-primary mb-1">매출기반 원가추정 vs 실제구매 · {gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'}<VatBadge b="supply" fixed />{ap.team && <span className="text-xs text-info ml-2">· {ap.team} 구매</span>}</div>
           <p className="text-xs text-text-quaternary mb-3">판매수량×BOM원가(매출원가) 대비 BOM 원부재료 매입. 포장·물류자재 구매 제외. gap=재고 빌드업/소진.</p>
           {gapT?.series?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}><ComposedChart data={gapT.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="cogs_est" name="매출원가추정" fill="var(--color-warning)" radius={[3, 3, 0, 0]} /><Bar dataKey="purchase_bom" name="BOM자재 구매" fill="var(--color-info)" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={gapT.series} margin={ndMargin}>
+                <CartesianGrid {...ndGrid} />
+                <XAxis dataKey="bucket" {...ndAxis.x} />
+                <YAxis {...ndAxis.y} {...ndScale(topOf(gapT.series, 'cogs_est', 'purchase_bom'), ndFmt.axisWonBy, lowOf(gapT.series, 'cogs_est', 'purchase_bom'))} />
+                <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => won(v) })} />
+                <Legend {...ndLegend()} />
+                <Bar dataKey="cogs_est" name="매출원가추정" {...ndBar('context')} />
+                <Bar dataKey="purchase_bom" name="BOM자재 구매" {...ndBar(1)} />
+              </BarChart>
+            </ResponsiveContainer>
           ) : <Empty />}
         </div>
       </div>
@@ -289,13 +343,29 @@ function DashTab() {
         <div className={`${C.card} p-4`}>
           <div className="text-sm font-semibold text-text-primary mb-3">일별 구매액<VatBadge b={basis} /></div>
           {d?.by_day?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}><BarChart data={d.by_day}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="date" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 9 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" fill="var(--color-brand-bg)" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={d.by_day} margin={ndMargin}>
+                <CartesianGrid {...ndGrid} />
+                <XAxis dataKey="date" {...ndAxis.x} />
+                <YAxis {...ndAxis.y} {...ndScale(topOf(d.by_day, 'supply'), ndFmt.axisWonBy, lowOf(d.by_day, 'supply'))} />
+                <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => won(v) })} />
+                <Bar dataKey="supply" name="구매액" {...ndBar(1)} />
+              </BarChart>
+            </ResponsiveContainer>
           ) : <Empty />}
         </div>
         <div className={`${C.card} p-4`}>
           <div className="text-sm font-semibold text-text-primary mb-3">품목별 구매액 (Top 12)<VatBadge b={basis} /></div>
           {d?.by_item?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}><BarChart data={d.by_item.slice(0, 12)} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis type="category" dataKey="item_name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 9 }} width={130} tickFormatter={(v) => String(v).slice(0, 14)} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" radius={[0, 4, 4, 0]}>{d.by_item.slice(0, 12).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={ndBarsHeight(d.by_item.slice(0, 12).length)}>
+              <BarChart data={d.by_item.slice(0, 12)} layout="vertical" margin={ndMarginH}>
+                <CartesianGrid {...ndGridVertical} />
+                <XAxis type="number" {...ndAxis.value} {...ndScale(topOf(d.by_item.slice(0, 12), 'supply'), ndFmt.axisWonBy, lowOf(d.by_item.slice(0, 12), 'supply'))} />
+                <YAxis type="category" dataKey="item_name" {...ndAxis.categoryOf(128)} />
+                <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => won(v) })} />
+                <Bar dataKey="supply" name="구매액" {...ndBar(1, { horizontal: true })} />
+              </BarChart>
+            </ResponsiveContainer>
           ) : <Empty />}
         </div>
       </div>
@@ -319,14 +389,14 @@ function DashTab() {
             <tbody>
               {(heat?.items || []).map((it: any, i: number) => {
                 const maxv = Math.max(...(heat?.items || []).map((x: any) => Math.max(x.req_cost, x.act_cost)), 1);
-                const cell = (v: number, hue: string) => ({ background: v > 0 ? `${hue}${Math.max(0.06, Math.min(0.55, v / maxv)).toFixed(2)})` : 'transparent' });
+                const cell = (v: number) => (v > 0 ? { background: ndHeat(v / maxv), color: ndHeatText(v / maxv) } : { background: 'transparent' });
                 const cov = it.coverage;
                 const covColor = cov == null ? 'text-text-quaternary' : cov > 130 ? 'text-warning' : cov < 70 ? 'text-danger' : 'text-success-light';
                 return (
                   <tr key={i}>
                     <td className="px-2 py-1.5 text-text-secondary border-b border-bg-inset"><span className={it.type === 'raw' ? 'text-info' : it.type === 'sub' ? 'text-warning' : 'text-text-quaternary'}>[{it.type === 'raw' ? '원' : it.type === 'sub' ? '부' : '?'}]</span> {it.name}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums border-b border-bg-inset" style={cell(it.req_cost, 'rgba(168,85,247,')}>{it.req_cost ? won(it.req_cost) : '-'}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums border-b border-bg-inset" style={cell(it.act_cost, 'rgba(77,163,255,')}>{it.act_cost ? won(it.act_cost) : '-'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums border-b border-bg-inset" style={cell(it.req_cost)}>{it.req_cost ? won(it.req_cost) : '-'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums border-b border-bg-inset" style={cell(it.act_cost)}>{it.act_cost ? won(it.act_cost) : '-'}</td>
                     <td className={`px-2 py-1.5 text-right tabular-nums border-b border-bg-inset ${it.gap >= 0 ? 'text-info' : 'text-danger'}`}>{wonShort(it.gap)}</td>
                     <td className={`px-2 py-1.5 text-center tabular-nums border-b border-bg-inset ${covColor}`}>{cov == null ? '구매만' : cov >= 9999 ? '소요없음' : `${cov}%`}</td>
                   </tr>
@@ -342,7 +412,7 @@ function DashTab() {
     </div>
   );
 }
-function Empty() { return <div className="h-[200px] flex items-center justify-center text-sm text-text-quaternary">데이터 없음</div>; }
+function Empty() { return <NdChartEmpty height={200}>데이터 없음</NdChartEmpty>; }
 
 // 연도별 월별(1~12월) × 거래처(또는 원부재료) 구매 합계 매트릭스 — 설정 기간과 무관
 function MonthlyMatrix({ defaultYear, team }: { defaultYear: number; team: string }) {
@@ -454,12 +524,12 @@ function RecordsTab() {
           {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setUnit(u)} className={`px-2.5 py-2 text-xs font-semibold ${unit === u ? 'bg-brand text-on-brand' : 'bg-bg-inset text-text-tertiary'}`}>{u === 'ea' ? '수량(ea)' : '중량(kg)'}</button>)}
         </div>
         <XlsxBtn kind="records" params={{ start: range.start, end: range.end, mclass: mclass || undefined, q: q || undefined, team: team || undefined }} />
-        {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가(VAT별도) {won(data.supply_total)} · 합계(VAT포함) {won(data.total_total || 0)} · <span title="전표 정산 체크(✓완료)를 안 한 줄의 합계입니다. 실제 지급 기록과는 별개 — 거래처별 실제 미지급은 매입채무 탭(지급 기록 기준)에서 확인하세요.">정산 미체크(VAT포함) {won(data.unpaid_total || 0)}</span>{data.total > 500 && ' (500건 표시)'}</span>}
+        {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가(VAT별도) {won(data.supply_total)} · 합계(VAT포함) {won(data.total_total || 0)} · <span title="전표 정산 체크(완료)를 안 한 줄의 합계입니다. 실제 지급 기록과는 별개 — 거래처별 실제 미지급은 매입채무 탭(지급 기록 기준)에서 확인하세요.">정산 미체크(VAT포함) {won(data.unpaid_total || 0)}</span>{data.total > 500 && ' (500건 표시)'}</span>}
       </div>
       {/* 정산완료 처리 툴바 — 체크박스로 행 선택 후 버튼 클릭 */}
       <div className="flex flex-wrap items-center gap-2 bg-bg-1 border border-border-primary rounded-lg px-3 py-2">
         <span className="text-xs text-text-tertiary">체크박스로 전표 선택 후 →</span>
-        <button onClick={() => applySettle(true)} disabled={!sel.size} className={`${C.btn} ${sel.size ? C.btnPrimary : C.btnGhost} text-xs py-1.5`}>✓ 정산완료 처리{sel.size ? ` (${sel.size}건)` : ''}</button>
+        <button onClick={() => applySettle(true)} disabled={!sel.size} className={`${C.btn} ${sel.size ? C.btnPrimary : C.btnGhost} text-xs py-1.5`}><CheckIcon inline /> 정산완료 처리{sel.size ? ` (${sel.size}건)` : ''}</button>
         <button onClick={() => applySettle(false)} disabled={!sel.size} className={`${C.btn} ${C.btnGhost} text-xs py-1.5`}>정산 해제</button>
         {!!sel.size && <button onClick={() => setSel(new Set())} className="text-xs text-text-quaternary hover:underline">선택 해제</button>}
       </div>
@@ -482,7 +552,7 @@ function RecordsTab() {
               <td className={`${C.td} text-right tabular-nums`}>{unit === 'kg' ? (kgOf(r) != null ? won(Math.round(kgOf(r) as number)) : '-') : won(Math.round(upOf(r)))}{r.price_incl_vat && <span className="ml-1 text-[10px] text-accent" title="VAT포함 단가로 입력된 전표 — 기준에 맞게 환산 표시">입력:포함</span>}{!r.price_incl_vat && r.vat === 0 && r.supply !== 0 && <span className="ml-1 text-[10px] text-text-quaternary" title="부가세 0 — 면세 또는 미기재">면세</span>}</td>
               <td className={`${C.td} text-right text-warning tabular-nums`}>{won(r.supply)}</td>
               <td className={`${C.td} text-right tabular-nums`}>{won(r.total)}</td>
-              <td className={`${C.td} text-center`}>{r.paid ? <span className="text-success-light text-xs" title={r.paid_date || ''}>✓ 완료</span> : <span className="text-text-quaternary text-xs" title="정산 체크 안 함 — 지급 기록과 별개">미체크</span>}</td>
+              <td className={`${C.td} text-center`}>{r.paid ? <span className="text-success-light text-xs" title={r.paid_date || ''}><CheckIcon inline /> 완료</span> : <span className="text-text-quaternary text-xs" title="정산 체크 안 함 — 지급 기록과 별개">미체크</span>}</td>
             </tr>
           ))}</tbody>
           {rows.length > 0 && (
@@ -511,7 +581,7 @@ function HistoryModal({ hist, onClose }: { hist: any; onClose: () => void }) {
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div><div className="text-xs text-text-tertiary">{isVendor ? '거래처 누적 이력' : '품목 구매 이력'}</div><div className="text-lg font-semibold text-text-primary">{isVendor ? hist.vendor : hist.item_name}</div></div>
-          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl" aria-label="닫기"><XIcon inline /></button>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-4">
           <StatCard label={`누적 구매액(${vatTag(hist.basis === 'total' ? 'total' : 'supply')})`} value={wonShort(hist.total_supply || 0)} tone="text-warning" />
@@ -519,10 +589,26 @@ function HistoryModal({ hist, onClose }: { hist: any; onClose: () => void }) {
           <StatCard label={isVendor ? '거래기간' : '누적수량'} value={isVendor ? `${hist.first || '-'}~` : fmt(hist.total_qty || 0)} sub={isVendor ? (hist.last || '') : ''} />
         </div>
         <div className="text-sm font-semibold text-text-primary mb-2">월별 구매</div>
-        <ResponsiveContainer width="100%" height={200}><BarChart data={hist.by_month || []}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="month" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="supply" fill="var(--color-brand-bg)" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={hist.by_month || []} margin={ndMargin}>
+            <CartesianGrid {...ndGrid} />
+            <XAxis dataKey="month" {...ndAxis.x} />
+            <YAxis {...ndAxis.y} {...ndScale(topOf(hist.by_month, 'supply'), ndFmt.axisWonBy, lowOf(hist.by_month, 'supply'))} />
+            <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => won(v) })} />
+            <Bar dataKey="supply" name="구매액" {...ndBar(1)} />
+          </BarChart>
+        </ResponsiveContainer>
         {!isVendor && hist.price_trend?.length > 1 && <>
           <div className="text-sm font-semibold text-text-primary mt-4 mb-2">단가 추이<VatBadge b={hist.basis === 'total' ? 'total' : 'supply'} /></div>
-          <ResponsiveContainer width="100%" height={180}><LineChart data={hist.price_trend}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="date" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 9 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Line type="monotone" dataKey="unit_price" name="단가" stroke="var(--color-cyan)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={hist.price_trend} margin={ndMargin}>
+              <CartesianGrid {...ndGrid} />
+              <XAxis dataKey="date" {...ndAxis.x} />
+              <YAxis {...ndAxis.y} {...ndScale(topOf(hist.price_trend, 'unit_price'), ndFmt.axisWonBy)} />
+              <Tooltip {...ndTooltip({ kind: 'line', value: (v) => won(v) })} />
+              <Line dataKey="unit_price" name="단가" {...ndLine(1, { straight: true })} />
+            </LineChart>
+          </ResponsiveContainer>
         </>}
         <div className="text-sm font-semibold text-text-primary mt-4 mb-2">{isVendor ? '품목별' : '거래처별'}</div>
         <div className="overflow-x-auto"><table className="w-full"><thead><tr><th className={C.th}>{isVendor ? '품목' : '거래처'}</th>{isVendor && <th className={C.th}>수량</th>}<th className={C.th}>구매액</th></tr></thead>
@@ -642,10 +728,10 @@ function InputTab() {
                     placeholder="검색 또는 신규 입력" /></div>
                 <div className="w-28"><L>품목코드</L><input value={l.item_code} onChange={(e) => setLine(i, { item_code: e.target.value })} placeholder="신규 시 입력" className={`${C.input} py-1.5 w-full ${isNew ? 'border-info/50' : ''}`} /></div>
                 <div className="w-20"><L>규격</L><input value={l.spec} onChange={(e) => onSpecText(i, e.target.value)} placeholder="20kg" className={`${C.input} py-1.5 w-full`} title={l.boxKg ? `ea당 ${l.boxKg}kg` : 'kg 환산 없음'} /></div>
-                <div><L>단위</L><button type="button" onClick={() => toggleUnit(i)} className={`${C.btn} py-1.5 w-14 ${l.unit === 'kg' ? 'bg-info/20 text-info' : C.btnGhost}`} title="ea↔kg 전환(규격 필요)">{l.unit} ⇄</button></div>
+                <div><L>단위</L><button type="button" onClick={() => toggleUnit(i)} className={`${C.btn} py-1.5 w-14 ${l.unit === 'kg' ? 'bg-info/20 text-info' : C.btnGhost}`} title="ea↔kg 전환(규격 필요)">{l.unit} <ArrowsLeftRightIcon inline /></button></div>
                 <div className="w-24"><L>수량</L><input type="number" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} className={`${C.input} py-1.5 w-full text-right`} /></div>
                 <div className="w-28"><L>단가{l.vat_mode === 'incl' && <span className="text-accent"> (VAT포함)</span>}</L><input type="number" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} className={`${C.input} py-1.5 w-full text-right ${l.vat_mode === 'incl' ? 'border-accent/50' : ''}`} /></div>
-                <div className="w-28 text-right"><L>공급가{l.vat_mode === 'incl' && <span className="text-accent" title="부가세 포함단가 ÷ 1.1"> ↩</span>}</L><div className="text-warning tabular-nums text-sm py-1.5">{won(lineSupply(l))}</div></div>
+                <div className="w-28 text-right"><L>공급가{l.vat_mode === 'incl' && <span className="text-accent" title="부가세 포함단가 ÷ 1.1"> <ArrowUUpLeftIcon inline /></span>}</L><div className="text-warning tabular-nums text-sm py-1.5">{won(lineSupply(l))}</div></div>
                 <div className="w-24"><L>부가세</L><select value={l.vat_mode} onChange={(e) => setLine(i, { vat_mode: e.target.value })} className={`${C.input} py-1.5 w-full ${l.vat_mode === 'incl' ? 'text-accent font-semibold' : ''}`}><option value="auto">별도10%</option><option value="zero">면세</option><option value="incl">단가포함</option></select></div>
                 <div className="w-36"><L>비고</L><input value={l.note} onChange={(e) => setLine(i, { note: e.target.value })} placeholder="적요·메모" className={`${C.input} py-1.5 w-full`} /></div>
                 <div>{lines.length > 1 && <button onClick={() => rmLine(i)} className="text-danger text-xs hover:underline py-2">삭제</button>}</div>
@@ -715,7 +801,7 @@ function RecordEditModal({ rec, onClose, onSaved }: { rec: any; onClose: () => v
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4"><div className="text-lg font-semibold text-text-primary">실적 수정 (#{rec.id})</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button></div>
+        <div className="flex items-center justify-between mb-4"><div className="text-lg font-semibold text-text-primary">실적 수정 (#{rec.id})</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl" aria-label="닫기"><XIcon inline /></button></div>
         <div className="grid grid-cols-2 gap-3">
           <div><L>구매일자</L><input type="date" value={f.pdate} onChange={(e) => setF({ ...f, pdate: e.target.value })} className={`${C.input} w-full`} /></div>
           <div><L>거래처</L><Combobox<string> value={f.vendor} onChange={(v) => setF({ ...f, vendor: v })} fetcher={vendorFetcherTop} getLabel={(s) => s} render={(s) => <span className="text-text-primary">{s}</span>} /></div>
@@ -748,7 +834,9 @@ const SORTS: { k: string; label: string }[] = [
   { k: 'name', label: '품목명순' },
 ];
 function pctTone(p: number | null) { if (p == null) return 'text-text-quaternary'; if (p > 0) return 'text-danger'; if (p < 0) return 'text-info'; return 'text-text-tertiary'; }
-function pctStr(p: number | null) { if (p == null) return '-'; const s = p > 0 ? '▲' : p < 0 ? '▼' : '='; return `${s} ${Math.abs(p).toFixed(1)}%`; }
+function pctStr(p: number | null) { if (p == null) return '-'; const s = p > 0 ? '+' : p < 0 ? '−' : ''; return `${s}${Math.abs(p).toFixed(1)}%`; }
+// 표 칸의 증감: 방향은 아이콘으로, 색은 pctTone 이 준다
+function PctDelta({ p }: { p: number | null }) { if (p == null) return <>-</>; return <>{p > 0 ? <ArrowUpRightIcon inline /> : p < 0 ? <ArrowDownRightIcon inline /> : <MinusIcon inline />} {Math.abs(p).toFixed(1)}%</>; }
 
 function PriceTab() {
   const basis = useBasis();
@@ -802,7 +890,7 @@ function PriceTab() {
             <div>
               <div className="text-[11px] text-text-tertiary mb-1">기간 총 단가효과 (인하 절감 − 인상 부담) · 발주량 가중</div>
               <div className={`text-2xl font-semibold tabular-nums ${(data.net_savings ?? 0) >= 0 ? 'text-success' : 'text-danger'}`}>
-                {(data.net_savings ?? 0) >= 0 ? '▼ 절감 ' : '▲ 부담 '}{won(Math.abs(data.net_savings || 0))}
+                {(data.net_savings ?? 0) >= 0 ? <><ArrowDownRightIcon inline /> 절감 </> : <><ArrowUpRightIcon inline /> 부담 </>}{won(Math.abs(data.net_savings || 0))}
               </div>
               <div className="text-xs text-text-quaternary mt-1">
                 {(data.net_savings ?? 0) >= 0 ? '인하분이 인상분보다 커서 총액상 원가 절감 우위' : '인상분이 인하분보다 커서 총액상 원가 부담 우위'}
@@ -833,23 +921,29 @@ function PriceTab() {
         </div>
         {scatter.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
-            <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-              <XAxis type="number" dataKey="x" name="변동률" unit="%" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} domain={['dataMin', 'dataMax']} tickFormatter={(v) => `${Math.round(v)}%`} />
-              <YAxis type="number" dataKey="y" name="누적공급가" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} width={54} />
+            <ScatterChart margin={ndMarginH}>
+              <CartesianGrid stroke="var(--nd-chart-grid)" />
+              <XAxis type="number" dataKey="x" name="변동률" {...ndAxis.value} {...ndScale(topOf(scatter, 'x'), () => ndFmt.axisPct, lowOf(scatter, 'x'))} />
+              <YAxis type="number" dataKey="y" name="누적공급가" {...ndAxis.y} {...ndScale(topOf(scatter, 'y'), ndFmt.axisWonBy, lowOf(scatter, 'y'))} />
               <ZAxis type="number" dataKey="z" range={[40, 400]} name="매입횟수" />
-              <ReferenceLine x={0} stroke="var(--color-text-quaternary)" strokeDasharray="4 4" />
-              <Tooltip contentStyle={TT} cursor={{ strokeDasharray: '3 3' }} formatter={(v: any, n: any) => n === '누적공급가' ? won(v) : n === '변동률' ? `${v}%` : v}
-                labelFormatter={() => ''} content={({ payload }: any) => {
+              <Tooltip {...ndTooltip({ kind: 'none' })} content={({ active, payload }: any) => {
                   const d = payload?.[0]?.payload; if (!d) return null;
-                  return <div style={TT as any} className="p-2 text-xs"><div className="font-semibold text-text-primary mb-0.5">{d.item_name} <span className="text-text-quaternary">[{pu === 'kg' ? 'kg당' : d.unit}]</span></div><div className={pctTone(d.change_pct)}>{pctStr(d.change_pct)} · {V(d, 'first_price')}→{V(d, 'last_price')}</div><div className="text-text-tertiary">누적 {won(d.total_supply)} · {d.buy_count}회</div></div>;
+                  const color = ndColor(d.x > 0 ? 'bad' : d.x < 0 ? 1 : 'context');
+                  return <NdTooltipContent active={active} label={`${d.item_name} [${pu === 'kg' ? 'kg당' : d.unit}]`} payload={[
+                    { name: '변동률', value: pctStr(d.change_pct), color, mark: 'dot' },
+                    { name: '단가', value: `${V(d, 'first_price')}→${V(d, 'last_price')}`, color, mark: 'dot' },
+                    { name: '누적', value: won(d.total_supply), color, mark: 'dot' },
+                    { name: '매입', value: `${d.buy_count}회`, color, mark: 'dot' },
+                  ]} />;
                 }} />
-              <Scatter name="상승" data={rising} fill="var(--color-danger)" fillOpacity={0.7} onClick={(d: any) => openItem(d.item_code, d.item_name)} cursor="pointer" />
-              <Scatter name="하락" data={falling} fill="var(--color-info)" fillOpacity={0.7} onClick={(d: any) => openItem(d.item_code, d.item_name)} cursor="pointer" />
-              <Scatter name="보합" data={flat} fill="var(--color-text-quaternary)" fillOpacity={0.6} onClick={(d: any) => openItem(d.item_code, d.item_name)} cursor="pointer" />
+              <Legend {...ndLegend()} />
+              <Scatter name="상승" data={rising} fill={ndColor('bad')} fillOpacity={0.7} onClick={(d: any) => openItem(d.item_code, d.item_name)} cursor="pointer" />
+              <Scatter name="하락" data={falling} fill={ndColor(1)} fillOpacity={0.7} onClick={(d: any) => openItem(d.item_code, d.item_name)} cursor="pointer" />
+              <Scatter name="보합" data={flat} fill={ndColor('context')} fillOpacity={0.6} onClick={(d: any) => openItem(d.item_code, d.item_name)} cursor="pointer" />
+              <ReferenceLine x={0} {...ndRefLine()} />
             </ScatterChart>
           </ResponsiveContainer>
-        ) : <div className="py-16 text-center text-text-quaternary text-sm">{loading ? '조회 중…' : '데이터 없음'}</div>}
+        ) : <NdChartEmpty height={300}>{loading ? '조회 중…' : '데이터 없음'}</NdChartEmpty>}
       </div>
 
       <div className={`${C.card} overflow-x-auto relative`}>
@@ -869,7 +963,7 @@ function PriceTab() {
               <td className={`${C.td} text-right tabular-nums`}>{it.buy_count}회</td>
               <td className={`${C.td} text-right tabular-nums`}>{V(it, 'first_price')}<div className="text-[10px] text-text-quaternary">{it.first_date?.slice(2)}</div></td>
               <td className={`${C.td} text-right tabular-nums text-text-primary`}>{V(it, 'last_price')}<div className="text-[10px] text-text-quaternary">{it.last_date?.slice(2)}</div></td>
-              <td className={`${C.td} text-right tabular-nums font-semibold ${pctTone(it.change_pct)}`}>{pctStr(it.change_pct)}</td>
+              <td className={`${C.td} text-right tabular-nums font-semibold ${pctTone(it.change_pct)}`}><PctDelta p={it.change_pct} /></td>
               <td className={`${C.td} text-right tabular-nums text-text-tertiary text-xs`}>{V(it, 'min_price')}~{V(it, 'max_price')}</td>
               <td className={`${C.td} text-right tabular-nums text-text-tertiary`}>{it.spread_pct != null ? `${it.spread_pct.toFixed(0)}%` : '-'}</td>
               <td className={`${C.td} text-right tabular-nums`}>{V(it, 'avg_price')}</td>
@@ -943,7 +1037,7 @@ function APTab() {
   };
 
   const SortTh = ({ k, label, cls }: { k: string; label: string; cls?: string }) => (
-    <th className={`${C.th} cursor-pointer select-none hover:text-text-secondary ${cls || ''}`} onClick={() => setSortKey(k)}>{label}{sort.key === k ? (sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>
+    <th className={`${C.th} cursor-pointer select-none hover:text-text-secondary ${cls || ''}`} onClick={() => setSortKey(k)}>{label}{sort.key === k ? <>{' '}{sort.dir > 0 ? <ArrowUpIcon inline /> : <ArrowDownIcon inline />}</> : ''}</th>
   );
 
   return (
@@ -988,19 +1082,15 @@ function APTab() {
       {data?.bucket_totals && (
         <div className={`${C.card} p-4`}>
           <div className="text-sm font-semibold text-text-primary mb-3">만기(정산일) 기준 잔액 분포</div>
-          <div className="h-[180px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={bo.map((b) => ({ bucket: b, amount: data.bucket_totals[b] || 0 }))} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-primary)" vertical={false} />
-                <XAxis dataKey="bucket" tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }} />
-                <YAxis tickFormatter={wonShort} tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }} width={54} />
-                <Tooltip contentStyle={TT} formatter={(v: any) => won(v)} />
-                <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-                  {bo.map((b, i) => <Cell key={i} fill={b === '미도래' ? 'var(--nd-fg-4)' : b === '당일' || b === '1~30일' ? 'var(--nd-warn)' : 'var(--nd-bad)'} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <ResponsiveContainer width="100%" height={ndBarsHeight(bo.length)}>
+            <BarChart layout="vertical" data={bo.map((b) => ({ bucket: b, amount: data.bucket_totals[b] || 0, fill: ndColor(b === '미도래' ? 'context' : b === '당일' || b === '1~30일' ? 'warn' : 'bad') }))} margin={ndMarginH}>
+              <CartesianGrid {...ndGridVertical} />
+              <XAxis type="number" {...ndAxis.value} {...ndScale(Math.max(0, ...bo.map((b) => Number(data.bucket_totals[b]) || 0)), ndFmt.axisWonBy)} />
+              <YAxis type="category" dataKey="bucket" {...ndAxis.categoryOf(72)} />
+              <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => won(v) })} />
+              <Bar dataKey="amount" name="잔액" {...ndBar(1, { horizontal: true })} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
 
@@ -1104,7 +1194,7 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <div><div className="text-xs text-text-tertiary">거래처 정산 설정</div><div className="text-lg font-semibold text-text-primary">{vendor.vendor}</div></div>
-          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl" aria-label="닫기"><XIcon inline /></button>
         </div>
         <div className="grid grid-cols-3 gap-2 mb-4">
           <StatCard label="매입(VAT포함)" value={won(vendor.payable || 0)} />
@@ -1173,7 +1263,7 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
               <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary" title="실적 일자가 이번 달 1일 이전인 실적의 미지급 잔액">전월까지 실적분 (실적 일자 기준)</div><div className="text-sm font-semibold tabular-nums text-warning">{won(orders.closed_balance || 0)}</div></div>
               <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary">당월 실적분 ({orders.current_month}, 미마감)</div><div className="text-sm font-semibold tabular-nums text-text-secondary">{won(orders.current_balance || 0)}</div></div>
             </div>
-            <table className="w-full"><thead><tr><th className={C.th} title="구매실적 '일자'의 연-월">월(실적 일자)</th><th className={`${C.th} text-right`}>매입(VAT포함)</th><th className={`${C.th} text-right`} title="지급 총액을 오래된 실적부터 차례로 채웠을 때 이 달에 돌아간 금액">지급 배정 ⓘ</th><th className={`${C.th} text-right`}>미지급</th></tr></thead>
+            <table className="w-full"><thead><tr><th className={C.th} title="구매실적 '일자'의 연-월">월(실적 일자)</th><th className={`${C.th} text-right`}>매입(VAT포함)</th><th className={`${C.th} text-right`} title="지급 총액을 오래된 실적부터 차례로 채웠을 때 이 달에 돌아간 금액">지급 배정 <InfoIcon inline /></th><th className={`${C.th} text-right`}>미지급</th></tr></thead>
               <tbody>{orders.months.filter((m: any) => m.unpaid > 0).map((m: any) => (
                 <tr key={m.ym}>
                   <td className={C.td}>{m.ym}{m.ym === orders.current_month ? <span className="ml-1 text-[10px] text-text-quaternary">당월</span> : ''}</td>
@@ -1302,7 +1392,7 @@ function BomMapTab() {
               <td className={`${C.td} text-text-tertiary text-xs max-w-[120px] truncate`}>{x.vendor || x.supplier || '-'}</td>
               <td className={`${C.td} text-right tabular-nums`}>{won(x.master_price)}<div className="text-[10px] text-text-quaternary">{x.basis === 'kg' ? '/kg' : x.basis === 'roll' ? '/롤' : '/개'}</div></td>
               <td className={`${C.td} text-right tabular-nums text-text-primary`}>{x.buy_price != null ? won(x.buy_price) : '-'}</td>
-              <td className={`${C.td} text-right tabular-nums font-semibold ${x.gap_pct == null ? 'text-text-quaternary' : x.gap_pct > 0 ? 'text-danger' : 'text-info'}`}>{x.gap_pct == null ? '-' : `${x.gap_pct > 0 ? '▲' : '▼'}${Math.abs(x.gap_pct).toFixed(0)}%`}</td>
+              <td className={`${C.td} text-right tabular-nums font-semibold ${x.gap_pct == null ? 'text-text-quaternary' : x.gap_pct > 0 ? 'text-danger' : 'text-info'}`}>{x.gap_pct == null ? '-' : <>{x.gap_pct > 0 ? <ArrowUpRightIcon inline /> : <ArrowDownRightIcon inline />}{Math.abs(x.gap_pct).toFixed(0)}%</>}</td>
               <td className={`${C.td} text-center tabular-nums ${x.bom_uses ? '' : 'text-text-quaternary'}`}>{x.bom_uses}</td>
               <td className={`${C.td} text-text-tertiary text-xs`}>{x.last_date || '-'}</td>
               <td className={C.td}>{flagBadge(x.flags)}</td>
@@ -1355,7 +1445,7 @@ function MatTab() {
                   <>
                     <tr key={v.vendor} className="hover:bg-bg-1 cursor-pointer" onClick={() => setOpenVendor(openVendor === v.vendor ? null : v.vendor)}>
                       <td className={`${C.td} text-text-primary font-medium`}>{v.vendor}</td><td className={C.td}>{v.items}</td><td className={`${C.td} text-warning`}>{won(v.cost)}</td>
-                      <td className={C.td}><button onClick={(e) => { e.stopPropagation(); createPO(v.vendor); }} className="text-accent text-xs hover:underline">발주 생성</button> <span className="text-text-quaternary text-xs ml-2">{openVendor === v.vendor ? '▲' : '▼'}</span></td>
+                      <td className={C.td}><button onClick={(e) => { e.stopPropagation(); createPO(v.vendor); }} className="text-accent text-xs hover:underline">발주 생성</button> <span className="text-text-quaternary text-xs ml-2">{openVendor === v.vendor ? <CaretUpIcon inline /> : <CaretDownIcon inline />}</span></td>
                     </tr>
                     {openVendor === v.vendor && (
                       <tr key={`${v.vendor}-d`} className="bg-bg-0"><td colSpan={4} className="px-4 py-2 border-b border-bg-inset">
@@ -1444,7 +1534,7 @@ function POTab() {
               <tr key={p.id} className="hover:bg-bg-1 cursor-pointer" onClick={() => setOpen(open === p.id ? null : p.id)}>
                 <td className={C.td}>{p.order_date}</td><td className={`${C.td} text-text-primary`}>{p.vendor_name}</td><td className={C.td}>{p.line_count}</td><td className={`${C.td} text-warning`}>{won(p.total_amount)}<div className="text-[10px] text-text-quaternary">VAT포함 ≈ {won(Math.round((p.total_amount || 0) * 1.1))}</div></td>
                 <td className={C.td}><select value={p.status} onClick={(e) => e.stopPropagation()} onChange={(e) => setStatus(p.id, e.target.value)} className={`bg-bg-0 border border-border-primary rounded px-2 py-1 text-xs ${badge[p.status] || ''}`}>{STATUS.map((s) => <option key={s} value={s}>{s}</option>)}</select></td>
-                <td className={C.td}><button onClick={(e) => { e.stopPropagation(); issue(p); }} className="text-success text-xs hover:underline mr-2">발주서 발행</button><button onClick={(e) => { e.stopPropagation(); del(p.id); }} className="text-danger text-xs hover:underline">삭제</button> <span className="text-text-quaternary text-xs ml-1">{open === p.id ? '▲' : '▼'}</span></td>
+                <td className={C.td}><button onClick={(e) => { e.stopPropagation(); issue(p); }} className="text-success text-xs hover:underline mr-2">발주서 발행</button><button onClick={(e) => { e.stopPropagation(); del(p.id); }} className="text-danger text-xs hover:underline">삭제</button> <span className="text-text-quaternary text-xs ml-1">{open === p.id ? <CaretUpIcon inline /> : <CaretDownIcon inline />}</span></td>
               </tr>
               {open === p.id && <tr key={`${p.id}-d`} className="bg-bg-0"><td colSpan={6} className="px-4 py-2 border-b border-bg-inset"><table className="w-full"><thead><tr><th className={C.th}>자재</th><th className={C.th}>소요량</th><th className={C.th}>단가(VAT별도)</th><th className={C.th}>금액(VAT별도)</th></tr></thead><tbody>{p.lines.map((l: any) => (<tr key={l.id}><td className={C.td}>{l.material_name}</td><td className={C.td}>{fmt(l.qty)}{l.unit}</td><td className={C.td}>{won(l.unit_price)}</td><td className={C.td}>{won(l.amount)}</td></tr>))}</tbody></table></td></tr>}
             </>

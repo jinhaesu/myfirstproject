@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import '@/styles/nd-cosmos.css';
+import '../styles/fonts/nd-fonts.css';
+import '../styles/nd-cosmos.css';
+import '../styles/nd-type.css';
+import '../styles/nd-chart.css';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { FloatingAssistant } from '@/components/chat/FloatingAssistant';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Nuldam Analytics',
@@ -35,7 +35,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className={`${inter.className} antialiased`} suppressHydrationWarning>
+      <body className="antialiased" suppressHydrationWarning>
         <AuthProvider>
           {children}
           <FloatingAssistant />

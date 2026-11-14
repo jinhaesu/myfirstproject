@@ -1,8 +1,10 @@
 'use client';
+import { ndAxis, ndBar, ndColor, ndFmt, ndGrid, ndMargin, ndScale, ndTooltip } from '@/components/nd/NdChart';
 
+import { CaretDownIcon, ChartLineIcon, CheckCircleIcon, CheckIcon, DownloadIcon, EditIcon, FileTextIcon, MailIcon, TrashIcon, WarningIcon, XCircleIcon } from '@/components/nd/icons';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts';
 
 // ---------------------------------------------------------------------------
@@ -1040,12 +1042,15 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
     );
   };
 
-  // Bar chart color function
+  // Bar chart color function — 달성(100% 이상) · 주의(80~99%) · 미달(80% 미만)의 상태 색
   const getBarColor = (value: number) => {
-    if (value >= 100) return '#27A644';
-    if (value >= 80) return '#F0BF00';
-    return '#EB5757';
+    if (value >= 100) return ndColor('good');
+    if (value >= 80) return ndColor('warn');
+    return ndColor('bad');
   };
+  // 달성률 축: 100% 까지는 늘 담고, 음수(공헌이익 적자)가 있으면 그만큼 아래로
+  const achievementRates = achievementChartData.flatMap((r) => [r.매출달성률, r.판매량달성률, r.공헌이익달성률]).filter((v) => isFinite(v));
+  const achievementScale = ndScale(Math.max(100, ...achievementRates), () => ndFmt.axisPct, Math.min(0, ...achievementRates));
 
   // -----------------------------------------------------------------------
   // JSX
@@ -1081,23 +1086,14 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand to-brand flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <ChartLineIcon className="w-5 h-5 text-white" />
               </div>
               <div className="text-left">
                 <h2 className="text-lg font-semibold text-text-primary">리포트 및 이메일 스케줄링</h2>
                 <p className="text-sm text-text-tertiary">목표 달성 현황 리포트를 생성하고 자동 이메일 발송을 설정합니다</p>
               </div>
             </div>
-            <svg
-              className={`w-5 h-5 text-text-quaternary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            <CaretDownIcon className={`w-5 h-5 text-text-quaternary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Collapsible Content */}
@@ -1125,9 +1121,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                       </>
                     ) : (
                       <>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+                        <FileTextIcon className="w-5 h-5" />
                         리포트 생성
                       </>
                     )}
@@ -1147,9 +1141,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           </>
                         ) : (
                           <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                            <DownloadIcon className="w-4 h-4" />
                             PDF 다운로드
                           </>
                         )}
@@ -1167,9 +1159,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           </>
                         ) : (
                           <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
+                            <MailIcon className="w-4 h-4" />
                             리포트 이메일 발송
                           </>
                         )}
@@ -1231,7 +1221,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                 <div ref={reportRef} className="px-6 py-6 space-y-8">
                   {/* Report header */}
                   <div className="text-center print-section">
-                    <h2 className="text-2xl font-bold text-text-primary">
+                    <h2 className="text-2xl font-semibold text-text-primary">
                       {selectedYear}년 {effectiveMonth}월 목표 달성 현황 리포트
                     </h2>
                     <p className="text-sm text-text-tertiary mt-1">
@@ -1246,7 +1236,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-brand to-brand" />
-                      <h3 className="text-lg font-bold text-text-primary">담당자별 목표 vs 실적 현황</h3>
+                      <h3 className="text-lg font-semibold text-text-primary">담당자별 목표 vs 실적 현황</h3>
                     </div>
 
                     {managerComparisons.length === 0 ? (
@@ -1276,23 +1266,23 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                 <td className="px-4 py-3 font-medium text-text-primary">{mc.manager}</td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.targetSales))}</td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.actualSales))}</td>
-                                <td className={`px-4 py-3 text-right font-bold ${rateColorClass(mc.salesRate)}`}>
+                                <td className={`px-4 py-3 text-right font-semibold ${rateColorClass(mc.salesRate)}`}>
                                   {mc.salesRate.toFixed(1)}%
                                 </td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(mc.targetQuantity)}</td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(mc.actualQuantity)}</td>
-                                <td className={`px-4 py-3 text-right font-bold ${rateColorClass(mc.quantityRate)}`}>
+                                <td className={`px-4 py-3 text-right font-semibold ${rateColorClass(mc.quantityRate)}`}>
                                   {mc.quantityRate.toFixed(1)}%
                                 </td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.targetContribution))}</td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.actualContribution))}</td>
-                                <td className={`px-4 py-3 text-right font-bold ${rateColorClass(mc.contributionRate)}`}>
+                                <td className={`px-4 py-3 text-right font-semibold ${rateColorClass(mc.contributionRate)}`}>
                                   {mc.contributionRate.toFixed(1)}%
                                 </td>
                               </tr>
                             ))}
                             {/* Summary row */}
-                            <tr className="bg-gradient-to-r from-brand/10 to-brand/10 font-bold border-t-2 border-border-primary">
+                            <tr className="bg-gradient-to-r from-brand/10 to-brand/10 font-semibold border-t-2 border-border-primary">
                               <td className="px-4 py-3 text-text-primary">합계</td>
                               <td className="px-4 py-3 text-right text-text-secondary">{formatKRW(applyVat(summaryTotals.targetSales))}</td>
                               <td className="px-4 py-3 text-right text-text-secondary">{formatKRW(applyVat(summaryTotals.actualSales))}</td>
@@ -1317,38 +1307,35 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
 
                     {/* Achievement rate chart */}
                     {achievementChartData.length > 0 && (
-                      <div className="mt-6 bg-bg-0 rounded-xl p-5 border border-border-primary">
+                      <div className="mt-6 bg-bg-0 rounded-xl p-5 border border-border-primary" style={{ ['--nd-chart-surface' as any]: 'var(--color-bg-level-0)' }}>
                         <h4 className="text-sm font-semibold text-text-secondary mb-4">담당자별 달성률 차트</h4>
                         <ResponsiveContainer width="100%" height={300}>
-                          <BarChart data={achievementChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                            <YAxis
-                              tick={{ fontSize: 12 }}
-                              domain={[0, (dataMax: number) => Math.max(dataMax + 20, 120)]}
-                              tickFormatter={(v: number) => `${v}%`}
-                            />
-                            <Tooltip formatter={(value: number, name: string) => [`${value}%`, name]} />
-                            <Legend wrapperStyle={{ fontSize: '12px' }} />
-                            {/* Reference line at 100% */}
-                            <Bar dataKey="매출달성률" name="매출 달성률">
+                          <BarChart data={achievementChartData} margin={ndMargin}>
+                            <CartesianGrid {...ndGrid} />
+                            <XAxis dataKey="name" {...ndAxis.band} />
+                            <YAxis {...ndAxis.y} {...achievementScale} />
+                            <Tooltip {...ndTooltip({ kind: 'bar', value: ndFmt.pct, color: (it) => getBarColor(Number(it.value)) })} />
+                            {/* 막대 색은 계열이 아니라 달성 상태다(아래 설명). 계열은 놓인 순서와 말풍선의 이름으로 구분한다 */}
+                            <Bar dataKey="매출달성률" name="매출 달성률" {...ndBar('context')}>
                               {achievementChartData.map((entry, index) => (
                                 <Cell key={`sales-${index}`} fill={getBarColor(entry.매출달성률)} />
                               ))}
                             </Bar>
-                            <Bar dataKey="판매량달성률" name="판매량 달성률">
+                            <Bar dataKey="판매량달성률" name="판매량 달성률" {...ndBar('context')}>
                               {achievementChartData.map((entry, index) => (
                                 <Cell key={`qty-${index}`} fill={getBarColor(entry.판매량달성률)} />
                               ))}
                             </Bar>
-                            <Bar dataKey="공헌이익달성률" name="공헌이익 달성률">
+                            <Bar dataKey="공헌이익달성률" name="공헌이익 달성률" {...ndBar('context')}>
                               {achievementChartData.map((entry, index) => (
                                 <Cell key={`cont-${index}`} fill={getBarColor(entry.공헌이익달성률)} />
                               ))}
                             </Bar>
+                            {/* 음수가 있으면 바닥선 노릇은 0 선이 한다 */}
+                            {achievementScale.domain[0] < 0 && <ReferenceLine y={0} stroke="var(--nd-chart-axis)" strokeWidth={1} />}
                           </BarChart>
                         </ResponsiveContainer>
-                        <div className="flex items-center justify-center gap-6 mt-3 text-xs text-text-tertiary">
+                        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 mt-3 text-xs text-text-tertiary">
                           <span className="flex items-center gap-1">
                             <span className="w-3 h-3 rounded-sm bg-success inline-block" /> 100% 이상
                           </span>
@@ -1358,6 +1345,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           <span className="flex items-center gap-1">
                             <span className="w-3 h-3 rounded-sm bg-danger inline-block" /> 80% 미만
                           </span>
+                          <span>막대 순서: 매출 · 판매량 · 공헌이익 달성률</span>
                         </div>
                       </div>
                     )}
@@ -1369,7 +1357,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-brand to-cyan" />
-                      <h3 className="text-lg font-bold text-text-primary">채널별 달성/미달성 현황</h3>
+                      <h3 className="text-lg font-semibold text-text-primary">채널별 달성/미달성 현황</h3>
                     </div>
 
                     {Object.keys(channelsByManager).length === 0 ? (
@@ -1404,7 +1392,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                       <td className="px-4 py-2.5 text-right text-text-tertiary">
                                         {formatKRW(applyVat(ch.actualValue))}
                                       </td>
-                                      <td className={`px-4 py-2.5 text-right font-bold ${rateColorClass(ch.rate)}`}>
+                                      <td className={`px-4 py-2.5 text-right font-semibold ${rateColorClass(ch.rate)}`}>
                                         {ch.rate > 900 ? '-' : `${ch.rate.toFixed(1)}%`}
                                       </td>
                                       <td className="px-4 py-2.5 text-center">
@@ -1427,7 +1415,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-warning to-orange" />
-                      <h3 className="text-lg font-bold text-text-primary">담당자별 데이터 입력 현황</h3>
+                      <h3 className="text-lg font-semibold text-text-primary">담당자별 데이터 입력 현황</h3>
                     </div>
 
                     <p className="text-sm text-text-tertiary mb-4">
@@ -1460,7 +1448,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                 <td className="px-4 py-3 text-center text-text-tertiary">{status.requiredDay}일</td>
                                 <td className="px-4 py-3 text-center">
                                   {status.missingDays > 0 ? (
-                                    <span className="font-bold text-danger">{status.missingDays}일</span>
+                                    <span className="font-semibold text-danger">{status.missingDays}일</span>
                                   ) : (
                                     <span className="text-text-quaternary">-</span>
                                   )}
@@ -1483,11 +1471,9 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                     <div className="print-section">
                       <div className="bg-gradient-to-r from-danger/10 to-orange/10 border border-danger/30 rounded-xl overflow-hidden">
                         <div className="px-5 py-4 border-b border-danger/30 flex items-center gap-3">
-                          <svg className="w-6 h-6 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                          </svg>
-                          <h3 className="text-lg font-bold text-danger">미입력자 경고</h3>
-                          <span className="px-2.5 py-0.5 bg-danger/15 text-danger rounded-full text-xs font-bold">
+                          <WarningIcon className="w-6 h-6 text-danger" />
+                          <h3 className="text-lg font-semibold text-danger">미입력자 경고</h3>
+                          <span className="px-2.5 py-0.5 bg-danger/15 text-danger rounded-full text-xs font-semibold">
                             {missingEntryManagers.length}명
                           </span>
                         </div>
@@ -1499,7 +1485,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                 className="bg-bg-1 rounded-lg border border-danger/15 p-4 flex items-start gap-3"
                               >
                                 <div className="w-10 h-10 rounded-full bg-danger/15 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-danger font-bold text-sm">
+                                  <span className="text-danger font-semibold text-sm">
                                     {status.manager.charAt(0)}
                                   </span>
                                 </div>
@@ -1526,7 +1512,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-success to-cyan" />
-                      <h3 className="text-lg font-bold text-text-primary">채널별 개선 아이디어</h3>
+                      <h3 className="text-lg font-semibold text-text-primary">채널별 개선 아이디어</h3>
                     </div>
 
                     {channelSuggestions.length === 0 ? (
@@ -1542,23 +1528,17 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           >
                             <div className="flex-shrink-0 mt-0.5">
                               {cs.rate >= 100 ? (
-                                <svg className="w-5 h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                <CheckCircleIcon className="w-5 h-5 text-success" />
                               ) : cs.rate >= 80 ? (
-                                <svg className="w-5 h-5 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                </svg>
+                                <WarningIcon className="w-5 h-5 text-orange" />
                               ) : (
-                                <svg className="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                <XCircleIcon className="w-5 h-5 text-danger" />
                               )}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-1">
                                 <span className="font-semibold">{cs.channel}</span>
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                                   cs.rate >= 100
                                     ? 'bg-success/15 text-success'
                                     : cs.rate >= 80
@@ -1584,7 +1564,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
               <div className="px-6 py-6 bg-bg-0 no-print">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-brand to-brand" />
-                  <h3 className="text-lg font-bold text-text-primary">이메일 자동 발송 스케줄</h3>
+                  <h3 className="text-lg font-semibold text-text-primary">이메일 자동 발송 스케줄</h3>
                 </div>
 
                 {/* Schedule Form */}
@@ -1682,9 +1662,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           </>
                         ) : (
                           <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
+                            <CheckIcon className="w-4 h-4" />
                             {editingScheduleIdx !== null ? '수정' : '저장'}
                           </>
                         )}
@@ -1740,18 +1718,14 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                               className="p-2 text-text-quaternary hover:text-link hover:bg-brand/10 rounded-lg transition-colors"
                               title="수정"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
+                              <EditIcon className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteSchedule(idx)}
                               className="p-2 text-text-quaternary hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                               title="삭제"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
+                              <TrashIcon className="w-4 h-4" />
                             </button>
                           </div>
                         </div>

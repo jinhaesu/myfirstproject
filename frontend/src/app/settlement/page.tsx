@@ -1,13 +1,14 @@
 'use client';
-import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
+import { NdChartEmpty, NdKey, ndAlpha, ndAxis, ndBar, ndBarsHeight, ndFmt, ndGrid, ndGridVertical, ndLegend, ndMargin, ndMarginH, ndScale, ndSlots, ndTooltip, ndValueLabel } from '@/components/nd/NdChart';
 
+import { ArrowDownIcon, ArrowUpIcon, ArrowsDownUpIcon, CheckIcon, CurrencyKrwIcon, EditIcon, MoneyIcon, ReceiptIcon, StorefrontIcon, XIcon } from '@/components/nd/icons';
 import { Suspense, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line
+  LabelList
 } from 'recharts';
 
 // ─────────────────────────────────────────────
@@ -64,20 +65,10 @@ const CHANNELS_BY_CATEGORY = ALL_CHANNELS.reduce((acc, ch) => {
   return acc;
 }, {} as Record<string, typeof ALL_CHANNELS>);
 
-const COLORS = ND_CHART;
-
-const CATEGORY_COLORS: Record<string, string> = {
-  '오픈마켓': '#5E6AD2',
-  '소셜커머스': '#27A644',
-  '버티컬': '#F0BF00',
-  '홈쇼핑': '#EB5757',
-  '백화점': '#7070FF',
-  '복지몰': '#EB5757',
-  '대형마트': '#06B6D4',
-  '편의점': '#68CC58',
-  'B2B': '#FC7840',
-  '기타': '#6B7280',
-};
+// 카테고리 목록(순서 고정). 색은 이름에 묶는다: 앞의 여섯은 계열 색 1~6번, 일곱 번째부터와 목록에 없는 이름은 중립색
+// (일곱 번째 색은 만들지 않는다 — 널담 디자인 기준 2 의 그래프 규칙)
+const CATEGORY_NAMES = ['오픈마켓', '소셜커머스', '버티컬', '홈쇼핑', '백화점', '복지몰', '대형마트', '편의점', 'B2B', '기타'];
+const categoryColor = ndSlots(CATEGORY_NAMES);
 
 const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
 const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` }));
@@ -327,7 +318,7 @@ function SettlementPageContent() {
             }`}
           >
             <span className="text-sm">{toast.message}</span>
-            <button onClick={() => setToast(null)} className="ml-4 text-lg leading-none">&times;</button>
+            <button onClick={() => setToast(null)} className="ml-4 text-lg leading-none" aria-label="닫기"><XIcon inline /></button>
           </div>
         )}
 
@@ -421,6 +412,11 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
     });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [records]);
+  // 순위 막대의 행: 큰 것부터, 비중(%)을 함께 둔다(카테고리가 열 개까지라 원 그래프 대신 순위 막대로 그린다)
+  const categoryRows = useMemo(() => {
+    const total = categoryData.reduce((a, r) => a + (r.value > 0 ? r.value : 0), 0) || 1;
+    return [...categoryData].sort((a, b) => b.value - a.value).map((r) => ({ ...r, share: (r.value / total) * 100 }));
+  }, [categoryData]);
 
   // Monthly trend for bar chart
   const monthlyTrend = useMemo(() => {
@@ -456,8 +452,8 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
   };
 
   const sortIcon = (field: string) => {
-    if (sortField !== field) return ' ↕';
-    return sortDir === 'asc' ? ' ↑' : ' ↓';
+    if (sortField !== field) return <ArrowsDownUpIcon inline className="ml-1 opacity-40" />;
+    return sortDir === 'asc' ? <ArrowUpIcon inline className="ml-1" /> : <ArrowDownIcon inline className="ml-1" />;
   };
 
   // Actions
@@ -592,16 +588,16 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <SummaryCard label="총매출" value={fmtWon(summary.totalGross)} color="blue" icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <CurrencyKrwIcon className="w-6 h-6" />
             } />
             <SummaryCard label="정산금액" value={fmtWon(summary.totalSettlement)} color="emerald" icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
+              <ReceiptIcon className="w-6 h-6" />
             } />
             <SummaryCard label="수수료" value={fmtWon(summary.totalCommission)} color="amber" icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+              <MoneyIcon className="w-6 h-6" />
             } />
             <SummaryCard label="채널 수" value={`${summary.channelCount}개`} color="violet" icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+              <StorefrontIcon className="w-6 h-6" />
             } />
           </div>
 
@@ -612,18 +608,18 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
               <h3 className="text-lg font-semibold text-text-primary mb-4">{year}년 월별 추이</h3>
               {monthlyTrend.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={monthlyTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-secondary)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`} />
-                    <Tooltip formatter={(value: number) => fmtWon(value)} />
-                    <Legend />
-                    <Bar dataKey="총매출" fill="var(--color-brand-bg)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="정산금액" fill="var(--color-success)" radius={[4, 4, 0, 0]} />
+                  <BarChart data={monthlyTrend} margin={ndMargin}>
+                    <CartesianGrid {...ndGrid} />
+                    <XAxis dataKey="name" {...ndAxis.x} />
+                    <YAxis {...ndAxis.y} {...ndScale(Math.max(0, ...monthlyTrend.map((m) => Math.max(Number(m.총매출) || 0, Number(m.정산금액) || 0))), ndFmt.axisWonBy)} />
+                    <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => fmtWon(v) })} />
+                    <Legend {...ndLegend()} />
+                    <Bar dataKey="총매출" {...ndBar(1)} />
+                    <Bar dataKey="정산금액" {...ndBar(2)} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[320px] flex items-center justify-center text-text-quaternary">데이터가 없습니다</div>
+                <NdChartEmpty height={320}>데이터가 없습니다</NdChartEmpty>
               )}
             </div>
 
@@ -631,27 +627,20 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
             <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-6">
               <h3 className="text-lg font-semibold text-text-primary mb-4">카테고리별 매출</h3>
               {categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={320}>
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false}
-                    >
-                      {categoryData.map((entry, idx) => (
-                        <Cell key={entry.name} fill={CATEGORY_COLORS[entry.name] || COLORS[idx % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => fmtWon(value)} />
-                  </PieChart>
+                <ResponsiveContainer width="100%" height={ndBarsHeight(categoryRows.length)}>
+                  <BarChart layout="vertical" data={categoryRows} margin={categoryRows.length <= 8 ? { ...ndMarginH, right: 48 } : ndMarginH}>
+                    <CartesianGrid {...ndGridVertical} />
+                    <XAxis type="number" {...ndAxis.value} {...ndScale(Math.max(0, ...categoryRows.map((r) => r.value)), ndFmt.axisWonBy)} />
+                    <YAxis type="category" dataKey="name" {...ndAxis.categoryOf(80)} />
+                    <Tooltip {...ndTooltip({ kind: 'bar', value: (v, _n, it) => `${fmtWon(v)} · ${ndFmt.pct(it?.payload?.share)}` })} />
+                    <Bar dataKey="value" name="총매출" {...ndBar(1, { horizontal: true })}>
+                      {/* 비중 글자는 막대가 여덟 개 이하일 때만 단다 */}
+                      {categoryRows.length <= 8 && <LabelList dataKey="share" {...ndValueLabel(ndFmt.pct, { horizontal: true })} />}
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[320px] flex items-center justify-center text-text-quaternary">데이터가 없습니다</div>
+                <NdChartEmpty height={320}>데이터가 없습니다</NdChartEmpty>
               )}
             </div>
           </div>
@@ -703,21 +692,19 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                       <tr key={r.id} className="hover:bg-bg-secondary transition-colors">
                         <td className="px-4 py-3">
                           <span
-                            className="inline-block px-2 py-0.5 text-xs rounded-full font-medium"
-                            style={{
-                              backgroundColor: `${CATEGORY_COLORS[r.category] || '#6B7280'}20`,
-                              color: CATEGORY_COLORS[r.category] || '#6B7280',
-                            }}
+                            className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded-full font-medium text-text-secondary whitespace-nowrap"
+                            style={{ backgroundColor: ndAlpha(categoryColor(r.category || '기타'), 12) }}
                           >
+                            <NdKey color={categoryColor(r.category || '기타')} mark="dot" />
                             {r.category || '기타'}
                           </span>
                         </td>
                         <td className="px-4 py-3 font-medium text-text-primary">{r.channel_name}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-secondary">{fmt(r.gross_sales)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-secondary">{fmt(r.net_sales)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-secondary">{fmt(r.settlement_amount)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-secondary">{fmt(r.commission)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-secondary">{fmt(r.order_count)}</td>
+                        <td className="px-4 py-3 text-right text-text-secondary">{fmt(r.gross_sales)}</td>
+                        <td className="px-4 py-3 text-right text-text-secondary">{fmt(r.net_sales)}</td>
+                        <td className="px-4 py-3 text-right text-text-secondary">{fmt(r.settlement_amount)}</td>
+                        <td className="px-4 py-3 text-right text-text-secondary">{fmt(r.commission)}</td>
+                        <td className="px-4 py-3 text-right text-text-secondary">{fmt(r.order_count)}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`text-xs font-medium ${pctColor(r.gross_change_pct)}`}>
                             {fmtPct(r.gross_change_pct)}
@@ -742,7 +729,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                               className="p-1 text-link hover:bg-brand/10 rounded transition-colors"
                               title="수정"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                              <EditIcon className="w-4 h-4" />
                             </button>
                             {!r.is_confirmed && (
                               <button
@@ -750,7 +737,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                                 className="p-1 text-success hover:bg-success/10 rounded transition-colors"
                                 title="확정"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <CheckIcon className="w-4 h-4" />
                               </button>
                             )}
                           </div>
@@ -923,7 +910,7 @@ function ManualInputModal({
               className="w-full border border-border-primary rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:border-brand"
             >
               <option value="">선택</option>
-              {Object.keys(CATEGORY_COLORS).map((cat) => (
+              {CATEGORY_NAMES.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
@@ -1186,7 +1173,8 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
                 <div key={ch.name} className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <span className="inline-block px-2 py-0.5 text-xs rounded-full font-medium mb-1" style={{ backgroundColor: `${CATEGORY_COLORS[ch.category] || '#6B7280'}20`, color: CATEGORY_COLORS[ch.category] || '#6B7280' }}>
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded-full font-medium mb-1 text-text-secondary whitespace-nowrap" style={{ backgroundColor: ndAlpha(categoryColor(ch.category), 12) }}>
+                        <NdKey color={categoryColor(ch.category)} mark="dot" />
                         {ch.category}
                       </span>
                       <h5 className="font-semibold text-text-primary">{ch.name}</h5>
@@ -1258,7 +1246,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
                     <td className="px-4 py-2 text-text-tertiary">{log.year}년 {log.month}월</td>
                     <td className="px-4 py-2 text-center">{getStatusBadge(log.status)}</td>
                     <td className="px-4 py-2 text-text-tertiary">{log.started_at ? new Date(log.started_at).toLocaleString('ko-KR') : '-'}</td>
-                    <td className="px-4 py-2 text-right font-mono text-text-secondary">{log.settlement_amount != null ? fmtWon(log.settlement_amount) : '-'}</td>
+                    <td className="px-4 py-2 text-right text-text-secondary">{log.settlement_amount != null ? fmtWon(log.settlement_amount) : '-'}</td>
                     <td className="px-4 py-2 text-danger text-xs max-w-[200px] truncate" title={log.error_message || ''}>{log.error_message || '-'}</td>
                   </tr>
                 ))
@@ -1552,9 +1540,9 @@ AGENT_API_KEY=your-api-key`}
         <div key={category} className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary overflow-hidden">
           <div
             className="px-4 py-3 border-b border-border-primary flex items-center gap-2"
-            style={{ backgroundColor: `${CATEGORY_COLORS[category] || '#6B7280'}10` }}
+            style={{ backgroundColor: ndAlpha(categoryColor(category), 6) }}
           >
-            <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[category] || '#6B7280' }} />
+            <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: categoryColor(category) }} />
             <h4 className="font-semibold text-text-primary">{category}</h4>
             <span className="text-sm text-text-tertiary">({channels.length}개 채널)</span>
           </div>
@@ -2126,7 +2114,7 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
                       <td className="px-4 py-3 text-text-tertiary text-xs">
                         {log.completed_at ? new Date(log.completed_at).toLocaleString('ko-KR') : '-'}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-text-secondary">
+                      <td className="px-4 py-3 text-right text-text-secondary">
                         {log.settlement_amount != null ? fmtWon(log.settlement_amount) : '-'}
                       </td>
                       <td className="px-4 py-3">

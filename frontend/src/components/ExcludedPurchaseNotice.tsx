@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ArrowRightIcon, XIcon } from '@/components/nd/icons';
 
 // 원가 gap 비교에서 제외한 'BOM 비대상 구매'(포장·물류자재·소모품 등)를 그래프 위에 명시하고,
 // 클릭 시 품목별 제외 내역을 모달로 띄운다. 금액은 공급가(VAT별도).
@@ -37,7 +38,7 @@ export function ExcludedPurchaseNotice({ start, end, team, endpoint = '/purchase
         <span className="font-semibold text-warning">비교 제외</span>
         <span className="text-text-secondary">BOM 비대상 구매 <b className="text-text-primary tabular-nums">{wonShort(d.excluded)}</b>
           {d.excluded_pct != null && <> (전체 {wonShort(d.purchase_total)}의 {d.excluded_pct}%)</>} — 단상자·선물박스·보냉/물류자재 등은 그래프에서 뺐습니다</span>
-        <span className="ml-auto text-brand underline underline-offset-2">제외 내역 보기 →</span>
+        <span className="ml-auto text-brand underline underline-offset-2">제외 내역 보기 <ArrowRightIcon inline /></span>
       </button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
@@ -49,7 +50,7 @@ export function ExcludedPurchaseNotice({ start, end, team, endpoint = '/purchase
                 <div className="text-lg font-semibold text-text-primary">원가 비교에서 제외한 구매 {wonShort(d.excluded)}</div>
                 <div className="text-xs text-text-quaternary mt-1">원재료·개당 포장(롤지·인쇄필름·지퍼백)이 아닌 구매입니다 — 판매단위 포장, 물류·보냉자재, 제판비 등. 원가 gap은 BOM자재 구매 {wonShort(d.bom_scope)}만으로 비교합니다.</div>
               </div>
-              <button onClick={() => setOpen(false)} className="text-text-tertiary hover:text-text-primary text-xl">×</button>
+              <button onClick={() => setOpen(false)} className="text-text-tertiary hover:text-text-primary text-xl" aria-label="닫기"><XIcon inline /></button>
             </div>
             <div className="flex flex-wrap gap-2 mb-4">
               {d.by_group.map((c) => (

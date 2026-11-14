@@ -1,7 +1,9 @@
 'use client';
 
+import { PlusIcon, UploadIcon } from '@/components/nd/icons';
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { ndAxis, ndBar, ndBarsHeight, ndFit, ndFmt, ndGrid, ndGridVertical, ndLegend, ndMargin, ndMarginH, ndScale, ndTextWidth, ndTooltip, type NdSlot } from '@/components/nd/NdChart';
 import { TargetModal } from './TargetModal';
 import { ExcelUploadModal } from './ExcelUploadModal';
 import { DataItemActions } from './DataItemActions';
@@ -47,6 +49,57 @@ const months = [
   { value: null, label: '선택안함 (연간)' },
   ...Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` })),
 ];
+
+// 목표 지표의 계열 색(순서 고정). 현황 화면(SalesStatusSection)의 매출·판매량과 같은 번호를 쓴다
+const TARGET_SERIES: { key: keyof ChartData & string; slot: NdSlot }[] = [
+  { key: '매출', slot: 1 },
+  { key: '판매량', slot: 2 },
+  { key: '공헌이익', slot: 3 },
+  { key: '광고선전비', slot: 4 },
+];
+
+// 세로축 너비: 음수·긴 눈금 글자(「-2,000만」)가 왼쪽에서 잘리지 않게 가장 긴 눈금 글자에 맞춘다(기본 52px 보다 좁히지는 않는다).
+// 글자 폭 어림값은 Pretendard 기준이라, 더 넓은 글꼴에서도 들어가게 13% 여유를 둔다
+const fitY = <T extends { ticks: number[]; tickFormatter: (v: any) => string }>(s: T) => ({ ...s, width: Math.max(52, ...s.ticks.map((t) => Math.ceil(ndTextWidth(s.tickFormatter(t)) * 1.13) + 10)) });
+// 가로 막대의 항목 축. 이름을 자르는 폭은 Pretendard 기준 어림값이라 한글이 더 넓은 글꼴에서는 몇 px 넘친다 → 축을 10% 넓게 잡는다
+const categoryAxis = (width = 96) => ({ ...ndAxis.categoryOf(Math.ceil(width * 1.1)), tickFormatter: (v: any) => ndFit(String(v ?? ''), width - 12, 12) });
+
+// 책임자·기준 항목 막대. 항목이 일곱을 넘거나 이름이 여섯 자를 넘으면 가로 막대로 그린다(이름을 자르지 않으려고)
+function TargetBars({ rows, value }: { rows: ChartData[]; value: (v: any) => string }) {
+  const nums = rows.flatMap((r) => TARGET_SERIES.map((s) => Number(r[s.key]) || 0));
+  const top = Math.max(0, ...nums);
+  const low = Math.min(0, ...nums);
+  const horizontal = rows.length > 7 || rows.some((r) => Array.from(r.name || '').length > 6);
+  const bars = TARGET_SERIES.map((s) => (
+    <Bar key={s.key} dataKey={s.key} {...ndBar(s.slot, { horizontal, max: horizontal ? 12 : 24 })} />
+  ));
+  if (horizontal) {
+    return (
+      <ResponsiveContainer width="100%" height={ndBarsHeight(rows.length, TARGET_SERIES.length * 14 + 12)}>
+        <BarChart layout="vertical" data={rows} margin={ndMarginH} barGap={2}>
+          <CartesianGrid {...ndGridVertical} />
+          <XAxis type="number" {...ndAxis.value} {...ndScale(top, ndFmt.axisNumBy, low)} />
+          <YAxis type="category" dataKey="name" {...categoryAxis(112)} />
+          <Tooltip {...ndTooltip({ kind: 'bar', value })} />
+          <Legend {...ndLegend()} />
+          {bars}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={rows} margin={ndMargin} barGap={2}>
+        <CartesianGrid {...ndGrid} />
+        <XAxis dataKey="name" {...ndAxis.band} />
+        <YAxis {...ndAxis.y} {...fitY(ndScale(top, ndFmt.axisNumBy, low))} />
+        <Tooltip {...ndTooltip({ kind: 'bar', value })} />
+        <Legend {...ndLegend()} />
+        {bars}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
 
 export function TargetListSection({
   selectedYear,
@@ -233,18 +286,14 @@ export function TargetListSection({
               }}
               className="flex items-center gap-2 px-4 py-2 bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
+              <PlusIcon className="w-5 h-5" />
               기입하기
             </button>
             <button
               onClick={() => setIsUploadModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-success text-on-brand rounded-lg hover:bg-success transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
+              <UploadIcon className="w-5 h-5" />
               엑셀 업로드
             </button>
           </div>
@@ -348,23 +397,7 @@ export function TargetListSection({
               {showManagerChart && managerChartData.length > 0 && (
                 <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
                   <h3 className="text-sm font-semibold text-text-secondary mb-4">책임자별 목표 지표</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={managerChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => {
-                        if (value >= 100000000) return `${(value / 100000000).toFixed(0)}억`;
-                        if (value >= 10000) return `${(value / 10000).toFixed(0)}만`;
-                        return value.toString();
-                      }} />
-                      <Tooltip formatter={(value: number) => formatNumber(value)} />
-                      <Legend />
-                      <Bar dataKey="매출" fill="var(--color-brand-bg)" />
-                      <Bar dataKey="판매량" fill="var(--color-success)" />
-                      <Bar dataKey="공헌이익" fill="var(--color-link-primary)" />
-                      <Bar dataKey="광고선전비" fill="var(--color-orange)" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <TargetBars rows={managerChartData} value={(value) => formatNumber(value)} />
                 </div>
               )}
 
@@ -372,23 +405,7 @@ export function TargetListSection({
               {showCriteriaChart && criteriaChartData.length > 0 && (
                 <div className="bg-bg-1 p-4 rounded-xl border border-border-primary">
                   <h3 className="text-sm font-semibold text-text-secondary mb-4">기준별 목표 지표</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={criteriaChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => {
-                        if (value >= 100000000) return `${(value / 100000000).toFixed(0)}억`;
-                        if (value >= 10000) return `${(value / 10000).toFixed(0)}만`;
-                        return value.toString();
-                      }} />
-                      <Tooltip formatter={(value: number) => formatNumber(value)} />
-                      <Legend />
-                      <Bar dataKey="매출" fill="var(--color-brand-bg)" />
-                      <Bar dataKey="판매량" fill="var(--color-success)" />
-                      <Bar dataKey="공헌이익" fill="var(--color-link-primary)" />
-                      <Bar dataKey="광고선전비" fill="var(--color-orange)" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <TargetBars rows={criteriaChartData} value={(value) => formatNumber(value)} />
                 </div>
               )}
             </div>

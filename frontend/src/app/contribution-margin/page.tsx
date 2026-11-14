@@ -1,4 +1,5 @@
 'use client';
+import { ndArea, ndAxis, ndBarsHeight, ndFmt, ndGrid, ndGridVertical, ndLegend, ndLine, ndMargin, ndMarginH, ndRefLabel, ndRefLine, ndScale, ndStack, ndTooltip } from '@/components/nd/NdChart';
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -167,13 +168,18 @@ export default function ContributionMarginPage() {
   }
   if (!user) return null;
 
-  const tooltipStyle = {
-    background: 'var(--color-bg-level-1)',
-    border: '1px solid var(--color-border-primary)',
-    borderRadius: 8,
-    fontSize: 12,
-    color: 'var(--color-text-secondary)',
-  } as const;
+  // 그래프 축 범위(널담 그래프 부품): 그 축에 그려지는 가장 큰 값·작은 값
+  const roasVals = roasCurveData.flatMap((r) => [r.cmLow, r.cmMid, r.cmHigh]);
+  const roasTop = Math.max(targetMargin, ...roasVals);
+  const roasMin = Math.min(0, ...roasVals);
+  const budgetMax = budgetSensitivity.length ? budgetSensitivity[budgetSensitivity.length - 1].budget : 0;
+  const budgetTop = Math.max(0, ...budgetSensitivity.map((r) => Math.max(r.revenue, r.finalCm)));
+  const budgetMin = Math.min(0, ...budgetSensitivity.map((r) => Math.min(r.revenue, r.finalCm)));
+  const channelTop = Math.max(0, ...channelData.map((c) => c['수수료'] + c['반품손실'] + Math.max(c['실공헌이익율'], 0)));
+  const channelMin = Math.min(0, ...channelData.map((c) => c['실공헌이익율']));
+  const channelStack = ndStack(['수수료', '반품손실', '실공헌이익율'], { horizontal: true });
+  const paybackTop = Math.max(0, ...paybackData.map((r) => r.cumulative));
+  const paybackMin = Math.min(0, ...paybackData.map((r) => r.cumulative));
 
   return (
     <main className="min-h-screen bg-bg-0 text-text-primary">
@@ -183,14 +189,14 @@ export default function ContributionMarginPage() {
         {/* 헤더 */}
         <div className={`${PANEL} px-6 py-5 mb-6 flex items-baseline justify-between`}>
           <div>
-            <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase mb-1.5 font-mono">
+            <div className="text-[11px] text-text-quaternary mb-1.5">
               E-Commerce Economics Dashboard
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+            <h1 className="text-2xl font-semibold text-text-primary">
               공헌이익 시뮬레이션
             </h1>
           </div>
-          <div className="text-right text-[11px] text-text-quaternary font-mono space-y-0.5">
+          <div className="text-right text-[11px] text-text-quaternary space-y-0.5">
             <div>조인앤조인 · 널담</div>
             <div>v1.2 / 2026</div>
           </div>
@@ -222,7 +228,7 @@ export default function ContributionMarginPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* 좌측 컨트롤 */}
           <aside className={`${PANEL} p-5 lg:col-span-3 space-y-6 h-fit`}>
-            <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase font-mono">
+            <div className="text-[11px] text-text-quaternary">
               기본 변수
             </div>
 
@@ -280,7 +286,7 @@ export default function ContributionMarginPage() {
             />
 
             <div className="border-t border-border-primary pt-5 space-y-3">
-              <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase font-mono">
+              <div className="text-[11px] text-text-quaternary">
                 계산 결과
               </div>
               <ResultRow label="광고 BE ROAS" value={`${fmt(metrics.adOnlyBeRoas)}%`} />
@@ -303,7 +309,7 @@ export default function ContributionMarginPage() {
 
             {tab === 'channel' && (
               <div className="border-t border-border-primary pt-5 space-y-4">
-                <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase font-mono">
+                <div className="text-[11px] text-text-quaternary">
                   채널별 설정
                 </div>
                 {channels.map((ch, idx) => (
@@ -338,7 +344,7 @@ export default function ContributionMarginPage() {
 
             {tab === 'ltv' && (
               <div className="border-t border-border-primary pt-5 space-y-4">
-                <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase font-mono">
+                <div className="text-[11px] text-text-quaternary">
                   LTV 입력
                 </div>
                 <NumberInput
@@ -385,7 +391,7 @@ export default function ContributionMarginPage() {
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  className={`font-mono text-xs px-4 py-2.5 rounded-lg transition-colors ${
+                  className={`text-xs px-4 py-2.5 rounded-lg transition-colors ${
                     tab === t.id
                       ? 'bg-brand/15 text-accent'
                       : 'text-text-tertiary hover:bg-white/[0.03] hover:text-text-primary'
@@ -402,10 +408,10 @@ export default function ContributionMarginPage() {
                 formula="최종 공헌이익율 = 1차공헌이익율 − 광고비/총매출  ·  총매출 = 자연유입 + ROAS×광고비"
                 description="자연유입 매출이 섞이면 동일 ROAS에서도 실질 공헌이익율이 달라집니다. 자연유입이 커질수록 광고비가 총매출에서 차지하는 비중이 줄어 최종 공헌이익율이 개선됩니다."
               >
-                <ResponsiveContainer width="100%" height={420}>
+                <ResponsiveContainer width="100%" height={320}>
                   <LineChart
                     data={roasCurveData}
-                    margin={{ top: 20, right: 30, left: 0, bottom: 40 }}
+                    margin={{ ...ndMargin, bottom: 24 }}
                     onMouseMove={(s) => {
                       const ap = (s as { activePayload?: Array<{ payload: Record<string, number> }> } | null)?.activePayload;
                       if (ap && ap[0]) {
@@ -415,56 +421,41 @@ export default function ContributionMarginPage() {
                     }}
                     onMouseLeave={() => setRoasHover(null)}
                   >
-                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" />
+                    <CartesianGrid {...ndGrid} />
                     <XAxis
                       dataKey="roas"
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                      {...ndAxis.x}
                       tickFormatter={(v: number) => `${v}%`}
-                      label={{ value: '광고 ROAS (%)', position: 'insideBottom', offset: -10, fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                      label={{ value: '광고 ROAS (%)', position: 'insideBottom', offset: -14, fontSize: 11, fill: 'var(--nd-chart-tick)' }}
                     />
                     <YAxis
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-                      label={{ value: '최종 공헌이익율 (%)', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                      {...ndAxis.y}
+                      width={64}
+                      {...ndScale(roasTop, () => ndFmt.axisPct, roasMin)}
+                      label={{ value: '최종 공헌이익율 (%)', angle: -90, position: 'insideLeft', offset: 12, fontSize: 11, fill: 'var(--nd-chart-tick)' }}
                     />
-                    <Legend
-                      verticalAlign="top"
-                      align="right"
-                      height={36}
-                      iconType="plainline"
-                      wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)', paddingBottom: 12 }}
-                    />
+                    <Legend {...ndLegend()} />
                     <Tooltip
-                      cursor={{ stroke: 'var(--color-text-secondary)', strokeDasharray: '3 3', strokeOpacity: 0.7 }}
-                      content={<RoasTooltip />}
+                      {...ndTooltip({
+                        kind: 'line',
+                        value: ndFmt.pct,
+                        label: (l) => <>광고 ROAS {l}%<br />최종 공헌이익율</>,
+                        mark: { cmLow: 'dash', cmHigh: 'dash' },
+                      })}
                     />
-                    <ReferenceLine y={0} stroke="var(--color-text-quaternary)" strokeWidth={1} />
-                    <ReferenceLine
-                      y={targetMargin}
-                      stroke="var(--color-danger)"
-                      strokeDasharray="4 4"
-                      label={{ value: `목표 ${targetMargin}%`, fontSize: 10, fill: 'var(--color-danger)' }}
-                    />
+                    <Line dataKey="cmLow" name={`1차 공헌이익율 ${cm1 - 10}%`} {...ndLine(2, { thin: true, dashed: true })} />
+                    <Line dataKey="cmMid" name={`1차 공헌이익율 ${cm1}% (기준)`} {...ndLine(1)} />
+                    <Line dataKey="cmHigh" name={`1차 공헌이익율 ${cm1 + 10}%`} {...ndLine(3, { thin: true, dashed: true })} />
+                    <ReferenceLine y={0} stroke="var(--nd-chart-axis)" strokeWidth={1} />
+                    <ReferenceLine y={targetMargin} {...ndRefLine()} label={ndRefLabel(`목표 ${targetMargin}%`)} />
                     <ReferenceLine
                       x={roas}
-                      stroke="var(--color-accent-hover)"
-                      strokeDasharray="6 4"
-                      label={{ value: `현재 ROAS ${roas}%`, fontSize: 10, fill: 'var(--color-accent-hover)', position: 'top' }}
+                      {...ndRefLine()}
+                      label={ndRefLabel(`현재 ROAS ${roas}%`, { vertical: true, left: roas > 550 })}
                     />
                     {roasHover && (
-                      <ReferenceLine
-                        y={roasHover.y}
-                        stroke="var(--color-text-secondary)"
-                        strokeDasharray="3 3"
-                        strokeOpacity={0.7}
-                        ifOverflow="visible"
-                      />
+                      <ReferenceLine y={roasHover.y} stroke="var(--nd-chart-cursor)" strokeWidth={1} ifOverflow="visible" />
                     )}
-                    <Line type="monotone" dataKey="cmLow" stroke="var(--color-text-quaternary)" strokeWidth={1.5} dot={false} name={`1차 공헌이익율 ${cm1 - 10}%`} />
-                    <Line type="monotone" dataKey="cmMid" stroke="var(--color-accent-hover)" strokeWidth={2.5} dot={false} name={`1차 공헌이익율 ${cm1}% (기준)`} />
-                    <Line type="monotone" dataKey="cmHigh" stroke="var(--color-success)" strokeWidth={1.5} dot={false} name={`1차 공헌이익율 ${cm1 + 10}%`} />
                   </LineChart>
                 </ResponsiveContainer>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
@@ -481,53 +472,32 @@ export default function ContributionMarginPage() {
                 formula="최종 공헌이익 = (자연유입 + ROAS×예산) × 1차공헌이익율 − 예산"
                 description="광고예산을 늘릴 때 매출과 최종 공헌이익이 어떻게 변하는지. X축 범위는 현재 예산의 0~2배로 자동 스케일됩니다."
               >
-                <ResponsiveContainer width="100%" height={420}>
-                  <AreaChart data={budgetSensitivity} margin={{ top: 20, right: 30, left: 10, bottom: 40 }}>
-                    <defs>
-                      <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gCm" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-accent-hover)" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="var(--color-accent-hover)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" />
+                <ResponsiveContainer width="100%" height={320}>
+                  <AreaChart data={budgetSensitivity} margin={{ ...ndMargin, bottom: 24 }}>
+                    <CartesianGrid {...ndGrid} />
                     <XAxis
                       dataKey="budget"
-                      tickFormatter={fmtC}
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      label={{ value: '광고예산 (원)', position: 'insideBottom', offset: -10, fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                      {...ndAxis.x}
+                      tickFormatter={ndFmt.axisWonBy(budgetMax)}
+                      label={{ value: '광고예산 (원)', position: 'insideBottom', offset: -14, fontSize: 11, fill: 'var(--nd-chart-tick)' }}
                     />
-                    <YAxis
-                      tickFormatter={fmtC}
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      width={70}
-                    />
-                    <Legend
-                      verticalAlign="top"
-                      align="right"
-                      height={36}
-                      iconType="plainline"
-                      wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)', paddingBottom: 12 }}
-                    />
+                    <YAxis {...ndAxis.y} {...ndScale(budgetTop, ndFmt.axisWonBy, budgetMin)} />
+                    <Legend {...ndLegend()} />
                     <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(v: number) => `₩${fmtC(v)}`}
-                      labelFormatter={(v: number) => `예산 ₩${fmtC(v)}`}
+                      {...ndTooltip({
+                        kind: 'line',
+                        value: (v) => `₩${fmtC(v)}`,
+                        label: (v) => `예산 ₩${fmtC(v)}`,
+                      })}
                     />
-                    <ReferenceLine y={0} stroke="var(--color-text-quaternary)" />
+                    <Area dataKey="revenue" name="총매출 (자연+광고)" {...ndArea(2)} />
+                    <Area dataKey="finalCm" name="최종 공헌이익" {...ndArea(1)} />
+                    <ReferenceLine y={0} stroke="var(--nd-chart-axis)" strokeWidth={1} />
                     <ReferenceLine
                       x={adBudget}
-                      stroke="var(--color-accent-hover)"
-                      strokeDasharray="6 4"
-                      label={{ value: `현재 예산 ₩${fmtC(adBudget)}`, fontSize: 10, fill: 'var(--color-accent-hover)', position: 'top' }}
+                      {...ndRefLine()}
+                      label={ndRefLabel(`현재 예산 ₩${fmtC(adBudget)}`, { vertical: true })}
                     />
-                    <Area type="monotone" dataKey="revenue" stroke="var(--color-brand-bg)" strokeWidth={1.5} fill="url(#gRev)" name="총매출 (자연+광고)" />
-                    <Area type="monotone" dataKey="finalCm" stroke="var(--color-accent-hover)" strokeWidth={2} fill="url(#gCm)" name="최종 공헌이익" />
                   </AreaChart>
                 </ResponsiveContainer>
               </Panel>
@@ -539,49 +509,32 @@ export default function ContributionMarginPage() {
                 formula="실공헌이익율 = 1차공헌이익율 − 채널수수료 − 반품손실율"
                 description="좌측에서 각 채널의 수수료와 반품율을 자유롭게 조정하세요. 채널명도 클릭해서 바꾸실 수 있습니다. 널담의 실제 계약 조건으로 수정하시면 즉시 실무 비교용으로 사용 가능."
               >
-                <ResponsiveContainer width="100%" height={420}>
-                  <BarChart data={channelData} margin={{ top: 20, right: 30, left: 0, bottom: 40 }} layout="vertical">
-                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" horizontal={false} />
+                <ResponsiveContainer width="100%" height={ndBarsHeight(channelData.length) + 56}>
+                  <BarChart data={channelData} margin={{ ...ndMarginH, bottom: 24 }} layout="vertical" stackOffset="sign">
+                    <CartesianGrid {...ndGridVertical} />
                     <XAxis
                       type="number"
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      tickFormatter={(v: number) => `${v}%`}
-                      label={{ value: '% of 매출', position: 'insideBottom', offset: -10, fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                      {...ndAxis.value}
+                      {...ndScale(channelTop, () => ndFmt.axisPct, channelMin)}
+                      label={{ value: '% of 매출', position: 'insideBottom', offset: -14, fontSize: 11, fill: 'var(--nd-chart-tick)' }}
                     />
-                    <YAxis
-                      dataKey="name"
-                      type="category"
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 12, fill: 'var(--color-text-secondary)' }}
-                      width={80}
-                    />
-                    <Legend
-                      verticalAlign="top"
-                      align="right"
-                      height={36}
-                      iconType="square"
-                      wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)', paddingBottom: 12 }}
-                    />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(v: number) => `${v}%`}
-                      cursor={{ fill: 'rgba(130, 143, 255, 0.05)' }}
-                    />
-                    <Bar dataKey="수수료" stackId="a" fill="var(--color-border-secondary)" />
-                    <Bar dataKey="반품손실" stackId="a" fill="var(--color-text-quaternary)" />
-                    <Bar dataKey="실공헌이익율" stackId="a" fill="var(--color-brand-bg)" />
+                    <YAxis dataKey="name" type="category" {...ndAxis.categoryOf(80)} />
+                    <Legend {...ndLegend()} />
+                    <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => `${v}%` })} />
+                    <Bar dataKey="수수료" stackId="a" {...channelStack('수수료', 2)} />
+                    <Bar dataKey="반품손실" stackId="a" {...channelStack('반품손실', 3)} />
+                    <Bar dataKey="실공헌이익율" stackId="a" {...channelStack('실공헌이익율', 1)} />
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
                   {channelData.map((ch, i) => (
                     <div key={i} className="border-l-2 border-brand pl-3">
                       <div className="text-sm font-semibold text-text-primary">{ch.name}</div>
-                      <div className="font-mono text-[11px] text-text-quaternary mt-1">
+                      <div className="tabular-nums text-[11px] text-text-quaternary mt-1">
                         수수료 {ch['수수료']}% · 반품 {ch['반품손실']}%
                       </div>
                       <div
-                        className={`font-mono text-lg font-semibold mt-1 ${
+                        className={`tabular-nums text-lg font-semibold mt-1 ${
                           ch['실공헌이익율'] > 0 ? 'text-accent' : 'text-danger'
                         }`}
                       >
@@ -607,20 +560,20 @@ export default function ContributionMarginPage() {
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-xs">
                   <div className={`${SUBPANEL} p-4`}>
-                    <div className="font-mono text-[10px] text-text-quaternary mb-1.5">
+                    <div className="text-[10px] text-text-quaternary mb-1.5">
                       AOV — Average Order Value
                     </div>
                     <div className="text-text-secondary leading-relaxed">
-                      주문 1건당 평균 결제금액. <span className="font-mono text-accent">총매출 ÷ 총주문수</span>로 계산.
+                      주문 1건당 평균 결제금액. <span className="text-accent">총매출 ÷ 총주문수</span>로 계산.
                       번들 구성, 크로스셀, 무료배송 최소금액 설정 등으로 AOV를 올리면 광고 효율이 그대로 개선됩니다.
                     </div>
                   </div>
                   <div className={`${SUBPANEL} p-4`}>
-                    <div className="font-mono text-[10px] text-text-quaternary mb-1.5">
+                    <div className="text-[10px] text-text-quaternary mb-1.5">
                       CAC — Customer Acquisition Cost
                     </div>
                     <div className="text-text-secondary leading-relaxed">
-                      신규 고객 1명을 확보하는 데 든 비용. <span className="font-mono text-accent">광고비 ÷ 신규고객수</span>로 계산.
+                      신규 고객 1명을 확보하는 데 든 비용. <span className="text-accent">광고비 ÷ 신규고객수</span>로 계산.
                       CAC가 LTV의 1/3 이하여야 건강한 구조로 봅니다 (LTV/CAC ≥ 3).
                     </div>
                   </div>
@@ -638,24 +591,24 @@ export default function ContributionMarginPage() {
                 </div>
 
                 <div className={`${SUBPANEL} p-4 mb-6 text-xs`}>
-                  <div className="font-mono text-[10px] text-text-quaternary mb-1.5">
+                  <div className="text-[10px] text-text-quaternary mb-1.5">
                     PAYBACK — 월 공헌이익 누적 방식
                   </div>
-                  <div className="font-mono text-[11px] text-accent bg-bg-1 border border-border-primary inline-block px-2.5 py-1 rounded mb-2">
+                  <div className="text-[11px] text-accent bg-bg-1 border border-border-primary inline-block px-2.5 py-1 rounded mb-2">
                     월 공헌이익 = AOV × 1차 공헌이익율 × (재구매 ÷ 12)
                   </div>
                   <div className="text-text-secondary leading-relaxed">
-                    연간 재구매 횟수를 <span className="font-mono text-accent">12개월</span>로 분산해 매달 회수되는 공헌이익을 구합니다.
-                    M0 시점에 <span className="font-mono text-danger">−CAC</span>에서 출발해 매월 월 공헌이익을 누적하며,
-                    이 누적값이 <span className="font-mono text-accent">0선(Break-even)</span>을 넘는 지점이 <strong className="text-text-primary">Payback Period</strong>입니다.
-                    현재 입력값 기준 월 공헌이익은 <span className="font-mono text-text-primary font-semibold">₩{fmtC((aov * (cm1 / 100) * repurchase) / 12)}</span>,
-                    CAC <span className="font-mono text-text-primary font-semibold">₩{fmtC(cac)}</span> 회수에{' '}
+                    연간 재구매 횟수를 <span className="text-accent">12개월</span>로 분산해 매달 회수되는 공헌이익을 구합니다.
+                    M0 시점에 <span className="text-danger">−CAC</span>에서 출발해 매월 월 공헌이익을 누적하며,
+                    이 누적값이 <span className="text-accent">0선(Break-even)</span>을 넘는 지점이 <strong className="text-text-primary">Payback Period</strong>입니다.
+                    현재 입력값 기준 월 공헌이익은 <span className="tabular-nums text-text-primary font-semibold">₩{fmtC((aov * (cm1 / 100) * repurchase) / 12)}</span>,
+                    CAC <span className="tabular-nums text-text-primary font-semibold">₩{fmtC(cac)}</span> 회수에{' '}
                     {(() => {
                       const monthly = (aov * (cm1 / 100) * repurchase) / 12;
-                      if (monthly <= 0) return <span className="font-mono text-danger font-semibold">계산 불가</span>;
+                      if (monthly <= 0) return <span className="text-danger font-semibold">계산 불가</span>;
                       const months = cac / monthly;
                       return (
-                        <span className="font-mono text-text-primary font-semibold">
+                        <span className="tabular-nums text-text-primary font-semibold">
                           약 {months.toFixed(1)}개월
                         </span>
                       );
@@ -664,36 +617,13 @@ export default function ContributionMarginPage() {
                 </div>
 
                 <ResponsiveContainer width="100%" height={320}>
-                  <AreaChart data={paybackData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
-                    <defs>
-                      <linearGradient id="gPay" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" />
-                    <XAxis
-                      dataKey="month"
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                    />
-                    <YAxis
-                      tickFormatter={fmtC}
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      width={60}
-                    />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(v: number) => `₩${fmtC(v)}`}
-                    />
-                    <ReferenceLine
-                      y={0}
-                      stroke="var(--color-text-secondary)"
-                      strokeWidth={1.5}
-                      label={{ value: 'Break-even', fontSize: 10, fill: 'var(--color-text-secondary)', position: 'right' }}
-                    />
-                    <Area type="monotone" dataKey="cumulative" stroke="var(--color-brand-bg)" strokeWidth={2} fill="url(#gPay)" name="누적 공헌이익" />
+                  <AreaChart data={paybackData} margin={ndMargin}>
+                    <CartesianGrid {...ndGrid} />
+                    <XAxis dataKey="month" {...ndAxis.x} />
+                    <YAxis {...ndAxis.y} {...ndScale(paybackTop, ndFmt.axisWonBy, paybackMin)} />
+                    <Tooltip {...ndTooltip({ kind: 'line', value: (v) => `₩${fmtC(v)}` })} />
+                    <Area dataKey="cumulative" name="누적 공헌이익" {...ndArea(1)} />
+                    <ReferenceLine y={0} {...ndRefLine()} label={ndRefLabel('Break-even')} />
                   </AreaChart>
                 </ResponsiveContainer>
               </Panel>
@@ -702,7 +632,7 @@ export default function ContributionMarginPage() {
         </div>
 
         {/* 푸터 */}
-        <div className={`${PANEL} mt-6 px-6 py-4 flex justify-between text-[11px] font-mono text-text-quaternary`}>
+        <div className={`${PANEL} mt-6 px-6 py-4 flex justify-between text-[11px] text-text-quaternary`}>
           <span>모든 수치는 입력 변수 기반 시뮬레이션입니다</span>
           <span>조인앤조인 CEO Dashboard</span>
         </div>
@@ -728,11 +658,11 @@ function Kpi({
     tone === 'pos' ? 'text-success' : tone === 'neg' ? 'text-danger' : 'text-text-primary';
   return (
     <div>
-      <div className="text-[11px] tracking-[0.2em] text-text-quaternary uppercase mb-2 font-mono">
+      <div className="text-[11px] text-text-quaternary mb-2">
         {label}
       </div>
-      <div className={`text-2xl font-semibold tracking-tight ${toneColor}`}>{value}</div>
-      {sub && <div className="text-[11px] text-text-tertiary mt-1 font-mono">{sub}</div>}
+      <div className={`text-2xl font-semibold ${toneColor}`}>{value}</div>
+      {sub && <div className="text-[11px] text-text-tertiary mt-1 tabular-nums">{sub}</div>}
     </div>
   );
 }
@@ -767,14 +697,14 @@ function SliderWithHelp({
           {help && (
             <button
               onClick={() => setOpen(!open)}
-              className="w-3.5 h-3.5 rounded-full border border-border-secondary text-[9px] text-text-tertiary hover:bg-brand hover:text-bg-0 hover:border-brand transition-colors flex items-center justify-center font-mono"
+              className="w-3.5 h-3.5 rounded-full border border-border-secondary text-[9px] text-text-tertiary hover:bg-brand hover:text-bg-0 hover:border-brand transition-colors flex items-center justify-center"
               aria-label="설명"
             >
               ?
             </button>
           )}
         </div>
-        <span className="font-mono text-sm font-semibold text-text-primary">
+        <span className="tabular-nums text-sm font-semibold text-text-primary">
           {prefix}
           {typeof value === 'number' && value % 1 !== 0
             ? value.toFixed(1)
@@ -796,7 +726,7 @@ function SliderWithHelp({
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="w-full accent-brand"
       />
-      <div className="flex justify-between font-mono text-[10px] text-text-quaternary mt-1">
+      <div className="flex justify-between tabular-nums text-[10px] text-text-quaternary mt-1">
         <span>
           {prefix}
           {new Intl.NumberFormat('ko-KR').format(min)}
@@ -835,7 +765,7 @@ function MiniSlider({
     <div>
       <div className="flex justify-between items-baseline mb-1">
         <label className="text-[11px] text-text-tertiary">{label}</label>
-        <span className="font-mono text-xs font-semibold text-text-primary">
+        <span className="tabular-nums text-xs font-semibold text-text-primary">
           {prefix}
           {typeof value === 'number' && value % 1 !== 0 ? value.toFixed(1) : value}
           {suffix}
@@ -904,14 +834,14 @@ function NumberInput({
           {help && (
             <button
               onClick={() => setOpen(!open)}
-              className="w-3.5 h-3.5 rounded-full border border-border-secondary text-[9px] text-text-tertiary hover:bg-brand hover:text-bg-0 hover:border-brand transition-colors flex items-center justify-center font-mono"
+              className="w-3.5 h-3.5 rounded-full border border-border-secondary text-[9px] text-text-tertiary hover:bg-brand hover:text-bg-0 hover:border-brand transition-colors flex items-center justify-center"
               aria-label="설명"
             >
               ?
             </button>
           )}
         </div>
-        <span className="font-mono text-[10px] text-text-tertiary">{fmtCompact(value || 0)}</span>
+        <span className="tabular-nums text-[10px] text-text-tertiary">{fmtCompact(value || 0)}</span>
       </div>
       {open && help && (
         <div className="text-[11px] text-text-secondary bg-bg-0 border-l-2 border-brand rounded-r px-3 py-2 mb-2 leading-relaxed">
@@ -930,7 +860,7 @@ function NumberInput({
           onKeyDown={(e) => {
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
           }}
-          className="font-mono text-sm font-semibold text-text-primary w-full py-2 pr-2.5 focus:outline-none bg-transparent text-right"
+          className="tabular-nums text-sm font-semibold text-text-primary w-full py-2 pr-2.5 focus:outline-none bg-transparent text-right"
         />
       </div>
       {presets.length > 0 && (
@@ -939,7 +869,7 @@ function NumberInput({
             <button
               key={i}
               onClick={() => onChange(p.v)}
-              className={`font-mono text-[10px] px-2 py-1 rounded border transition-colors ${
+              className={`tabular-nums text-[10px] px-2 py-1 rounded border transition-colors ${
                 value === p.v
                   ? 'border-brand bg-brand/15 text-accent'
                   : 'border-border-primary text-text-tertiary hover:border-brand hover:text-text-primary'
@@ -970,9 +900,9 @@ function ResultRow({
     <div className="flex justify-between items-baseline">
       <div>
         <div className="text-xs text-text-secondary">{label}</div>
-        {sub && <div className="text-[10px] text-text-quaternary font-mono">{sub}</div>}
+        {sub && <div className="text-[10px] text-text-quaternary tabular-nums">{sub}</div>}
       </div>
-      <span className={`font-mono text-sm font-semibold ${toneColor}`}>{value}</span>
+      <span className={`tabular-nums text-sm font-semibold ${toneColor}`}>{value}</span>
     </div>
   );
 }
@@ -991,8 +921,8 @@ function Panel({
   return (
     <div>
       <div className="mb-5">
-        <h2 className="text-xl font-semibold tracking-tight text-text-primary mb-2.5">{title}</h2>
-        <div className="font-mono text-[11px] bg-bg-0 border border-border-primary text-accent inline-block px-3 py-1.5 rounded-md mb-3 leading-relaxed">
+        <h2 className="text-xl font-semibold text-text-primary mb-2.5">{title}</h2>
+        <div className="text-[11px] bg-bg-0 border border-border-primary text-accent inline-block px-3 py-1.5 rounded-md mb-3 leading-relaxed">
           {formula}
         </div>
         <p className="text-sm text-text-tertiary leading-relaxed max-w-3xl">{description}</p>
@@ -1023,49 +953,11 @@ function MiniStat({
       : 'text-text-primary border-brand';
   return (
     <div className={`border-l-2 pl-4 ${toneColor}`}>
-      <div className="text-[11px] tracking-[0.15em] text-text-quaternary uppercase mb-1 font-mono">
+      <div className="text-[11px] text-text-quaternary mb-1">
         {label}
       </div>
       <div className="text-2xl font-semibold">{value}</div>
-      {note && <div className="font-mono text-[10px] mt-1">{note}</div>}
-    </div>
-  );
-}
-
-function RoasTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string; dataKey: string }>;
-  label?: number;
-}) {
-  if (!active || !payload || payload.length === 0) return null;
-  return (
-    <div className="bg-bg-1 border border-border-primary rounded-lg px-3 py-2.5 shadow-nd-f">
-      <div className="text-[11px] text-text-tertiary font-mono mb-2">
-        광고 ROAS <span className="text-text-primary font-semibold">{label}%</span>
-      </div>
-      <div className="text-[10px] tracking-[0.12em] text-text-quaternary uppercase font-mono mb-1.5">
-        최종 공헌이익율
-      </div>
-      <div className="space-y-1">
-        {payload.map((p, i) => (
-          <div key={i} className="flex items-center justify-between gap-6 text-xs font-mono">
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block w-2.5 h-0.5"
-                style={{ background: p.color }}
-              />
-              <span className="text-text-secondary">{p.name}</span>
-            </div>
-            <span className="font-semibold" style={{ color: p.color }}>
-              {p.value.toFixed(1)}%
-            </span>
-          </div>
-        ))}
-      </div>
+      {note && <div className="text-[10px] mt-1">{note}</div>}
     </div>
   );
 }
@@ -1073,7 +965,7 @@ function RoasTooltip({
 function Tip({ title, body }: { title: string; body: string }) {
   return (
     <div className="border-t-2 border-brand pt-3">
-      <div className="font-mono text-[10px] text-text-quaternary mb-1">
+      <div className="text-[10px] text-text-quaternary mb-1">
         {title}
       </div>
       <div className="text-xs text-text-secondary leading-relaxed">{body}</div>

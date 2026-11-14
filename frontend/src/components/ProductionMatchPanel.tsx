@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CaretDownIcon, CaretUpIcon } from '@/components/nd/icons';
 
 // 생산실적 품목명 ↔ BOM 품목 매칭 관리. 미매칭·부분일치를 별칭으로 확정하면
 // BOM 이론소요·원가 동기화(생산 가중평균)에 바로 반영된다.
@@ -52,7 +53,7 @@ export function ProductionMatchPanel() {
         {d && <span className={`text-xs px-2 py-0.5 rounded-md ${d.unmatched_pct > 3 ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>
           최근 180일 미매칭 {d.unmatched_pct}% ({d.unmatched_qty.toLocaleString('ko-KR')}개)</span>}
         <span className="text-xs text-text-quaternary">생산실적 품목명이 어느 BOM으로 원가 계산되는지 확인·지정</span>
-        <span className="ml-auto text-text-tertiary text-sm">{open ? '접기 ▲' : '열기 ▼'}</span>
+        <span className="ml-auto text-text-tertiary text-sm">{open ? <>접기 <CaretUpIcon inline /></> : <>열기 <CaretDownIcon inline /></>}</span>
       </button>
       {open && (
         <div className="mt-3">

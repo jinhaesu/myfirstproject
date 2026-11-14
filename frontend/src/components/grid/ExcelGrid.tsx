@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { ArrowDownIcon, ArrowUpIcon, PlusIcon, TrashIcon } from '@/components/nd/icons';
 
 interface ExcelGridProps {
   columns: string[];  // 열 헤더 (1월~12월 또는 1일~31일)
@@ -203,9 +204,7 @@ export function ExcelGrid({
                         className="p-0.5 text-text-quaternary hover:text-link transition-colors opacity-0 group-hover:opacity-100"
                         title="위에 행 추가"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                        </svg>
+                        <ArrowUpIcon className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
@@ -213,9 +212,7 @@ export function ExcelGrid({
                         className="p-0.5 text-text-quaternary hover:text-link transition-colors opacity-0 group-hover:opacity-100"
                         title="아래에 행 추가"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                        <ArrowDownIcon className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
@@ -224,9 +221,7 @@ export function ExcelGrid({
                         title="행 삭제"
                         disabled={data.length <= 1}
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        <TrashIcon className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </td>
@@ -302,9 +297,7 @@ export function ExcelGrid({
             onClick={handleAddRow}
             className="flex items-center gap-1 px-3 py-1.5 text-sm text-link hover:bg-brand/10 rounded transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+            <PlusIcon className="w-4 h-4" />
             행 추가
           </button>
         )}

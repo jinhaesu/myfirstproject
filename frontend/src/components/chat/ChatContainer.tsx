@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { useChat } from '@/hooks/useChat';
+import { ChatIcon, RobotIcon, TrashIcon, WarningCircleIcon } from '@/components/nd/icons';
 
 export function ChatContainer() {
   const { messages, isLoading, error, sendMessage, clearMessages } = useChat();
@@ -20,9 +21,7 @@ export function ChatContainer() {
       <div className="flex items-center justify-between p-4 border-b border-border-primary bg-bg-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-bg-2 border border-border-primary rounded-full flex items-center justify-center">
-            <svg className="w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
+            <ChatIcon className="w-5 h-5 text-text-secondary" />
           </div>
           <div>
             <h2 className="text-base font-semibold text-text-primary">AI 분류</h2>
@@ -36,9 +35,7 @@ export function ChatContainer() {
             onClick={clearMessages}
             className="flex items-center gap-1 px-3 py-2 text-sm text-text-tertiary hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
+            <TrashIcon className="w-4 h-4" />
             초기화
           </button>
         )}
@@ -47,9 +44,7 @@ export function ChatContainer() {
       {/* 에러 배너 */}
       {error && (
         <div className="mx-4 mt-2 p-3 bg-danger/10 border border-danger/30 rounded-lg flex items-center gap-2 text-sm text-danger">
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <WarningCircleIcon className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -59,9 +54,7 @@ export function ChatContainer() {
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
             <div className="w-20 h-20 bg-brand/15 rounded-full flex items-center justify-center mb-6">
-              <svg className="w-10 h-10 text-link" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
+              <RobotIcon className="w-10 h-10 text-link" />
             </div>
             <h3 className="text-lg font-semibold text-text-secondary mb-2">매출 데이터에 대해 질문하세요</h3>
             <p className="text-sm text-text-tertiary mb-6">채널별 매출 취합에 업로드된 데이터를 AI가 분석해 답변합니다</p>

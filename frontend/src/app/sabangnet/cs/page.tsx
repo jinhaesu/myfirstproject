@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { CheckIcon, EditIcon, FileTextIcon, PaperclipIcon, PlusIcon, RefreshIcon, RobotIcon, SearchIcon, SendIcon, SpinnerIcon, TrashIcon, TrayIcon, TrendUpIcon, UploadIcon, XIcon } from '@/components/nd/icons';
 
 // ─────────────────────────────────────────────
 // API helper
@@ -959,7 +960,7 @@ export default function CSPage() {
       {toast && (
         <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-2">
           <div className="bg-bg-0 text-text-primary px-4 py-3 rounded-lg shadow-nd-f text-sm flex items-center gap-2">
-            <svg className="w-4 h-4 text-success-light flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            <CheckIcon className="w-4 h-4 text-success-light flex-shrink-0" />
             {toast}
           </div>
         </div>
@@ -1012,9 +1013,9 @@ export default function CSPage() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-brand text-on-brand text-sm font-medium rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
             >
               {collecting ? (
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                <SpinnerIcon className="w-4 h-4 animate-spin" />
               ) : (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                <RefreshIcon className="w-4 h-4" />
               )}
               문의 수집
             </button>
@@ -1036,12 +1037,12 @@ export default function CSPage() {
               >
                 {bulkAiAllRunning ? (
                   <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    <SpinnerIcon className="w-4 h-4 animate-spin" />
                     AI 생성 중...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    <RobotIcon className="w-4 h-4" />
                     전체 AI 답변 생성 ({fmt(totalStats?.new || 0)}건)
                   </>
                 )}
@@ -1057,12 +1058,12 @@ export default function CSPage() {
               >
                 {bulkRegenRunning ? (
                   <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    <SpinnerIcon className="w-4 h-4 animate-spin" />
                     재생성 중...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    <RefreshIcon className="w-4 h-4" />
                     템플릿 답변 재생성 ({fmt(totalStats?.template_responses || 0)}건)
                   </>
                 )}
@@ -1169,7 +1170,7 @@ export default function CSPage() {
                 <div>
                   <label className="block text-xs font-medium text-text-tertiary mb-1">검색</label>
                   <div className="relative">
-                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-quaternary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-quaternary" />
                     <input
                       type="text"
                       value={searchTerm}
@@ -1194,7 +1195,7 @@ export default function CSPage() {
                   >
                     {bulkGenerating ? (
                       <>
-                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        <SpinnerIcon className="w-3.5 h-3.5 animate-spin" />
                         생성 중 ({bulkProgress.current}/{bulkProgress.total})
                       </>
                     ) : 'AI 일괄 생성'}
@@ -1212,7 +1213,7 @@ export default function CSPage() {
                   >
                     {bulkSending ? (
                       <>
-                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        <SpinnerIcon className="w-3.5 h-3.5 animate-spin" />
                         발송 중 ({bulkProgress.current}/{bulkProgress.total})
                       </>
                     ) : '일괄 발송'}
@@ -1260,7 +1261,7 @@ export default function CSPage() {
             <div className="space-y-3">
               {filteredInquiries.length === 0 && (
                 <div className="bg-bg-1 rounded-xl border border-border-primary p-12 text-center shadow-nd-s">
-                  <svg className="w-12 h-12 text-text-quaternary mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                  <TrayIcon className="w-12 h-12 text-text-quaternary mx-auto mb-3" />
                   <p className="text-text-tertiary text-sm">조건에 맞는 문의가 없습니다.</p>
                 </div>
               )}
@@ -1308,7 +1309,7 @@ export default function CSPage() {
                                 className="inline-flex items-center p-1 text-text-quaternary hover:text-danger hover:bg-danger/10 rounded transition-colors"
                                 title="삭제"
                               >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                <TrashIcon className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
@@ -1451,9 +1452,9 @@ export default function CSPage() {
                             className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-brand text-on-brand rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
                           >
                             {isGenerating ? (
-                              <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 생성 중...</>
+                              <><SpinnerIcon className="w-4 h-4 animate-spin" /> 생성 중...</>
                             ) : (
-                              <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> AI 답변 생성</>
+                              <><RobotIcon className="w-4 h-4" /> AI 답변 생성</>
                             )}
                           </button>
                         </div>
@@ -1464,7 +1465,7 @@ export default function CSPage() {
                     <div className="px-4 pb-4 pt-2 flex items-center gap-2 flex-wrap">
                       {inquiry.status === 'new' && inquiry.ai_response && (
                         <button onClick={() => handleApprove(inquiry.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-on-brand rounded-lg hover:bg-success-hover transition-colors">
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> 승인
+                          <CheckIcon className="w-3.5 h-3.5" /> 승인
                         </button>
                       )}
                       {inquiry.status === 'ai_drafted' && (
@@ -1473,19 +1474,19 @@ export default function CSPage() {
                             onClick={() => handleApprove(inquiry.id, expandedId === inquiry.id ? editingResponse : undefined)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success text-on-brand rounded-lg hover:bg-success-hover transition-colors"
                           >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> 승인
+                            <CheckIcon className="w-3.5 h-3.5" /> 승인
                           </button>
                           <button
                             onClick={() => handleApproveAndSend(inquiry.id, expandedId === inquiry.id ? editingResponse : undefined)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-text-primary rounded-lg hover:bg-bg-secondary transition-colors"
                           >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 승인+발송
+                            <SendIcon className="w-3.5 h-3.5" /> 승인+발송
                           </button>
                         </>
                       )}
                       {inquiry.status === 'approved' && (
                         <button onClick={() => handleSend(inquiry.id)} disabled={isSending} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-bg-2 text-text-primary rounded-lg hover:bg-bg-secondary disabled:opacity-50 transition-colors">
-                          {isSending ? <><svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> 발송 중...</> : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> 발송</>}
+                          {isSending ? <><SpinnerIcon className="w-3.5 h-3.5 animate-spin" /> 발송 중...</> : <><SendIcon className="w-3.5 h-3.5" /> 발송</>}
                         </button>
                       )}
                       {inquiry.status === 'sent' && inquiry.sent_at && (
@@ -1591,7 +1592,7 @@ export default function CSPage() {
                               style={{ height: `${Math.max(pct, 4)}%` }}
                             />
                           </div>
-                          <span className="text-[9px] text-text-tertiary font-mono whitespace-nowrap">
+                          <span className="text-[9px] text-text-tertiary tabular-nums whitespace-nowrap">
                             {volumePeriod === 'daily' ? d.date.slice(5) : d.date}
                           </span>
                         </div>
@@ -1659,7 +1660,7 @@ export default function CSPage() {
                 }}
                   disabled={loadingKeywords}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand/10 text-link text-xs font-semibold rounded-lg hover:bg-brand/15 disabled:opacity-50 transition-colors">
-                  {loadingKeywords && <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+                  {loadingKeywords && <SpinnerIcon className="w-3.5 h-3.5 animate-spin" />}
                   새로고침
                 </button>
               </div>
@@ -1713,9 +1714,9 @@ export default function CSPage() {
                   disabled={loadingActions}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-brand text-on-brand text-sm font-medium rounded-lg hover:bg-accent disabled:opacity-50 transition-colors">
                   {loadingActions ? (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    <SpinnerIcon className="w-4 h-4 animate-spin" />
                   ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    <RobotIcon className="w-4 h-4" />
                   )}
                   AI 분석 실행
                 </button>
@@ -1754,7 +1755,7 @@ export default function CSPage() {
                               </div>
                             </div>
                             <div className="mt-2 flex items-center gap-1.5 text-xs">
-                              <svg className="w-3.5 h-3.5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                              <TrendUpIcon className="w-3.5 h-3.5 text-success" />
                               <span className="text-success font-medium">{item.estimated_impact}</span>
                             </div>
                           </div>
@@ -1798,7 +1799,7 @@ export default function CSPage() {
                 onClick={openAddRef}
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                <PlusIcon className="w-4 h-4" />
                 참고 데이터 추가
               </button>
             </div>
@@ -1845,13 +1846,13 @@ export default function CSPage() {
                             <div className="flex items-center gap-2 mt-2">
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-bg-2 text-text-secondary rounded-md border border-border-primary">
                                 {ref.file_type === 'pdf' && (
-                                  <svg className="w-3.5 h-3.5 text-danger" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
+                                  <FileTextIcon className="w-3.5 h-3.5 text-danger" />
                                 )}
                                 {(ref.file_type === 'xlsx' || ref.file_type === 'xls' || ref.file_type === 'csv') && (
-                                  <svg className="w-3.5 h-3.5 text-success" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
+                                  <FileTextIcon className="w-3.5 h-3.5 text-success" />
                                 )}
                                 {(ref.file_type === 'docx' || ref.file_type === 'doc') && (
-                                  <svg className="w-3.5 h-3.5 text-link" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v7h7v9H6z"/></svg>
+                                  <FileTextIcon className="w-3.5 h-3.5 text-link" />
                                 )}
                                 {ref.file_name}
                                 {ref.file_size && (
@@ -1862,7 +1863,7 @@ export default function CSPage() {
                               </span>
                               {ref.has_extracted_text && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-success/10 text-success rounded-full border border-success/25">
-                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                  <CheckIcon className="w-3 h-3" />
                                   AI 학습됨
                                 </span>
                               )}
@@ -1896,7 +1897,7 @@ export default function CSPage() {
                             className="p-1.5 text-text-quaternary hover:text-link transition-colors"
                             title="수정"
                           >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            <EditIcon className="w-4 h-4" />
                           </button>
 
                           {/* Delete */}
@@ -1905,7 +1906,7 @@ export default function CSPage() {
                             className="p-1.5 text-text-quaternary hover:text-danger transition-colors"
                             title="삭제"
                           >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -1928,7 +1929,7 @@ export default function CSPage() {
                         onClick={() => { setShowRefModal(false); setEditingRef(null); }}
                         className="p-1 text-text-quaternary hover:text-text-secondary transition-colors"
                       >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        <XIcon className="w-5 h-5" />
                       </button>
                     </div>
 
@@ -1980,7 +1981,7 @@ export default function CSPage() {
                         {/* Existing file info */}
                         {editingRef?.has_file && editingRef.file_name && !removeFile && (
                           <div className="flex items-center gap-2 mb-2 p-2 bg-bg-0 rounded-lg border border-border-primary">
-                            <svg className="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                            <PaperclipIcon className="w-4 h-4 text-text-tertiary flex-shrink-0" />
                             <span className="text-xs text-text-tertiary flex-1 truncate">{editingRef.file_name}</span>
                             {editingRef.has_extracted_text && (
                               <span className="text-xs text-success font-medium">AI 학습됨</span>
@@ -1998,7 +1999,7 @@ export default function CSPage() {
                         {/* New file selected */}
                         {refFile && (
                           <div className="flex items-center gap-2 mb-2 p-2 bg-brand/10 rounded-lg border border-brand/30">
-                            <svg className="w-4 h-4 text-link flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                            <UploadIcon className="w-4 h-4 text-link flex-shrink-0" />
                             <span className="text-xs text-accent flex-1 truncate">{refFile.name}</span>
                             <span className="text-xs text-link">
                               {refFile.size < 1024 ? `${refFile.size}B` : refFile.size < 1024 * 1024 ? `${Math.round(refFile.size / 1024)}KB` : `${(refFile.size / (1024 * 1024)).toFixed(1)}MB`}
@@ -2017,7 +2018,7 @@ export default function CSPage() {
                         {!refFile && (
                           <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border-primary rounded-lg cursor-pointer hover:border-brand/50 hover:bg-brand/10 transition-colors">
                             <div className="flex flex-col items-center">
-                              <svg className="w-6 h-6 text-text-quaternary mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                              <UploadIcon className="w-6 h-6 text-text-quaternary mb-1" />
                               <span className="text-xs text-text-tertiary">클릭하여 파일 선택</span>
                               <span className="text-xs text-text-quaternary mt-0.5">PDF, XLSX, DOCX, TXT (최대 20MB)</span>
                             </div>
@@ -2078,7 +2079,7 @@ export default function CSPage() {
                       >
                         {uploadingRef ? (
                           <>
-                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                            <SpinnerIcon className="w-4 h-4 animate-spin" />
                             {refFile ? '업로드 중...' : '저장 중...'}
                           </>
                         ) : (editingRef ? '수정' : '추가')}
@@ -2196,12 +2197,12 @@ export default function CSPage() {
                 >
                   {savingConfig ? (
                     <>
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                      <SpinnerIcon className="w-4 h-4 animate-spin" />
                       저장 중...
                     </>
                   ) : (
                     <>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      <CheckIcon className="w-4 h-4" />
                       저장
                     </>
                   )}

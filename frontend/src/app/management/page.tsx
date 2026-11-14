@@ -1,12 +1,14 @@
 'use client';
 
+import { CheckIcon } from '@/components/nd/icons';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { ExcludedPurchaseNotice } from '@/components/ExcludedPurchaseNotice';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ComposedChart, Line, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Line, Legend } from 'recharts';
+import { ndAxis, ndBar, ndFmt, ndGrid, ndIsolatedDot, ndLegend, ndLine, ndMargin, ndScale, ndSlots, ndTooltip, NdChartEmpty } from '@/components/nd/NdChart';
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -20,7 +22,20 @@ const C = { card: 'bg-bg-1 border border-border-primary rounded-xl', input: 'bg-
 const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
 const wonShort = (n: number) => { const a = Math.abs(n || 0); const s = n < 0 ? '-' : ''; if (a >= 1e8) return s + (a / 1e8).toFixed(1).replace(/\.0$/, '') + '억'; if (a >= 1e4) return s + Math.round(a / 1e4).toLocaleString('ko-KR') + '만'; return s + '₩' + Math.round(a).toLocaleString('ko-KR'); };
 const fmt = (n: number) => Number(n || 0).toLocaleString('ko-KR');
-const TT = { background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8, color: 'var(--color-text-primary)', fontSize: 12 } as const;
+// 그래프 계열 색: 같은 대상은 이 화면의 모든 그래프에서 같은 번호를 쓴다
+const SERIES = ndSlots(['BOM자재 구매', '매출원가추정', 'BOM이론소요', '매출']);
+const LABOR = ndSlots(['생산 기입', '생산 근무', '물류 기입', '물류 근무']);
+// 값 축의 눈금: 그 축에 그려지는 계열들의 가장 큰 값·가장 작은 값으로 반듯한 눈금과 단위 하나를 정한다
+const scaleOf = (rows: readonly any[] | null | undefined, keys: readonly string[], by?: Parameters<typeof ndScale>[1]) => {
+  let top = 0;
+  let low = 0;
+  for (const r of rows || []) for (const k of keys) {
+    const v = Number(r?.[k]);
+    if (isFinite(v)) { if (v > top) top = v; if (v < low) low = v; }
+  }
+  return ndScale(top, by, low);
+};
+const hoursAxis = (max: number) => ndFmt.axisNumBy(max, 1, 'h');
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const thisMonth = () => { const n = new Date(); return { start: iso(new Date(n.getFullYear(), n.getMonth(), 1)), end: iso(new Date(n.getFullYear(), n.getMonth() + 1, 0)) }; };
 const presets = () => {
@@ -57,11 +72,13 @@ export default function ManagementPage() {
   if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
 
   const cp = d?.cost_vs_purchase, bp = d?.bom_vs_purchase, lb = d?.labor, iv = d?.inventory, adj = d?.adjustments;
-  const costBars = cp ? [{ name: '매출원가추정', v: cp.cogs_est }, { name: 'BOM자재 구매', v: cp.purchase_bom_scope ?? cp.purchase_actual }] : [];
-  const laborBars = lb ? [
+  // 막대 색은 행의 fill 로 준다(말풍선이 그 색을 안다). 색은 위 추이 그래프의 같은 계열과 같다
+  const costBars = cp ? [{ name: '매출원가추정', v: cp.cogs_est, fill: SERIES('매출원가추정') }, { name: 'BOM자재 구매', v: cp.purchase_bom_scope ?? cp.purchase_actual, fill: SERIES('BOM자재 구매') }] : [];
+  const bomBars = bp ? [{ name: 'BOM 이론소요', v: bp.bom_req_cost, fill: SERIES('BOM이론소요') }, { name: 'BOM자재 구매', v: bp.purchase_bom_scope ?? bp.purchase_actual, fill: SERIES('BOM자재 구매') }] : [];
+  const laborBars = (lb ? [
     { name: '생산 기입', v: lb.production.logged_hours }, { name: '생산 근무', v: lb.production.attendance_hours },
     { name: '물류 기입', v: lb.logistics.logged_hours }, { name: '물류 근무', v: lb.logistics.attendance_hours },
-  ] : [];
+  ] : []).map((r) => ({ ...r, fill: LABOR(r.name) }));
 
   return (
     <div className="min-h-screen bg-bg-0">
@@ -86,8 +103,8 @@ export default function ManagementPage() {
           <p className="text-xs text-text-quaternary mb-3">BOM자재 구매(BOM 원부재료 코드 해당분) · 매출원가추정(판매수량×BOM원가) · BOM이론소요(생산량×BOM원가)를 같은 범위로 비교.{tr?.unmatched_prod_qty ? ` 원가 미매칭 생산 ${fmt(tr.unmatched_prod_qty)}개 제외.` : ""}</p>
           <ExcludedPurchaseNotice start={range.start} end={range.end} endpoint="/management/excluded-purchases" />
           {tr?.series?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}><ComposedChart data={tr.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-success)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar yAxisId="l" dataKey="purchase_bom" name="BOM자재 구매" fill="var(--color-info)" radius={[3, 3, 0, 0]} /><Bar yAxisId="l" dataKey="cogs_est" name="매출원가추정" fill="var(--color-warning)" radius={[3, 3, 0, 0]} /><Bar yAxisId="l" dataKey="bom_req" name="BOM이론소요" fill="var(--color-purple)" radius={[3, 3, 0, 0]} /><Line yAxisId="r" type="monotone" dataKey="sales" name="매출" stroke="var(--color-success)" strokeWidth={2} dot={false} /></ComposedChart></ResponsiveContainer>
-          ) : <div className="h-[220px] flex items-center justify-center text-sm text-text-quaternary">데이터 없음</div>}
+            <ResponsiveContainer width="100%" height={280}><ComposedChart data={tr.series} margin={ndMargin}><CartesianGrid {...ndGrid} /><XAxis dataKey="bucket" {...ndAxis.x} /><YAxis yAxisId="l" {...ndAxis.y} {...scaleOf(tr.series, ['purchase_bom', 'cogs_est', 'bom_req'], ndFmt.axisWonBy)} /><YAxis yAxisId="r" orientation="right" {...ndAxis.y} {...scaleOf(tr.series, ['sales'], ndFmt.axisWonBy)} /><Tooltip {...ndTooltip({ kind: 'bar', value: won })} /><Legend {...ndLegend()} /><Bar yAxisId="l" dataKey="purchase_bom" name="BOM자재 구매" {...ndBar(SERIES('BOM자재 구매'))} /><Bar yAxisId="l" dataKey="cogs_est" name="매출원가추정" {...ndBar(SERIES('매출원가추정'))} /><Bar yAxisId="l" dataKey="bom_req" name="BOM이론소요" {...ndBar(SERIES('BOM이론소요'))} /><Line yAxisId="r" dataKey="sales" name="매출(오른쪽 축)" {...ndLine(SERIES('매출'))} dot={ndIsolatedDot(tr.series, 'sales', SERIES('매출'))} /></ComposedChart></ResponsiveContainer>
+          ) : <NdChartEmpty height={220}>데이터 없음</NdChartEmpty>}
         </div>
 
         {/* 매출원가율 추이 + 근무시간 추이 */}
@@ -96,15 +113,15 @@ export default function ManagementPage() {
             <div className="text-sm font-semibold text-text-primary mb-1">매출원가율 추이 ({gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'})</div>
             <p className="text-xs text-text-quaternary mb-3">BOM자재 구매÷매출(구매기반, 포장·물류자재 제외) · 매출원가추정÷매출(BOM기반) 비교.</p>
             {tr?.series?.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}><ComposedChart data={tr.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={(v) => `${v}%`} domain={[0, 'auto']} /><Tooltip contentStyle={TT} formatter={(v: any) => v == null ? '-' : `${v}%`} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="purchase_bom_ratio" name="구매기반 원가율(BOM자재)" fill="var(--color-info)" radius={[3, 3, 0, 0]} /><Line type="monotone" dataKey="cogs_ratio" name="BOM기반 원가율" stroke="var(--color-warning)" strokeWidth={2} dot={{ r: 3 }} /></ComposedChart></ResponsiveContainer>
-            ) : <div className="h-[220px] flex items-center justify-center text-sm text-text-quaternary">데이터 없음</div>}
+              <ResponsiveContainer width="100%" height={260}><ComposedChart data={tr.series} margin={ndMargin}><CartesianGrid {...ndGrid} /><XAxis dataKey="bucket" {...ndAxis.x} /><YAxis {...ndAxis.y} {...scaleOf(tr.series, ['purchase_bom_ratio', 'cogs_ratio'], () => ndFmt.axisPct)} /><Tooltip {...ndTooltip({ kind: 'bar', value: (v: any) => `${v}%` })} /><Legend {...ndLegend()} /><Bar dataKey="purchase_bom_ratio" name="구매기반 원가율(BOM자재)" {...ndBar(SERIES('BOM자재 구매'))} /><Line dataKey="cogs_ratio" name="BOM기반 원가율" {...ndLine(SERIES('매출원가추정'))} dot={ndIsolatedDot(tr.series, 'cogs_ratio', SERIES('매출원가추정'))} /></ComposedChart></ResponsiveContainer>
+            ) : <NdChartEmpty height={220}>데이터 없음</NdChartEmpty>}
           </div>
           <div className={`${C.card} p-4`}>
             <div className="text-sm font-semibold text-text-primary mb-1">근무시간 vs 기입시간 추이 ({gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별'})</div>
             <p className="text-xs text-text-quaternary mb-3">mysixth 근무시간 대비 생산·물류 일지 기입시간.</p>
             {lt?.series?.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}><ComposedChart data={lt.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="bucket" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} /><Tooltip contentStyle={TT} formatter={(v: any) => `${fmt(v)}h`} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="prod_logged" name="생산 기입" fill="var(--color-brand-bg)" radius={[3, 3, 0, 0]} /><Bar dataKey="prod_att" name="생산 근무" fill="var(--color-cyan)" radius={[3, 3, 0, 0]} /><Bar dataKey="logi_logged" name="물류 기입" fill="var(--color-purple)" radius={[3, 3, 0, 0]} /><Bar dataKey="logi_att" name="물류 근무" fill="var(--color-warning)" radius={[3, 3, 0, 0]} /></ComposedChart></ResponsiveContainer>
-            ) : <div className="h-[220px] flex items-center justify-center text-sm text-text-quaternary">데이터 없음</div>}
+              <ResponsiveContainer width="100%" height={260}><ComposedChart data={lt.series} margin={ndMargin}><CartesianGrid {...ndGrid} /><XAxis dataKey="bucket" {...ndAxis.x} /><YAxis {...ndAxis.y} {...scaleOf(lt.series, ['prod_logged', 'prod_att', 'logi_logged', 'logi_att'], hoursAxis)} /><Tooltip {...ndTooltip({ kind: 'bar', value: fmt, unit: 'h' })} /><Legend {...ndLegend()} /><Bar dataKey="prod_logged" name="생산 기입" {...ndBar(LABOR('생산 기입'))} /><Bar dataKey="prod_att" name="생산 근무" {...ndBar(LABOR('생산 근무'))} /><Bar dataKey="logi_logged" name="물류 기입" {...ndBar(LABOR('물류 기입'))} /><Bar dataKey="logi_att" name="물류 근무" {...ndBar(LABOR('물류 근무'))} /></ComposedChart></ResponsiveContainer>
+            ) : <NdChartEmpty height={220}>데이터 없음</NdChartEmpty>}
           </div>
         </div>
 
@@ -122,12 +139,12 @@ export default function ManagementPage() {
             </div>
           </div>
         )}
-        {d && d.alerts?.length === 0 && <div className={`${C.card} p-4 mb-5 text-sm text-success-light`}>✔ 기간 내 특이 gap·경보 없음</div>}
+        {d && d.alerts?.length === 0 && <div className={`${C.card} p-4 mb-5 text-sm text-success-light`}><CheckIcon inline /> 기간 내 특이 gap·경보 없음</div>}
 
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
           <Stat label="순매출" value={wonShort(cp?.net_sales || 0)} tone="text-success" />
-          <Stat label="매출원가추정" value={wonShort(cp?.cogs_est || 0)} tone="text-warning" sub={cp?.cogs_ratio != null ? `매출比 ${cp.cogs_ratio}%` : ''} />
+          <Stat label="매출원가추정" value={wonShort(cp?.cogs_est || 0)} tone="text-warning" sub={cp?.cogs_ratio != null ? `매출 대비 ${cp.cogs_ratio}%` : ''} />
           <Stat label="BOM자재 구매" value={wonShort(cp?.purchase_bom_scope ?? cp?.purchase_actual ?? 0)} tone="text-info" sub={cp ? `전체 ${wonShort(cp.purchase_actual)} 중 비대상 ${wonShort(cp.purchase_excluded ?? 0)} 제외` : ''} />
           <Stat label="BOM자재구매−원가 gap" value={wonShort(cp?.gap || 0)} tone={(cp?.gap || 0) >= 0 ? 'text-danger' : 'text-success-light'} sub={(cp?.gap || 0) >= 0 ? '재고빌드/과다구매' : '재고소진'} />
           <Stat label="BOM소요 대비 구매" value={bp?.gap_pct != null ? `${bp.gap_pct}%` : '-'} tone="text-purple" sub="BOM자재 구매 기준" />
@@ -140,7 +157,7 @@ export default function ManagementPage() {
             <div className="text-sm font-semibold text-text-primary mb-1">① 매출기반 원가추정 vs 실제 원부재료 구매액</div>
             <p className="text-xs text-text-quaternary mb-3">판매수량×BOM원가(원가추정)와 BOM 원부재료 매입액 비교(gap 기준). 구매가 크면 재고 빌드업, 작으면 재고 소진. 포장·물류자재 구매는 제외(상단 추이 차트의 '제외 내역 보기').</p>
             {costBars.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}><BarChart data={costBars}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="v" radius={[4, 4, 0, 0]}>{costBars.map((_, i) => <Cell key={i} fill={i === 0 ? 'var(--color-warning)' : i === 1 ? 'var(--color-info)' : 'var(--color-text-quaternary)'} />)}</Bar></BarChart></ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={220}><BarChart data={costBars} margin={ndMargin}><CartesianGrid {...ndGrid} /><XAxis dataKey="name" {...ndAxis.bandOf(120)} /><YAxis {...ndAxis.y} {...scaleOf(costBars, ['v'], ndFmt.axisWonBy)} /><Tooltip {...ndTooltip({ kind: 'bar', value: won })} /><Bar dataKey="v" name="금액" {...ndBar(1)} /></BarChart></ResponsiveContainer>
             ) : <div className="h-[180px]" />}
             <div className="grid grid-cols-3 gap-2 mt-2 text-center">
               <div><div className="text-[11px] text-text-quaternary">원재료 구매</div><div className="text-sm text-info font-semibold">{wonShort(cp?.purchase_raw || 0)}</div></div>
@@ -152,7 +169,7 @@ export default function ManagementPage() {
             <div className="text-sm font-semibold text-text-primary mb-1">② 생산 BOM 이론소요 vs 실제 구매</div>
             <p className="text-xs text-text-quaternary mb-3">생산실적을 BOM으로 폭발한 이론 소요금액과 BOM 원부재료 매입액의 차이. BOM 품목명 미매칭 생산분은 표준품목 개당원가로 보정{bp?.bom_fallback_cost ? `(${wonShort(bp.bom_fallback_cost)})` : ''}. gap이 크면 단가·수율·매핑 점검.</p>
             {bp ? (
-              <ResponsiveContainer width="100%" height={220}><BarChart data={[{ name: 'BOM 이론소요', v: bp.bom_req_cost }, { name: 'BOM자재 구매', v: bp.purchase_bom_scope ?? bp.purchase_actual }]}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><Tooltip contentStyle={TT} formatter={(v: any) => won(v)} /><Bar dataKey="v" radius={[4, 4, 0, 0]}><Cell fill="var(--color-purple)" /><Cell fill="var(--color-info)" /></Bar></BarChart></ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={220}><BarChart data={bomBars} margin={ndMargin}><CartesianGrid {...ndGrid} /><XAxis dataKey="name" {...ndAxis.bandOf(120)} /><YAxis {...ndAxis.y} {...scaleOf(bomBars, ['v'], ndFmt.axisWonBy)} /><Tooltip {...ndTooltip({ kind: 'bar', value: won })} /><Bar dataKey="v" name="금액" {...ndBar(1)} /></BarChart></ResponsiveContainer>
             ) : <div className="h-[180px]" />}
             <div className="text-center mt-2 text-xs text-text-tertiary">gap <span className={`${(bp?.gap || 0) >= 0 ? 'text-danger' : 'text-success-light'} font-semibold`}>{wonShort(bp?.gap || 0)}</span> ({bp?.gap_pct != null ? `${bp.gap_pct}%` : '-'})</div>
           </div>
@@ -164,7 +181,7 @@ export default function ManagementPage() {
           <p className="text-xs text-text-quaternary mb-3">근태 실근무시간과 생산일보·물류일지에 기입된 투여시간의 괴리. 비율이 1에서 멀수록 기입 정확도 점검 필요.</p>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
-              <ResponsiveContainer width="100%" height={220}><BarChart data={laborBars}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><Tooltip contentStyle={TT} formatter={(v: any) => `${fmt(v)}h`} /><Bar dataKey="v" radius={[4, 4, 0, 0]}>{laborBars.map((_, i) => <Cell key={i} fill={i % 2 === 0 ? 'var(--color-brand-bg)' : 'var(--color-cyan)'} />)}</Bar></BarChart></ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={220}><BarChart data={laborBars} margin={ndMargin}><CartesianGrid {...ndGrid} /><XAxis dataKey="name" {...ndAxis.band} /><YAxis {...ndAxis.y} {...scaleOf(laborBars, ['v'], hoursAxis)} /><Tooltip {...ndTooltip({ kind: 'bar', value: fmt, unit: 'h' })} /><Bar dataKey="v" name="시간" {...ndBar(1)} /></BarChart></ResponsiveContainer>
             </div>
             <div className="space-y-3">
               {lb && [{ t: '생산', o: lb.production }, { t: '물류', o: lb.logistics }].map((x) => (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent, KeyboardEvent } from 'react';
+import { SendIcon } from '@/components/nd/icons';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -52,9 +53,7 @@ export function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
             </>
           ) : (
             <>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
+              <SendIcon className="w-5 h-5" />
               전송
             </>
           )}

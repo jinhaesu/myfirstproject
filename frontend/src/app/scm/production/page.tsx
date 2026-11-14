@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { CalendarIcon, CaretDownIcon, CaretLeftIcon, CaretRightIcon, CheckIcon, DownloadIcon, PlusIcon, RobotIcon, SaveIcon, ShareIcon, SpinnerIcon, TrashIcon, WarningIcon, XIcon } from '@/components/nd/icons';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API helpers (with 5s timeout via AbortController)
@@ -273,68 +274,11 @@ const generateSampleAlerts = (): AlertItem[] => [
   },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SVG Icons (inline for zero-dependency)
-// ─────────────────────────────────────────────────────────────────────────────
-const SparkleIcon = () => (
-  <svg className="w-4 h-4 text-link" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M12 2L13.09 8.26L18 6L15.74 10.91L22 12L15.74 13.09L18 18L13.09 15.74L12 22L10.91 15.74L6 18L8.26 13.09L2 12L8.26 10.91L6 6L10.91 8.26L12 2Z" />
-  </svg>
-);
-
-const CalendarIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-  </svg>
-);
-
-const PlusIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
-  </svg>
-);
-
-const TrashIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-  </svg>
-);
-
-const ShareIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-  </svg>
-);
-
-const XIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-  </svg>
-);
-
-const ExclamationIcon = () => (
-  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-    <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.168 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-  </svg>
-);
-
-const DownloadIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-  </svg>
-);
-
-const SaveIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-  </svg>
-);
-
+// ─────────────────────────────────────────────────
+// 아이콘은 표준 아이콘(@/components/nd/icons)을 쓴다
+// ─────────────────────────────────────────────────
 const LoadingSpinner = ({ size = 'w-4 h-4' }: { size?: string }) => (
-  <svg className={`${size} animate-spin`} fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-  </svg>
+  <SpinnerIcon className={`${size} animate-spin`} />
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -360,7 +304,7 @@ function ToastContainer({ toasts, onRemove }: { toasts: ToastMessage[]; onRemove
         >
           <span>{t.text}</span>
           <button onClick={() => onRemove(t.id)} className="ml-2 opacity-70 hover:opacity-100">
-            <XIcon />
+            <XIcon className="w-4 h-4" />
           </button>
         </div>
       ))}
@@ -1060,7 +1004,7 @@ export default function ProductionPlanPage() {
                 </>
               ) : (
                 <>
-                  <SparkleIcon />
+                  <RobotIcon className="w-4 h-4 text-link" />
                   <span>AI 일괄 추천</span>
                 </>
               )}
@@ -1072,7 +1016,7 @@ export default function ProductionPlanPage() {
               disabled={savingBulk || dirtyCount === 0}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-on-brand text-sm font-medium shadow-nd-s hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {savingBulk ? <LoadingSpinner /> : <SaveIcon />}
+              {savingBulk ? <LoadingSpinner /> : <SaveIcon className="w-4 h-4" />}
               <span>저장{dirtyCount > 0 ? ` (${dirtyCount})` : ''}</span>
             </button>
 
@@ -1081,7 +1025,7 @@ export default function ProductionPlanPage() {
               onClick={addNewPlan}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-success text-on-brand text-sm font-medium shadow-nd-s hover:bg-success-hover transition-colors"
             >
-              <PlusIcon />
+              <PlusIcon className="w-4 h-4" />
               <span>계획 추가</span>
             </button>
 
@@ -1090,7 +1034,7 @@ export default function ProductionPlanPage() {
               onClick={exportCsv}
               className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border-primary bg-bg-1 text-text-secondary text-sm font-medium hover:bg-bg-secondary transition-colors"
             >
-              <DownloadIcon />
+              <DownloadIcon className="w-4 h-4" />
               <span>CSV</span>
             </button>
 
@@ -1099,7 +1043,7 @@ export default function ProductionPlanPage() {
               onClick={() => setShowShareModal(true)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border-primary bg-bg-1 text-text-secondary text-sm font-medium hover:bg-bg-secondary transition-colors"
             >
-              <ShareIcon />
+              <ShareIcon className="w-4 h-4" />
               <span>공유</span>
             </button>
           </div>
@@ -1112,11 +1056,9 @@ export default function ProductionPlanPage() {
               onClick={() => setAlertsExpanded(!alertsExpanded)}
               className="flex items-center gap-2 text-sm font-medium text-text-secondary mb-2 hover:text-text-primary"
             >
-              <ExclamationIcon />
+              <WarningIcon className="w-5 h-5" />
               <span>알림 ({urgentAlerts.length + warningAlerts.length}건)</span>
-              <svg className={`w-4 h-4 transition-transform ${alertsExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <CaretDownIcon className={`w-4 h-4 transition-transform ${alertsExpanded ? 'rotate-180' : ''}`} />
             </button>
             {alertsExpanded && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1130,7 +1072,7 @@ export default function ProductionPlanPage() {
                     }`}
                   >
                     <div className={`mt-0.5 ${alert.level === 'urgent' ? 'text-danger' : 'text-warning'}`}>
-                      <ExclamationIcon />
+                      <WarningIcon className="w-5 h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-semibold ${alert.level === 'urgent' ? 'text-danger' : 'text-warning'}`}>
@@ -1175,18 +1117,16 @@ export default function ProductionPlanPage() {
         </div>
 
         {/* ── Date Selector ───────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-4 bg-bg-1 rounded-xl border border-border-primary px-4 py-3 shadow-nd-s">
-          <div className="flex items-center gap-3">
-            <CalendarIcon />
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4 bg-bg-1 rounded-xl border border-border-primary px-4 py-3 shadow-nd-s">
+          <div className="flex flex-wrap items-center gap-3 min-w-0">
+            <CalendarIcon className="w-5 h-5" />
             <button
               onClick={() => navigateDate(-1)}
               className="p-1 rounded hover:bg-bg-secondary text-text-tertiary"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
+              <CaretLeftIcon className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               <input
                 type="date"
                 value={startDate}
@@ -1209,9 +1149,7 @@ export default function ProductionPlanPage() {
               onClick={() => navigateDate(1)}
               className="p-1 rounded hover:bg-bg-secondary text-text-tertiary"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+              <CaretRightIcon className="w-5 h-5" />
             </button>
           </div>
           <div className="flex items-center gap-1 bg-bg-2 rounded-lg p-1">
@@ -1355,7 +1293,7 @@ export default function ProductionPlanPage() {
                               onClick={() => setDeleteConfirm(plan.id)}
                               className="text-text-quaternary hover:text-danger transition-colors p-1 rounded hover:bg-danger/10"
                             >
-                              <TrashIcon />
+                              <TrashIcon className="w-4 h-4" />
                             </button>
                           )}
                         </td>
@@ -1426,13 +1364,11 @@ export default function ProductionPlanPage() {
               className="w-full flex items-center justify-between px-5 py-3 bg-brand/10 hover:bg-brand/15 transition-colors"
             >
               <div className="flex items-center gap-2">
-                <SparkleIcon />
+                <RobotIcon className="w-4 h-4 text-link" />
                 <span className="text-sm font-semibold text-accent">AI 추천 분석 결과</span>
                 <span className="text-xs text-link bg-brand/15 px-2 py-0.5 rounded-full">{aiRecommendations.length}건</span>
               </div>
-              <svg className={`w-4 h-4 text-link transition-transform ${aiExplanationsExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <CaretDownIcon className={`w-4 h-4 text-link transition-transform ${aiExplanationsExpanded ? 'rotate-180' : ''}`} />
             </button>
             {aiExplanationsExpanded && (
               <div className="divide-y divide-border-primary max-h-[400px] overflow-y-auto">
@@ -1440,7 +1376,7 @@ export default function ProductionPlanPage() {
                   <div key={rec.plan_id} className="px-5 py-3 hover:bg-bg-secondary transition-colors">
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-text-quaternary">{idx + 1}.</span>
+                        <span className="text-xs tabular-nums text-text-quaternary">{idx + 1}.</span>
                         <span className="text-sm font-semibold text-text-primary">{rec.product_name}</span>
                       </div>
                       <span className="text-sm font-semibold text-link">추천: {fmtNum(rec.recommended_qty)}개</span>
@@ -1463,16 +1399,14 @@ export default function ProductionPlanPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-text-primary">생산 계획 공유</h3>
               <button onClick={() => { setShowShareModal(false); setShareSuccess(false); setShareEmail(''); }} className="text-text-quaternary hover:text-text-secondary">
-                <XIcon />
+                <XIcon className="w-4 h-4" />
               </button>
             </div>
 
             {shareSuccess ? (
               <div className="text-center py-8">
                 <div className="w-12 h-12 bg-success/15 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
+                  <CheckIcon className="w-6 h-6 text-success" />
                 </div>
                 <p className="text-text-secondary font-medium">공유가 완료되었습니다</p>
               </div>
@@ -1513,7 +1447,7 @@ export default function ProductionPlanPage() {
                   disabled={!shareEmail || shareSending}
                   className="w-full py-2.5 rounded-lg bg-brand text-on-brand text-sm font-medium hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
                 >
-                  {shareSending ? <LoadingSpinner /> : <ShareIcon />}
+                  {shareSending ? <LoadingSpinner /> : <ShareIcon className="w-4 h-4" />}
                   <span>{shareSending ? '전송 중...' : '공유하기'}</span>
                 </button>
               </>

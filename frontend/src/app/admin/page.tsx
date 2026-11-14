@@ -175,7 +175,7 @@ export default function AdminPage() {
                             className={`px-2.5 py-1 rounded-full text-xs font-medium border transition ${on ? 'bg-brand/15 text-accent border-brand/40' : 'bg-bg-0 text-text-quaternary border-border-primary hover:text-text-tertiary'} ${row.is_owner ? 'cursor-default' : ''}`}
                             title={isSales ? '기본 노출 메뉴' : ''}
                           >
-                            {on ? '● ' : '○ '}{m.label}
+                            <span aria-hidden="true" className={`inline-block w-[8px] h-[8px] rounded-full mr-1.5 border border-current ${on ? 'bg-current' : ''}`} />{m.label}
                           </button>
                         );
                       })}

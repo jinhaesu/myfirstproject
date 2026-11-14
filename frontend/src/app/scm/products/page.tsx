@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { ArrowDownIcon, ArrowDownRightIcon, ArrowUpIcon, ArrowUpRightIcon, ArrowsDownUpIcon, CheckCircleIcon, CheckIcon, DownloadIcon, EditIcon, GaugeIcon, ListBulletsIcon, MinusIcon, PackageIcon, PlusIcon, RefreshIcon, SearchIcon, SpinnerIcon, TrashIcon, WarningIcon, XIcon } from '@/components/nd/icons';
 
 // ─────────────────────────────────────────────
 // API helper
@@ -444,8 +445,8 @@ export default function ProductsPage() {
 
   // ── Sort indicator ──
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <span className="ml-1 text-text-quaternary">&#8597;</span>;
-    return <span className="ml-1 text-link">{sortDir === 'asc' ? '▲' : '▼'}</span>;
+    if (sortField !== field) return <ArrowsDownUpIcon inline className="ml-1 text-text-quaternary" />;
+    return sortDir === 'asc' ? <ArrowUpIcon inline className="ml-1 text-link" /> : <ArrowDownIcon inline className="ml-1 text-link" />;
   };
 
   // ═══════════════════════════════════════════════
@@ -469,9 +470,9 @@ export default function ProductsPage() {
               className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-brand/30 bg-brand/10 text-accent hover:bg-brand/15 transition disabled:opacity-50"
             >
               {syncing ? (
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                <SpinnerIcon className="animate-spin h-4 w-4" />
               ) : (
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                <RefreshIcon className="h-4 w-4" />
               )}
               생산·원가 동기화
             </button>
@@ -479,14 +480,14 @@ export default function ProductsPage() {
               onClick={() => downloadCSV(filteredProducts)}
               className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border-primary bg-bg-1 text-text-secondary hover:bg-bg-secondary transition"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              <DownloadIcon className="h-4 w-4" />
               CSV 다운로드
             </button>
             <button
               onClick={openAddModal}
               className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-brand text-on-brand hover:bg-accent transition shadow-nd-s"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              <PlusIcon className="h-4 w-4" />
               품목 추가
             </button>
           </div>
@@ -497,7 +498,7 @@ export default function ProductsPage() {
           <div className="bg-bg-1 rounded-xl border border-border-primary p-5">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-lg bg-brand/10">
-                <svg className="h-5 w-5 text-link" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                <PackageIcon className="h-5 w-5 text-link" />
               </div>
               <div>
                 <p className="text-xs font-medium text-text-tertiary">총 등록 품목</p>
@@ -508,7 +509,7 @@ export default function ProductsPage() {
           <div className="bg-bg-1 rounded-xl border border-border-primary p-5">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-lg bg-success/10">
-                <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <CheckCircleIcon className="h-5 w-5 text-success" />
               </div>
               <div>
                 <p className="text-xs font-medium text-text-tertiary">활성 품목</p>
@@ -519,7 +520,7 @@ export default function ProductsPage() {
           <div className="bg-bg-1 rounded-xl border border-border-primary p-5">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-lg bg-warning/10">
-                <svg className="h-5 w-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                <GaugeIcon className="h-5 w-5 text-warning" />
               </div>
               <div>
                 <p className="text-xs font-medium text-text-tertiary">평균 시간당 생산량</p>
@@ -530,7 +531,7 @@ export default function ProductsPage() {
           <div className="bg-bg-1 rounded-xl border border-border-primary p-5">
             <div className="flex items-center gap-3">
               <div className={`p-2.5 rounded-lg ${stats.belowSafety > 0 ? 'bg-danger/10' : 'bg-bg-0'}`}>
-                <svg className={`h-5 w-5 ${stats.belowSafety > 0 ? 'text-danger' : 'text-text-quaternary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                <WarningIcon className={`h-5 w-5 ${stats.belowSafety > 0 ? 'text-danger' : 'text-text-quaternary'}`} />
               </div>
               <div>
                 <p className="text-xs font-medium text-text-tertiary">안전재고 미달</p>
@@ -544,7 +545,7 @@ export default function ProductsPage() {
         <div className="bg-bg-1 rounded-xl border border-border-primary p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
           {/* Search */}
           <div className="relative flex-1 max-w-md">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-quaternary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-quaternary" />
             <input
               type="text"
               value={searchTerm}
@@ -645,7 +646,7 @@ export default function ProductsPage() {
                 {filteredProducts.length === 0 ? (
                   <tr>
                     <td colSpan={12} className="px-4 py-16 text-center text-text-quaternary">
-                      <svg className="mx-auto h-12 w-12 text-text-quaternary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                      <PackageIcon className="mx-auto h-12 w-12 text-text-quaternary mb-3" />
                       검색 결과가 없습니다.
                     </td>
                   </tr>
@@ -709,7 +710,7 @@ export default function ProductsPage() {
                             <span className="text-xs text-text-quaternary">개/h</span>
                             {product.avg_hourly_rate > 0 && (
                               <span className={`text-xs ${rateUp ? 'text-success' : rateMatch ? 'text-text-quaternary' : 'text-danger'}`}>
-                                {rateUp ? '▲' : rateMatch ? '─' : '▼'}
+                                {rateUp ? <ArrowUpRightIcon inline /> : rateMatch ? <MinusIcon inline /> : <ArrowDownRightIcon inline />}
                               </span>
                             )}
                           </div>
@@ -741,7 +742,7 @@ export default function ProductsPage() {
                               className="p-1.5 rounded-md text-text-quaternary hover:text-link hover:bg-brand/10 transition"
                               title="수정"
                             >
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                              <EditIcon className="h-4 w-4" />
                             </button>
                             {deleteConfirmId === product.id ? (
                               <div className="flex items-center gap-1">
@@ -764,7 +765,7 @@ export default function ProductsPage() {
                                 className="p-1.5 rounded-md text-text-quaternary hover:text-danger hover:bg-danger/10 transition"
                                 title="삭제"
                               >
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                <TrashIcon className="h-4 w-4" />
                               </button>
                             )}
                           </div>
@@ -782,7 +783,7 @@ export default function ProductsPage() {
         {toast && (
           <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
             <div className="bg-bg-0 text-text-primary px-5 py-3 rounded-xl shadow-nd-f text-sm flex items-center gap-2">
-              <svg className="h-4 w-4 text-success-light shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              <CheckIcon className="h-4 w-4 text-success-light shrink-0" />
               {toast}
             </div>
           </div>
@@ -802,7 +803,7 @@ export default function ProductsPage() {
                   {editingProduct ? '품목 수정' : '품목 추가'}
                 </h2>
                 <button onClick={closeModal} className="p-1 rounded-lg hover:bg-bg-secondary transition">
-                  <svg className="h-5 w-5 text-text-quaternary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  <XIcon className="h-5 w-5 text-text-quaternary" />
                 </button>
               </div>
 
@@ -814,7 +815,7 @@ export default function ProductsPage() {
                     onClick={() => { setShowBomPicker(true); setPickerTab('완제품'); setPickerSearch(''); }}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-dashed border-brand/40 bg-brand/5 text-accent hover:bg-brand/10 transition"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>
+                    <ListBulletsIcon className="h-4 w-4" />
                     BOM 리스트에서 불러오기 (완제품·반제품·세트·원부재료)
                   </button>
                 )}
@@ -1035,7 +1036,7 @@ export default function ProductsPage() {
               <div className="flex items-center justify-between px-5 py-4 border-b border-border-primary">
                 <h2 className="text-base font-semibold text-text-primary">BOM 리스트에서 불러오기</h2>
                 <button onClick={() => setShowBomPicker(false)} className="p-1 rounded-lg hover:bg-bg-secondary text-text-quaternary">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  <XIcon className="h-5 w-5" />
                 </button>
               </div>
               <div className="px-5 py-3 border-b border-border-primary space-y-2.5">

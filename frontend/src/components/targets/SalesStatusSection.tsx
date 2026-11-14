@@ -1,11 +1,13 @@
 'use client';
 
+import { ChartBarIcon, PlusIcon } from '@/components/nd/icons';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { SalesModal } from './SalesModal';
 import { DataItemActions } from './DataItemActions';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
+import { ndAxis, ndBar, ndBarsHeight, ndFit, ndFmt, ndGrid, ndGridVertical, ndLegend, ndLine, ndMargin, ndMarginH, ndScale, ndTextWidth, ndTooltip, type NdSlot } from '@/components/nd/NdChart';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -148,6 +150,58 @@ interface SalesStatusSectionProps {
 
 const years = Array.from({ length: 13 }, (_, i) => 2018 + i);
 const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` }));
+
+// 현황 vs 목표의 계열(순서 고정). 매출 1번·판매량 2번은 목표 화면(TargetListSection)과 같은 번호.
+// 목표는 비교 대상이라 중립색: 첫째는 면, 둘째는 테두리만
+const STATUS_SERIES: { key: keyof SalesChartData & string; name: string; slot: NdSlot; outline?: boolean }[] = [
+  { key: '현황_매출', name: '현황 매출', slot: 1 },
+  { key: '목표_매출', name: '목표 매출', slot: 'context' },
+  { key: '현황_판매량', name: '현황 판매량', slot: 2 },
+  { key: '목표_판매량', name: '목표 판매량', slot: 'context', outline: true },
+];
+
+// 세로축 너비: 음수·긴 눈금 글자(「-2,000만」)가 왼쪽에서 잘리지 않게 가장 긴 눈금 글자에 맞춘다(기본 52px 보다 좁히지는 않는다).
+// 글자 폭 어림값은 Pretendard 기준이라, 더 넓은 글꼴에서도 들어가게 13% 여유를 둔다
+const fitY = <T extends { ticks: number[]; tickFormatter: (v: any) => string }>(s: T) => ({ ...s, width: Math.max(52, ...s.ticks.map((t) => Math.ceil(ndTextWidth(s.tickFormatter(t)) * 1.13) + 10)) });
+// 가로 막대의 항목 축. 이름을 자르는 폭은 Pretendard 기준 어림값이라 한글이 더 넓은 글꼴에서는 몇 px 넘친다 → 축을 10% 넓게 잡는다
+const categoryAxis = (width = 96) => ({ ...ndAxis.categoryOf(Math.ceil(width * 1.1)), tickFormatter: (v: any) => ndFit(String(v ?? ''), width - 12, 12) });
+
+// 책임자·기준 항목 막대. 항목이 일곱을 넘거나 이름이 여섯 자를 넘으면 가로 막대로 그린다(이름을 자르지 않으려고)
+function StatusBars({ rows, value }: { rows: SalesChartData[]; value: (v: any) => string }) {
+  const nums = rows.flatMap((r) => STATUS_SERIES.map((s) => Number(r[s.key]) || 0));
+  const top = Math.max(0, ...nums);
+  const low = Math.min(0, ...nums);
+  const horizontal = rows.length > 7 || rows.some((r) => Array.from(r.name || '').length > 6);
+  const bars = STATUS_SERIES.map((s) => (
+    <Bar key={s.key} dataKey={s.key} name={s.name} {...ndBar(s.slot, { horizontal, outline: s.outline, max: horizontal ? 12 : 24 })} />
+  ));
+  if (horizontal) {
+    return (
+      <ResponsiveContainer width="100%" height={ndBarsHeight(rows.length, STATUS_SERIES.length * 14 + 12)}>
+        <BarChart layout="vertical" data={rows} margin={ndMarginH} barGap={2}>
+          <CartesianGrid {...ndGridVertical} />
+          <XAxis type="number" {...ndAxis.value} {...ndScale(top, ndFmt.axisNumBy, low)} />
+          <YAxis type="category" dataKey="name" {...categoryAxis(112)} />
+          <Tooltip {...ndTooltip({ kind: 'bar', value })} />
+          <Legend {...ndLegend()} />
+          {bars}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+  return (
+    <ResponsiveContainer width="100%" height={350}>
+      <BarChart data={rows} margin={ndMargin} barGap={2}>
+        <CartesianGrid {...ndGrid} />
+        <XAxis dataKey="name" {...ndAxis.band} />
+        <YAxis {...ndAxis.y} {...fitY(ndScale(top, ndFmt.axisNumBy, low))} />
+        <Tooltip {...ndTooltip({ kind: 'bar', value })} />
+        <Legend {...ndLegend()} />
+        {bars}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
 
 export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = false }: SalesStatusSectionProps) {
   const [year, setYear] = useState(selectedYear);
@@ -515,6 +569,12 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
       return item;
     });
   }, [dailyChart, dailyTargetData, previousMonthChart, chartMode, applyVat, showTargetLine, showPreviousMonth]);
+  // 세로축 눈금용: 그 축에 그려지는 가장 큰 값·가장 작은 값(비교 계열 포함)
+  const chartNums = chartData.flatMap((r) => [r.매출, r.목표 ?? 0, r.전월 ?? 0]);
+  const chartTop = Math.max(0, ...chartNums);
+  const chartLow = Math.min(0, ...chartNums);
+  // 범례는 계열이 둘 이상일 때만(하나뿐이면 제목이 말해 준다)
+  const chartHasCompare = showTargetLine || (showPreviousMonth && !!previousMonthChart);
 
   return (
     <section className="mb-8">
@@ -529,9 +589,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
             }}
             className="flex items-center gap-2 px-4 py-2 bg-success text-on-brand rounded-lg hover:bg-success transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+            <PlusIcon className="w-5 h-5" />
             기입하기
           </button>
         </div>
@@ -722,23 +780,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       )}
                     </h3>
                   </div>
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={managerChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => {
-                        if (value >= 100000000) return `${(value / 100000000).toFixed(0)}억`;
-                        if (value >= 10000) return `${(value / 10000).toFixed(0)}만`;
-                        return value.toString();
-                      }} />
-                      <Tooltip formatter={(value: number, name: string) => [new Intl.NumberFormat('ko-KR').format(applyVat(value)), name]} />
-                      <Legend wrapperStyle={{ fontSize: '11px' }} />
-                      <Bar dataKey="현황_매출" fill="var(--color-brand-bg)" name="현황 매출" />
-                      <Bar dataKey="목표_매출" fill="var(--color-brand-bg)" name="목표 매출" />
-                      <Bar dataKey="현황_판매량" fill="var(--color-success)" name="현황 판매량" />
-                      <Bar dataKey="목표_판매량" fill="var(--color-success)" name="목표 판매량" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <StatusBars rows={managerChartData} value={(value) => formatNumber(value)} />
                 </div>
               )}
 
@@ -755,23 +797,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                       )}
                     </h3>
                   </div>
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={criteriaChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => {
-                        if (value >= 100000000) return `${(value / 100000000).toFixed(0)}억`;
-                        if (value >= 10000) return `${(value / 10000).toFixed(0)}만`;
-                        return value.toString();
-                      }} />
-                      <Tooltip formatter={(value: number, name: string) => [new Intl.NumberFormat('ko-KR').format(applyVat(value)), name]} />
-                      <Legend wrapperStyle={{ fontSize: '11px' }} />
-                      <Bar dataKey="현황_매출" fill="var(--color-brand-bg)" name="현황 매출" />
-                      <Bar dataKey="목표_매출" fill="var(--color-brand-bg)" name="목표 매출" />
-                      <Bar dataKey="현황_판매량" fill="var(--color-success)" name="현황 판매량" />
-                      <Bar dataKey="목표_판매량" fill="var(--color-success)" name="목표 판매량" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <StatusBars rows={criteriaChartData} value={(value) => formatNumber(value)} />
                 </div>
               )}
             </div>
@@ -801,9 +827,7 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                 onClick={() => setShowRealtimeChart(!showRealtimeChart)}
                 className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-1 border border-border-primary rounded-lg hover:bg-bg-secondary transition-colors"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+                <ChartBarIcon className="w-4 h-4" />
                 {showRealtimeChart ? '그래프 숨기기' : '그래프 보기'}
               </button>
             </div>
@@ -895,43 +919,33 @@ export function SalesStatusSection({ selectedYear, selectedMonth, excludeVat = f
                 )}
                 <ResponsiveContainer width="100%" height={300}>
                   {chartMode === 'cumulative' ? (
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="day" tick={{ fontSize: 12 }} />
-                      <YAxis
-                        tickFormatter={(value) => new Intl.NumberFormat('ko-KR', { notation: 'compact' }).format(value)}
-                        tick={{ fontSize: 12 }}
-                      />
-                      <Tooltip
-                        formatter={(value: number, name: string) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, name]}
-                      />
-                      <Legend />
-                      <Line type="monotone" dataKey="매출" stroke="var(--color-brand-bg)" strokeWidth={2} dot={false} name={`${year}년 ${month}월`} />
+                    <LineChart data={chartData} margin={ndMargin}>
+                      <CartesianGrid {...ndGrid} />
+                      <XAxis dataKey="day" {...ndAxis.x} />
+                      <YAxis {...ndAxis.y} {...ndScale(chartTop, ndFmt.axisWonBy, chartLow)} />
+                      <Tooltip {...ndTooltip({ kind: 'line', value: (value) => `${formatNumberRaw(value)}원`, mark: { 목표: 'dash', 전월: 'dash' } })} />
+                      {chartHasCompare && <Legend {...ndLegend()} />}
+                      <Line dataKey="매출" name={`${year}년 ${month}월`} {...ndLine(1)} />
                       {showTargetLine && (
-                        <Line type="monotone" dataKey="목표" stroke="var(--color-orange)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                        <Line dataKey="목표" {...ndLine(2, { dashed: true })} />
                       )}
                       {showPreviousMonth && previousMonthChart && (
-                        <Line type="monotone" dataKey="전월" stroke="var(--color-success)" strokeWidth={2} strokeDasharray="3 3" dot={false} name={previousMonthLabel} />
+                        <Line dataKey="전월" name={previousMonthLabel} {...ndLine('context', { dashed: true })} />
                       )}
                     </LineChart>
                   ) : (
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="day" tick={{ fontSize: 12 }} />
-                      <YAxis
-                        tickFormatter={(value) => new Intl.NumberFormat('ko-KR', { notation: 'compact' }).format(value)}
-                        tick={{ fontSize: 12 }}
-                      />
-                      <Tooltip
-                        formatter={(value: number, name: string) => [`${new Intl.NumberFormat('ko-KR').format(value)}원`, name]}
-                      />
-                      <Legend />
-                      <Bar dataKey="매출" fill="var(--color-brand-bg)" name={`${year}년 ${month}월`} />
+                    <BarChart data={chartData} margin={ndMargin} barGap={1}>
+                      <CartesianGrid {...ndGrid} />
+                      <XAxis dataKey="day" {...ndAxis.x} />
+                      <YAxis {...ndAxis.y} {...ndScale(chartTop, ndFmt.axisWonBy, chartLow)} />
+                      <Tooltip {...ndTooltip({ kind: 'bar', value: (value) => `${formatNumberRaw(value)}원` })} />
+                      {chartHasCompare && <Legend {...ndLegend()} />}
+                      <Bar dataKey="매출" name={`${year}년 ${month}월`} {...ndBar(1)} />
                       {showTargetLine && (
-                        <Bar dataKey="목표" fill="var(--color-orange)" />
+                        <Bar dataKey="목표" {...ndBar('context')} />
                       )}
                       {showPreviousMonth && previousMonthChart && (
-                        <Bar dataKey="전월" fill="var(--color-success)" name={previousMonthLabel} />
+                        <Bar dataKey="전월" name={previousMonthLabel} {...ndBar('context', { outline: true })} />
                       )}
                     </BarChart>
                   )}

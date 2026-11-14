@@ -1,13 +1,15 @@
 'use client';
 
+import { ArrowDownRightIcon, ArrowUpRightIcon, CaretDoubleLeftIcon, CaretDoubleRightIcon, CaretDownIcon, CaretLeftIcon, CaretRightIcon, CheckIcon, InfoIcon, MinusIcon, XIcon } from '@/components/nd/icons';
 import { Suspense, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line, ComposedChart,
-  PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
+import { ndArea, ndAxis, ndBar, ndBarsHeight, ndColor, ndFit, ndFmt, ndGrid, ndGridVertical, ndHeat, ndIsolatedDot, ndLegend, ndLine, ndMargin, ndMarginH, ndPie, ndPieRows, ndScale, ndTextWidth, ndTooltip, NdChartEmpty, NdDonutList, NdTooltipContent, type NdSlot } from '@/components/nd/NdChart';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -19,28 +21,39 @@ const TEXT_DIM = 'var(--color-text-dim)';     // 8A8F98보다 밝게 — 가시�
 const TEXT_MUTED = 'var(--color-text-muted)';   // 62666D보다 밝게
 const ROW_HOVER = 'hover:bg-bg-inset'; // 0A0B0D는 너무 어두워 hover 효과 약함 → 더 밝게
 
-// recharts Tooltip 공통 스타일 (다크 배경 + 큰 글씨)
-const TOOLTIP_STYLE: React.CSSProperties = {
-  background: 'var(--color-bg-inset)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 8,
-  color: 'var(--color-text-primary)',
-  fontSize: 12,
-  padding: '8px 12px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+// 그래프 계열 색(널담 디자인 기준 2): 매출 1번 · 판매수량 2번 · 공헌이익 3번. 비교 기간·계획은 중립색.
+// 값 축의 눈금: 그 축에 그려지는 계열들의 가장 큰 값·가장 작은 값으로 반듯한 눈금과 단위 하나를 정한다
+const scaleOf = (rows: readonly any[] | null | undefined, keys: readonly string[], by?: Parameters<typeof ndScale>[1]) => {
+  let top = 0;
+  let low = 0;
+  for (const r of rows || []) for (const k of keys) {
+    const v = Number(r?.[k]);
+    if (isFinite(v)) { if (v > top) top = v; if (v < low) low = v; }
+  }
+  return ndScale(top, by, low);
 };
-const TOOLTIP_LABEL_STYLE: React.CSSProperties = { color: 'var(--color-text-dim)', fontWeight: 500, marginBottom: 4 };
-const TOOLTIP_ITEM_STYLE: React.CSSProperties = { color: 'var(--color-text-primary)' };
+// 세로축 너비: 음수·긴 눈금 글자(「-2,000만」)가 왼쪽에서 잘리지 않게 가장 긴 눈금 글자에 맞춘다(기본 52px 보다 좁히지는 않는다).
+// 글자 폭 어림값은 Pretendard 기준이라, 더 넓은 글꼴에서도 들어가게 13% 여유를 둔다
+const fitY = <T extends { ticks: number[]; tickFormatter: (v: any) => string }>(s: T) => ({ ...s, width: Math.max(52, ...s.ticks.map((t) => Math.ceil(ndTextWidth(s.tickFormatter(t)) * 1.13) + 10)) });
+// 가로 막대의 항목 축. 이름을 자르는 폭은 Pretendard 기준 어림값이라 한글이 더 넓은 글꼴에서는 몇 px 넘친다 → 축을 10% 넓게 잡는다
+const categoryAxis = (width = 96) => ({ ...ndAxis.categoryOf(Math.ceil(width * 1.1)), tickFormatter: (v: any) => ndFit(String(v ?? ''), width - 12, 12) });
+// 구분(위탁·사입·오프라인)의 색은 이름에 묶는다(순위가 바뀌어도 같은 색). 그 밖의 구분은 나온 순서대로 4번부터
+const groupColors = (names: readonly string[]) => {
+  const at = new Map<string, string>();
+  let next = 4;
+  for (const n of names) {
+    if (at.has(n)) continue;
+    at.set(n, ndColor(/위탁/.test(n) ? 1 : /사입/.test(n) ? 2 : /오프라인/.test(n) ? 3 : next++));
+  }
+  return (name: string): string => at.get(name) ?? ndColor('context');
+};
+// 기간 축 말풍선의 머리글: 비교 기간이 있으면 함께 적는다
+const periodLabel = (label: any, payload?: any[]) => {
+  const cp = payload?.[0]?.payload?.compare_period;
+  return cp ? `${label}  (비교: ${cp})` : label;
+};
 
-// 차트 공통 props
-import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 import SkyBand from '@/components/SkyBand';
-
-const CHART_GRID = { stroke: 'var(--color-border-primary)', strokeDasharray: '3 3' };
-const AXIS_TICK = { fill: 'var(--color-text-dim)', fontSize: 11 };
-const LEGEND_STYLE = { fontSize: 11, color: 'var(--color-text-secondary)' };
-
-const PALETTE = ND_CHART;
 
 type Granularity = 'day' | 'month' | 'quarter' | 'year';
 
@@ -714,11 +727,11 @@ function MatrixSection({ title, by, authHeaders, categoryToggle = false }: {
                 <tr key={r.id} className="border-b border-bg-inset hover:bg-bg-inset">
                   <td className="py-1.5 px-2 text-text-primary sticky left-0 bg-bg-1">{r.name}</td>
                   {months.map(m => (
-                    <td key={m} className="py-1.5 px-2 text-right font-mono text-text-secondary">
+                    <td key={m} className="py-1.5 px-2 text-right text-text-secondary">
                       {fmtMatrixCell(matrixCellValue(r.monthly?.[String(m)], metric), metric)}
                     </td>
                   ))}
-                  <td className="py-1.5 px-2 text-right font-mono text-text-primary font-semibold">
+                  <td className="py-1.5 px-2 text-right text-text-primary font-semibold">
                     {fmtMatrixCell(matrixCellValue(r.total, metric), metric)}
                   </td>
                 </tr>
@@ -732,11 +745,11 @@ function MatrixSection({ title, by, authHeaders, categoryToggle = false }: {
               <tr className="border-t-2 border-border-subtle font-semibold bg-bg-inset">
                 <td className="py-2 px-2 text-text-primary sticky left-0 bg-bg-inset">합계</td>
                 {months.map(m => (
-                  <td key={m} className="py-2 px-2 text-right font-mono text-text-primary">
+                  <td key={m} className="py-2 px-2 text-right text-text-primary">
                     {fmtMatrixCell(matrixCellValue(colTotals[String(m)], metric), metric)}
                   </td>
                 ))}
-                <td className="py-2 px-2 text-right font-mono text-accent">
+                <td className="py-2 px-2 text-right text-accent">
                   {fmtMatrixCell(matrixCellValue(colTotals.total, metric), metric)}
                 </td>
               </tr>
@@ -855,7 +868,7 @@ const DashboardTab = memo(function DashboardTab({
       {dashboardError && (
         <div className="flex items-center justify-between px-3 py-2 rounded-md bg-danger/10 border border-danger/30 text-danger text-xs">
           <span>{dashboardError}</span>
-          <button onClick={clearDashboardError} className="text-danger hover:text-text-primary px-2">✕</button>
+          <button onClick={clearDashboardError} className="text-danger hover:text-text-primary px-2" aria-label="닫기"><XIcon inline /></button>
         </div>
       )}
       {/* Filter bar */}
@@ -948,7 +961,7 @@ const DashboardTab = memo(function DashboardTab({
             onClick={() => setCompareOpen((v: boolean) => !v)}
             className="text-xs font-medium text-accent hover:text-brand-light flex items-center gap-1.5"
           >
-            <span className={`inline-block transition-transform ${compareOpen ? 'rotate-90' : ''}`}>▶</span>
+            <CaretRightIcon className={`transition-transform ${compareOpen ? 'rotate-90' : ''}`} />
             기간 비교 {compareOpen ? '닫기' : '열기'}
           </button>
           {compareOpen && (
@@ -983,6 +996,7 @@ const DashboardTab = memo(function DashboardTab({
           hint={data ? `${fmtNum(data.summary.orders)} 주문${data.summary.cancelled_count ? ` · 취소/환불 ${fmtNum(data.summary.cancelled_count)}건` : ''}${data.summary.revenue_deduction ? ` · 월정액수수료 ₩${fmtKR(data.summary.revenue_deduction)} 차감 후` : ''}` : ''}
           accent="var(--color-accent-hover)"
           spark={sparkKey('revenue')}
+          sparkSlot={1}
           compareValue={hasCompare ? compareData.summary.revenue : undefined}
           currentValue={data?.summary.revenue}
         />
@@ -991,6 +1005,7 @@ const DashboardTab = memo(function DashboardTab({
           hint="입수 환산"
           accent="var(--color-link-primary)"
           spark={sparkKey('pcs')}
+          sparkSlot={2}
           compareValue={hasCompare ? compareData.summary.pcs : undefined}
           currentValue={data?.summary.pcs}
         />
@@ -999,6 +1014,7 @@ const DashboardTab = memo(function DashboardTab({
           hint={data ? `변동비 ₩${fmtKR(data.summary.variable_cost)}` : ''}
           accent="var(--color-success)"
           spark={sparkKey('cm')}
+          sparkSlot={3}
           compareValue={hasCompare ? compareData.summary.contribution_margin : undefined}
           currentValue={data?.summary.contribution_margin}
         />
@@ -1032,7 +1048,7 @@ const DashboardTab = memo(function DashboardTab({
           title="구분별 매출 비중"
           subtitle="온라인(위탁)·온라인(사입)·오프라인"
           data={groupsData.map((g: any) => ({ name: g.group, value: g.revenue }))}
-          colors={['var(--color-accent-hover)', 'var(--color-success)', 'var(--color-warning)']}
+          colorOf={groupColors(groupsData.map((g: any) => g.group))}
         />
         <DonutCard
           title="채널별 매출 비중"
@@ -1051,78 +1067,49 @@ const DashboardTab = memo(function DashboardTab({
         <div className={`${PANEL} p-4 lg:col-span-2`}>
           <div className="flex items-baseline justify-between mb-2">
             <h3 className="text-sm font-semibold text-text-primary">매출 & 공헌이익 추이</h3>
-            <span className="text-[10px] font-mono text-text-dim">
+            <span className="text-[10px] text-text-dim">
               {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
             </span>
           </div>
-          {loading && !data ? <Skeleton h={240} /> : data && data.series.length ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-brand-light)" stopOpacity={0.95} />
-                    <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={0.55} />
-                  </linearGradient>
-                  <linearGradient id="gradRevenueCmp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.55} />
-                    <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.25} />
-                  </linearGradient>
-                  <linearGradient id="gradCmArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid {...CHART_GRID} />
-                <XAxis dataKey="period" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" />
-                <YAxis tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                  formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-                  labelFormatter={(label: any, payload: any) => {
-                    if (!payload?.[0]) return label;
-                    const cp = payload[0].payload?.compare_period;
-                    return cp ? `${label}  (비교: ${cp})` : label;
-                  }}
-                />
-                <Legend wrapperStyle={LEGEND_STYLE} />
+          {loading && !data ? <Skeleton h={300} /> : data && data.series.length ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={seriesWithCompare} margin={ndMargin}>
+                <CartesianGrid {...ndGrid} />
+                <XAxis dataKey="period" {...ndAxis.x} />
+                <YAxis {...ndAxis.y} {...fitY(scaleOf(seriesWithCompare, ['revenue', 'contribution_margin', 'compare_revenue', 'compare_cm'], ndFmt.axisWonBy))} />
+                <Tooltip {...ndTooltip({ kind: 'bar', value: (v: any) => `₩${fmtKR(v)}`, label: periodLabel, mark: { compare_cm: 'dash' } })} />
+                <Legend {...ndLegend()} />
                 {hasCompare && (
-                  <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradRevenueCmp)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="compare_revenue" name="비교 매출" {...ndBar('context')} />
                 )}
-                <Bar dataKey="revenue" name="매출(VAT-)" fill="url(#gradRevenue)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="revenue" name="매출(VAT-)" {...ndBar(1)} />
                 {hasCompare && (
-                  <Line type="monotone" dataKey="compare_cm" name="비교 공헌이익" stroke="var(--color-text-dim)" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
+                  <Line dataKey="compare_cm" name="비교 공헌이익" {...ndLine('context', { dashed: true })} />
                 )}
-                <Area type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="var(--color-success)" strokeWidth={2.5} fill="url(#gradCmArea)" dot={{ r: 3, stroke: 'var(--color-success)', strokeWidth: 2, fill: 'var(--color-bg-level-1)' }} activeDot={{ r: 5 }} />
+                <Area dataKey="contribution_margin" name="공헌이익" {...ndArea(3)} dot={ndIsolatedDot(seriesWithCompare, 'contribution_margin', 3)} />
               </ComposedChart>
             </ResponsiveContainer>
-          ) : <Empty h={240} />}
+          ) : <NdChartEmpty height={300}>데이터가 없습니다.</NdChartEmpty>}
         </div>
         <div className={`${PANEL} p-4`}>
           <h3 className="text-sm font-semibold text-text-primary mb-2">변동비 분해</h3>
           {costBreakdown.length ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={costBreakdown} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="gradCost" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="var(--color-danger)" stopOpacity={0.85} />
-                    <stop offset="100%" stopColor="var(--color-danger)" stopOpacity={1} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid {...CHART_GRID} />
-                <XAxis type="number" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} />
-                <YAxis type="category" dataKey="name" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" width={70} />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                  formatter={(v: number) => `₩${fmtKR(v)}`}
-                />
-                <Bar dataKey="value" fill="url(#gradCost)" radius={[0, 6, 6, 0]} />
+            <ResponsiveContainer width="100%" height={ndBarsHeight(costBreakdown.length)}>
+              <BarChart data={costBreakdown} layout="vertical" margin={ndMarginH}>
+                <CartesianGrid {...ndGridVertical} />
+                <XAxis type="number" {...ndAxis.value} {...scaleOf(costBreakdown, ['value'], ndFmt.axisWonBy)} />
+                <YAxis type="category" dataKey="name" {...categoryAxis(88)} />
+                <Tooltip {...ndTooltip({ kind: 'bar', value: (v: any) => `₩${fmtKR(v)}` })} />
+                <Bar dataKey="value" name="변동비" {...ndBar(1, { horizontal: true })} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[240px] flex flex-col items-center justify-center text-xs text-text-dim gap-1">
-              <span>변동비 규칙이 설정되지 않았습니다</span>
-              <span className="text-[10px] text-text-muted">변동비 설정 탭에서 입력해 주세요</span>
-            </div>
+            <NdChartEmpty height={240}>
+              <div className="flex flex-col items-center text-xs text-text-dim gap-1">
+                <span>변동비 규칙이 설정되지 않았습니다</span>
+                <span className="text-[10px] text-text-muted">변동비 설정 탭에서 입력해 주세요</span>
+              </div>
+            </NdChartEmpty>
           )}
         </div>
       </div>
@@ -1138,39 +1125,25 @@ const DashboardTab = memo(function DashboardTab({
               </span>
             )}
           </h3>
-          <span className="text-[10px] font-mono text-text-dim">
+          <span className="text-[10px] text-text-dim">
             {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
           </span>
         </div>
         {loading && !data ? <Skeleton h={220} /> : data && data.series.length ? (
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradPcsLine" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="var(--color-brand-light)" stopOpacity={1} />
-                  <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={1} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid {...CHART_GRID} />
-              <XAxis dataKey="period" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" />
-              <YAxis tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtNum} />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                formatter={(v: number, n: string) => [`${fmtNum(Math.round(v))}개`, n]}
-                labelFormatter={(label: any, payload: any) => {
-                  if (!payload?.[0]) return label;
-                  const cp = payload[0].payload?.compare_period;
-                  return cp ? `${label}  (비교: ${cp})` : label;
-                }}
-              />
-              <Legend wrapperStyle={LEGEND_STYLE} />
+            <LineChart data={seriesWithCompare} margin={ndMargin}>
+              <CartesianGrid {...ndGrid} />
+              <XAxis dataKey="period" {...ndAxis.x} />
+              <YAxis {...ndAxis.y} {...scaleOf(seriesWithCompare, ['pcs', 'compare_pcs'])} />
+              <Tooltip {...ndTooltip({ kind: 'line', value: (v: any) => `${fmtNum(Math.round(v))}개`, label: periodLabel, mark: { compare_pcs: 'dash' } })} />
+              {hasCompare && <Legend {...ndLegend()} />}
               {hasCompare && (
-                <Line type="monotone" dataKey="compare_pcs" name="비교 판매수량" stroke="var(--color-text-muted)" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
+                <Line dataKey="compare_pcs" name="비교 판매수량" {...ndLine('context', { dashed: true })} />
               )}
-              <Line type="monotone" dataKey="pcs" name="판매수량 (낱개)" stroke="url(#gradPcsLine)" strokeWidth={2.5} dot={{ r: 3, stroke: 'var(--color-brand-light)', strokeWidth: 2, fill: 'var(--color-bg-level-1)' }} activeDot={{ r: 5 }} />
+              <Line dataKey="pcs" name="판매수량 (낱개)" {...ndLine(2)} dot={ndIsolatedDot(seriesWithCompare, 'pcs', 2)} />
             </LineChart>
           </ResponsiveContainer>
-        ) : <Empty h={220} />}
+        ) : <NdChartEmpty height={220}>데이터가 없습니다.</NdChartEmpty>}
         {/* 담당자 × 날짜 매출 히트맵 */}
         {data?.heatmap && data.heatmap.employees.length > 0 && (
           <div className="mt-5 pt-4 border-t border-border-primary">
@@ -1190,82 +1163,14 @@ const DashboardTab = memo(function DashboardTab({
             <h3 className="text-sm font-semibold text-text-primary">채널별 매출/공헌이익 Top 10</h3>
           </div>
           {data && data.channels.length ? (
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={channelsWithCmp.slice(0, 10)} margin={{ left: 8, right: 12, top: 5, bottom: 78 }} barCategoryGap="22%">
-                <defs>
-                  <linearGradient id="gradTopRev" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
-                  </linearGradient>
-                  <linearGradient id="gradTopRevCmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.7} />
-                  </linearGradient>
-                  <linearGradient id="gradTopCm" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={1} />
-                  </linearGradient>
-                  <linearGradient id="gradTopCmCmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0.6} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid {...CHART_GRID} />
-                <XAxis type="category" dataKey="channel_name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} stroke="var(--color-text-quaternary)"
-                  interval={0} angle={-40} textAnchor="end" height={78} />
-                <YAxis type="number" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} width={48} />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                  formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-                />
-                <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev)" radius={[6, 6, 0, 0]} />
-                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRevCmp)" radius={[6, 6, 0, 0]} />}
-                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm)" radius={[6, 6, 0, 0]} />
-                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCmCmp)" radius={[6, 6, 0, 0]} />}
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <Empty h={220} />}
+            <TopBars rows={channelsWithCmp.slice(0, 10)} nameKey="channel_name" hasCompare={hasCompare} />
+          ) : <NdChartEmpty height={220}>데이터가 없습니다.</NdChartEmpty>}
         </div>
         <div className={`${PANEL} p-4`}>
           <h3 className="text-sm font-semibold text-text-primary mb-2">품목별 매출/공헌이익 Top 12</h3>
           {data && data.products.length ? (
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={productsWithCmp.slice(0, 12)} margin={{ left: 8, right: 12, top: 5, bottom: 78 }} barCategoryGap="20%">
-                <defs>
-                  <linearGradient id="gradTopRev2" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
-                  </linearGradient>
-                  <linearGradient id="gradTopRev2Cmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.7} />
-                  </linearGradient>
-                  <linearGradient id="gradTopCm2" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={1} />
-                  </linearGradient>
-                  <linearGradient id="gradTopCm2Cmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0.6} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid {...CHART_GRID} />
-                <XAxis type="category" dataKey="product_name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} stroke="var(--color-text-quaternary)"
-                  interval={0} angle={-40} textAnchor="end" height={78} />
-                <YAxis type="number" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} width={48} />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                  formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-                />
-                <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev2)" radius={[6, 6, 0, 0]} />
-                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRev2Cmp)" radius={[6, 6, 0, 0]} />}
-                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm2)" radius={[6, 6, 0, 0]} />
-                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCm2Cmp)" radius={[6, 6, 0, 0]} />}
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <Empty h={220} />}
+            <TopBars rows={productsWithCmp.slice(0, 12)} nameKey="product_name" hasCompare={hasCompare} />
+          ) : <NdChartEmpty height={220}>데이터가 없습니다.</NdChartEmpty>}
         </div>
       </div>
 
@@ -1273,7 +1178,7 @@ const DashboardTab = memo(function DashboardTab({
       <div className={`${PANEL} p-5 mb-5`}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-text-primary">
-            품목별 상세{hasCompare && <span className="text-[10px] text-text-muted ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+            품목별 상세{hasCompare && <span className="text-[10px] text-text-muted ml-2 font-normal">(<ArrowUpRightIcon inline /><ArrowDownRightIcon inline /> 비교 기간 대비)</span>}
           </h2>
           <button
             className={DL_BTN}
@@ -1313,20 +1218,20 @@ const DashboardTab = memo(function DashboardTab({
                   return (
                     <tr key={p.product_id} className="border-b border-bg-inset hover:bg-bg-inset">
                       <td className="py-2 px-2 text-text-primary">{p.product_name}</td>
-                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(p.pcs))}</td>
-                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(p.orders)}</td>
-                      <td className="py-2 px-2 text-right font-mono text-text-primary">
+                      <td className="py-2 px-2 text-right text-text-secondary">{fmtNum(Math.round(p.pcs))}</td>
+                      <td className="py-2 px-2 text-right text-text-secondary">{fmtNum(p.orders)}</td>
+                      <td className="py-2 px-2 text-right text-text-primary">
                         ₩{fmtKR(p.revenue)}
                         {revDelta && <DeltaBadge delta={revDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-text-dim">
+                      <td className="py-2 px-2 text-right text-text-dim">
                         {p.pcs ? `₩${fmtNum(Math.round(p.revenue / p.pcs))}` : '-'}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-success">
+                      <td className="py-2 px-2 text-right text-success">
                         ₩{fmtKR(p.contribution_margin)}
                         {cmDelta && <DeltaBadge delta={cmDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-accent">{fmtPct(p.cm_rate)}</td>
+                      <td className="py-2 px-2 text-right text-accent">{fmtPct(p.cm_rate)}</td>
                     </tr>
                   );
                 })
@@ -1340,12 +1245,12 @@ const DashboardTab = memo(function DashboardTab({
                 <tfoot>
                   <tr className="border-t-2 border-border-subtle font-semibold bg-bg-inset">
                     <td className="py-2.5 px-2 text-text-primary">합계</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(Math.round(t.pcs))}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(t.orders)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(t.revenue)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-dim">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-success">₩{fmtKR(t.cm)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-accent">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">{fmtNum(Math.round(t.pcs))}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">{fmtNum(t.orders)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">₩{fmtKR(t.revenue)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-dim">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
+                    <td className="py-2.5 px-2 text-right text-success">₩{fmtKR(t.cm)}</td>
+                    <td className="py-2.5 px-2 text-right text-accent">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
                   </tr>
                 </tfoot>
               );
@@ -1358,7 +1263,7 @@ const DashboardTab = memo(function DashboardTab({
       <div className={`${PANEL} p-5`}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-text-primary">
-            채널별 상세{hasCompare && <span className="text-[10px] text-text-muted ml-2 font-normal">(▲▼ 비교 기간 대비)</span>}
+            채널별 상세{hasCompare && <span className="text-[10px] text-text-muted ml-2 font-normal">(<ArrowUpRightIcon inline /><ArrowDownRightIcon inline /> 비교 기간 대비)</span>}
           </h2>
           <button
             className={DL_BTN}
@@ -1408,24 +1313,24 @@ const DashboardTab = memo(function DashboardTab({
                           <span className="text-[11px] font-semibold text-warning bg-warning/10 rounded px-1.5 py-0.5" title="담당자가 배정되지 않은 채널입니다 — 직원 관리 탭에서 배정하세요">미배정</span>
                         )}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(c.pcs))}</td>
-                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(c.orders)}</td>
+                      <td className="py-2 px-2 text-right text-text-secondary">{fmtNum(Math.round(c.pcs))}</td>
+                      <td className="py-2 px-2 text-right text-text-secondary">{fmtNum(c.orders)}</td>
                       <td
-                        className="py-2 px-2 text-right font-mono text-text-primary"
+                        className="py-2 px-2 text-right text-text-primary"
                         title={c.revenue_deduction ? `총매출 ₩${fmtNum(Math.round(c.revenue + c.revenue_deduction))} − 월정액수수료 ₩${fmtNum(Math.round(c.revenue_deduction))} = 순매출 ₩${fmtNum(Math.round(c.revenue))}` : undefined}
                       >
                         ₩{fmtKR(c.revenue)}
                         {c.revenue_deduction ? <span className="ml-1 text-[9px] text-purple" title="월정액수수료 매출차감 적용 채널">차감후</span> : null}
                         {revDelta && <DeltaBadge delta={revDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-text-dim">
+                      <td className="py-2 px-2 text-right text-text-dim">
                         {c.pcs ? `₩${fmtNum(Math.round(c.revenue / c.pcs))}` : '-'}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-success">
+                      <td className="py-2 px-2 text-right text-success">
                         ₩{fmtKR(c.contribution_margin)}
                         {cmDelta && <DeltaBadge delta={cmDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-accent">{fmtPct(c.cm_rate)}</td>
+                      <td className="py-2 px-2 text-right text-accent">{fmtPct(c.cm_rate)}</td>
                     </tr>
                   );
                 })
@@ -1444,12 +1349,12 @@ const DashboardTab = memo(function DashboardTab({
                     <td className="py-2.5 px-2 text-[11px]">
                       {unassigned ? <span className="text-warning">미배정 {unassigned}개</span> : <span className="text-success">전부 배정됨</span>}
                     </td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(Math.round(t.pcs))}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(t.orders)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(t.revenue)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-dim">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-success">₩{fmtKR(t.cm)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-accent">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">{fmtNum(Math.round(t.pcs))}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">{fmtNum(t.orders)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">₩{fmtKR(t.revenue)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-dim">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
+                    <td className="py-2.5 px-2 text-right text-success">₩{fmtKR(t.cm)}</td>
+                    <td className="py-2.5 px-2 text-right text-accent">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
                   </tr>
                 </tfoot>
               );
@@ -1769,9 +1674,9 @@ function UploadTab({
                     적재 처리 중... (대용량은 수십 초 걸릴 수 있어요)
                   </div>
                 ) : (
-                  <div className="text-success mb-1">✓ 업로드 성공</div>
+                  <div className="text-success mb-1"><CheckIcon inline /> 업로드 성공</div>
                 )}
-                <div className="grid grid-cols-5 gap-2 text-text-secondary font-mono">
+                <div className="grid grid-cols-5 gap-2 text-text-secondary tabular-nums">
                   <div><span className="text-text-quaternary">총행: </span>{result.row_total ?? '–'}</div>
                   <div><span className="text-text-quaternary">신규: </span>{result.row_inserted ?? '–'}</div>
                   <div><span className="text-text-quaternary">중복: </span>{result.row_duplicate ?? '–'}</div>
@@ -1779,7 +1684,7 @@ function UploadTab({
                   <div><span className="text-text-quaternary">취소/환불: </span><span className={result.row_cancelled ? 'text-warning' : ''}>{result.row_cancelled ?? 0}</span></div>
                 </div>
                 {result.period_start && (
-                  <div className="text-[10px] text-text-quaternary mt-1.5 font-mono">기간: {result.period_start} ~ {result.period_end}</div>
+                  <div className="text-[10px] text-text-quaternary mt-1.5 tabular-nums">기간: {result.period_start} ~ {result.period_end}</div>
                 )}
               </div>
             )}
@@ -1803,7 +1708,7 @@ function UploadTab({
               <div key={b.id} className={`${SUBPANEL} p-2.5 text-xs flex items-center justify-between`}>
                 <div className="min-w-0 flex-1">
                   <div className="text-text-primary truncate">{b.channel_name} · <span className="text-text-tertiary">{b.file_name}</span></div>
-                  <div className="text-[10px] text-text-quaternary font-mono mt-0.5">
+                  <div className="text-[10px] text-text-quaternary tabular-nums mt-0.5">
                     {b.period_start ? `${b.period_start} ~ ${b.period_end} · ` : ''}신규 {b.row_inserted} · 중복 {b.row_duplicate} · 미매핑 {b.row_unmatched}{b.row_cancelled ? ` · 취소/환불 ${b.row_cancelled}` : ''}
                   </div>
                 </div>
@@ -1904,8 +1809,8 @@ function UploadTab({
           </div>
           {delResult && (
             <div className={`${SUBPANEL} p-3 mt-3 text-xs text-text-secondary`}>
-              <div className="text-success mb-1.5">✓ 삭제 완료 — {delResult.channel_name}{delResult.scoped ? ` (${delResult.period_start} ~ ${delResult.period_end})` : ' (전체)'}</div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono">
+              <div className="text-success mb-1.5"><CheckIcon inline /> 삭제 완료 — {delResult.channel_name}{delResult.scoped ? ` (${delResult.period_start} ~ ${delResult.period_end})` : ' (전체)'}</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 tabular-nums">
                 <div><span className="text-text-quaternary">원본행: </span>{delResult.raw_lines_deleted}</div>
                 <div><span className="text-text-quaternary">집계행: </span>{delResult.daily_rows_deleted}</div>
                 <div><span className="text-text-quaternary">배치: </span>{delResult.batches_deleted}</div>
@@ -1944,7 +1849,7 @@ function UploadTab({
           </div>
           {reproResult && (
             <div className={`${SUBPANEL} p-3 mt-3 text-xs text-text-secondary`}>
-              <div className="text-success mb-1.5">✓ 재처리를 큐에 넣었습니다 — {reproResult.channel_name}</div>
+              <div className="text-success mb-1.5"><CheckIcon inline /> 재처리를 큐에 넣었습니다 — {reproResult.channel_name}</div>
               <div className="text-[11px] text-text-quaternary">
                 보관 원본 {reproResult.file_count}개를 최신 파서로 다시 집계합니다. 위 업로드 이력 목록에서 진행 상황을 확인하세요.
               </div>
@@ -2139,7 +2044,7 @@ function MappingTab({
             onChange={(e) => setBulkUnitPerSet(parseInt(e.target.value) || 1)}
             disabled={bulkExcluded}
             title="1세트당 낱개 수(입수)"
-            className="w-14 bg-bg-1 border border-border-primary rounded px-2 py-1 text-text-primary font-mono text-right disabled:opacity-40"
+            className="w-14 bg-bg-1 border border-border-primary rounded px-2 py-1 text-text-primary tabular-nums text-right disabled:opacity-40"
           />
           <label className="flex items-center gap-1 text-text-tertiary cursor-pointer whitespace-nowrap">
             <input type="checkbox" checked={bulkExcluded} onChange={(e) => setBulkExcluded(e.target.checked)} className="accent-danger" />
@@ -2226,25 +2131,25 @@ function MappingTab({
             <button
               onClick={() => setPage(1)} disabled={safePage === 1}
               className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
-            >« 처음</button>
+            ><CaretDoubleLeftIcon inline /> 처음</button>
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
               className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
-            >‹ 이전</button>
+            ><CaretLeftIcon inline /> 이전</button>
             <input
               type="number" min={1} max={totalPages} value={safePage}
               onChange={(e) => setPage(Math.max(1, Math.min(totalPages, parseInt(e.target.value) || 1)))}
-              className="w-12 px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-primary text-center font-mono"
+              className="w-12 px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-primary text-center tabular-nums"
             />
             <span className="text-text-muted">/ {totalPages}</span>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
               className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
-            >다음 ›</button>
+            >다음 <CaretRightIcon inline /></button>
             <button
               onClick={() => setPage(totalPages)} disabled={safePage === totalPages}
               className="px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-dim hover:text-text-primary disabled:opacity-30"
-            >끝 »</button>
+            >끝 <CaretDoubleRightIcon inline /></button>
           </div>
         </div>
       )}
@@ -2327,7 +2232,7 @@ function UnmatchedRow({
             <div className="text-text-muted text-[10px] truncate" title={item.raw_option_name}>{item.raw_option_name}</div>
           )}
         </div>
-        <div className="w-20 text-right text-[10px] text-text-muted font-mono whitespace-nowrap">
+        <div className="w-20 text-right text-[10px] text-text-muted tabular-nums whitespace-nowrap">
           {item.occurrence_count}회<br/>{fmtNum(Math.round(item.total_qty))}
         </div>
         <select
@@ -2343,7 +2248,7 @@ function UnmatchedRow({
           type="number" min={1} value={unitPerSet}
           onChange={(e) => setUnitPerSet(parseInt(e.target.value) || 1)}
           disabled={excluded || multiOpen}
-          className="w-12 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-text-primary disabled:opacity-40 font-mono text-right text-[11px]"
+          className="w-12 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-text-primary disabled:opacity-40 tabular-nums text-right text-[11px]"
         />
         <label className="w-10 flex items-center justify-center cursor-pointer">
           <input
@@ -2402,7 +2307,7 @@ function UnmatchedRow({
                   type="number" min={1} value={comp.unit_per_set}
                   onChange={(e) => updateComponent(idx, 'unit_per_set', parseInt(e.target.value) || 1)}
                   title="1세트당 낱개 수(입수)"
-                  className="w-14 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-text-primary font-mono text-right text-[11px]"
+                  className="w-14 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-text-primary tabular-nums text-right text-[11px]"
                 />
                 <span className="text-[10px] text-text-quaternary">개</span>
                 <button
@@ -2411,7 +2316,7 @@ function UnmatchedRow({
                   className="w-5 h-5 flex items-center justify-center text-text-quaternary hover:text-danger disabled:opacity-30 text-xs rounded border border-border-primary bg-bg-1"
                   title="삭제"
                 >
-                  ×
+                  <XIcon />
                 </button>
               </div>
             ))}
@@ -2550,13 +2455,14 @@ function CostTab({
   const rulesForItem = (itemId: number) => rules.filter(r => r.cost_item_id === itemId);
   const monthlyForItem = (itemId: number) => monthly.filter(m => m.cost_item_id === itemId);
 
-  // 변동비 항목별 색상
+  // 변동비 항목별 색상: 계열 여섯 색 가운데 원래 색상에 가장 가까운 것. 일곱 번째 색은 만들지 않으므로
+  // 같은 묶음(노무·경비, 물류, 광고·플랫폼, 수수료, 운반·포장)은 같은 색을 나눠 쓴다
   const ITEM_COLOR: Record<string, string> = {
-    cogs: '#EB5757', labor: '#FC7840', overhead: '#F0BF00',
-    logistics_work: '#06B6D4', logistics_oh: '#00B8CC',
-    advertising: '#A855F7', platform_fee: '#C084FC',
-    commission_rate: '#828FFF', commission_fixed: '#7070FF',
-    shipping: '#27A644', packaging: '#68CC58',
+    cogs: ndColor(6), labor: ndColor(2), overhead: ndColor(2),
+    logistics_work: ndColor(3), logistics_oh: ndColor(3),
+    advertising: ndColor(5), platform_fee: ndColor(5),
+    commission_rate: ndColor(1), commission_fixed: ndColor(1),
+    shipping: ndColor(4), packaging: ndColor(4),
   };
 
   return (
@@ -2640,9 +2546,9 @@ function CostTab({
                 </div>
                 <div className="text-[10px] text-text-dim">{BASIS_LABEL[it.basis] || it.basis}</div>
                 <div className="text-[10px] text-text-muted mt-1.5">
-                  규칙 <span className="text-text-secondary font-mono">{ruleCount}</span>
+                  규칙 <span className="text-text-secondary tabular-nums">{ruleCount}</span>
                   {it.basis === 'channel_monthly_fixed' && (
-                    <> · 월입력 <span className="text-text-secondary font-mono">{monthlyCount}</span></>
+                    <> · 월입력 <span className="text-text-secondary tabular-nums">{monthlyCount}</span></>
                   )}
                 </div>
               </button>
@@ -2669,7 +2575,7 @@ function CostTab({
       {!selectedItem && (
         <div className={`${PANEL} p-4 text-xs text-text-dim leading-relaxed`}>
           <div className="font-semibold text-text-primary mb-2">공헌이익 계산식</div>
-          <div className="font-mono text-[11px] bg-bg-0 border border-border-primary rounded p-2.5 text-text-secondary">
+          <div className="text-[11px] bg-bg-0 border border-border-primary rounded p-2.5 text-text-secondary">
             공헌이익 = 매출(VAT-)
             <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-danger">원가</span>)
             <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-orange">노무비</span>)
@@ -2680,11 +2586,11 @@ function CostTab({
             <br />&nbsp;&nbsp;− (주문건수 × <span className="text-success">운반비</span> + 주문건수 × <span className="text-success-light">포장비</span>)
           </div>
           <div className="mt-2 text-[11px] text-purple">
-            ⓘ 월정액 항목에 <span className="font-semibold">매출차감</span>을 체크하면 (예: 쿠팡 로켓프레시 월정액 수수료)
+            <InfoIcon inline /> 월정액 항목에 <span className="font-semibold">매출차감</span>을 체크하면 (예: 쿠팡 로켓프레시 월정액 수수료)
             해당 금액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다 — 대시보드 매출은 차감 후 실수령 기준으로 표시되고, 공헌이익 금액은 동일합니다.
           </div>
           <div className="mt-3 text-[11px]">
-            우선순위: <span className="font-mono text-accent">채널×품목 → 채널 → 품목 → 전역</span> (구체적인 규칙이 우선)
+            우선순위: <span className="text-accent">채널×품목 → 채널 → 품목 → 전역</span> (구체적인 규칙이 우선)
           </div>
         </div>
       )}
@@ -2772,9 +2678,9 @@ function CostRuleEditor({
       <div className="flex items-baseline justify-between mb-3">
         <h3 className="text-sm font-semibold">
           {item.name} — 규칙 편집
-          <span className="ml-2 text-[10px] text-text-dim font-mono">{BASIS_LABEL[item.basis]}</span>
+          <span className="ml-2 text-[10px] text-text-dim">{BASIS_LABEL[item.basis]}</span>
         </h3>
-        <button onClick={onClose} className="text-text-dim hover:text-text-primary text-xs">✕ 닫기</button>
+        <button onClick={onClose} className="text-text-dim hover:text-text-primary text-xs"><XIcon inline /> 닫기</button>
       </div>
 
       {item.description && <p className="text-xs text-text-dim mb-3">{item.description}</p>}
@@ -2825,7 +2731,7 @@ function CostRuleEditor({
                   value={newRule.rate != null ? newRule.rate * 100 : ''}
                   onChange={(e) => setNewRule({ ...newRule, rate: e.target.value ? parseFloat(e.target.value) / 100 : null })}
                   placeholder="5.0"
-                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary tabular-nums text-right"
                 />
               </div>
             )}
@@ -2836,7 +2742,7 @@ function CostRuleEditor({
                   type="number"
                   value={newRule.amount_per_pcs || ''}
                   onChange={(e) => setNewRule({ ...newRule, amount_per_pcs: e.target.value ? parseFloat(e.target.value) : null })}
-                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary tabular-nums text-right"
                 />
               </div>
             )}
@@ -2847,7 +2753,7 @@ function CostRuleEditor({
                   type="number"
                   value={newRule.amount_per_order || ''}
                   onChange={(e) => setNewRule({ ...newRule, amount_per_order: e.target.value ? parseFloat(e.target.value) : null })}
-                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary tabular-nums text-right"
                 />
               </div>
             )}
@@ -2858,7 +2764,7 @@ function CostRuleEditor({
                   type="number" step="0.1"
                   value={newRule.rate != null ? newRule.rate * 100 : ''}
                   onChange={(e) => setNewRule({ ...newRule, rate: e.target.value ? parseFloat(e.target.value) / 100 : null })}
-                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary tabular-nums text-right"
                 />
               </div>
             )}
@@ -2871,7 +2777,7 @@ function CostRuleEditor({
           {showPeriod && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 pt-3 border-t border-border-primary">
               <div className="md:col-span-2 text-[10px] text-text-dim flex items-center">
-                <span className="font-mono text-accent">시즌·기간 적용</span>
+                <span className="text-accent">시즌·기간 적용</span>
                 <span className="ml-2">— 비워두면 상시 적용</span>
               </div>
               <div>
@@ -2911,7 +2817,7 @@ function CostRuleEditor({
                     <div className="text-text-primary truncate">
                       <span className="text-text-dim">대상:</span> {channelName(r.channel_id)} <span className="text-text-muted">×</span> {productName(r.product_id)}
                     </div>
-                    <div className="text-[10px] text-text-dim font-mono mt-0.5">
+                    <div className="text-[10px] text-text-dim tabular-nums mt-0.5">
                       {r.rate != null && <span>정률 {(r.rate * 100).toFixed(2)}%</span>}
                       {r.amount_per_pcs != null && <span> · ₩{fmtNum(r.amount_per_pcs)}/낱개</span>}
                       {r.amount_per_order != null && <span> · ₩{fmtNum(r.amount_per_order)}/주문</span>}
@@ -3000,13 +2906,13 @@ function MonthlyCostEditor({
   return (
     <div className={`${SUBPANEL} p-3 mb-3`}>
       <div className="mb-2 text-[10px] text-purple leading-relaxed">
-        ⓘ <span className="font-semibold">매출차감</span> 체크 시 이 월정액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다
+        <InfoIcon inline /> <span className="font-semibold">매출차감</span> 체크 시 이 월정액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다
         (정산금에서 공제되는 유형 — 예: 쿠팡 로켓프레시 월정액 수수료). 대시보드 매출은 차감 후 실수령 기준으로 표시되며 공헌이익 금액은 동일합니다.
       </div>
       <div className="flex items-center gap-2 mb-3">
         <span className="text-[10px] text-text-dim">기간:</span>
         <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
-          className="w-20 bg-bg-1 border border-border-subtle rounded px-2 py-1 text-xs text-text-primary font-mono text-center" />
+          className="w-20 bg-bg-1 border border-border-subtle rounded px-2 py-1 text-xs text-text-primary tabular-nums text-center" />
         <span className="text-text-dim text-xs">년</span>
         <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))}
           className="bg-bg-1 border border-border-subtle rounded px-2 py-1 text-xs text-text-primary">
@@ -3039,7 +2945,7 @@ function MonthlyCostEditor({
                 type="number"
                 value={v || ''}
                 onChange={(e) => setDraft(d => ({ ...d, [c.id]: parseFloat(e.target.value) || 0 }))}
-                className="w-24 bg-bg-0 border border-border-subtle rounded px-1.5 py-1 text-text-primary font-mono text-right"
+                className="w-24 bg-bg-0 border border-border-subtle rounded px-1.5 py-1 text-text-primary tabular-nums text-right"
               />
               <button
                 onClick={() => save(c)}
@@ -3047,7 +2953,7 @@ function MonthlyCostEditor({
                 className={`px-2 py-1 rounded text-[10px] font-medium ${
                   dirty ? 'bg-accent text-on-brand hover:bg-link' : 'bg-bg-inset text-text-muted'
                 } disabled:opacity-50`}
-              >{savingChannel === c.id ? '…' : dirty ? '저장' : '✓'}</button>
+              >{savingChannel === c.id ? '…' : dirty ? '저장' : <CheckIcon inline aria-label="저장됨" />}</button>
             </div>
           );
         })}
@@ -3128,7 +3034,7 @@ function PlanTab({
       const data = await r.json();
       if (!r.ok) throw new Error(data.detail || 'upload failed');
       setUploadMsg(
-        `${data.status === 'done' ? '✓' : '주의'} 매출 ${data.revenue_rows}행 · 수량 ${data.qty_rows}행 · 품목류 ${data.category_rows}행 · 그룹 ${data.summary_rows}행`
+        `${data.status === 'done' ? '완료' : '주의'} · 매출 ${data.revenue_rows}행 · 수량 ${data.qty_rows}행 · 품목류 ${data.category_rows}행 · 그룹 ${data.summary_rows}행`
       );
       fetchData();
     } catch (e: any) {
@@ -3152,7 +3058,7 @@ function PlanTab({
           <div>
             <h2 className="text-sm font-semibold mb-2">사업계획 엑셀 업로드</h2>
             <p className="text-xs text-text-quaternary mb-3 leading-relaxed">
-              4개 시트 자동 인식: <span className="font-mono text-accent">채널별 매출 대시보드 · 채널별 판매수량 · 판매수량 대시보드 · 대시보드(그룹 요약)</span>. 담당자·구분(위탁/사입/오프라인)·직원-채널 매핑이 자동 생성됩니다.
+              4개 시트 자동 인식: <span className="text-accent">채널별 매출 대시보드 · 채널별 판매수량 · 판매수량 대시보드 · 대시보드(그룹 요약)</span>. 담당자·구분(위탁/사입/오프라인)·직원-채널 매핑이 자동 생성됩니다.
             </p>
             <div className="flex items-end gap-2">
               <div>
@@ -3160,7 +3066,7 @@ function PlanTab({
                 <input
                   type="number" value={year}
                   onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
-                  className="w-24 bg-bg-0 border border-border-primary rounded px-2 py-1.5 text-sm text-text-primary font-mono"
+                  className="w-24 bg-bg-0 border border-border-primary rounded px-2 py-1.5 text-sm text-text-primary tabular-nums"
                 />
               </div>
               <input
@@ -3172,7 +3078,7 @@ function PlanTab({
               />
             </div>
             {uploadMsg && (
-              <div className="mt-3 text-xs font-mono text-text-secondary bg-bg-0 border border-border-primary rounded p-2">{uploadMsg}</div>
+              <div className="mt-3 text-xs tabular-nums text-text-secondary bg-bg-0 border border-border-primary rounded p-2">{uploadMsg}</div>
             )}
           </div>
 
@@ -3208,7 +3114,7 @@ function PlanTab({
                 }`}
                 title="1월 1일부터 오늘까지 누계 분석 (계획은 오늘 기준 일자 비율로 안분)"
               >
-                {upToToday ? '✓ 오늘 기준 YTD' : '오늘 기준 YTD'}
+                {upToToday && <><CheckIcon inline />{' '}</>}오늘 기준 YTD
               </button>
               <Segment
                 label="기준"
@@ -3246,44 +3152,31 @@ function PlanTab({
           <div className={`${PANEL} p-5`}>
             <h3 className="text-sm font-semibold mb-3">구분별 목표 매출 분포</h3>
             {planSummary.by_group.length ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie
-                    data={planSummary.by_group}
-                    dataKey="target_revenue"
-                    nameKey="group"
-                    cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2}
-                  >
-                    {planSummary.by_group.map((_: any, i: number) => (
-                      <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                    formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 10, color: 'var(--color-text-tertiary)' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : <Empty />}
+              <DonutSplit
+                pie={ndPieRows(
+                  planSummary.by_group.map((g: any) => ({ name: g.group, value: g.target_revenue })),
+                  { colorOf: groupColors(planSummary.by_group.map((g: any) => g.group)) },
+                )}
+                size={180}
+                minHeight={260}
+                tip={(v: any) => `₩${fmtKR(v)}`}
+              />
+            ) : <NdChartEmpty height={260}>데이터가 없습니다.</NdChartEmpty>}
           </div>
 
           <div className={`${PANEL} p-5`}>
             <h3 className="text-sm font-semibold mb-3">담당자별 목표 매출</h3>
             {planSummary.by_employee.length ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={planSummary.by_employee} layout="vertical" margin={{ left: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-primary)" />
-                  <XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} tickFormatter={fmtKR} stroke="var(--color-text-quaternary)" />
-                  <YAxis type="category" dataKey="employee" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} stroke="var(--color-text-quaternary)" width={70} />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                    formatter={(v: number) => `₩${fmtKR(v)}`}
-                  />
-                  <Bar dataKey="target_revenue" fill="var(--color-accent-hover)" />
+              <ResponsiveContainer width="100%" height={ndBarsHeight(planSummary.by_employee.length)}>
+                <BarChart data={planSummary.by_employee} layout="vertical" margin={ndMarginH}>
+                  <CartesianGrid {...ndGridVertical} />
+                  <XAxis type="number" {...ndAxis.value} {...scaleOf(planSummary.by_employee, ['target_revenue'], ndFmt.axisWonBy)} />
+                  <YAxis type="category" dataKey="employee" {...categoryAxis(72)} />
+                  <Tooltip {...ndTooltip({ kind: 'bar', value: (v: any) => `₩${fmtKR(v)}` })} />
+                  <Bar dataKey="target_revenue" name="목표 매출" {...ndBar(1, { horizontal: true })} />
                 </BarChart>
               </ResponsiveContainer>
-            ) : <Empty />}
+            ) : <NdChartEmpty height={260}>데이터가 없습니다.</NdChartEmpty>}
           </div>
         </div>
       )}
@@ -3301,35 +3194,21 @@ function PlanTab({
             const top = [...items]
               .sort((a: any, b: any) => (b.target_revenue || 0) - (a.target_revenue || 0))
               .slice(0, 15);
-            const chartH = Math.min(360, Math.max(180, top.length * 22));
             return (
-              <ResponsiveContainer width="100%" height={chartH}>
-                <BarChart data={top} layout="vertical" margin={{ left: 90, right: 12, top: 4, bottom: 4 }} barCategoryGap={3}>
-                  <defs>
-                    <linearGradient id="gradPlanTarget" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.6} />
-                      <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.85} />
-                    </linearGradient>
-                    <linearGradient id="gradPlanActual" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.85} />
-                      <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-primary)" />
-                  <XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={fmtKR} stroke="var(--color-text-quaternary)" />
-                  <YAxis type="category" dataKey="label" tick={{ fill: 'var(--color-text-dim)', fontSize: 10 }} stroke="var(--color-text-quaternary)" width={120} />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                    formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Bar dataKey="target_revenue" name="계획 매출" fill="url(#gradPlanTarget)" radius={[0, 4, 4, 0]} barSize={9} />
-                  <Bar dataKey="actual_revenue" name="실적 매출" fill="url(#gradPlanActual)" radius={[0, 4, 4, 0]} barSize={9} />
+              <ResponsiveContainer width="100%" height={ndBarsHeight(top.length, 40)}>
+                <BarChart data={top} layout="vertical" margin={ndMarginH} barGap={2}>
+                  <CartesianGrid {...ndGridVertical} />
+                  <XAxis type="number" {...ndAxis.value} {...scaleOf(top, ['target_revenue', 'actual_revenue'], ndFmt.axisWonBy)} />
+                  <YAxis type="category" dataKey="label" {...categoryAxis(120)} />
+                  <Tooltip {...ndTooltip({ kind: 'bar', value: (v: any) => `₩${fmtKR(v)}` })} />
+                  <Legend {...ndLegend()} />
+                  <Bar dataKey="target_revenue" name="계획 매출" {...ndBar('context', { horizontal: true, max: 12 })} />
+                  <Bar dataKey="actual_revenue" name="실적 매출" {...ndBar(1, { horizontal: true, max: 12 })} />
                 </BarChart>
               </ResponsiveContainer>
             );
           })()
-        ) : <Empty />}
+        ) : <NdChartEmpty height={260}>데이터가 없습니다.</NdChartEmpty>}
       </div>
 
       {/* 상세 테이블 */}
@@ -3356,18 +3235,18 @@ function PlanTab({
               ) : items.map((it: any, idx: number) => (
                 <tr key={`${it.key}-${idx}`} className="border-b border-bg-inset hover:bg-bg-inset">
                   <td className="py-1.5 px-2 text-text-primary">{it.label}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-text-tertiary">₩{fmtKR(it.target_revenue)}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(it.actual_revenue)}</td>
-                  <td className={`py-1.5 px-2 text-right font-mono ${it.rev_ach == null ? 'text-text-quaternary' : it.rev_ach >= 100 ? 'text-success' : it.rev_ach >= 80 ? 'text-warning' : 'text-danger'}`}>
+                  <td className="py-1.5 px-2 text-right text-text-tertiary">₩{fmtKR(it.target_revenue)}</td>
+                  <td className="py-1.5 px-2 text-right text-text-primary">₩{fmtKR(it.actual_revenue)}</td>
+                  <td className={`py-1.5 px-2 text-right ${it.rev_ach == null ? 'text-text-quaternary' : it.rev_ach >= 100 ? 'text-success' : it.rev_ach >= 80 ? 'text-warning' : 'text-danger'}`}>
                     {it.rev_ach == null ? '—' : fmtPct(it.rev_ach)}
                   </td>
-                  <td className="py-1.5 px-2 text-right font-mono text-text-tertiary">{fmtNum(Math.round(it.target_pcs))}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(it.actual_pcs))}</td>
-                  <td className={`py-1.5 px-2 text-right font-mono ${it.pcs_ach == null ? 'text-text-quaternary' : it.pcs_ach >= 100 ? 'text-success' : it.pcs_ach >= 80 ? 'text-warning' : 'text-danger'}`}>
+                  <td className="py-1.5 px-2 text-right text-text-tertiary">{fmtNum(Math.round(it.target_pcs))}</td>
+                  <td className="py-1.5 px-2 text-right text-text-secondary">{fmtNum(Math.round(it.actual_pcs))}</td>
+                  <td className={`py-1.5 px-2 text-right ${it.pcs_ach == null ? 'text-text-quaternary' : it.pcs_ach >= 100 ? 'text-success' : it.pcs_ach >= 80 ? 'text-warning' : 'text-danger'}`}>
                     {it.pcs_ach == null ? '—' : fmtPct(it.pcs_ach)}
                   </td>
-                  <td className="py-1.5 px-2 text-right font-mono text-text-tertiary">{it.target_avg_price ? `₩${fmtKR(it.target_avg_price)}` : '—'}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-accent">{it.actual_avg_price ? `₩${fmtKR(it.actual_avg_price)}` : '—'}</td>
+                  <td className="py-1.5 px-2 text-right text-text-tertiary">{it.target_avg_price ? `₩${fmtKR(it.target_avg_price)}` : '—'}</td>
+                  <td className="py-1.5 px-2 text-right text-accent">{it.actual_avg_price ? `₩${fmtKR(it.actual_avg_price)}` : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -3395,11 +3274,11 @@ function PlanTab({
                 {avgPrice.items.slice(0, 20).map((it: any, i: number) => (
                   <tr key={i} className="border-b border-bg-inset hover:bg-bg-inset">
                     <td className="py-1.5 px-2 text-text-primary">{it.label}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(it.revenue)}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(it.pcs))}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-text-secondary">{fmtNum(it.orders)}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-accent">₩{fmtKR(it.avg_price_per_pcs)}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-accent">₩{fmtKR(it.avg_price_per_order)}</td>
+                    <td className="py-1.5 px-2 text-right text-text-primary">₩{fmtKR(it.revenue)}</td>
+                    <td className="py-1.5 px-2 text-right text-text-secondary">{fmtNum(Math.round(it.pcs))}</td>
+                    <td className="py-1.5 px-2 text-right text-text-secondary">{fmtNum(it.orders)}</td>
+                    <td className="py-1.5 px-2 text-right text-accent">₩{fmtKR(it.avg_price_per_pcs)}</td>
+                    <td className="py-1.5 px-2 text-right text-accent">₩{fmtKR(it.avg_price_per_order)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -3607,7 +3486,7 @@ function AdminTab({
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.detail || '저장 실패');
-      setPwMsg('✓ 비밀번호가 저장되었습니다');
+      setPwMsg('비밀번호가 저장되었습니다');
       setNewPw('');
       fetchPwStatus();
     } catch (e: any) {
@@ -3686,8 +3565,8 @@ function AdminTab({
             {/* DB 사용량 게이지 */}
             <div className={`${SUBPANEL} p-4 mb-3`}>
               <div className="flex items-baseline justify-between mb-2">
-                <span className="text-xs font-mono text-text-quaternary">SUPABASE DB 사용량</span>
-                <span className="text-sm font-mono text-text-primary">
+                <span className="text-xs text-text-quaternary">SUPABASE DB 사용량</span>
+                <span className="text-sm tabular-nums text-text-primary">
                   {storage.db_size?.s || '?'} <span className="text-text-quaternary">/ 8 GB ({dbPct.toFixed(1)}%)</span>
                 </span>
               </div>
@@ -3700,24 +3579,24 @@ function AdminTab({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
               <div className={`${SUBPANEL} p-3`}>
                 <div className="text-[10px] text-text-quaternary mb-1">월 파티션</div>
-                <div className="text-base font-mono text-text-primary">
-                  {storage.is_partitioned ? `✓ 활성 (${storage.partitions?.length || 0}개월)` : '단일 테이블 (전환 가능)'}
+                <div className="text-base tabular-nums text-text-primary">
+                  {storage.is_partitioned ? <><CheckIcon inline /> 활성 ({storage.partitions?.length || 0}개월)</> : '단일 테이블 (전환 가능)'}
                 </div>
               </div>
               <div className={`${SUBPANEL} p-3`}>
                 <div className="text-[10px] text-text-quaternary mb-1">pg_cron 스케줄</div>
-                <div className="text-base font-mono text-text-primary">
+                <div className="text-base tabular-nums text-text-primary">
                   {(storage.cron_jobs?.length || 0)}개 등록
                 </div>
                 {storage.cron_jobs?.map((j: any, i: number) => (
                   <div key={i} className="text-[10px] text-text-quaternary mt-0.5">
-                    {j.jobname} · {j.schedule} {j.active ? '✓' : '✗'}
+                    {j.jobname} · {j.schedule} {j.active ? <CheckIcon inline aria-label="켜짐" /> : <XIcon inline aria-label="꺼짐" />}
                   </div>
                 ))}
               </div>
               <div className={`${SUBPANEL} p-3`}>
                 <div className="text-[10px] text-text-quaternary mb-1">최근 retention 실행</div>
-                <div className="text-base font-mono text-text-primary">
+                <div className="text-base tabular-nums text-text-primary">
                   {storage.recent_runs?.[0]?.ran_at ? new Date(storage.recent_runs[0].ran_at).toLocaleString('ko-KR') : '없음'}
                 </div>
               </div>
@@ -3740,8 +3619,8 @@ function AdminTab({
                       {storage.tables.map((t: any) => (
                         <tr key={t.table_name} className="border-b border-bg-inset">
                           <td className="py-1 px-2 font-mono text-text-secondary">{t.table_name}</td>
-                          <td className="py-1 px-2 text-right font-mono text-text-primary">{t.pretty_size}</td>
-                          <td className="py-1 px-2 text-right font-mono text-text-tertiary">{(t.est_rows || 0).toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right text-text-primary">{t.pretty_size}</td>
+                          <td className="py-1 px-2 text-right text-text-tertiary">{(t.est_rows || 0).toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -3925,7 +3804,7 @@ function AdminTab({
           <div className={`${PANEL} p-5 max-w-2xl w-full max-h-[80vh] overflow-y-auto`}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">[{assignTarget.name}] 담당 채널 배정</h3>
-              <button onClick={() => setAssignTarget(null)} className="text-text-quaternary hover:text-text-primary">✕</button>
+              <button onClick={() => setAssignTarget(null)} className="text-text-quaternary hover:text-text-primary" aria-label="닫기"><XIcon inline /></button>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
               {channels.map(c => (
@@ -3961,8 +3840,8 @@ function AdminTab({
 function KpiCard({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
   return (
     <div className={`${PANEL} p-5`}>
-      <div className="text-[10px] font-mono text-text-dim mb-2">{label}</div>
-      <div className="text-2xl font-semibold tracking-tight" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
+      <div className="text-[10px] text-text-dim mb-2">{label}</div>
+      <div className="text-2xl font-semibold" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
       {hint && <div className="text-[11px] text-text-dim mt-1.5">{hint}</div>}
     </div>
   );
@@ -3975,7 +3854,7 @@ function DeltaBadge({ delta }: { delta: { pct: number; sign: 'up' | 'down' | 'fl
       : delta.sign === 'down'
         ? { bg: 'var(--nd-bad-soft)', color: 'var(--nd-bad)', border: 'transparent' }
         : { bg: 'rgba(122,127,138,0.12)', color: 'var(--color-text-dim)', border: 'rgba(122,127,138,0.25)' };
-  const arrow = delta.sign === 'up' ? '▲' : delta.sign === 'down' ? '▼' : '–';
+  const arrow = delta.sign === 'up' ? <ArrowUpRightIcon /> : delta.sign === 'down' ? <ArrowDownRightIcon /> : <MinusIcon />;
   return (
     <span
       className="text-[9px] ml-1.5 font-semibold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 border"
@@ -3989,10 +3868,11 @@ function DeltaBadge({ delta }: { delta: { pct: number; sign: 'up' | 'down' | 'fl
 
 function CompactKpi({
   label, value, hint, accent,
-  spark, compareValue, currentValue, deltaFormat = 'pct',
+  spark, sparkSlot, compareValue, currentValue, deltaFormat = 'pct',
 }: {
   label: string; value: string; hint?: string; accent?: string;
   spark?: Array<{ x: string; v: number }>;
+  sparkSlot?: NdSlot;  // 스파크라인의 계열 색 번호(없으면 accent 색)
   compareValue?: number;
   currentValue?: number;
   deltaFormat?: 'pct' | 'pp';  // 'pp' = 퍼센트포인트 (이미 % 단위 값일 때)
@@ -4008,11 +3888,9 @@ function CompactKpi({
     deltaSign = deltaPct > 0.05 ? 'up' : deltaPct < -0.05 ? 'down' : 'flat';
   }
   const deltaColor = deltaSign === 'up' ? 'var(--color-success)' : deltaSign === 'down' ? 'var(--color-danger)' : 'var(--color-text-muted)';
-  const arrow = deltaSign === 'up' ? '▲' : deltaSign === 'down' ? '▼' : '–';
+  const arrow = deltaSign === 'up' ? <ArrowUpRightIcon className="mr-0.5" /> : deltaSign === 'down' ? <ArrowDownRightIcon className="mr-0.5" /> : <MinusIcon className="mr-0.5" />;
 
   const accentColor = accent || TEXT_PRIMARY;
-  // url(#id) 로 참조하므로 괄호·쉼표 같은 글자가 들어가면 채움이 깨진다 → 글자·숫자만 남긴다
-  const gradId = `kpi-grad-${`${label}-${accent || 'def'}`.replace(/[^0-9A-Za-z가-힣]/g, '')}`;
   const deltaBadgeStyle =
     deltaSign === 'up'
       ? { bg: 'var(--nd-good-soft)', color: 'var(--nd-good)', border: 'transparent' }
@@ -4024,24 +3902,18 @@ function CompactKpi({
     <div className={`${PANEL} p-3 relative overflow-hidden`}>
       {/* 좌측 accent 라인 */}
       <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: `linear-gradient(180deg, ${accentColor}, transparent)` }} />
-      {/* 카드 우상단 스파크라인 (Area + 그라데이션) */}
+      {/* 카드 우상단 스파크라인 (선 + 같은 색 10% 면) */}
       {spark && spark.length > 1 && (
         <div className="absolute right-2 top-2 opacity-90 pointer-events-none" style={{ width: 64, height: 28 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={spark} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={accentColor} stopOpacity={0.6} />
-                  <stop offset="100%" stopColor={accentColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Area type="monotone" dataKey="v" stroke={accentColor} strokeWidth={1.5} fill={`url(#${gradId})`} isAnimationActive={false} />
+              <Area dataKey="v" {...ndArea(sparkSlot != null ? sparkSlot : accentColor)} strokeWidth={1.5} activeDot={false} isAnimationActive={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       )}
-      <div className="text-[10px] font-mono text-text-dim mb-1 pl-1.5">{label}</div>
-      <div className="text-lg font-semibold tracking-tight truncate pl-1.5" style={{ color: accentColor }}>{value}</div>
+      <div className="text-[10px] text-text-dim mb-1 pl-1.5">{label}</div>
+      <div className="text-lg font-semibold truncate pl-1.5" style={{ color: accentColor }}>{value}</div>
       <div className="flex items-center gap-1.5 mt-1 pl-1.5">
         {deltaPct !== null && (
           <span
@@ -4057,66 +3929,84 @@ function CompactKpi({
   );
 }
 
+// 도넛 + 옆의 이름·값 목록(조각은 다섯 개까지, 나머지는 「기타」). 좁으면 목록이 아래로 내려간다
+function DonutSplit({
+  pie, tip, size = 148, minHeight,
+}: {
+  pie: ReturnType<typeof ndPieRows>;
+  tip: (v: any) => React.ReactNode;
+  size?: number;
+  minHeight?: number;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3" style={minHeight ? { minHeight } : undefined}>
+      <div style={{ width: size, height: size, flex: 'none' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Tooltip {...ndTooltip({ kind: 'none', value: tip })} />
+            <Pie data={pie} dataKey="value" nameKey="name" {...ndPie()} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex-1 min-w-[150px]">
+        <NdDonutList rows={pie} />
+      </div>
+    </div>
+  );
+}
+
 function DonutCard({
-  title, subtitle, data, colors,
+  title, subtitle, data, colorOf,
 }: {
   title: string;
   subtitle?: string;
   data: Array<{ name: string; value: number }>;
-  colors?: string[];
+  colorOf?: (name: string) => string;
 }) {
   if (!data || data.length === 0) {
     return (
       <div className={`${PANEL} p-4`}>
         <h3 className="text-sm font-semibold text-text-primary mb-1">{title}</h3>
         {subtitle && <div className="text-[10px] text-text-dim mb-2">{subtitle}</div>}
-        <Empty h={180} />
+        <NdChartEmpty height={180}>데이터가 없습니다.</NdChartEmpty>
       </div>
     );
   }
   const total = data.reduce((s, x) => s + (x.value || 0), 0);
-  const palette = colors || PALETTE;
+  const pie = ndPieRows(data, colorOf ? { colorOf } : {});
   return (
     <div className={`${PANEL} p-4`}>
       <div className="flex items-baseline justify-between mb-1">
         <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
-        <span className="text-[10px] text-text-dim font-mono">총 ₩{fmtKR(total)}</span>
+        <span className="text-[10px] text-text-dim tabular-nums">총 ₩{fmtKR(total)}</span>
       </div>
       {subtitle && <div className="text-[10px] text-text-muted mb-2">{subtitle}</div>}
-      <ResponsiveContainer width="100%" height={200}>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            cx="50%" cy="50%"
-            innerRadius={42} outerRadius={75}
-            paddingAngle={2}
-          >
-            {data.map((_, i) => (
-              <Cell key={i} fill={palette[i % palette.length]} />
-            ))}
-          </Pie>
-          <Tooltip
-            contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-            formatter={(v: number, n: string) => [`₩${fmtKR(v)} (${total ? ((v as number) / total * 100).toFixed(1) : 0}%)`, n]}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-      {/* 범례를 직접 그려서 가시성 보장 */}
-      <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
-        {data.slice(0, 8).map((d, i) => (
-          <div key={d.name} className="flex items-center gap-1.5 min-w-0">
-            <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: palette[i % palette.length] }} />
-            <span className="text-text-secondary truncate">{d.name}</span>
-            <span className="text-text-muted font-mono ml-auto flex-shrink-0">{total ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
-          </div>
-        ))}
-        {data.length > 8 && (
-          <div className="text-text-muted col-span-2 text-center">+ {data.length - 8}개 더</div>
-        )}
-      </div>
+      <DonutSplit
+        pie={pie}
+        minHeight={172}
+        tip={(v: any) => `₩${fmtKR(v)} (${total ? ((v as number) / total * 100).toFixed(1) : 0}%)`}
+      />
     </div>
+  );
+}
+
+// Top N 막대(채널·품목). 항목이 일곱을 넘고 이름이 길어 가로 막대로 그린다. 비교 기간은 중립색: 첫째는 면, 둘째는 테두리만
+function TopBars({ rows, nameKey, hasCompare }: { rows: any[]; nameKey: string; hasCompare: boolean }) {
+  const keys = hasCompare ? ['revenue', 'compare_revenue', 'contribution_margin', 'compare_cm'] : ['revenue', 'contribution_margin'];
+  return (
+    <ResponsiveContainer width="100%" height={ndBarsHeight(rows.length, keys.length * 14 + 12)}>
+      <BarChart data={rows} layout="vertical" margin={ndMarginH} barGap={2}>
+        <CartesianGrid {...ndGridVertical} />
+        <XAxis type="number" {...ndAxis.value} {...scaleOf(rows, keys, ndFmt.axisWonBy)} />
+        <YAxis type="category" dataKey={nameKey} {...categoryAxis(120)} />
+        <Tooltip {...ndTooltip({ kind: 'bar', value: (v: any) => `₩${fmtKR(v)}` })} />
+        <Legend {...ndLegend()} />
+        <Bar dataKey="revenue" name="매출" {...ndBar(1, { horizontal: true, max: 12 })} />
+        {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" {...ndBar('context', { horizontal: true, max: 12 })} />}
+        <Bar dataKey="contribution_margin" name="공헌이익" {...ndBar(3, { horizontal: true, max: 12 })} />
+        {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" {...ndBar('context', { horizontal: true, max: 12, outline: true })} />}
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -4199,7 +4089,7 @@ function MultiSelect({ label, options, value, onChange }: {
         className="bg-bg-0 border border-border-primary rounded-md px-3 py-1.5 text-sm text-text-primary min-w-[120px] text-left flex items-center justify-between"
       >
         <span>{value.length === 0 ? '전체' : `${value.length}개 선택`}</span>
-        <span className="text-text-quaternary ml-2">▾</span>
+        <CaretDownIcon className="text-text-quaternary ml-2" />
       </button>
       {open && (
         <div className="absolute z-20 top-full mt-1 left-0 w-72 max-h-[300px] overflow-y-auto bg-bg-1 border border-border-primary rounded-md shadow-nd-f p-2">
@@ -4409,10 +4299,10 @@ function ProductsTab({
                 <div className="text-[10px] text-text-dim mt-0.5 flex items-center gap-2">
                   <span>{p.category || '-'}</span>
                   <span className="text-text-muted">·</span>
-                  <span className="text-accent font-mono">{productChannelCount[p.id] || 0}채널</span>
+                  <span className="text-accent tabular-nums">{productChannelCount[p.id] || 0}채널</span>
                 </div>
                 {costs[p.id] ? (
-                  <div className="text-[10px] mt-1 flex items-center gap-2 font-mono">
+                  <div className="text-[10px] mt-1 flex items-center gap-2 tabular-nums">
                     <span className="text-danger">원가 ₩{costs[p.id].unit_cost.toLocaleString()}</span>
                     <span className="text-orange">노무 ₩{costs[p.id].unit_labor.toLocaleString()}</span>
                   </div>
@@ -4450,7 +4340,7 @@ function ProductsTab({
                   <div className="text-sm text-text-primary font-medium truncate">{c.name}</div>
                   <div className="text-[10px] text-text-dim mt-0.5">{c.category}</div>
                   <div className="text-[11px] mt-1">
-                    <span className="text-accent font-mono">{count}</span>
+                    <span className="text-accent tabular-nums">{count}</span>
                     <span className="text-text-muted"> / {products.length} 품목</span>
                   </div>
                 </button>
@@ -4524,7 +4414,7 @@ function ProductsTab({
                 <h3 className="text-sm font-semibold">[{selectedChannel.name}] 판매 품목 설정</h3>
                 <p className="text-[11px] text-text-dim mt-0.5">{pendingPids.size} / {products.length} 품목 선택</p>
               </div>
-              <button onClick={() => setSelectedChannel(null)} className="text-text-dim hover:text-text-primary">✕</button>
+              <button onClick={() => setSelectedChannel(null)} className="text-text-dim hover:text-text-primary" aria-label="닫기"><XIcon inline /></button>
             </div>
             <div className="flex items-center gap-2 mb-3">
               <button onClick={() => setPendingPids(new Set(products.map(p => p.id)))} className="text-[11px] px-2 py-1 bg-bg-inset hover:bg-border-primary text-text-secondary rounded">전체 선택</button>
@@ -4600,7 +4490,7 @@ function ProductsTab({
                     min={1}
                     value={editProd.default_unit_size || 1}
                     onChange={(e) => setEditProd({ ...editProd, default_unit_size: parseInt(e.target.value) || 1 })}
-                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary font-mono text-right"
+                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary tabular-nums text-right"
                   />
                 </div>
                 <div>
@@ -4609,7 +4499,7 @@ function ProductsTab({
                     type="number"
                     value={editProd.sort_order || 100}
                     onChange={(e) => setEditProd({ ...editProd, sort_order: parseInt(e.target.value) || 100 })}
-                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary font-mono text-right"
+                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary tabular-nums text-right"
                   />
                 </div>
               </div>
@@ -4653,15 +4543,17 @@ interface PnlData {
   filtered?: boolean;
 }
 
+// 손익 구분의 표식 색: 계열 여섯 색 가운데 그 줄의 바탕색(SECTION_BG)과 같은 색상으로 맞춘다.
+// 일곱 번째 색은 만들지 않으므로 여덟 구분 가운데 둘은 색을 나눠 쓴다(매출·판관비 고정 = 1번, 매출원가 고정·공헌이익 = 2번)
 const SECTION_COLOR: Record<string, string> = {
-  revenue: '#828FFF',
-  cogs_var: '#EB5757',
-  cogs_fixed: '#FC7840',
-  gross_profit: '#27A644',
-  sga_var: '#A855F7',
-  sga_fixed: '#7070FF',
-  op_profit: '#06B6D4',
-  cm: '#F0BF00',
+  revenue: ndColor(1),
+  cogs_var: ndColor(6),
+  cogs_fixed: ndColor(2),
+  gross_profit: ndColor(4),
+  sga_var: ndColor(5),
+  sga_fixed: ndColor(1),
+  op_profit: ndColor(3),
+  cm: ndColor(2),
 };
 
 const SECTION_BG: Record<string, string> = {
@@ -4830,7 +4722,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
               <input
                 type="number" value={year}
                 onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
-                className="w-24 bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary font-mono"
+                className="w-24 bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary tabular-nums"
               />
             </div>
             <Segment
@@ -4934,7 +4826,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
                           <button
                             onClick={() => toggleCollapse(row.id)}
                             className="text-text-dim hover:text-text-primary w-3 text-xs leading-none"
-                          >{isCollapsed ? '▶' : '▼'}</button>
+                           aria-label={isCollapsed ? '펼치기' : '접기'}>{isCollapsed ? <CaretRightIcon /> : <CaretDownIcon />}</button>
                         )}
                         <span className="w-1.5 h-3 rounded-sm" style={{ background: SECTION_COLOR[row.section] || 'var(--color-text-quaternary)' }} />
                         <span className={`${isMainSection ? 'font-semibold text-text-primary' : 'text-text-secondary'} ${formulaRow ? 'text-success' : ''}`}>
@@ -4968,7 +4860,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
                       return (
                         <td key={`a-${row.id}-${m}`}
                             onClick={editable ? () => startEdit(row, m, 'actual') : undefined}
-                            className={`text-right py-2 px-2 font-mono ${
+                            className={`text-right py-2 px-2 ${
                               editable ? 'cursor-pointer hover:bg-border-primary' : ''
                             } ${isMainSection ? 'font-semibold text-text-primary' : 'text-text-secondary'} ${
                               negative && v > 0 ? 'text-danger' : ''
@@ -4989,7 +4881,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
                       return (
                         <td key={`p-${row.id}-${m}`}
                             onClick={editable ? () => startEdit(row, m, 'plan') : undefined}
-                            className={`text-right py-2 px-2 font-mono text-text-dim ${
+                            className={`text-right py-2 px-2 text-text-dim ${
                               editable ? 'cursor-pointer hover:bg-border-primary' : ''
                             }`}
                         >
@@ -5023,7 +4915,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
             <input
               type="number"
               value={editValue} onChange={(e) => setEditValue(e.target.value)}
-              className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-2 text-sm text-text-primary font-mono text-right mb-3"
+              className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-2 text-sm text-text-primary tabular-nums text-right mb-3"
               autoFocus
             />
 
@@ -5114,9 +5006,9 @@ function SalesHeatmap({
     granularity === 'day' ? p.slice(8) : granularity === 'month' ? `${Number(p.slice(5))}월` : p;
 
   const cellColor = (v: number) => {
-    if (v <= 0) return 'rgba(35,37,42,0.45)';
+    if (v <= 0) return ndHeat(0);
     const t = Math.pow(v / maxRev, 0.55); // 감마 보정: 작은 값도 눈에 띄게
-    return `rgba(130,143,255,${(0.12 + 0.85 * t).toFixed(3)})`;
+    return ndHeat(t);
   };
 
   const cellW = granularity === 'day' ? 30 : 52;
@@ -5160,8 +5052,8 @@ function SalesHeatmap({
         {/* 범례 */}
         <div className="flex items-center gap-1.5 mt-2 pl-[96px]">
           <span className="text-[9px] text-text-muted">낮음</span>
-          {[0.12, 0.32, 0.52, 0.72, 0.97].map((a) => (
-            <div key={a} className="w-4 h-3 rounded-[2px]" style={{ background: `rgba(130,143,255,${a})` }} />
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <div key={n} className="w-4 h-3 rounded-[2px]" style={{ background: ndHeat(n / 6) }} />
           ))}
           <span className="text-[9px] text-text-muted">높음</span>
         </div>
@@ -5169,14 +5061,18 @@ function SalesHeatmap({
 
       {hover && (
         <div
-          className="fixed z-50 pointer-events-none rounded-lg border border-border-subtle bg-bg-inset px-3 py-2 shadow-nd-f"
+          className="fixed z-50 pointer-events-none"
           style={{ left: Math.min(hover.x + 14, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 180), top: hover.y + 14 }}
         >
-          <div className="text-[11px] font-semibold text-text-primary">{hover.emp}</div>
-          <div className="text-[10px] text-text-dim mb-1">{hover.period}</div>
-          <div className="text-[11px] text-brand-light">매출 ₩{Math.round(hover.revenue).toLocaleString()}</div>
-          <div className="text-[10px] text-text-secondary">수량 {Math.round(hover.pcs).toLocaleString()}개</div>
-          <div className="text-[10px] text-success">공헌이익 ₩{Math.round(hover.cm).toLocaleString()}</div>
+          <NdTooltipContent
+            active
+            label={`${hover.emp} · ${hover.period}`}
+            payload={[
+              { name: '매출', value: `₩${Math.round(hover.revenue).toLocaleString()}`, color: ndColor(1), mark: 'rect' },
+              { name: '수량', value: `${Math.round(hover.pcs).toLocaleString()}개`, color: ndColor(2), mark: 'rect' },
+              { name: '공헌이익', value: `₩${Math.round(hover.cm).toLocaleString()}`, color: ndColor(3), mark: 'rect' },
+            ]}
+          />
         </div>
       )}
     </div>
