@@ -418,11 +418,12 @@ export default function ProductionResultsPage() {
   }, [filteredRows]);
 
   const CATEGORY_COLORS: Record<string, string> = {
-    '마카롱': '#f472b6',
-    '케이크': '#fb923c',
-    '쿠키': '#a78bfa',
-    '비누': '#34d399',
-    '캔들': '#4EA7FC',
+    // 계열 색(styles/nd-chart.css): 같은 품목류는 늘 같은 번호
+    '마카롱': 'var(--nd-chart-1)',
+    '케이크': 'var(--nd-chart-2)',
+    '쿠키': 'var(--nd-chart-3)',
+    '비누': 'var(--nd-chart-4)',
+    '캔들': 'var(--nd-chart-5)',
   };
 
   const categoryPieData = useMemo(() => {
@@ -433,7 +434,7 @@ export default function ProductionResultsPage() {
     return Object.entries(map).map(([name, value]) => ({
       name,
       value,
-      color: CATEGORY_COLORS[name] || '#94a3b8',
+      color: CATEGORY_COLORS[name] || 'var(--nd-chart-context)',
     }));
   }, [filteredRows]);
 
@@ -866,7 +867,7 @@ export default function ProductionResultsPage() {
           {/* Production value by category */}
           <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
             <h3 className="text-sm font-semibold text-text-secondary mb-3">품목류별 총 생산액</h3>
-            <MiniBarChart data={categoryChartData} labelKey="label" valueKey="value" color="#10b981" />
+            <MiniBarChart data={categoryChartData} labelKey="label" valueKey="value" color="var(--nd-chart-1)" />
           </div>
           {/* Category quantity distribution */}
           <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">

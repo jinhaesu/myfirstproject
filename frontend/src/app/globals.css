@@ -132,17 +132,7 @@ html[data-theme="light"] input[type="time"] {
   color-scheme: light;
 }
 
-/* Recharts 툴팁/범례/파이 라벨이 배경과 같은 색으로 안 보이는 문제 방지 (다크 기본값) */
-.recharts-default-tooltip {
-  background-color: var(--color-bg-level-1) !important;
-  border: 1px solid var(--color-border-primary) !important;
-  border-radius: 8px !important;
-}
-.recharts-tooltip-label { color: var(--color-text-primary) !important; }
-.recharts-tooltip-item { color: var(--color-text-secondary) !important; }
-.recharts-legend-item-text { color: var(--color-text-secondary) !important; }
-.recharts-pie-label-text, .recharts-text.recharts-pie-label-text { fill: var(--color-text-secondary) !important; }
-.recharts-cartesian-axis-tick-value { fill: var(--color-text-tertiary); }
+/* Recharts 의 눈금·말풍선·범례 모양은 styles/nd-chart.css 가 맡는다(여기서 따로 덮지 않는다) */
 
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
