@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import '../styles/fonts/nd-fonts.css';
 import '../styles/nd-cosmos.css';
 import '../styles/nd-type.css';
+import '../styles/nd-chart.css';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { FloatingAssistant } from '@/components/chat/FloatingAssistant';
