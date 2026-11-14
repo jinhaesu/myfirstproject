@@ -37,7 +37,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
       title={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
-      className="p-2 text-text-tertiary hover:text-text-primary hover:bg-white/5 rounded-lg transition-colors"
+      className="p-2 text-text-tertiary hover:text-text-primary hover:bg-bg-secondary rounded-lg transition-colors"
     >
       {!mounted ? (
         <span className="block w-4 h-4" />

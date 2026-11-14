@@ -134,8 +134,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
       <div
         className={`max-w-full lg:max-w-5xl rounded-2xl p-4 ${
           isUser
-            ? 'bg-gradient-to-r from-brand to-brand text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)]'
-            : 'bg-bg-1 border border-border-primary shadow-[0px_3px_12px_rgba(0,0,0,0.2)]'
+            ? 'bg-brand text-on-brand shadow-nd-f'
+            : 'bg-bg-1 border border-border-primary shadow-nd-f'
         }`}
       >
         {/* 메시지 내용 */}
