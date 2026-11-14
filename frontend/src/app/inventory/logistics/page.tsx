@@ -1,5 +1,4 @@
 'use client';
-import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,9 +8,10 @@ import { MatrixTable } from '@/components/MatrixTable';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { Combobox, localFetcher } from '@/components/Combobox';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Legend, ComposedChart,
 } from 'recharts';
+import { ndAxis, ndBar, ndFmt, ndGrid, ndIsolatedDot, ndLegend, ndLine, ndMargin, ndPie, ndPieRows, ndScale, ndStack, ndTooltip, NdChartEmpty, NdDonutList } from '@/components/nd/NdChart';
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -41,7 +41,23 @@ const fmt = (n: number | null | undefined) => (n === null || n === undefined ? '
 const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
 const wonShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억'; if (a >= 1e4) return Math.round(n / 1e4).toLocaleString('ko-KR') + '만'; return '₩' + Math.round(n || 0).toLocaleString('ko-KR'); };
 const numShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(2).replace(/\.00$/, '') + '억'; if (a >= 1e4) return (n / 1e4).toFixed(1).replace(/\.0$/, '') + '만'; return Math.round(n || 0).toLocaleString('ko-KR'); };
-const COLORS = ND_CHART;
+// 값 축의 눈금: 그 축에 그려지는 계열들의 가장 큰 값·가장 작은 값으로 반듯한 눈금과 단위 하나를 정한다.
+// atLeast 는 축이 적어도 닿아야 하는 값(비율 축의 2배 등), fraction 은 소수 눈금 허용
+const scaleOf = (rows: readonly any[] | null | undefined, keys: readonly string[], by?: Parameters<typeof ndScale>[1], opt: { atLeast?: number; fraction?: boolean } = {}) => {
+  let top = opt.atLeast ?? 0;
+  let low = 0;
+  for (const r of rows || []) for (const k of keys) {
+    const v = Number(r?.[k]);
+    if (isFinite(v)) { if (v > top) top = v; if (v < low) low = v; }
+  }
+  return ndScale(top, by, low, { fraction: !!opt.fraction });
+};
+// 세로축이 둘인 그래프는 눈금에 단위를 붙여 두 축을 가른다
+const hoursAxis = (max: number) => ndFmt.axisNumBy(max, 1, 'h');
+const timesAxis = (max: number) => ndFmt.axisNumBy(max, 1, '배');
+const countAxis = (max: number) => ndFmt.axisNumBy(max, 1, '개');
+// 주간·야간 쌓은 막대(아래부터). 색은 순서대로 1번·2번
+const SHIFT_STACK = ndStack(['day_qty', 'night_qty']);
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const todayISO = () => iso(new Date());
 function presetRange(kind: string): { start: string; end: string } {
@@ -144,7 +160,8 @@ function DashTab() {
     setD(dd); setTs(tt.series); setLabor(lb); setLoading(false);
   }, [range, wtype, gran]);
   useEffect(() => { load(); }, [load]);
-  const PIE = d?.by_type.slice(0, 8).map((t, i) => ({ name: t.work_type, value: t.qty, fill: COLORS[i % COLORS.length] })) || [];
+  // 조각은 다섯 개까지, 나머지는 「기타」로 묶는다(색은 큰 순서대로 1번부터)
+  const PIE = ndPieRows(d?.by_type.slice(0, 8).map((t) => ({ name: t.work_type, value: t.qty })) || []);
   const gl = gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별';
 
   return (
@@ -180,12 +197,12 @@ function DashTab() {
                 <StatCard label="근태 실지급+환산" value={wonShort(labor.total_att_cost)} sub={`정규직 실급여 ${wonShort(labor.total_regular_pay)}`} />
               </div>
               <ResponsiveContainer width="100%" height={220}>
-                <ComposedChart data={labor.series}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis yAxisId="r" orientation="right" domain={[0, 2]} tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} /><Legend />
-                  <Bar yAxisId="l" dataKey="prod_hours" name="작업일보 시간" fill="var(--color-brand-bg)" /><Bar yAxisId="l" dataKey="att_hours" name="근태 노무시간" fill="var(--color-cyan)" />
-                  <Line yAxisId="r" type="monotone" dataKey="hours_ratio" name="비율(배)" stroke="var(--color-warning)" strokeWidth={2} dot={false} />
+                <ComposedChart data={labor.series} margin={ndMargin}>
+                  <CartesianGrid {...ndGrid} /><XAxis dataKey="period" {...ndAxis.x} />
+                  <YAxis yAxisId="l" {...ndAxis.y} {...scaleOf(labor.series, ['prod_hours', 'att_hours'], hoursAxis)} /><YAxis yAxisId="r" orientation="right" {...ndAxis.y} {...scaleOf(labor.series, ['hours_ratio'], timesAxis, { atLeast: 2, fraction: true })} />
+                  <Tooltip {...ndTooltip({ kind: 'bar', value: fmt })} /><Legend {...ndLegend()} />
+                  <Bar yAxisId="l" dataKey="prod_hours" name="작업일보 시간" {...ndBar(1)} /><Bar yAxisId="l" dataKey="att_hours" name="근태 노무시간" {...ndBar(2)} />
+                  <Line yAxisId="r" dataKey="hours_ratio" name="비율(배)" {...ndLine(3)} dot={ndIsolatedDot(labor.series, 'hours_ratio', 3)} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -194,54 +211,67 @@ function DashTab() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">{gl} 작업 생산성 (시간당 작업량){wtype && ` · ${wtype}`}</div>
+              {ts.length === 0 ? <NdChartEmpty height={240} /> : (
               <ResponsiveContainer width="100%" height={240}>
-                <ComposedChart data={ts}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                  <Bar yAxisId="l" dataKey="hours" name="투여시간" fill="var(--color-border-primary)" /><Line yAxisId="r" type="monotone" dataKey="hourly_qty" name="시간당작업량" stroke="var(--color-brand-bg)" strokeWidth={2} dot={false} />
+                <ComposedChart data={ts} margin={ndMargin}>
+                  <CartesianGrid {...ndGrid} /><XAxis dataKey="period" {...ndAxis.x} />
+                  <YAxis yAxisId="l" {...ndAxis.y} {...scaleOf(ts, ['hours'], hoursAxis)} /><YAxis yAxisId="r" orientation="right" {...ndAxis.y} {...scaleOf(ts, ['hourly_qty'], countAxis)} />
+                  <Tooltip {...ndTooltip({ kind: 'bar', value: fmt })} /><Legend {...ndLegend()} />
+                  <Bar yAxisId="l" dataKey="hours" name="투여시간" {...ndBar('context')} /><Line yAxisId="r" dataKey="hourly_qty" name="시간당작업량" {...ndLine(1)} dot={ndIsolatedDot(ts, 'hourly_qty', 1)} />
                 </ComposedChart>
               </ResponsiveContainer>
+              )}
             </div>
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">{gl} 채산성 (작업액÷노무비)</div>
+              {ts.length === 0 ? <NdChartEmpty height={240} /> : (
               <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={ts}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} /><Line type="monotone" dataKey="profitability" name="채산성(배)" stroke="var(--color-success-light)" strokeWidth={2} dot={false} />
+                <LineChart data={ts} margin={ndMargin}>
+                  <CartesianGrid {...ndGrid} /><XAxis dataKey="period" {...ndAxis.x} /><YAxis {...ndAxis.y} {...scaleOf(ts, ['profitability'], timesAxis, { fraction: true })} />
+                  <Tooltip {...ndTooltip({ kind: 'line', value: fmt })} /><Line dataKey="profitability" name="채산성(배)" {...ndLine(1)} dot={ndIsolatedDot(ts, 'profitability', 1)} />
                 </LineChart>
               </ResponsiveContainer>
+              )}
             </div>
           </div>
 
           <div className={`${C.card} p-4`}>
             <div className="text-sm font-semibold text-text-primary mb-1">{gl} 작업 단가 흐름 {wtype ? `· ${wtype}` : '(전체)'}</div>
             <div className="text-xs text-text-quaternary mb-3">평균 작업단가(작업액÷작업량) vs 개당 노무단가(실인건비÷작업량). 작업종류를 고르면 그 종류의 단가 추이입니다.</div>
+            {ts.length === 0 ? <NdChartEmpty height={240} /> : (
             <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={ts}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-                <XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                <YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => won(v)} />
-                <Legend />
-                <Line type="monotone" dataKey="unit_price" name="평균 작업단가" stroke="var(--color-warning)" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="unit_labor" name="개당 노무단가" stroke="var(--color-cyan)" strokeWidth={2} dot={false} />
+              <LineChart data={ts} margin={ndMargin}>
+                <CartesianGrid {...ndGrid} />
+                <XAxis dataKey="period" {...ndAxis.x} />
+                <YAxis {...ndAxis.y} {...scaleOf(ts, ['unit_price', 'unit_labor'], ndFmt.axisWonBy)} />
+                <Tooltip {...ndTooltip({ kind: 'line', value: won })} />
+                <Legend {...ndLegend()} />
+                <Line dataKey="unit_price" name="평균 작업단가" {...ndLine(1)} dot={ndIsolatedDot(ts, 'unit_price', 1)} />
+                <Line dataKey="unit_labor" name="개당 노무단가" {...ndLine(2)} dot={ndIsolatedDot(ts, 'unit_labor', 2)} />
               </LineChart>
             </ResponsiveContainer>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">작업종류별 비중</div>
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart><Pie data={PIE} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={95} label={(e: any) => e.name}>{PIE.map((p, i) => <Cell key={i} fill={p.fill} />)}</Pie><Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} /></PieChart>
-              </ResponsiveContainer>
+              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3" style={{ minHeight: 260 }}>
+                <div style={{ width: 200, height: 200, flex: 'none' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart><Tooltip {...ndTooltip({ kind: 'none', value: fmt })} /><Pie data={PIE} dataKey="value" nameKey="name" {...ndPie()} /></PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 min-w-[160px]"><NdDonutList rows={PIE} /></div>
+              </div>
             </div>
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">주간/야간 작업량 비교</div>
+              {ts.length === 0 ? <NdChartEmpty height={260} /> : (
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={ts}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} /><Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} /><Legend /><Bar dataKey="day_qty" name="주간" stackId="s" fill="var(--color-brand-bg)" /><Bar dataKey="night_qty" name="야간" stackId="s" fill="var(--color-purple)" /></BarChart>
+                <BarChart data={ts} margin={ndMargin}><CartesianGrid {...ndGrid} /><XAxis dataKey="period" {...ndAxis.x} /><YAxis {...ndAxis.y} {...ndScale(Math.max(0, ...ts.map((r) => (Number(r.day_qty) || 0) + (Number(r.night_qty) || 0))))} /><Tooltip {...ndTooltip({ kind: 'bar', value: fmt, total: true, reverse: true })} /><Legend {...ndLegend()} /><Bar dataKey="day_qty" name="주간" stackId="s" {...SHIFT_STACK('day_qty')} /><Bar dataKey="night_qty" name="야간" stackId="s" {...SHIFT_STACK('night_qty')} /></BarChart>
               </ResponsiveContainer>
+              )}
             </div>
           </div>
 

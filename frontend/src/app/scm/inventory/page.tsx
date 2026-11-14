@@ -17,6 +17,10 @@ import {
   LineChart,
   Line,
 } from 'recharts';
+import { ndAxis, ndBar, ndBarsHeight, ndFit, ndGrid, ndGridVertical, ndIsolatedDot, ndLegend, ndLine, ndMargin, ndMarginH, ndScale, ndTooltip, NdChartEmpty } from '@/components/nd/NdChart';
+
+// 가로 막대의 항목 축. 이름을 자르는 폭은 Pretendard 기준 어림값이라 한글이 더 넓은 글꼴에서는 몇 px 넘친다 → 축을 10% 넓게 잡는다
+const categoryAxis = (width = 96) => ({ ...ndAxis.categoryOf(Math.ceil(width * 1.1)), tickFormatter: (v: any) => ndFit(String(v ?? ''), width - 12, 12) });
 
 // ---------------------------------------------------------------------------
 // API helpers
@@ -655,30 +659,24 @@ export default function InventoryPage() {
             {/* Stock level bar chart */}
             <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-6">
               <h3 className="text-base font-semibold text-text-primary mb-4">카테고리별 재고 현황</h3>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
+              {categoryChartData.length === 0 ? <NdChartEmpty height={200} /> : (
+                <ResponsiveContainer width="100%" height={ndBarsHeight(categoryChartData.length, 40)}>
                   <BarChart
                     data={categoryChartData}
                     layout="vertical"
-                    margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+                    margin={ndMarginH}
+                    barGap={2}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-secondary)" />
-                    <XAxis type="number" tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} />
-                    <YAxis dataKey="category" type="category" tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} width={70} />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: '12px',
-                        border: '1px solid var(--color-border-secondary)',
-                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-                      }}
-                      formatter={(value: number) => fmt(value)}
-                    />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    <Bar dataKey="현재재고" fill="var(--color-brand-bg)" radius={[0, 4, 4, 0]} />
-                    <Bar dataKey="안전재고" fill="var(--color-bg-tertiary)" radius={[0, 4, 4, 0]} />
+                    <CartesianGrid {...ndGridVertical} />
+                    <XAxis type="number" {...ndAxis.value} {...ndScale(Math.max(0, ...categoryChartData.map((r) => Math.max(r.현재재고, r.안전재고))))} />
+                    <YAxis dataKey="category" type="category" {...categoryAxis()} />
+                    <Tooltip {...ndTooltip({ kind: 'bar', value: (value: any) => fmt(value) })} />
+                    <Legend {...ndLegend()} />
+                    <Bar dataKey="현재재고" {...ndBar(1, { horizontal: true, max: 12 })} />
+                    <Bar dataKey="안전재고" {...ndBar('context', { horizontal: true, max: 12 })} />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -797,32 +795,23 @@ export default function InventoryPage() {
             {/* Daily outbound trend */}
             <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-6">
               <h3 className="text-base font-semibold text-text-primary mb-4">일별 출고 추이</h3>
+              {outboundTrendData.length === 0 ? <NdChartEmpty height={288} /> : (
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={outboundTrendData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-secondary)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} />
-                    <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: '12px',
-                        border: '1px solid var(--color-border-secondary)',
-                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-                      }}
-                      formatter={(value: number) => [fmt(value) + '개', '출고수량']}
-                    />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} />
+                  <LineChart data={outboundTrendData} margin={ndMargin}>
+                    <CartesianGrid {...ndGrid} />
+                    <XAxis dataKey="date" {...ndAxis.x} />
+                    <YAxis {...ndAxis.y} {...ndScale(Math.max(0, ...outboundTrendData.map((r) => r.출고수량)))} />
+                    <Tooltip {...ndTooltip({ kind: 'line', value: (value: any) => fmt(value), unit: '개' })} />
                     <Line
-                      type="monotone"
                       dataKey="출고수량"
-                      stroke="var(--color-brand-bg)"
-                      strokeWidth={2.5}
-                      dot={{ r: 5, fill: 'var(--color-brand-bg)', strokeWidth: 2, stroke: 'var(--color-border-primary)' }}
-                      activeDot={{ r: 7, fill: 'var(--color-brand-bg)', strokeWidth: 2, stroke: 'var(--color-border-primary)' }}
+                      {...ndLine(1)}
+                      dot={ndIsolatedDot(outboundTrendData, '출고수량', 1)}
                     />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+              )}
             </div>
           </div>
         )}

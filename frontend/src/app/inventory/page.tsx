@@ -1,5 +1,4 @@
 'use client';
-import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
 import { ArrowLeftIcon, ArrowRightIcon, CaretRightIcon, CheckIcon, XIcon } from '@/components/nd/icons';
 import { useEffect, useState, useCallback } from 'react';
@@ -9,9 +8,10 @@ import { Navigation } from '@/components/layout/Navigation';
 import { MatrixTable } from '@/components/MatrixTable';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ComposedChart, Line, Legend, PieChart, Pie,
 } from 'recharts';
+import { ndAlpha, ndAxis, ndBar, ndBarsHeight, ndColor, ndFit, ndFmt, ndGrid, ndGridVertical, ndIsolatedDot, ndLegend, ndLine, ndMargin, ndMarginH, ndPie, ndPieRows, ndScale, ndTextWidth, ndTooltip, NdChartEmpty, NdDonutList } from '@/components/nd/NdChart';
 
 // ─────────────────────────────────────────────────────────
 // API helpers
@@ -122,7 +122,21 @@ const RANGE_PRESETS: [string, string][] = [
   ['7d', '7일'], ['14d', '14일'], ['thisMonth', '당월'], ['lastMonth', '전월'],
   ['thisQuarter', '당분기'], ['lastQuarter', '전분기'], ['lastYear', '전년도'],
 ];
-const CHART_COLORS = ND_CHART;
+// 값 축의 눈금: 그 축에 그려지는 계열들의 가장 큰 값·가장 작은 값으로 반듯한 눈금과 단위 하나를 정한다
+const scaleOf = (rows: readonly any[] | null | undefined, keys: readonly string[], by?: Parameters<typeof ndScale>[1]) => {
+  let top = 0;
+  let low = 0;
+  for (const r of rows || []) for (const k of keys) {
+    const v = Number(r?.[k]);
+    if (isFinite(v)) { if (v > top) top = v; if (v < low) low = v; }
+  }
+  return ndScale(top, by, low);
+};
+// 세로축 너비: 음수·긴 눈금 글자(「-2,000만」)가 왼쪽에서 잘리지 않게 가장 긴 눈금 글자에 맞춘다(기본 52px 보다 좁히지는 않는다).
+// 글자 폭 어림값은 Pretendard 기준이라, 더 넓은 글꼴에서도 들어가게 13% 여유를 둔다
+const fitY = <T extends { ticks: number[]; tickFormatter: (v: any) => string }>(s: T) => ({ ...s, width: Math.max(52, ...s.ticks.map((t) => Math.ceil(ndTextWidth(s.tickFormatter(t)) * 1.13) + 10)) });
+// 가로 막대의 항목 축. 이름을 자르는 폭은 Pretendard 기준 어림값이라 한글이 더 넓은 글꼴에서는 몇 px 넘친다 → 축을 10% 넓게 잡는다
+const categoryAxis = (width = 96) => ({ ...ndAxis.categoryOf(Math.ceil(width * 1.1)), tickFormatter: (v: any) => ndFit(String(v ?? ''), width - 12, 12) });
 
 // ═════════════════════════════════════════════════════════
 // Main
@@ -232,8 +246,9 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
   const heatMax = Math.max(1, ...heat.rows.flatMap((r) => r.cells.map((c) => Math.abs(c))));
   const heatColor = (v: number) => {
     if (v === 0) return 'transparent';
-    const a = Math.min(Math.abs(v) / heatMax, 1) * 0.85 + 0.1;
-    return v > 0 ? `rgba(39,166,68,${a})` : `rgba(235,87,87,${a})`;
+    // 가장 진한 칸도 48% 까지만 칠한다: 밝은·어두운 화면 모두에서 칸 안 글자가 본문색으로 읽힌다
+    const a = Math.min(Math.abs(v) / heatMax, 1) * 40 + 8;
+    return ndAlpha(v > 0 ? 'good' : 'bad', Math.round(a));
   };
 
   return (
@@ -321,15 +336,13 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
                 <StatCard label="시간당 작업량" value={fmt(logi.hourly_qty)} sub={`${numShort(logi.total_hours)}h`} />
               </div>
               {logi.by_type?.length > 0 && (
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={logi.by_type.slice(0, 8)} layout="vertical" margin={{ left: 30 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-                    <XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} />
-                    <YAxis type="category" dataKey="work_type" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} width={80} />
-                    <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                    <Bar dataKey="qty" name="작업량" radius={[0, 4, 4, 0]}>
-                      {logi.by_type.slice(0, 8).map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                    </Bar>
+                <ResponsiveContainer width="100%" height={ndBarsHeight(Math.min(logi.by_type.length, 8))}>
+                  <BarChart data={logi.by_type.slice(0, 8)} layout="vertical" margin={ndMarginH}>
+                    <CartesianGrid {...ndGridVertical} />
+                    <XAxis type="number" {...ndAxis.value} {...scaleOf(logi.by_type.slice(0, 8), ['qty'])} />
+                    <YAxis type="category" dataKey="work_type" {...categoryAxis()} />
+                    <Tooltip {...ndTooltip({ kind: 'bar', value: fmt })} />
+                    <Bar dataKey="qty" name="작업량" {...ndBar(1, { horizontal: true })} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -339,18 +352,18 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
           {/* 기간 재고 흐름 + 입출고 히트맵 */}
           <div className={`${C.card} p-4`}>
             <div className="text-sm font-semibold text-text-primary mb-3">재고 흐름 · {gran === 'month' ? '월별' : gran === 'week' ? '주별' : '일별'} (생산입고·판매출고·기말재고)</div>
-            {trend.length === 0 ? <Empty msg="이 기간 흐름 데이터 없음" /> : (
+            {trend.length === 0 ? <NdChartEmpty height={200}>이 기간 흐름 데이터 없음</NdChartEmpty> : (
               <ResponsiveContainer width="100%" height={280}>
-                <ComposedChart data={trend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-                  <XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                  <Legend />
-                  <Bar yAxisId="l" dataKey="inbound" name="생산입고" fill="var(--color-success)" />
-                  <Bar yAxisId="l" dataKey="outbound" name="판매출고" fill="var(--color-danger)" />
-                  <Line yAxisId="r" type="monotone" dataKey="closing" name="기말재고" stroke="var(--color-brand-bg)" strokeWidth={2} dot={false} />
+                <ComposedChart data={trend} margin={ndMargin}>
+                  <CartesianGrid {...ndGrid} />
+                  <XAxis dataKey="period" {...ndAxis.x} />
+                  <YAxis yAxisId="l" {...ndAxis.y} {...fitY(scaleOf(trend, ['inbound', 'outbound']))} />
+                  <YAxis yAxisId="r" orientation="right" {...ndAxis.y} {...fitY(scaleOf(trend, ['closing']))} />
+                  <Tooltip {...ndTooltip({ kind: 'bar', value: fmt })} />
+                  <Legend {...ndLegend()} />
+                  <Bar yAxisId="l" dataKey="inbound" name="생산입고" {...ndBar('good')} />
+                  <Bar yAxisId="l" dataKey="outbound" name="판매출고" {...ndBar('bad')} />
+                  <Line yAxisId="r" dataKey="closing" name="기말재고(오른쪽 축)" {...ndLine(1)} dot={ndIsolatedDot(trend, 'closing', 1)} />
                 </ComposedChart>
               </ResponsiveContainer>
             )}
@@ -359,7 +372,7 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
           <div className={`${C.card} p-4`}>
             <div className="text-sm font-semibold text-text-primary mb-1">재고 입출고 히트맵 (순증감 = 생산−판매)</div>
             <div className="text-xs text-text-quaternary mb-3">초록=순증(생산 우위) · 빨강=순감(판매 우위) · 활동 상위 15품목</div>
-            {heat.rows.length === 0 ? <Empty msg="데이터 없음" /> : (
+            {heat.rows.length === 0 ? <NdChartEmpty height={200}>데이터 없음</NdChartEmpty> : (
               <div className="overflow-x-auto">
                 <table className="border-collapse">
                   <thead><tr>
@@ -372,7 +385,7 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
                       <tr key={r.product_id}>
                         <td className="text-xs text-text-primary px-2 py-1 whitespace-nowrap sticky left-0 bg-bg-1">{r.product_name}</td>
                         {r.cells.map((c, i) => (
-                          <td key={i} className="text-[10px] text-center px-1 py-1 whitespace-nowrap" style={{ background: heatColor(c), color: Math.abs(c) / heatMax > 0.5 ? '#fff' : 'var(--color-text-tertiary)' }}
+                          <td key={i} className="text-[10px] text-center px-1 py-1 whitespace-nowrap" style={{ background: heatColor(c), color: Math.abs(c) / heatMax > 0.5 ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)' }}
                             title={`${heat.months[i]}: ${c > 0 ? '+' : ''}${fmt(c)}`}>
                             {c === 0 ? '·' : (c > 0 ? '+' : '') + (Math.abs(c) >= 10000 ? Math.round(c / 1000) + 'k' : fmt(c))}
                           </td>
@@ -389,34 +402,28 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">창고별 재고 분포</div>
-              {d.by_warehouse.length === 0 ? <Empty /> : (
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={d.by_warehouse} layout="vertical" margin={{ left: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-                    <XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} />
-                    <YAxis type="category" dataKey="warehouse_name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} width={90} />
-                    <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8, color: 'var(--color-text-primary)' }}
-                      formatter={(v: any) => fmt(v)} />
-                    <Bar dataKey="qty" radius={[0, 4, 4, 0]}>
-                      {d.by_warehouse.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                    </Bar>
+              {d.by_warehouse.length === 0 ? <NdChartEmpty height={200}>데이터 없음</NdChartEmpty> : (
+                <ResponsiveContainer width="100%" height={ndBarsHeight(d.by_warehouse.length)}>
+                  <BarChart data={d.by_warehouse} layout="vertical" margin={ndMarginH}>
+                    <CartesianGrid {...ndGridVertical} />
+                    <XAxis type="number" {...ndAxis.value} {...scaleOf(d.by_warehouse, ['qty'])} />
+                    <YAxis type="category" dataKey="warehouse_name" {...categoryAxis()} />
+                    <Tooltip {...ndTooltip({ kind: 'bar', value: fmt })} />
+                    <Bar dataKey="qty" name="재고" {...ndBar(1, { horizontal: true })} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
             </div>
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">카테고리별 재고 분포</div>
-              {d.by_category.length === 0 ? <Empty /> : (
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={d.by_category} layout="vertical" margin={{ left: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-                    <XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} />
-                    <YAxis type="category" dataKey="category" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} width={90} />
-                    <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8, color: 'var(--color-text-primary)' }}
-                      formatter={(v: any) => fmt(v)} />
-                    <Bar dataKey="qty" radius={[0, 4, 4, 0]}>
-                      {d.by_category.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                    </Bar>
+              {d.by_category.length === 0 ? <NdChartEmpty height={200}>데이터 없음</NdChartEmpty> : (
+                <ResponsiveContainer width="100%" height={ndBarsHeight(d.by_category.length)}>
+                  <BarChart data={d.by_category} layout="vertical" margin={ndMarginH}>
+                    <CartesianGrid {...ndGridVertical} />
+                    <XAxis type="number" {...ndAxis.value} {...scaleOf(d.by_category, ['qty'])} />
+                    <YAxis type="category" dataKey="category" {...categoryAxis()} />
+                    <Tooltip {...ndTooltip({ kind: 'bar', value: fmt })} />
+                    <Bar dataKey="qty" name="재고" {...ndBar(1, { horizontal: true })} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -428,29 +435,25 @@ function DashboardTab({ warehouses }: { warehouses: Warehouse[] }) {
             const usingAbs = positives.length === 0;
             const src = (usingAbs ? d.by_category.map((c) => ({ ...c, qty: Math.abs(c.qty) })) : positives)
               .filter((c) => c.qty > 0).sort((a, b) => b.qty - a.qty);
-            const PIE = src.slice(0, 10).map((c, i) => ({ name: c.category, value: c.qty, fill: CHART_COLORS[i % CHART_COLORS.length] }));
+            // 조각은 다섯 개까지, 나머지는 「기타」로 묶는다. 옆 목록은 열 개를 그대로 두고, 「기타」에 든 항목은 중립색 표식
+            const PIE = ndPieRows(src.slice(0, 10).map((c) => ({ name: c.category, value: c.qty })));
+            const pieFill = (name: string) => PIE.find((p) => p.name === name)?.fill ?? ndColor('context');
             return (
               <div className={`${C.card} p-4`}>
                 <div className="text-sm font-semibold text-text-primary mb-1">{usingAbs ? '카테고리별 재고 포지션 규모 (원형)' : '현재 잔여 재고 비중 (카테고리별)'}</div>
                 <div className="text-xs text-text-quaternary mb-3">기준일 {d.as_of} · {usingAbs ? '기초재고 미반영 → 순포지션(절대값) 규모 표시. 기초재고 업로드 시 실제 잔여재고로 전환' : '잔여(양수) 재고'}</div>
-                {PIE.length === 0 ? <Empty msg="데이터 없음" /> : (
+                {PIE.length === 0 ? <NdChartEmpty height={200}>데이터 없음</NdChartEmpty> : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
-                    <ResponsiveContainer width="100%" height={260}>
+                    <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
-                        <Pie data={PIE} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={95} label={(e: any) => e.name}>
-                          {PIE.map((p, i) => <Cell key={i} fill={p.fill} />)}
-                        </Pie>
-                        <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
+                        <Tooltip {...ndTooltip({ kind: 'none', value: (v: any) => `${usingAbs ? '−' : ''}${fmt(v)}` })} />
+                        <Pie data={PIE} dataKey="value" nameKey="name" {...ndPie()} />
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="space-y-1">
-                      {src.slice(0, 10).map((c, i) => (
-                        <div key={c.category} className="flex items-center justify-between text-sm py-1 border-b border-bg-inset">
-                          <span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} /><span className="text-text-secondary">{c.category}</span></span>
-                          <span className="text-text-primary tabular-nums">{usingAbs ? '−' : ''}{fmt(c.qty)}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <NdDonutList
+                      rows={src.slice(0, 10).map((c) => ({ name: c.category, value: c.qty, color: pieFill(c.category) }))}
+                      value={(_pct, row) => `${usingAbs ? '−' : ''}${fmt(row.value)}`}
+                    />
                   </div>
                 )}
               </div>
@@ -746,7 +749,8 @@ function ProductStockAnalytics() {
   useEffect(() => { getJSON<any>('/inventory/valuation', null).then(setV); }, []);
   if (!v) return <div className={`${C.card} p-4 text-sm text-text-quaternary`}>제품 재고 분석 불러오는 중…</div>;
   const rows = (v.rows || []).filter((r: any) => r.qty > 0);
-  const pie = (v.by_category || []).filter((c: any) => c.value > 0).slice(0, 8).map((c: any, i: number) => ({ name: c.category, value: c.value, fill: CHART_COLORS[i % CHART_COLORS.length] }));
+  // 조각은 다섯 개까지, 나머지는 「기타」로 묶는다(색은 큰 순서대로 1번부터)
+  const pie = ndPieRows((v.by_category || []).filter((c: any) => c.value > 0).slice(0, 8).map((c: any) => ({ name: c.category as string, value: c.value as number })));
   const topItems = rows.slice(0, 10).map((r: any) => ({ name: (r.product_name || '').slice(0, 12), value: r.value }));
   const stCount: Record<string, number> = {};
   rows.forEach((r: any) => { stCount[r.status] = (stCount[r.status] || 0) + 1; });
@@ -757,7 +761,6 @@ function ProductStockAnalytics() {
     { label: '품절', v: stCount['품절'] || 0, c: 'var(--color-danger)' },
   ];
   const stTot = Math.max(stSeg.reduce((a, b) => a + b.v, 0), 1);
-  const TT = { background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8, color: 'var(--color-text-primary)' };
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -770,14 +773,19 @@ function ProductStockAnalytics() {
         <div className={`${C.card} p-4`}>
           <div className="text-sm font-semibold text-text-primary mb-2">카테고리별 재고가액</div>
           {pie.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}><PieChart><Pie data={pie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={(e: any) => `${e.name} ${Math.round((e.percent || 0) * 100)}%`} labelLine={false}>{pie.map((p: any, i: number) => <Cell key={i} fill={p.fill} />)}</Pie><Tooltip contentStyle={TT} formatter={(x: any) => won(x)} /></PieChart></ResponsiveContainer>
-          ) : <div className="h-[200px] flex items-center justify-center text-text-quaternary text-sm">데이터 없음</div>}
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3" style={{ minHeight: 240 }}>
+              <div style={{ width: 190, height: 190, flex: 'none' }}>
+                <ResponsiveContainer width="100%" height="100%"><PieChart><Tooltip {...ndTooltip({ kind: 'none', value: won })} /><Pie data={pie} dataKey="value" nameKey="name" {...ndPie()} /></PieChart></ResponsiveContainer>
+              </div>
+              <div className="flex-1 min-w-[160px]"><NdDonutList rows={pie} /></div>
+            </div>
+          ) : <NdChartEmpty height={200}>데이터 없음</NdChartEmpty>}
         </div>
         <div className={`${C.card} p-4`}>
           <div className="text-sm font-semibold text-text-primary mb-2">상위 제품 재고가액 (Top 10)</div>
           {topItems.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}><BarChart data={topItems} layout="vertical" margin={{ left: 20 }}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" /><XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={wonShort} /><YAxis type="category" dataKey="name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} width={90} /><Tooltip contentStyle={TT} formatter={(x: any) => won(x)} /><Bar dataKey="value" radius={[0, 4, 4, 0]}>{topItems.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>
-          ) : <div className="h-[200px] flex items-center justify-center text-text-quaternary text-sm">데이터 없음</div>}
+            <ResponsiveContainer width="100%" height={ndBarsHeight(topItems.length)}><BarChart data={topItems} layout="vertical" margin={ndMarginH}><CartesianGrid {...ndGridVertical} /><XAxis type="number" {...ndAxis.value} {...scaleOf(topItems, ['value'], ndFmt.axisWonBy)} /><YAxis type="category" dataKey="name" {...categoryAxis(128)} /><Tooltip {...ndTooltip({ kind: 'bar', value: won })} /><Bar dataKey="value" name="재고가액" {...ndBar(1, { horizontal: true })} /></BarChart></ResponsiveContainer>
+          ) : <NdChartEmpty height={200}>데이터 없음</NdChartEmpty>}
         </div>
       </div>
       <div className={`${C.card} p-4`}>
