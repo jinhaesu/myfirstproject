@@ -228,7 +228,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary">
@@ -257,11 +257,11 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
               </div>
               <h3 className="text-lg font-semibold text-text-primary mb-2">업로드 완료</h3>
               <p className="text-text-tertiary mb-6">
-                총 <span className="font-bold text-link">{successCount}건</span>의 목표 데이터가 등록되었습니다.
+                총 <span className="font-semibold text-link">{successCount}건</span>의 목표 데이터가 등록되었습니다.
               </p>
               <button
                 onClick={handleSuccessClose}
-                className="px-6 py-2 bg-brand text-white rounded-lg hover:bg-accent transition-colors"
+                className="px-6 py-2 bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors"
               >
                 확인
               </button>
@@ -358,8 +358,8 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                         key={type}
                         className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
                           kpiType === type
-                            ? 'bg-brand text-white'
-                            : 'bg-bg-2 text-text-secondary hover:bg-white/5'
+                            ? 'bg-brand text-on-brand'
+                            : 'bg-bg-2 text-text-secondary hover:bg-bg-secondary'
                         }`}
                       >
                         <input
@@ -429,7 +429,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-4 py-2 text-text-tertiary hover:bg-white/5 rounded-lg transition-colors text-sm"
+                  className="px-4 py-2 text-text-tertiary hover:bg-bg-secondary rounded-lg transition-colors text-sm"
                 >
                   ← 파일 다시 선택
                 </button>
@@ -439,7 +439,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 text-text-tertiary hover:bg-white/5 rounded-lg transition-colors"
+                className="px-4 py-2 text-text-tertiary hover:bg-bg-secondary rounded-lg transition-colors"
               >
                 취소
               </button>
@@ -447,7 +447,7 @@ export function ExcelUploadModal({ isOpen, onClose, onSuccess, defaultYear }: Ex
                 <button
                   onClick={handlePreview}
                   disabled={!file || isUploading}
-                  className="px-4 py-2 bg-brand text-white rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isUploading ? (
                     <>
@@ -497,7 +497,7 @@ function ManagerGroup({
   return (
     <>
       {rows.map((row, idx) => (
-        <tr key={`${manager}-${idx}`} className="border-b border-border-primary hover:bg-white/5">
+        <tr key={`${manager}-${idx}`} className="border-b border-border-primary hover:bg-bg-secondary">
           {idx === 0 ? (
             <td
               className="px-3 py-2 font-medium text-text-primary whitespace-nowrap sticky left-0 bg-bg-1 z-10"

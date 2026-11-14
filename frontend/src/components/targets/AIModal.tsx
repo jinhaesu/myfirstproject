@@ -79,7 +79,7 @@ export function AIModal({ isOpen, onClose, data, mode }: AIModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="relative bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         {/* 헤더 */}
         <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -147,7 +147,7 @@ export function AIModal({ isOpen, onClose, data, mode }: AIModalProps) {
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-bg-2 text-text-secondary rounded-lg hover:bg-white/5 transition-colors"
+            className="px-4 py-2 bg-bg-2 text-text-secondary rounded-lg hover:bg-bg-secondary transition-colors"
           >
             닫기
           </button>

@@ -27,7 +27,7 @@ interface Overview { rows: Row[]; count: number; summary: { sales_linked: number
 const C = { card: 'bg-bg-1 border border-border-primary rounded-xl', th: 'text-left text-xs font-semibold text-text-tertiary px-3 py-2 border-b border-border-primary whitespace-nowrap', td: 'px-3 py-2 text-sm text-text-secondary border-b border-bg-inset whitespace-nowrap' };
 
 function Dot({ on, label }: { on: boolean; label: string }) {
-  return <span className={`inline-flex items-center gap-1 text-[11px] ${on ? 'text-success-light' : 'text-text-quaternary'}`}><span className={`w-2 h-2 rounded-full ${on ? 'bg-success' : 'bg-[#3A3A3A]'}`} />{label}</span>;
+  return <span className={`inline-flex items-center gap-1 text-[11px] ${on ? 'text-success-light' : 'text-text-quaternary'}`}><span className={`w-2 h-2 rounded-full ${on ? 'bg-success' : 'bg-bg-quaternary'}`} />{label}</span>;
 }
 
 export default function MappingPage() {
@@ -63,18 +63,18 @@ export default function MappingPage() {
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-text-primary">품목 매핑 관계</h1>
+            <h1 className="text-xl font-semibold text-text-primary">품목 매핑 관계</h1>
             <p className="text-sm text-text-tertiary mt-0.5">한 품목이 영업(매출)·생산·물류재고·BOM(세트)에서 어떻게 연결되는지 한눈에.</p>
           </div>
-          <button onClick={automap} disabled={busy} className="px-3 py-2 rounded-lg text-sm font-semibold bg-brand hover:bg-brand-hover text-white">{busy ? '연결 중…' : 'BOM 자동매핑'}</button>
+          <button onClick={automap} disabled={busy} className="px-3 py-2 rounded-lg text-sm font-semibold bg-brand hover:bg-brand-hover text-on-brand">{busy ? '연결 중…' : 'BOM 자동매핑'}</button>
         </div>
 
         {ov && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">영업 연결</div><div className="text-2xl font-bold text-accent">{ov.summary.sales_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
-            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">생산 연결</div><div className="text-2xl font-bold text-warning">{ov.summary.production_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
-            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">BOM 연결</div><div className="text-2xl font-bold text-cyan">{ov.summary.bom_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
-            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">완전 연결(3/3)</div><div className="text-2xl font-bold text-success-light">{ov.summary.fully_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
+            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">영업 연결</div><div className="text-2xl font-semibold text-accent">{ov.summary.sales_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
+            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">생산 연결</div><div className="text-2xl font-semibold text-warning">{ov.summary.production_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
+            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">BOM 연결</div><div className="text-2xl font-semibold text-cyan">{ov.summary.bom_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
+            <div className={`${C.card} p-4`}><div className="text-xs text-text-tertiary">완전 연결(3/3)</div><div className="text-2xl font-semibold text-success-light">{ov.summary.fully_linked}<span className="text-sm text-text-quaternary">/{ov.count}</span></div></div>
           </div>
         )}
 

@@ -102,14 +102,14 @@ export function MatrixTable({
           <div className="flex gap-1">
             {years.map((y) => (
               <button key={y} onClick={() => setYear(y)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${year === y ? 'bg-brand text-white border-brand' : 'bg-bg-0 text-text-tertiary border-border-primary hover:text-text-secondary'}`}>{y}년</button>
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${year === y ? 'bg-brand text-on-brand border-brand' : 'bg-bg-0 text-text-tertiary border-border-primary hover:text-text-secondary'}`}>{y}년</button>
             ))}
           </div>
           <button
             onClick={() => data && downloadMatrixCSV(`${title.replace(/\s+/g, '_')}_${year}`, firstCol, data, { category: showCategory })}
             disabled={!data || data.rows.length === 0}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-bg-inset border border-border-primary text-text-secondary hover:bg-border-primary disabled:opacity-40"
-          >⬇ 엑셀</button>
+          >엑셀</button>
         </div>
       </div>
       <div className="overflow-x-auto max-h-[460px] overflow-y-auto mt-2">
@@ -130,7 +130,7 @@ export function MatrixTable({
             ) : (
               <>
                 {data.rows.map((r, i) => (
-                  <tr key={i} className="hover:bg-white/5">
+                  <tr key={i} className="hover:bg-bg-secondary">
                     {showCategory && <td className={`${td} text-left text-text-tertiary`}>{r.category}</td>}
                     <td className={`${td} text-left text-text-primary`}>{r.name}</td>
                     {r.values.map((v, j) => <td key={j} className={`${td} text-right ${v < 0 ? 'text-danger' : ''}`}>{v ? fmt(v) : '-'}</td>)}
@@ -139,9 +139,9 @@ export function MatrixTable({
                 ))}
                 <tr className="bg-bg-0 sticky bottom-0">
                   {showCategory && <td className={`${td} border-t border-border-primary`}></td>}
-                  <td className={`${td} text-left font-bold text-text-primary border-t border-border-primary`}>총 합계</td>
+                  <td className={`${td} text-left font-semibold text-text-primary border-t border-border-primary`}>총 합계</td>
                   {data.col_totals.map((v, j) => <td key={j} className={`${td} text-right font-semibold text-text-secondary border-t border-border-primary ${v < 0 ? 'text-danger' : ''}`}>{fmt(v)}</td>)}
-                  <td className={`${td} text-right font-bold text-warning border-t border-border-primary`}>{fmt(data.grand_total)}</td>
+                  <td className={`${td} text-right font-semibold text-warning border-t border-border-primary`}>{fmt(data.grand_total)}</td>
                 </tr>
               </>
             )}

@@ -419,7 +419,7 @@ export default function InventoryPage() {
   // ---------------------------------------------------------------------------
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
           <p className="text-text-tertiary">로딩 중...</p>
@@ -438,13 +438,13 @@ export default function InventoryPage() {
   const tabs: TabKey[] = ['재고현황', '출고현황', '재고알림'];
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0">
+    <main className="min-h-screen bg-bg-0">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Page header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-text-primary">재고/출고현황</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">재고/출고현황</h1>
           <p className="text-text-tertiary mt-1">
             상품 재고 및 출고 현황을 한눈에 관리하세요
           </p>
@@ -453,11 +453,11 @@ export default function InventoryPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* 총 SKU 수 */}
-          <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+          <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-tertiary">총 SKU 수</p>
-                <p className="text-2xl font-bold text-text-primary mt-1">{fmt(totalSKU)}</p>
+                <p className="text-2xl font-semibold text-text-primary mt-1">{fmt(totalSKU)}</p>
               </div>
               <div className="w-11 h-11 bg-brand/15 rounded-xl flex items-center justify-center">
                 <svg className="w-6 h-6 text-link" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -468,11 +468,11 @@ export default function InventoryPage() {
           </div>
 
           {/* 총 재고수량 */}
-          <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+          <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-tertiary">총 재고수량</p>
-                <p className="text-2xl font-bold text-text-primary mt-1">{fmt(totalStock)}</p>
+                <p className="text-2xl font-semibold text-text-primary mt-1">{fmt(totalStock)}</p>
               </div>
               <div className="w-11 h-11 bg-brand/15 rounded-xl flex items-center justify-center">
                 <svg className="w-6 h-6 text-link" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -483,11 +483,11 @@ export default function InventoryPage() {
           </div>
 
           {/* 재고부족 품목 */}
-          <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-danger/30 p-5">
+          <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-danger/30 p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-danger">재고부족 품목</p>
-                <p className="text-2xl font-bold text-danger mt-1">{fmt(lowStockCount)}</p>
+                <p className="text-2xl font-semibold text-danger mt-1">{fmt(lowStockCount)}</p>
               </div>
               <div className="w-11 h-11 bg-danger/15 rounded-xl flex items-center justify-center">
                 <svg className="w-6 h-6 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -498,11 +498,11 @@ export default function InventoryPage() {
           </div>
 
           {/* 금일 출고건수 */}
-          <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+          <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-tertiary">금일 출고건수</p>
-                <p className="text-2xl font-bold text-text-primary mt-1">{fmt(todayOutbound)}</p>
+                <p className="text-2xl font-semibold text-text-primary mt-1">{fmt(todayOutbound)}</p>
               </div>
               <div className="w-11 h-11 bg-success/15 rounded-xl flex items-center justify-center">
                 <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -514,20 +514,20 @@ export default function InventoryPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 bg-bg-1 rounded-xl p-1 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary mb-6 w-fit">
+        <div className="flex items-center gap-1 bg-bg-1 rounded-xl p-1 shadow-nd-s border border-border-primary mb-6 w-fit">
           {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+              className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                 activeTab === tab
-                  ? 'bg-brand text-white shadow-[0px_1px_3px_rgba(0,0,0,0.2)]'
-                  : 'text-text-tertiary hover:bg-white/5'
+                  ? 'bg-brand text-on-brand shadow-nd-s'
+                  : 'text-text-tertiary hover:bg-bg-secondary'
               }`}
             >
               {tab}
               {tab === '재고알림' && alertItems.length > 0 && (
-                <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-bold ${
+                <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
                   activeTab === tab ? 'bg-bg-1/20 text-white' : 'bg-danger/15 text-danger'
                 }`}>
                   {alertItems.length}
@@ -543,7 +543,7 @@ export default function InventoryPage() {
         {activeTab === '재고현황' && (
           <div className="space-y-6">
             {/* Filters row */}
-            <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+            <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
               <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3">
                 {/* Search */}
                 <div className="relative flex-1 w-full lg:w-auto">
@@ -596,7 +596,7 @@ export default function InventoryPage() {
                   </button>
                   <button
                     onClick={openAddInvModal}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-brand text-white rounded-lg text-sm font-medium hover:bg-accent transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-brand text-on-brand rounded-lg text-sm font-medium hover:bg-accent transition-colors shadow-nd-s"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -608,7 +608,7 @@ export default function InventoryPage() {
             </div>
 
             {/* Inventory table */}
-            <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+            <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -633,7 +633,7 @@ export default function InventoryPage() {
                       </tr>
                     ) : (
                       filteredInventory.map((item) => (
-                        <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                        <tr key={item.id} className="hover:bg-bg-secondary transition-colors">
                           <td className="px-5 py-3.5 font-mono text-xs text-text-tertiary">{item.skuCode}</td>
                           <td className="px-5 py-3.5 font-medium text-text-primary">{item.productName}</td>
                           <td className="px-5 py-3.5 text-text-tertiary">{item.category}</td>
@@ -666,8 +666,8 @@ export default function InventoryPage() {
             </div>
 
             {/* Stock level bar chart */}
-            <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-6">
-              <h3 className="text-base font-bold text-text-primary mb-4">카테고리별 재고 현황</h3>
+            <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-6">
+              <h3 className="text-base font-semibold text-text-primary mb-4">카테고리별 재고 현황</h3>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
@@ -702,7 +702,7 @@ export default function InventoryPage() {
         {activeTab === '출고현황' && (
           <div className="space-y-6">
             {/* Filters row */}
-            <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+            <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
               <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3">
                 {/* Date filter */}
                 <div className="flex items-center gap-2">
@@ -749,7 +749,7 @@ export default function InventoryPage() {
                   </button>
                   <button
                     onClick={openAddObModal}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-brand text-white rounded-lg text-sm font-medium hover:bg-accent transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-brand text-on-brand rounded-lg text-sm font-medium hover:bg-accent transition-colors shadow-nd-s"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -761,7 +761,7 @@ export default function InventoryPage() {
             </div>
 
             {/* Outbound table */}
-            <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+            <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -786,7 +786,7 @@ export default function InventoryPage() {
                       </tr>
                     ) : (
                       filteredOutbound.map((item) => (
-                        <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                        <tr key={item.id} className="hover:bg-bg-secondary transition-colors">
                           <td className="px-5 py-3.5 font-mono text-xs text-text-tertiary">{item.outboundNo}</td>
                           <td className="px-5 py-3.5 text-text-tertiary">{item.outboundDate}</td>
                           <td className="px-5 py-3.5 font-medium text-text-primary">{item.productName}</td>
@@ -812,8 +812,8 @@ export default function InventoryPage() {
             </div>
 
             {/* Daily outbound trend */}
-            <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-6">
-              <h3 className="text-base font-bold text-text-primary mb-4">일별 출고 추이</h3>
+            <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-6">
+              <h3 className="text-base font-semibold text-text-primary mb-4">일별 출고 추이</h3>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={outboundTrendData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -835,7 +835,7 @@ export default function InventoryPage() {
                       stroke="var(--color-brand-bg)"
                       strokeWidth={2.5}
                       dot={{ r: 5, fill: 'var(--color-brand-bg)', strokeWidth: 2, stroke: 'var(--color-border-primary)' }}
-                      activeDot={{ r: 7, fill: '#4f46e5', strokeWidth: 2, stroke: 'var(--color-border-primary)' }}
+                      activeDot={{ r: 7, fill: 'var(--color-brand-bg)', strokeWidth: 2, stroke: 'var(--color-border-primary)' }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -850,7 +850,7 @@ export default function InventoryPage() {
         {activeTab === '재고알림' && (
           <div className="space-y-4">
             {alertItems.length === 0 ? (
-              <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-12 text-center">
+              <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-12 text-center">
                 <div className="w-16 h-16 bg-success/15 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -861,7 +861,7 @@ export default function InventoryPage() {
               </div>
             ) : (
               <>
-                <div className="bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+                <div className="bg-bg-1 rounded-2xl shadow-nd-s border border-border-primary p-5">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-danger/15 rounded-xl flex items-center justify-center">
                       <svg className="w-5 h-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -869,7 +869,7 @@ export default function InventoryPage() {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="font-bold text-text-primary">재고 부족 알림</h3>
+                      <h3 className="font-semibold text-text-primary">재고 부족 알림</h3>
                       <p className="text-sm text-text-tertiary">
                         안전재고 이하 또는 발주점 이하 품목 {alertItems.length}건
                       </p>
@@ -881,7 +881,7 @@ export default function InventoryPage() {
                   {alertItems.map((item) => (
                     <div
                       key={item.id}
-                      className={`bg-bg-1 rounded-2xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border p-5 ${
+                      className={`bg-bg-1 rounded-2xl shadow-nd-s border p-5 ${
                         item.priority === '긴급'
                           ? 'border-danger/30'
                           : item.priority === '주의'
@@ -892,17 +892,17 @@ export default function InventoryPage() {
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${priorityColor[item.priority]}`}>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${priorityColor[item.priority]}`}>
                               {item.priority}
                             </span>
                             <span className="text-xs text-text-quaternary font-mono">{item.skuCode}</span>
                           </div>
-                          <h4 className="font-bold text-text-primary">{item.productName}</h4>
+                          <h4 className="font-semibold text-text-primary">{item.productName}</h4>
                           <p className="text-xs text-text-tertiary mt-0.5">{item.category}</p>
                         </div>
                         <button
                           onClick={() => handleOrderRequest(item)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-brand text-white rounded-lg text-xs font-semibold hover:bg-accent transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)] shrink-0"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-brand text-on-brand rounded-lg text-xs font-semibold hover:bg-accent transition-colors shadow-nd-s shrink-0"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
@@ -914,17 +914,17 @@ export default function InventoryPage() {
                       <div className="grid grid-cols-3 gap-3 mt-4">
                         <div className="bg-bg-0 rounded-lg p-3 text-center">
                           <p className="text-xs text-text-tertiary mb-1">현재재고</p>
-                          <p className={`text-lg font-bold ${item.currentStock === 0 ? 'text-danger' : 'text-text-primary'}`}>
+                          <p className={`text-lg font-semibold ${item.currentStock === 0 ? 'text-danger' : 'text-text-primary'}`}>
                             {fmt(item.currentStock)}
                           </p>
                         </div>
                         <div className="bg-bg-0 rounded-lg p-3 text-center">
                           <p className="text-xs text-text-tertiary mb-1">안전재고</p>
-                          <p className="text-lg font-bold text-text-primary">{fmt(item.safetyStock)}</p>
+                          <p className="text-lg font-semibold text-text-primary">{fmt(item.safetyStock)}</p>
                         </div>
                         <div className="bg-danger/10 rounded-lg p-3 text-center">
                           <p className="text-xs text-danger mb-1">부족수량</p>
-                          <p className="text-lg font-bold text-danger">{fmt(item.shortage)}</p>
+                          <p className="text-lg font-semibold text-danger">{fmt(item.shortage)}</p>
                         </div>
                       </div>
 
@@ -936,7 +936,7 @@ export default function InventoryPage() {
                         </div>
                         <div className="w-full bg-bg-2 rounded-full h-2">
                           <div
-                            className={`h-2 rounded-full transition-all ${
+                            className={`h-2 rounded-full transition-colors ${
                               item.currentStock === 0
                                 ? 'bg-danger'
                                 : item.currentStock < item.safetyStock * 0.5
@@ -969,15 +969,15 @@ export default function InventoryPage() {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setShowInvModal(false)}
           />
-          <div className="relative bg-bg-1 rounded-2xl shadow-2xl border border-border-primary w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-bg-1 rounded-2xl shadow-nd-f border border-border-primary w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-bold text-text-primary">
+                <h2 className="text-lg font-semibold text-text-primary">
                   {editingInv ? '재고 수정' : '재고 등록'}
                 </h2>
                 <button
                   onClick={() => setShowInvModal(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 text-text-quaternary hover:text-text-secondary transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-bg-secondary text-text-quaternary hover:text-text-secondary transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1066,13 +1066,13 @@ export default function InventoryPage() {
               <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border-primary">
                 <button
                   onClick={() => setShowInvModal(false)}
-                  className="px-5 py-2.5 text-sm font-medium text-text-tertiary hover:bg-white/5 rounded-lg transition-colors"
+                  className="px-5 py-2.5 text-sm font-medium text-text-tertiary hover:bg-bg-secondary rounded-lg transition-colors"
                 >
                   취소
                 </button>
                 <button
                   onClick={saveInventoryItem}
-                  className="px-5 py-2.5 bg-brand text-white rounded-lg text-sm font-medium hover:bg-accent transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                  className="px-5 py-2.5 bg-brand text-on-brand rounded-lg text-sm font-medium hover:bg-accent transition-colors shadow-nd-s"
                 >
                   {editingInv ? '수정 완료' : '등록'}
                 </button>
@@ -1091,13 +1091,13 @@ export default function InventoryPage() {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setShowObModal(false)}
           />
-          <div className="relative bg-bg-1 rounded-2xl shadow-2xl border border-border-primary w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-bg-1 rounded-2xl shadow-nd-f border border-border-primary w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-bold text-text-primary">출고 등록</h2>
+                <h2 className="text-lg font-semibold text-text-primary">출고 등록</h2>
                 <button
                   onClick={() => setShowObModal(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 text-text-quaternary hover:text-text-secondary transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-bg-secondary text-text-quaternary hover:text-text-secondary transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1192,13 +1192,13 @@ export default function InventoryPage() {
               <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border-primary">
                 <button
                   onClick={() => setShowObModal(false)}
-                  className="px-5 py-2.5 text-sm font-medium text-text-tertiary hover:bg-white/5 rounded-lg transition-colors"
+                  className="px-5 py-2.5 text-sm font-medium text-text-tertiary hover:bg-bg-secondary rounded-lg transition-colors"
                 >
                   취소
                 </button>
                 <button
                   onClick={saveOutboundRecord}
-                  className="px-5 py-2.5 bg-brand text-white rounded-lg text-sm font-medium hover:bg-accent transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+                  className="px-5 py-2.5 bg-brand text-on-brand rounded-lg text-sm font-medium hover:bg-accent transition-colors shadow-nd-s"
                 >
                   등록
                 </button>

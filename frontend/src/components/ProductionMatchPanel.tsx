@@ -58,7 +58,7 @@ export function ProductionMatchPanel() {
         <div className="mt-3">
           <div className="flex flex-wrap items-center gap-2 mb-2">
             {(['review', 'all'] as const).map((f) => (
-              <button key={f} onClick={() => setFilter(f)} className={`px-2.5 py-1 rounded-md text-xs border ${filter === f ? 'bg-brand text-white border-brand' : 'border-border-primary text-text-secondary'}`}>
+              <button key={f} onClick={() => setFilter(f)} className={`px-2.5 py-1 rounded-md text-xs border ${filter === f ? 'bg-brand text-on-brand border-brand' : 'border-border-primary text-text-secondary'}`}>
                 {f === 'review' ? '점검 필요(미매칭·부분일치)' : '전체'}</button>
             ))}
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목명 검색" className="bg-bg-0 border border-border-primary rounded-lg px-2.5 py-1 text-xs text-text-primary focus:outline-none focus:border-brand" />

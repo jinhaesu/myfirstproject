@@ -66,7 +66,7 @@ export function DataTable({ columns, rows }: DataTableProps) {
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
-                  className="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider"
+                  className="px-4 py-3 text-left text-xs font-medium text-text-tertiary"
                 >
                   {flexRender(header.column.columnDef.header, header.getContext())}
                 </th>
@@ -76,7 +76,7 @@ export function DataTable({ columns, rows }: DataTableProps) {
         </thead>
         <tbody className="bg-bg-1 divide-y divide-border-primary">
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="hover:bg-white/5">
+            <tr key={row.id} className="hover:bg-bg-secondary">
               {row.getVisibleCells().map((cell) => (
                 <td
                   key={cell.id}
@@ -104,14 +104,14 @@ export function DataTable({ columns, rows }: DataTableProps) {
           <button
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
-            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/5"
+            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-secondary"
           >
             이전
           </button>
           <button
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
-            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/5"
+            className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-secondary"
           >
             다음
           </button>

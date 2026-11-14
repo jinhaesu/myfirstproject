@@ -91,7 +91,7 @@ export function DataItemActions({ data, type, onEdit, onDelete }: DataItemAction
         {/* 수정 */}
         <button
           onClick={onEdit}
-          className="p-2 text-text-quaternary hover:text-text-secondary hover:bg-white/5 rounded-lg transition-colors"
+          className="p-2 text-text-quaternary hover:text-text-secondary hover:bg-bg-secondary rounded-lg transition-colors"
           title="수정"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

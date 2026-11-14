@@ -1,4 +1,5 @@
 'use client';
+import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
 import { useEffect, useState, useCallback, Fragment, createContext, useContext } from 'react';
 import { useRouter } from 'next/navigation';
@@ -48,21 +49,21 @@ function XlsxBtn({ kind, params, label }: { kind: string; params?: Record<string
   return (
     <button disabled={busy} onClick={async () => { setBusy(true); try { await downloadExcel(kind, params || {}); } finally { setBusy(false); } }}
       className="px-3 py-2 rounded-lg text-sm font-semibold bg-success/10 text-success border border-success/30 hover:bg-success/20 whitespace-nowrap disabled:opacity-50">
-      {busy ? '생성 중…' : (label || '⬇ 엑셀')}
+      {busy ? '생성 중…' : (label || '엑셀')}
     </button>
   );
 }
 
-const C = { card: 'bg-bg-1 border border-border-primary rounded-xl', input: 'bg-bg-0 border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-brand', btn: 'px-3 py-2 rounded-lg text-sm font-semibold transition-colors', btnPrimary: 'bg-brand hover:bg-brand-hover text-white', btnGhost: 'bg-bg-inset hover:bg-border-primary text-text-secondary border border-border-primary', th: 'text-left text-xs font-semibold text-text-tertiary px-3 py-2 border-b border-border-primary whitespace-nowrap', td: 'px-3 py-2 text-sm text-text-secondary border-b border-bg-inset whitespace-nowrap' };
+const C = { card: 'bg-bg-1 border border-border-primary rounded-xl', input: 'bg-bg-0 border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-brand', btn: 'px-3 py-2 rounded-lg text-sm font-semibold transition-colors', btnPrimary: 'bg-brand hover:bg-brand-hover text-on-brand', btnGhost: 'bg-bg-inset hover:bg-border-primary text-text-secondary border border-border-primary', th: 'text-left text-xs font-semibold text-text-tertiary px-3 py-2 border-b border-border-primary whitespace-nowrap', td: 'px-3 py-2 text-sm text-text-secondary border-b border-bg-inset whitespace-nowrap' };
 const fmt = (n: number) => Number(n || 0).toLocaleString('ko-KR');
 const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
 const wonShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억'; if (a >= 1e4) return Math.round(n / 1e4).toLocaleString('ko-KR') + '만'; return '₩' + Math.round(n || 0).toLocaleString('ko-KR'); };
-const COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#00B8CC', '#EB5757', '#A855F7', '#F97316', '#14B8A6'];
+const COLORS = ND_CHART;
 const TT = { background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8, color: 'var(--color-text-primary)', fontSize: 12 } as const;
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const thisMonth = () => { const n = new Date(); return { start: iso(new Date(n.getFullYear(), n.getMonth(), 1)), end: iso(new Date(n.getFullYear(), n.getMonth() + 1, 0)) }; };
 function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
-  return <div className={`${C.card} p-4`}><div className="text-[11px] text-text-tertiary mb-1 truncate">{label}</div><div className={`text-lg font-bold tabular-nums ${tone || 'text-text-primary'}`}>{value}</div>{sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}</div>;
+  return <div className={`${C.card} p-4`}><div className="text-[11px] text-text-tertiary mb-1 truncate">{label}</div><div className={`text-lg font-semibold tabular-nums ${tone || 'text-text-primary'}`}>{value}</div>{sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}</div>;
 }
 // 부가세 기준 — 구매관리 전 탭 공통(상단 토글). supply=공급가(VAT별도) | total=합계(VAT포함).
 // 매출대비 비율·BOM 원가·매출원가 추정은 매출이 공급가라 항상 VAT별도 고정, 매입채무는 실지급과 상계라 VAT포함 고정.
@@ -79,7 +80,7 @@ function VatToggle({ value, onChange }: { value: Basis; onChange: (b: Basis) => 
       <span className="text-xs text-text-tertiary">금액 기준</span>
       <div className="flex rounded-lg overflow-hidden border border-border-primary">
         {([['supply', '공급가 (VAT별도)'], ['total', '합계 (VAT포함)']] as const).map(([k, l]) => (
-          <button key={k} onClick={() => onChange(k)} className={`px-2.5 py-1.5 text-xs font-semibold ${value === k ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`}>{l}</button>
+          <button key={k} onClick={() => onChange(k)} className={`px-2.5 py-1.5 text-xs font-semibold ${value === k ? 'bg-brand text-on-brand' : 'bg-bg-inset text-text-tertiary'}`}>{l}</button>
         ))}
       </div>
     </div>
@@ -90,7 +91,7 @@ function TeamFilter({ value, onChange }: { value: string; onChange: (v: string) 
   return (
     <div className="flex rounded-lg overflow-hidden border border-border-primary">
       {[{ k: '', l: '전체팀' }, { k: '구매팀', l: '구매팀' }, { k: '물류팀', l: '물류팀' }].map((t) => (
-        <button key={t.k} onClick={() => onChange(t.k)} className={`px-2.5 py-2 text-xs font-semibold ${value === t.k ? (t.k === '물류팀' ? 'bg-info text-white' : 'bg-brand text-white') : 'bg-bg-inset text-text-tertiary'}`}>{t.l}</button>
+        <button key={t.k} onClick={() => onChange(t.k)} className={`px-2.5 py-2 text-xs font-semibold ${value === t.k ? (t.k === '물류팀' ? 'bg-info text-white' : 'bg-brand text-on-brand') : 'bg-bg-inset text-text-tertiary'}`}>{t.l}</button>
       ))}
     </div>
   );
@@ -133,16 +134,12 @@ export default function PurchasePage() {
   useEffect(() => { if (!isLoading && !user) router.replace('/login'); }, [isLoading, user, router]);
   if (isLoading || !user) return <div className="min-h-screen bg-bg-0" />;
   const tabs: Tab[] = ['실적 대시보드', '실적 조회', '실적 입력', '단가 추이', '매입채무', '자산형 재고', 'BOM 매핑', '원부재료 소요', '거래처', '발주'];
-  const TAB_ICON: Record<Tab, string> = {
-    '실적 대시보드': '📊', '실적 조회': '🔎', '실적 입력': '✍️', '단가 추이': '📈', '매입채무': '💳',
-    '자산형 재고': '🏭', 'BOM 매핑': '🔗', '원부재료 소요': '🧮', '거래처': '🏢', '발주': '📦',
-  };
   return (
     <div className="min-h-screen bg-bg-0">
       <Navigation />
       <main className="max-w-[1400px] mx-auto px-4 py-6">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-xl font-bold text-text-primary">구매 관리</h1><p className="text-sm text-text-tertiary mt-0.5">구매일보 실적 분석 · 매출대비 구매비율 · 거래처/품목 이력 · 발주·발주서 발행.</p></div><VatToggle value={basis} onChange={setBasis} /></div>
-        <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">{tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[13px] font-semibold whitespace-nowrap transition-all ${tab === t ? 'bg-brand/10 border-brand/40 text-accent shadow-[0_1px_3px_rgba(0,0,0,0.15)]' : 'bg-bg-1 border-border-primary text-text-tertiary hover:text-text-secondary hover:border-border-secondary'}`}><span className="text-base leading-none">{TAB_ICON[t]}</span>{t}</button>)}</div>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-xl font-semibold text-text-primary">구매 관리</h1><p className="text-sm text-text-tertiary mt-0.5">구매일보 실적 분석 · 매출대비 구매비율 · 거래처/품목 이력 · 발주·발주서 발행.</p></div><VatToggle value={basis} onChange={setBasis} /></div>
+        <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">{tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[13px] font-semibold whitespace-nowrap transition-colors ${tab === t ? 'bg-brand/10 border-brand/40 text-accent shadow-nd-s' : 'bg-bg-1 border-border-primary text-text-tertiary hover:text-text-secondary hover:border-border-secondary'}`}>{t}</button>)}</div>
         <BasisCtx.Provider value={basis}>
         {tab === '실적 대시보드' && <DashTab />}
         {tab === '실적 조회' && <RecordsTab />}
@@ -234,8 +231,8 @@ function DashTab() {
         {(dr.vendor || dr.mclass || dr.q) && <button onClick={() => { const nx = { ...dr, vendor: '', mclass: '', q: '' }; setDr(nx); setAp(nx); }} className={`${C.btn} ${C.btnGhost}`}>필터 해제</button>}
         {dirty && <span className="text-xs text-warning">변경됨 — 조회를 누르세요</span>}
         <div className="ml-auto flex gap-1.5">
-          <XlsxBtn kind="dashboard" label="⬇ 대시보드 엑셀" params={{ basis, start: ap.start, end: ap.end, vendor: ap.vendor || undefined, mclass: ap.mclass || undefined, q: ap.q || undefined, team: ap.team || undefined }} />
-          <XlsxBtn kind="all" label="⬇ 구매관리 전체" params={{ basis, start: ap.start, end: ap.end, team: ap.team || undefined, year: Number(ap.start.slice(0, 4)) }} />
+          <XlsxBtn kind="dashboard" label="대시보드 엑셀" params={{ basis, start: ap.start, end: ap.end, vendor: ap.vendor || undefined, mclass: ap.mclass || undefined, q: ap.q || undefined, team: ap.team || undefined }} />
+          <XlsxBtn kind="all" label="구매관리 전체" params={{ basis, start: ap.start, end: ap.end, team: ap.team || undefined, year: Number(ap.start.slice(0, 4)) }} />
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -370,7 +367,7 @@ function MonthlyMatrix({ defaultYear, team }: { defaultYear: number; team: strin
       <div className="flex flex-wrap items-center gap-2 mb-1">
         <div className="text-sm font-semibold text-text-primary">연도별 월별 구매 합계 매트릭스<VatBadge b={basis} /></div>
         <div className="flex rounded-lg overflow-hidden border border-border-primary ml-2">
-          {years.map((y) => <button key={y} onClick={() => setYear(y)} className={`px-2.5 py-1.5 text-xs font-semibold ${year === y ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`}>{y}년</button>)}
+          {years.map((y) => <button key={y} onClick={() => setYear(y)} className={`px-2.5 py-1.5 text-xs font-semibold ${year === y ? 'bg-brand text-on-brand' : 'bg-bg-inset text-text-tertiary'}`}>{y}년</button>)}
         </div>
         <div className="flex rounded-lg overflow-hidden border border-border-primary">
           {([['vendor', '거래처별'], ['material', '원부재료별']] as const).map(([k, l]) => <button key={k} onClick={() => setBy(k)} className={`px-2.5 py-1.5 text-xs font-semibold ${by === k ? 'bg-info text-white' : 'bg-bg-inset text-text-tertiary'}`}>{l}</button>)}
@@ -454,7 +451,7 @@ function RecordsTab() {
         <select value={mclass} onChange={(e) => setMclass(e.target.value)} className={C.input}><option value="">전체 구분</option><option>원재료</option><option>부재료</option></select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·거래처 검색" className={`${C.input} w-48`} />
         <div className="flex rounded-lg overflow-hidden border border-border-primary">
-          {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setUnit(u)} className={`px-2.5 py-2 text-xs font-semibold ${unit === u ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`}>{u === 'ea' ? '수량(ea)' : '중량(kg)'}</button>)}
+          {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setUnit(u)} className={`px-2.5 py-2 text-xs font-semibold ${unit === u ? 'bg-brand text-on-brand' : 'bg-bg-inset text-text-tertiary'}`}>{u === 'ea' ? '수량(ea)' : '중량(kg)'}</button>)}
         </div>
         <XlsxBtn kind="records" params={{ start: range.start, end: range.end, mclass: mclass || undefined, q: q || undefined, team: team || undefined }} />
         {data && <span className="text-xs text-text-tertiary ml-auto">{fmt(data.total)}건 · 공급가(VAT별도) {won(data.supply_total)} · 합계(VAT포함) {won(data.total_total || 0)} · <span title="전표 정산 체크(✓완료)를 안 한 줄의 합계입니다. 실제 지급 기록과는 별개 — 거래처별 실제 미지급은 매입채무 탭(지급 기록 기준)에서 확인하세요.">정산 미체크(VAT포함) {won(data.unpaid_total || 0)}</span>{data.total > 500 && ' (500건 표시)'}</span>}
@@ -513,7 +510,7 @@ function HistoryModal({ hist, onClose }: { hist: any; onClose: () => void }) {
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <div><div className="text-xs text-text-tertiary">{isVendor ? '거래처 누적 이력' : '품목 구매 이력'}</div><div className="text-lg font-bold text-text-primary">{isVendor ? hist.vendor : hist.item_name}</div></div>
+          <div><div className="text-xs text-text-tertiary">{isVendor ? '거래처 누적 이력' : '품목 구매 이력'}</div><div className="text-lg font-semibold text-text-primary">{isVendor ? hist.vendor : hist.item_name}</div></div>
           <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-4">
@@ -718,7 +715,7 @@ function RecordEditModal({ rec, onClose, onSaved }: { rec: any; onClose: () => v
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4"><div className="text-lg font-bold text-text-primary">실적 수정 (#{rec.id})</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button></div>
+        <div className="flex items-center justify-between mb-4"><div className="text-lg font-semibold text-text-primary">실적 수정 (#{rec.id})</div><button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button></div>
         <div className="grid grid-cols-2 gap-3">
           <div><L>구매일자</L><input type="date" value={f.pdate} onChange={(e) => setF({ ...f, pdate: e.target.value })} className={`${C.input} w-full`} /></div>
           <div><L>거래처</L><Combobox<string> value={f.vendor} onChange={(v) => setF({ ...f, vendor: v })} fetcher={vendorFetcherTop} getLabel={(s) => s} render={(s) => <span className="text-text-primary">{s}</span>} /></div>
@@ -792,7 +789,7 @@ function PriceTab() {
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="품목·코드 검색" className={`${C.input} w-40`} />
         <label className="text-xs text-text-tertiary flex items-center gap-1">최소 매입<select value={minLines} onChange={(e) => setMinLines(Number(e.target.value))} className={C.input}>{[1, 2, 3, 5].map((n) => <option key={n} value={n}>{n}회+</option>)}</select></label>
         <div className="flex rounded-lg overflow-hidden border border-border-primary">
-          {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setPu(u)} className={`px-2.5 py-2 text-xs font-semibold ${pu === u ? 'bg-brand text-white' : 'bg-bg-inset text-text-tertiary'}`} title={u === 'kg' ? '규격 [Nkg] 기준 kg당 단가' : '전표상 단위(ea/box)당 단가'}>{u === 'ea' ? '단위당' : 'kg당'}</button>)}
+          {(['ea', 'kg'] as const).map((u) => <button key={u} onClick={() => setPu(u)} className={`px-2.5 py-2 text-xs font-semibold ${pu === u ? 'bg-brand text-on-brand' : 'bg-bg-inset text-text-tertiary'}`} title={u === 'kg' ? '규격 [Nkg] 기준 kg당 단가' : '전표상 단위(ea/box)당 단가'}>{u === 'ea' ? '단위당' : 'kg당'}</button>)}
         </div>
         <select value={sort} onChange={(e) => setSort(e.target.value)} className={`${C.input} ml-auto`}>{SORTS.map((s) => <option key={s.k} value={s.k}>{s.label}</option>)}</select>
         <XlsxBtn kind="price" params={{ basis, start: range.start, end: range.end, mclass: mclass || undefined, min_lines: minLines, sort, team: team || undefined }} />
@@ -804,7 +801,7 @@ function PriceTab() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-[11px] text-text-tertiary mb-1">기간 총 단가효과 (인하 절감 − 인상 부담) · 발주량 가중</div>
-              <div className={`text-2xl font-bold tabular-nums ${(data.net_savings ?? 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+              <div className={`text-2xl font-semibold tabular-nums ${(data.net_savings ?? 0) >= 0 ? 'text-success' : 'text-danger'}`}>
                 {(data.net_savings ?? 0) >= 0 ? '▼ 절감 ' : '▲ 부담 '}{won(Math.abs(data.net_savings || 0))}
               </div>
               <div className="text-xs text-text-quaternary mt-1">
@@ -814,8 +811,8 @@ function PriceTab() {
               </div>
             </div>
             <div className="flex gap-6">
-              <div className="text-right"><div className="text-[11px] text-info mb-0.5">인하 절감액</div><div className="text-lg font-bold tabular-nums text-info">−{wonShort(data.savings_amount || 0)}</div><div className="text-[10px] text-text-quaternary">{fmt(data.falling_count)}품목</div></div>
-              <div className="text-right"><div className="text-[11px] text-danger mb-0.5">인상 부담액</div><div className="text-lg font-bold tabular-nums text-danger">+{wonShort(data.increase_amount || 0)}</div><div className="text-[10px] text-text-quaternary">{fmt(data.rising_count)}품목</div></div>
+              <div className="text-right"><div className="text-[11px] text-info mb-0.5">인하 절감액</div><div className="text-lg font-semibold tabular-nums text-info">−{wonShort(data.savings_amount || 0)}</div><div className="text-[10px] text-text-quaternary">{fmt(data.falling_count)}품목</div></div>
+              <div className="text-right"><div className="text-[11px] text-danger mb-0.5">인상 부담액</div><div className="text-lg font-semibold tabular-nums text-danger">+{wonShort(data.increase_amount || 0)}</div><div className="text-[10px] text-text-quaternary">{fmt(data.rising_count)}품목</div></div>
             </div>
           </div>
         </div>
@@ -974,7 +971,7 @@ function APTab() {
           return (
             <div className={`${C.card} p-4`} title={T.balance_target_period ? `목표 기준: ${T.balance_target_period} 매출(공급가)` : ''}>
               <div className="text-[11px] text-text-tertiary mb-1 truncate">미지급 잔액</div>
-              <div className="text-lg font-bold tabular-nums text-warning">{won(bal)}</div>
+              <div className="text-lg font-semibold tabular-nums text-warning">{won(bal)}</div>
               {bt > 0 ? (
                 <div className="text-[11px] text-text-quaternary mt-1 leading-tight">
                   목표 {won(bt)}{ratio != null && <span className={`ml-1 font-semibold ${rtone}`}>· 목표대비 {ratio}%</span>}
@@ -999,7 +996,7 @@ function APTab() {
                 <YAxis tickFormatter={wonShort} tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }} width={54} />
                 <Tooltip contentStyle={TT} formatter={(v: any) => won(v)} />
                 <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-                  {bo.map((b, i) => <Cell key={i} fill={b === '미도래' ? '#00B8CC' : b === '당일' || b === '1~30일' ? '#F0BF00' : '#EB5757'} />)}
+                  {bo.map((b, i) => <Cell key={i} fill={b === '미도래' ? 'var(--nd-fg-4)' : b === '당일' || b === '1~30일' ? 'var(--nd-warn)' : 'var(--nd-bad)'} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -1037,7 +1034,7 @@ function APTab() {
             const settled = v.balance <= 0.5;
             const od = v.max_days_overdue;
             const avgOd = v.avg_days_overdue;
-            const odTone = (n: number | null) => n != null ? (n > 60 ? 'text-danger font-bold' : n > 30 ? 'text-danger' : 'text-warning') : 'text-text-quaternary';
+            const odTone = (n: number | null) => n != null ? (n > 60 ? 'text-danger font-semibold' : n > 30 ? 'text-danger' : 'text-warning') : 'text-text-quaternary';
             return (
               <tr key={v.vendor} className={`hover:bg-bg-1 ${settled ? 'opacity-60' : ''}`}>
                 <td className={`${C.td} text-center`}><input type="checkbox" checked={settled} onChange={(e) => toggleSettle(v, e.target.checked)} title="체크 시 잔액 정산완료 처리" /></td>
@@ -1106,7 +1103,7 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative bg-bg-1 border border-border-primary rounded-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
-          <div><div className="text-xs text-text-tertiary">거래처 정산 설정</div><div className="text-lg font-bold text-text-primary">{vendor.vendor}</div></div>
+          <div><div className="text-xs text-text-tertiary">거래처 정산 설정</div><div className="text-lg font-semibold text-text-primary">{vendor.vendor}</div></div>
           <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-xl">×</button>
         </div>
         <div className="grid grid-cols-3 gap-2 mb-4">
@@ -1169,12 +1166,12 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
             </div>
             {orders.dup_suspect_total > 0 && (
               <div className="text-[11px] text-danger leading-relaxed mb-2 rounded-lg bg-danger/10 px-3 py-2">
-                ⚠ 물류팀 포장비 원자료 {fmt(orders.dup_suspect_count)}줄 {won(orders.dup_suspect_total)}이 구매팀 실적과 같은 날·같은 품목·같은 금액으로 겹칩니다(이중 입력 의심). 이 금액만큼 미지급이 부풀려져 보입니다 — 정리 전까지는 월별 &apos;중복의심&apos; 금액을 빼고 보세요.
+                물류팀 포장비 원자료 {fmt(orders.dup_suspect_count)}줄 {won(orders.dup_suspect_total)}이 구매팀 실적과 같은 날·같은 품목·같은 금액으로 겹칩니다(이중 입력 의심). 이 금액만큼 미지급이 부풀려져 보입니다 — 정리 전까지는 월별 &apos;중복의심&apos; 금액을 빼고 보세요.
               </div>
             )}
             <div className="grid grid-cols-2 gap-2 mb-2">
-              <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary" title="실적 일자가 이번 달 1일 이전인 실적의 미지급 잔액">전월까지 실적분 (실적 일자 기준)</div><div className="text-sm font-bold tabular-nums text-warning">{won(orders.closed_balance || 0)}</div></div>
-              <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary">당월 실적분 ({orders.current_month}, 미마감)</div><div className="text-sm font-bold tabular-nums text-text-secondary">{won(orders.current_balance || 0)}</div></div>
+              <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary" title="실적 일자가 이번 달 1일 이전인 실적의 미지급 잔액">전월까지 실적분 (실적 일자 기준)</div><div className="text-sm font-semibold tabular-nums text-warning">{won(orders.closed_balance || 0)}</div></div>
+              <div className="rounded-lg bg-bg-inset px-3 py-2"><div className="text-[11px] text-text-tertiary">당월 실적분 ({orders.current_month}, 미마감)</div><div className="text-sm font-semibold tabular-nums text-text-secondary">{won(orders.current_balance || 0)}</div></div>
             </div>
             <table className="w-full"><thead><tr><th className={C.th} title="구매실적 '일자'의 연-월">월(실적 일자)</th><th className={`${C.th} text-right`}>매입(VAT포함)</th><th className={`${C.th} text-right`} title="지급 총액을 오래된 실적부터 차례로 채웠을 때 이 달에 돌아간 금액">지급 배정 ⓘ</th><th className={`${C.th} text-right`}>미지급</th></tr></thead>
               <tbody>{orders.months.filter((m: any) => m.unpaid > 0).map((m: any) => (
@@ -1228,7 +1225,7 @@ function VendorModal({ vendor, term, onClose, onChanged }: { vendor: any; term: 
 // ─────────────────────────────────────────────
 const BOM_FILTERS = [
   { k: 'all', label: '전체' },
-  { k: 'no_purchase_used', label: '⚠ BOM사용+구매없음' },
+  { k: 'no_purchase_used', label: 'BOM사용+구매없음' },
   { k: 'stale', label: '단가 괴리' },
   { k: 'unit_check', label: '단위 확인' },
   { k: 'matched', label: '정상 매칭' },
@@ -1528,11 +1525,11 @@ function AssetTab() {
       <LoadingOverlay show={busy} />
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-base font-bold text-text-primary">자산형 재고</h2>
+          <h2 className="text-base font-semibold text-text-primary">자산형 재고</h2>
           <p className="text-xs text-text-tertiary mt-0.5">공장 층별로 자산성 물품(부자재·소모품·비품 등)을 등록하고 입고·출고·조정으로 재고를 관리합니다. 자산가치 = 현재고 × 평가단가.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setLocModal(true)} className={`${C.btn} ${C.btnGhost}`}>🏭 위치 관리</button>
+          <button onClick={() => setLocModal(true)} className={`${C.btn} ${C.btnGhost}`}>위치 관리</button>
           <button onClick={() => setItemModal('new')} disabled={noLoc} className={`${C.btn} ${C.btnPrimary} disabled:opacity-50`}>+ 품목 등록</button>
         </div>
       </div>
@@ -1552,8 +1549,8 @@ function AssetTab() {
           <div className={`${C.card} p-4`}>
             <div className="text-[11px] text-text-tertiary mb-1">안전재고 미달 · 고장</div>
             <div className="flex items-baseline gap-3">
-              <div><span className={`text-lg font-bold tabular-nums ${dash.low_count > 0 ? 'text-danger' : 'text-success'}`}>{fmt(dash.low_count)}</span><span className="text-[11px] text-text-tertiary ml-0.5">종 미달</span></div>
-              <div className="border-l border-border-subtle pl-3"><span className={`text-lg font-bold tabular-nums ${dash.defect_total > 0 ? 'text-warning' : 'text-success'}`}>{fmt(dash.defect_total || 0)}</span><span className="text-[11px] text-text-tertiary ml-0.5">🔧 고장</span></div>
+              <div><span className={`text-lg font-semibold tabular-nums ${dash.low_count > 0 ? 'text-danger' : 'text-success'}`}>{fmt(dash.low_count)}</span><span className="text-[11px] text-text-tertiary ml-0.5">종 미달</span></div>
+              <div className="border-l border-border-subtle pl-3"><span className={`text-lg font-semibold tabular-nums ${dash.defect_total > 0 ? 'text-warning' : 'text-success'}`}>{fmt(dash.defect_total || 0)}</span><span className="text-[11px] text-text-tertiary ml-0.5">고장</span></div>
             </div>
             {(dash.defect_items || []).length > 0 && <div className="text-[10px] text-text-quaternary mt-1 truncate">{(dash.defect_items || []).map((d: any) => `${d.name} ${fmt(d.defect_qty)}${d.unit}`).join(', ')}</div>}
           </div>
@@ -1615,13 +1612,13 @@ function AssetTab() {
                     <div className="flex flex-wrap gap-1">
                       {it.stock_by_location.length === 0 && <span className="text-[11px] text-text-quaternary">-</span>}
                       {it.stock_by_location.map((s) => (
-                        <span key={s.location_id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-bg-inset text-[11px]"><span className="text-text-quaternary">{s.location_name}</span><span className="tabular-nums font-semibold text-text-secondary">{fmt(s.qty)}</span>{(s.defect_qty || 0) > 0 && <span className="tabular-nums font-semibold text-warning" title="고장">🔧{fmt(s.defect_qty)}</span>}</span>
+                        <span key={s.location_id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-bg-inset text-[11px]"><span className="text-text-quaternary">{s.location_name}</span><span className="tabular-nums font-semibold text-text-secondary">{fmt(s.qty)}</span>{(s.defect_qty || 0) > 0 && <span className="tabular-nums font-semibold text-warning" title="고장">고장 {fmt(s.defect_qty)}</span>}</span>
                       ))}
                     </div>
                   </td>
                   <td className={`${C.td} text-right`}>
                     <div className={`tabular-nums font-semibold ${it.below_min ? 'text-danger' : 'text-text-primary'}`}>{fmt(it.total_qty)} {it.unit}</div>
-                    {(it.defect_qty || 0) > 0 && <div className="text-[10px] text-warning tabular-nums">정상 {fmt(it.good_qty)} · 🔧고장 {fmt(it.defect_qty)}</div>}
+                    {(it.defect_qty || 0) > 0 && <div className="text-[10px] text-warning tabular-nums">정상 {fmt(it.good_qty)} · 고장 {fmt(it.defect_qty)}</div>}
                   </td>
                   <td className={`${C.td} text-right tabular-nums`}>{won(it.asset_value)}</td>
                   <td className={`${C.td} text-right tabular-nums text-text-quaternary`}>{it.min_qty ? fmt(it.min_qty) : '-'}</td>
@@ -1648,7 +1645,7 @@ function AssetTab() {
       {/* 최근 이동 이력 */}
       {!noLoc && (
         <div className={`${C.card} p-4`}>
-          <div className="text-sm font-bold text-text-primary mb-2">최근 재고 이동</div>
+          <div className="text-sm font-semibold text-text-primary mb-2">최근 재고 이동</div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr>
@@ -1671,7 +1668,7 @@ function AssetTab() {
                       <td className={C.td}><span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${badgeCls}`}>{MOVE_LABEL[m.movement_type] || m.movement_type}</span></td>
                       <td className={`${C.td} text-text-primary`}>{m.item_name}</td>
                       <td className={C.td}>{m.location_name}</td>
-                      <td className={`${C.td} text-right tabular-nums font-semibold ${qtyCls}`}>{isDef ? '🔧' : inc ? '+' : ''}{fmt(m.qty_delta)} {m.item_unit || ''}</td>
+                      <td className={`${C.td} text-right tabular-nums font-semibold ${qtyCls}`}>{isDef ? '고장 ' : inc ? '+' : ''}{fmt(m.qty_delta)} {m.item_unit || ''}</td>
                       <td className={`${C.td} text-[11px] text-text-tertiary max-w-[220px] truncate`}>{[m.reason, m.ref].filter(Boolean).join(' · ') || '-'}</td>
                       <td className={`${C.td} text-[11px] text-text-quaternary`}>{(m.created_by || '').split('@')[0]}</td>
                       <td className={C.td}><button onClick={() => removeMove(m.id)} className="text-[11px] text-text-quaternary hover:text-danger">삭제</button></td>
@@ -1712,7 +1709,7 @@ function AssetItemModal({ item, locs, onClose, onSaved }: { item: AssetItem | nu
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className={`${C.card} p-5 w-full max-w-lg`} onClick={(e) => e.stopPropagation()}>
-        <div className="text-base font-bold text-text-primary mb-4">{item ? '품목 수정' : '품목 등록'}</div>
+        <div className="text-base font-semibold text-text-primary mb-4">{item ? '품목 수정' : '품목 등록'}</div>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2"><div className={F}>품목명 *</div><input value={f.name} onChange={(e) => up('name', e.target.value)} className={`${C.input} w-full`} placeholder="예: 라벨지 60mm" /></div>
           <div><div className={F}>관리코드</div><input value={f.code} onChange={(e) => up('code', e.target.value)} className={`${C.input} w-full`} placeholder="선택" /></div>
@@ -1771,8 +1768,8 @@ function AssetMoveModal({ item, type, locs, onClose, onSaved }: { item: AssetIte
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className={`${C.card} p-5 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
-        <div className="text-base font-bold mb-1"><span className={tone}>{title}</span> <span className="text-text-primary">— {item.name}</span></div>
-        <div className="text-[11px] text-text-tertiary mb-4">현재 총재고 {fmt(item.total_qty)} {item.unit}{(item.defect_qty || 0) > 0 && <span className="text-warning"> · 🔧고장 {fmt(item.defect_qty)}</span>}{isDefectMove && <span className="block text-text-quaternary mt-0.5">{type === 'defect_discard' ? '※ 고장폐기: 총 보유수량과 고장수량을 함께 차감(반출)합니다.' : '※ 고장/수리는 총 보유수량은 그대로 두고 고장수량만 조정합니다(현장 존치).'}</span>}</div>
+        <div className="text-base font-semibold mb-1"><span className={tone}>{title}</span> <span className="text-text-primary">— {item.name}</span></div>
+        <div className="text-[11px] text-text-tertiary mb-4">현재 총재고 {fmt(item.total_qty)} {item.unit}{(item.defect_qty || 0) > 0 && <span className="text-warning"> · 고장 {fmt(item.defect_qty)}</span>}{isDefectMove && <span className="block text-text-quaternary mt-0.5">{type === 'defect_discard' ? '※ 고장폐기: 총 보유수량과 고장수량을 함께 차감(반출)합니다.' : '※ 고장/수리는 총 보유수량은 그대로 두고 고장수량만 조정합니다(현장 존치).'}</span>}</div>
         <div className="grid grid-cols-2 gap-3">
           <div><div className={F}>{type === 'transfer' ? '출발 위치' : '위치'}</div><select value={f.location_id ?? ''} onChange={(e) => up('location_id', Number(e.target.value))} className={`${C.input} w-full`}>{locs.map((l) => <option key={l.id} value={l.id}>{l.name} {isDefectMove ? `(재고 ${fmt(curStock(l.id))} · 고장 ${fmt(curDefect(l.id))})` : `(${fmt(curStock(l.id))})`}</option>)}</select></div>
           {type === 'transfer' && <div><div className={F}>도착 위치</div><select value={f.to_location_id ?? ''} onChange={(e) => up('to_location_id', Number(e.target.value))} className={`${C.input} w-full`}>{locs.filter((l) => l.id !== f.location_id).map((l) => <option key={l.id} value={l.id}>{l.name} ({fmt(curStock(l.id))})</option>)}</select></div>}
@@ -1813,7 +1810,7 @@ function AssetLocationModal({ locs, onClose, onChanged }: { locs: AssetLoc[]; on
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className={`${C.card} p-5 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
-        <div className="text-base font-bold text-text-primary mb-4">재고 위치(층) 관리</div>
+        <div className="text-base font-semibold text-text-primary mb-4">재고 위치(층) 관리</div>
         <div className="flex gap-2 mb-4">
           <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="예: 공장 4층 / 외부창고" className={`${C.input} flex-1`} />
           <button onClick={add} disabled={saving} className={`${C.btn} ${C.btnPrimary} disabled:opacity-50`}>추가</button>

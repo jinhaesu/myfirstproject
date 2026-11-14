@@ -1,4 +1,5 @@
 'use client';
+import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
 import { useMemo, useState, useCallback } from 'react';
 import {
@@ -31,23 +32,15 @@ interface DataChartProps {
 type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'composed';
 
 // Linear-inspired colorblind-safe palette
-const COLORS = [
-  '#5E6AD2', '#4EA7FC', '#00B8CC', '#27A644', '#F0BF00',
-  '#FC7840', '#EB5757', '#7070FF', '#828FFF', '#68CC58',
-];
+const COLORS = ND_CHART;
 
-const GRADIENT_PAIRS = [
-  { start: '#5E6AD2', end: '#828FFF' },
-  { start: '#4EA7FC', end: '#00B8CC' },
-  { start: '#27A644', end: '#68CC58' },
-  { start: '#F0BF00', end: '#FC7840' },
-];
+const GRADIENT_PAIRS = ND_CHART.slice(0, 4).map((c) => ({ start: c, end: c }));
 
 // Custom dark tooltip
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-bg-secondary border border-border-secondary rounded-xl px-4 py-3 shadow-[0px_7px_32px_rgba(0,0,0,0.5)]">
+    <div className="bg-bg-secondary border border-border-secondary rounded-xl px-4 py-3 shadow-nd-f">
       <p className="text-text-tertiary text-xs mb-2 font-medium">{label}</p>
       {payload.map((entry: any, i: number) => (
         <div key={i} className="flex items-center gap-2 py-0.5">
@@ -89,7 +82,7 @@ const CustomLegend = ({ payload }: any) => {
 function StatCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="bg-bg-2 border border-border-primary rounded-xl px-4 py-3 flex-1 min-w-[120px]">
-      <p className="text-text-quaternary text-[11px] font-medium uppercase tracking-wider">{label}</p>
+      <p className="text-text-quaternary text-[11px] font-medium">{label}</p>
       <p className="text-text-primary text-lg font-semibold mt-0.5" style={{ color }}>{value}</p>
     </div>
   );
@@ -218,10 +211,10 @@ export function DataChart({ columns, rows }: DataChartProps) {
             <button
               key={type}
               onClick={() => setChartType(type)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
                 chartType === type
-                  ? 'bg-brand text-white shadow-[0px_1px_3px_rgba(0,0,0,0.3)]'
-                  : 'text-text-tertiary hover:text-text-primary hover:bg-white/5'
+                  ? 'bg-brand text-on-brand shadow-nd-s'
+                  : 'text-text-tertiary hover:text-text-primary hover:bg-bg-secondary'
               }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -251,7 +244,7 @@ export function DataChart({ columns, rows }: DataChartProps) {
             <button
               key={col}
               onClick={() => toggleYAxis(col)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                 selectedYAxes.includes(col)
                   ? 'border-transparent text-white font-medium'
                   : 'border-border-primary text-text-quaternary hover:text-text-tertiary hover:border-border-secondary'

@@ -133,7 +133,7 @@ export function SalesModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* 헤더 */}
         <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary">
@@ -231,7 +231,7 @@ export function SalesModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-text-tertiary hover:bg-white/5 rounded-lg transition-colors"
+            className="px-4 py-2 text-text-tertiary hover:bg-bg-secondary rounded-lg transition-colors"
           >
             취소
           </button>

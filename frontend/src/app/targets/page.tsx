@@ -23,7 +23,7 @@ export default function TargetsPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
           <p className="text-text-tertiary">로딩 중...</p>
@@ -37,17 +37,17 @@ export default function TargetsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0">
+    <main className="min-h-screen bg-bg-0">
       <Navigation />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">목표 영업 지표</h1>
+            <h1 className="text-2xl font-semibold text-text-primary">목표 영업 지표</h1>
             <p className="text-text-tertiary mt-1">연간/월간 목표를 설정하고 실적을 관리하세요</p>
           </div>
           {/* 부가세 토글 - 전체 적용 */}
-          <label className="flex items-center gap-2 cursor-pointer bg-bg-1 px-4 py-2 rounded-lg border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+          <label className="flex items-center gap-2 cursor-pointer bg-bg-1 px-4 py-2 rounded-lg border border-border-primary shadow-nd-s">
             <input
               type="checkbox"
               checked={excludeVat}

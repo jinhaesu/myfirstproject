@@ -1,4 +1,5 @@
 'use client';
+import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
 import { Suspense, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -63,10 +64,7 @@ const CHANNELS_BY_CATEGORY = ALL_CHANNELS.reduce((acc, ch) => {
   return acc;
 }, {} as Record<string, typeof ALL_CHANNELS>);
 
-const COLORS = [
-  '#5E6AD2', '#27A644', '#F0BF00', '#EB5757', '#7070FF', '#EB5757',
-  '#06B6D4', '#68CC58', '#FC7840', '#828FFF', '#00B8CC', '#A855F7',
-];
+const COLORS = ND_CHART;
 
 const CATEGORY_COLORS: Record<string, string> = {
   '오픈마켓': '#5E6AD2',
@@ -257,7 +255,7 @@ export default function SettlementPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
+        <div className="min-h-screen bg-bg-0 flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
         </div>
       }
@@ -292,7 +290,7 @@ function SettlementPageContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-0 flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -309,13 +307,13 @@ function SettlementPageContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0">
+    <div className="min-h-screen bg-bg-0">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Page Title */}
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-text-primary">월별 결산 매출 확인</h2>
+          <h2 className="text-2xl font-semibold text-text-primary">월별 결산 매출 확인</h2>
           <p className="text-text-tertiary mt-1">월별 결산 데이터 관리, RPA 자동 수집, 리포트 생성</p>
         </div>
 
@@ -334,7 +332,7 @@ function SettlementPageContent() {
         )}
 
         {/* Tab Navigation */}
-        <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary mb-6">
+        <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary mb-6">
           <div className="flex overflow-x-auto border-b border-border-primary">
             {tabs.map((tab) => (
               <button
@@ -343,7 +341,7 @@ function SettlementPageContent() {
                 className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
                   activeTab === tab.key
                     ? 'border-brand text-link bg-brand/10'
-                    : 'border-transparent text-text-tertiary hover:text-text-secondary hover:bg-white/5'
+                    : 'border-transparent text-text-tertiary hover:text-text-secondary hover:bg-bg-secondary'
                 }`}
               >
                 {tab.label}
@@ -533,7 +531,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
   return (
     <div className="space-y-6">
       {/* Year/Month selector + action buttons */}
-      <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+      <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-text-tertiary">연도</label>
@@ -566,13 +564,13 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           >
             + 수동 입력
           </button>
-          <label className="px-4 py-2 text-sm bg-brand text-white rounded-lg hover:bg-accent transition-colors cursor-pointer">
+          <label className="px-4 py-2 text-sm bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors cursor-pointer">
             엑셀 업로드
             <input type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelUpload} className="hidden" />
           </label>
           <button
             onClick={handleExcelDownload}
-            className="px-4 py-2 text-sm bg-brand text-white rounded-lg hover:bg-accent transition-colors"
+            className="px-4 py-2 text-sm bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors"
           >
             엑셀 다운로드
           </button>
@@ -610,7 +608,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Monthly Trend Bar Chart */}
-            <div className="lg:col-span-2 bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-6">
+            <div className="lg:col-span-2 bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-6">
               <h3 className="text-lg font-semibold text-text-primary mb-4">{year}년 월별 추이</h3>
               {monthlyTrend.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
@@ -630,7 +628,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
             </div>
 
             {/* Category Pie Chart */}
-            <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-6">
+            <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-6">
               <h3 className="text-lg font-semibold text-text-primary mb-4">카테고리별 매출</h3>
               {categoryData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
@@ -659,7 +657,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
           </div>
 
           {/* Data Table */}
-          <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+          <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary overflow-hidden">
             <div className="p-4 border-b border-border-primary flex items-center justify-between">
               <h3 className="text-lg font-semibold text-text-primary">
                 {year}년 {month}월 채널별 결산 내역
@@ -702,7 +700,7 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                     </tr>
                   ) : (
                     sortedRecords.map((r) => (
-                      <tr key={r.id} className="hover:bg-white/5 transition-colors">
+                      <tr key={r.id} className="hover:bg-bg-secondary transition-colors">
                         <td className="px-4 py-3">
                           <span
                             className="inline-block px-2 py-0.5 text-xs rounded-full font-medium"
@@ -801,12 +799,6 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
 // ─── Summary Card Component ───
 
 function SummaryCard({ label, value, color, icon }: { label: string; value: string; color: string; icon: React.ReactNode }) {
-  const colorMap: Record<string, string> = {
-    blue: 'from-brand to-brand',
-    emerald: 'from-success to-success',
-    amber: 'from-warning to-warning',
-    violet: 'from-brand to-brand',
-  };
   const bgMap: Record<string, string> = {
     blue: 'bg-brand/10',
     emerald: 'bg-success/10',
@@ -821,11 +813,11 @@ function SummaryCard({ label, value, color, icon }: { label: string; value: stri
   };
 
   return (
-    <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+    <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-5">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-text-tertiary mb-1">{label}</p>
-          <p className="text-xl font-bold text-text-primary">{value}</p>
+          <p className="text-xl font-semibold text-text-primary">{value}</p>
         </div>
         <div className={`w-12 h-12 rounded-xl ${bgMap[color]} flex items-center justify-center ${textMap[color]}`}>
           {icon}
@@ -892,7 +884,7 @@ function ManualInputModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-bg-1 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-6 border-b border-border-primary">
           <h3 className="text-lg font-semibold text-text-primary">
             {record ? '결산 데이터 수정' : '결산 데이터 수동 입력'}
@@ -989,14 +981,14 @@ function ManualInputModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
+              className="px-4 py-2 text-sm text-text-tertiary bg-bg-2 rounded-lg hover:bg-bg-secondary transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 text-sm bg-brand text-white rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
             >
               {saving ? '저장 중...' : '저장'}
             </button>
@@ -1140,7 +1132,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold text-text-primary">RPA 자동 수집</h3>
           <p className="text-sm text-text-tertiary">{year}년 {month}월 결산 데이터를 자동으로 수집합니다</p>
@@ -1148,7 +1140,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
         <button
           onClick={handleCollectAll}
           disabled={collectingAll || configuredChannels.length === 0}
-          className="px-5 py-2.5 bg-brand text-white rounded-lg hover:bg-accent transition-colors disabled:opacity-50 flex items-center gap-2"
+          className="px-5 py-2.5 bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors disabled:opacity-50 flex items-center gap-2"
         >
           {collectingAll ? (
             <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> 수집 중...</>
@@ -1161,9 +1153,8 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
       {/* 로컬 에이전트 안내 */}
       <div className="bg-brand/10 border border-brand/30 rounded-xl p-4">
         <div className="flex items-start gap-3">
-          <span className="text-lg">💻</span>
           <div className="text-xs text-accent space-y-1">
-            <p className="font-bold text-sm text-accent">로컬 에이전트로 수집하기 (권장)</p>
+            <p className="font-semibold text-sm text-accent">로컬 에이전트로 수집하기 (권장)</p>
             <p>클라우드 서버 수집은 쇼핑몰의 IP 차단/CAPTCHA로 실패할 수 있습니다. 사무실 PC에서 <strong>로컬 에이전트</strong>를 실행하면 실제 브라우저로 안정적으로 수집됩니다.</p>
             <p className="text-link">설치 방법은 <strong>&quot;RPA 설정&quot;</strong> 탭의 &quot;설치 가이드&quot; 버튼을 참고하세요.</p>
           </div>
@@ -1182,7 +1173,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
       <div>
         <h4 className="text-md font-semibold text-text-secondary mb-3">수집 가능 ({configuredChannels.length}개 채널 — 로그인 정보 설정됨)</h4>
         {configuredChannels.length === 0 ? (
-          <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-8 text-center text-text-quaternary">
+          <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-8 text-center text-text-quaternary">
             <p>설정된 채널이 없습니다.</p>
             <p className="text-sm mt-1">&quot;RPA 설정&quot; 탭에서 채널별 로그인 정보를 먼저 입력하세요.</p>
           </div>
@@ -1192,7 +1183,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
               const latestLog = latestLogByChannel[ch.name];
               const isCollecting = collectingChannel === ch.name;
               return (
-                <div key={ch.name} className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+                <div key={ch.name} className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <span className="inline-block px-2 py-0.5 text-xs rounded-full font-medium mb-1" style={{ backgroundColor: `${CATEGORY_COLORS[ch.category] || '#6B7280'}20`, color: CATEGORY_COLORS[ch.category] || '#6B7280' }}>
@@ -1241,7 +1232,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
       )}
 
       {/* Recent Logs */}
-      <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+      <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary overflow-hidden">
         <div className="p-4 border-b border-border-primary">
           <h4 className="text-md font-semibold text-text-primary">최근 수집 로그</h4>
         </div>
@@ -1262,7 +1253,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
                 <tr><td colSpan={6} className="text-center py-8 text-text-quaternary">수집 로그가 없습니다</td></tr>
               ) : (
                 logs.slice(0, 10).map((log) => (
-                  <tr key={log.id} className="hover:bg-white/5">
+                  <tr key={log.id} className="hover:bg-bg-secondary">
                     <td className="px-4 py-2 font-medium text-text-secondary">{log.channel_name}</td>
                     <td className="px-4 py-2 text-text-tertiary">{log.year}년 {log.month}월</td>
                     <td className="px-4 py-2 text-center">{getStatusBadge(log.status)}</td>
@@ -1471,7 +1462,7 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
   return (
     <div className="space-y-6">
       {/* 로컬 에이전트 상태 */}
-      <div className={`rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border p-5 ${agentStatus?.connected ? 'bg-success/10 border-success/25' : 'bg-bg-0 border-border-primary'}`}>
+      <div className={`rounded-xl shadow-nd-s border p-5 ${agentStatus?.connected ? 'bg-success/10 border-success/25' : 'bg-bg-0 border-border-primary'}`}>
         <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
           <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${agentStatus?.connected ? 'bg-success animate-pulse' : 'bg-bg-quaternary'}`} />
@@ -1485,10 +1476,10 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={fetchAgentStatus} className="px-3 py-1.5 text-xs bg-bg-1 border border-border-primary text-text-tertiary rounded-lg hover:bg-white/5 transition-colors">
+            <button onClick={fetchAgentStatus} className="px-3 py-1.5 text-xs bg-bg-1 border border-border-primary text-text-tertiary rounded-lg hover:bg-bg-secondary transition-colors">
               새로고침
             </button>
-            <button onClick={() => setShowAgentGuide(!showAgentGuide)} className="px-3 py-1.5 text-xs bg-brand text-white rounded-lg hover:bg-accent transition-colors font-medium">
+            <button onClick={() => setShowAgentGuide(!showAgentGuide)} className="px-3 py-1.5 text-xs bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors font-medium">
               {showAgentGuide ? '가이드 닫기' : '설치 가이드'}
             </button>
           </div>
@@ -1501,22 +1492,22 @@ function RpaSettingsTab({ setToast }: { setToast: (t: { type: 'success' | 'error
         {/* 설치 가이드 */}
         {showAgentGuide && (
           <div className="mt-4 bg-bg-1 rounded-lg border border-border-primary p-4">
-            <h4 className="text-sm font-bold text-text-primary mb-3">로컬 에이전트 설치 방법</h4>
+            <h4 className="text-sm font-semibold text-text-primary mb-3">로컬 에이전트 설치 방법</h4>
             <div className="text-xs text-text-tertiary space-y-2">
               <div className="flex gap-3 items-start">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-bold">1</span>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-semibold">1</span>
                 <p>사무실 PC에 <strong>Python 3.10+</strong> 설치 (python.org에서 다운로드)</p>
               </div>
               <div className="flex gap-3 items-start">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-bold">2</span>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-semibold">2</span>
                 <p>프로젝트의 <code className="bg-bg-2 px-1.5 py-0.5 rounded text-[11px]">local-agent</code> 폴더를 사무실 PC에 복사</p>
               </div>
               <div className="flex gap-3 items-start">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-bold">3</span>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-semibold">3</span>
                 <p><code className="bg-bg-2 px-1.5 py-0.5 rounded text-[11px]">setup.bat</code> 실행 (가상환경 + 패키지 + 브라우저 자동 설치)</p>
               </div>
               <div className="flex gap-3 items-start">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-bold">4</span>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-semibold">4</span>
                 <div>
                   <p><code className="bg-bg-2 px-1.5 py-0.5 rounded text-[11px]">.env</code> 파일에 서버 URL과 API 키 입력:</p>
                   <pre className="bg-bg-1 text-success-light rounded p-2 mt-1 text-[10px] overflow-x-auto">
@@ -1526,7 +1517,7 @@ AGENT_API_KEY=your-api-key`}
                 </div>
               </div>
               <div className="flex gap-3 items-start">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-bold">5</span>
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand/15 text-link flex items-center justify-center text-[10px] font-semibold">5</span>
                 <div>
                   <p><code className="bg-bg-2 px-1.5 py-0.5 rounded text-[11px]">run.bat</code> 실행하면 브라우저가 열리며 각 채널에 자동 로그인 시작</p>
                   <p className="text-text-quaternary mt-1">CAPTCHA나 2단계 인증이 나오면 브라우저에서 직접 처리하면 됩니다</p>
@@ -1543,7 +1534,7 @@ AGENT_API_KEY=your-api-key`}
 
       {/* 사용 가이드 */}
       <div className="bg-warning/10 border border-warning/30 rounded-xl p-5">
-        <h4 className="text-sm font-bold text-warning mb-2">RPA 설정 가이드</h4>
+        <h4 className="text-sm font-semibold text-warning mb-2">RPA 설정 가이드</h4>
         <div className="text-xs text-warning space-y-1.5">
           <p>각 채널마다 아래 정보를 입력하면, 로컬 에이전트가 자동으로 로그인하여 결산 데이터를 수집합니다:</p>
           <ol className="list-decimal ml-4 space-y-1">
@@ -1558,7 +1549,7 @@ AGENT_API_KEY=your-api-key`}
 
       {/* 전체 36개 채널 — 카테고리별 그룹 */}
       {Object.entries(CHANNELS_BY_CATEGORY).map(([category, channels]) => (
-        <div key={category} className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+        <div key={category} className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary overflow-hidden">
           <div
             className="px-4 py-3 border-b border-border-primary flex items-center gap-2"
             style={{ backgroundColor: `${CATEGORY_COLORS[category] || '#6B7280'}10` }}
@@ -1641,7 +1632,7 @@ AGENT_API_KEY=your-api-key`}
       {/* 편집 모달 */}
       {editingChannel && editForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setEditingChannel(null); setEditForm(null); }}>
-          <div className="bg-bg-1 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b border-border-primary">
               <h3 className="text-lg font-semibold text-text-primary">{editingChannel.name} RPA 설정</h3>
               <p className="text-xs text-text-tertiary mt-1">{editingChannel.note}</p>
@@ -1728,14 +1719,14 @@ AGENT_API_KEY=your-api-key`}
               <div className="flex justify-end gap-3 pt-4 border-t border-border-primary">
                 <button
                   onClick={() => { setEditingChannel(null); setEditForm(null); }}
-                  className="px-4 py-2 text-sm text-text-tertiary bg-bg-2 rounded-lg hover:bg-white/5 transition-colors"
+                  className="px-4 py-2 text-sm text-text-tertiary bg-bg-2 rounded-lg hover:bg-bg-secondary transition-colors"
                 >
                   취소
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={savingChannel === editingChannel.name}
-                  className="px-4 py-2 text-sm bg-brand text-white rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-sm bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
                 >
                   {savingChannel === editingChannel.name ? '저장 중...' : '저장'}
                 </button>
@@ -1838,14 +1829,14 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold text-text-primary">결산 리포트 관리</h3>
           <p className="text-sm text-text-tertiary">자동/수동 결산 리포트를 설정하고 발송합니다</p>
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-4 py-2 text-sm bg-brand text-white rounded-lg hover:bg-accent transition-colors"
+          className="px-4 py-2 text-sm bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors"
         >
           {showCreateForm ? '취소' : '+ 새 리포트'}
         </button>
@@ -1853,7 +1844,7 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
 
       {/* Create Form */}
       {showCreateForm && (
-        <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-6">
+        <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-6">
           <h4 className="text-md font-semibold text-text-primary mb-4">새 리포트 만들기</h4>
           <form onSubmit={handleCreateReport} className="space-y-4">
             <div>
@@ -1913,7 +1904,7 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-5 py-2 text-sm bg-brand text-white rounded-lg hover:bg-accent transition-colors"
+                className="px-5 py-2 text-sm bg-brand text-on-brand rounded-lg hover:bg-accent transition-colors"
               >
                 리포트 생성
               </button>
@@ -1924,13 +1915,13 @@ function ReportsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; m
 
       {/* Reports List */}
       {reports.length === 0 && !showCreateForm ? (
-        <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-12 text-center text-text-quaternary">
+        <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-12 text-center text-text-quaternary">
           등록된 리포트가 없습니다. 새 리포트를 만들어보세요.
         </div>
       ) : (
         <div className="space-y-4">
           {reports.map((report) => (
-            <div key={report.id} className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-5">
+            <div key={report.id} className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex-1 min-w-[200px]">
                   <div className="flex items-center gap-2 mb-2">
@@ -2047,7 +2038,7 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
   return (
     <div className="space-y-6">
       {/* Filters */}
-      <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary p-4">
+      <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-text-tertiary">채널</label>
@@ -2083,7 +2074,7 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
           </div>
           <button
             onClick={() => { setIsLoading(true); fetchLogs(); }}
-            className="px-3 py-2 text-sm bg-bg-2 text-text-tertiary rounded-lg hover:bg-white/5 transition-colors"
+            className="px-3 py-2 text-sm bg-bg-2 text-text-tertiary rounded-lg hover:bg-bg-secondary transition-colors"
           >
             새로고침
           </button>
@@ -2091,7 +2082,7 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
       </div>
 
       {/* Logs Table */}
-      <div className="bg-bg-1 rounded-xl shadow-[0px_1px_3px_rgba(0,0,0,0.2)] border border-border-primary overflow-hidden">
+      <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary overflow-hidden">
         {isLoading ? (
           <div className="flex justify-center py-16">
             <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin" />
@@ -2120,7 +2111,7 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
                   </tr>
                 ) : (
                   logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-white/5 transition-colors">
+                    <tr key={log.id} className="hover:bg-bg-secondary transition-colors">
                       <td className="px-4 py-3 font-medium text-text-secondary">{log.channel_name}</td>
                       <td className="px-4 py-3 text-text-tertiary">{log.year}년 {log.month}월</td>
                       <td className="px-4 py-3 text-center">

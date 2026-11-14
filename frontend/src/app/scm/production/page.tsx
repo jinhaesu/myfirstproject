@@ -352,9 +352,9 @@ function ToastContainer({ toasts, onRemove }: { toasts: ToastMessage[]; onRemove
       {toasts.map(t => (
         <div
           key={t.id}
-          className={`flex items-center gap-3 px-5 py-3 rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] text-sm font-medium transition-all animate-slide-up
+          className={`flex items-center gap-3 px-5 py-3 rounded-lg shadow-nd-f text-sm font-medium transition-[transform,opacity] animate-slide-up
             ${t.type === 'success' ? 'bg-success text-white' : ''}
-            ${t.type === 'info' ? 'bg-brand text-white' : ''}
+            ${t.type === 'info' ? 'bg-brand text-on-brand' : ''}
             ${t.type === 'error' ? 'bg-danger text-white' : ''}
           `}
         >
@@ -920,7 +920,7 @@ export default function ProductionPlanPage() {
             {productAutocomplete.visible && productAutocomplete.planId === plan.id && filteredProducts.length > 0 && (
               <div
                 ref={autocompleteRef}
-                className="absolute top-full left-0 z-50 w-[360px] mt-1 bg-bg-1 border border-border-primary rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] max-h-[240px] overflow-y-auto"
+                className="absolute top-full left-0 z-50 w-[360px] mt-1 bg-bg-1 border border-border-primary rounded-lg shadow-nd-f max-h-[240px] overflow-y-auto"
               >
                 {filteredProducts.map(product => (
                   <button
@@ -1043,7 +1043,7 @@ export default function ProductionPlanPage() {
         {/* ── Page Header ─────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">생산 계획</h1>
+            <h1 className="text-2xl font-semibold text-text-primary">생산 계획</h1>
             <p className="text-sm text-text-tertiary mt-1">생산일보 RAW-DATA 기반 생산 계획 관리</p>
           </div>
           <div className="flex items-center gap-2">
@@ -1051,7 +1051,7 @@ export default function ProductionPlanPage() {
             <button
               onClick={bulkAiRecommend}
               disabled={bulkAiLoading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-brand to-brand text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:from-brand hover:to-accent disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-on-brand text-sm font-medium shadow-nd-s hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed transition-[transform,opacity]"
             >
               {bulkAiLoading ? (
                 <>
@@ -1070,7 +1070,7 @@ export default function ProductionPlanPage() {
             <button
               onClick={saveDirtyPlans}
               disabled={savingBulk || dirtyCount === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-on-brand text-sm font-medium shadow-nd-s hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {savingBulk ? <LoadingSpinner /> : <SaveIcon />}
               <span>저장{dirtyCount > 0 ? ` (${dirtyCount})` : ''}</span>
@@ -1079,7 +1079,7 @@ export default function ProductionPlanPage() {
             {/* 계획 추가 */}
             <button
               onClick={addNewPlan}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-success text-white text-sm font-medium shadow-[0px_1px_3px_rgba(0,0,0,0.2)] hover:bg-success-hover transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-success text-white text-sm font-medium shadow-nd-s hover:bg-success-hover transition-colors"
             >
               <PlusIcon />
               <span>계획 추가</span>
@@ -1088,7 +1088,7 @@ export default function ProductionPlanPage() {
             {/* Export CSV */}
             <button
               onClick={exportCsv}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border-primary bg-bg-1 text-text-secondary text-sm font-medium hover:bg-white/5 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border-primary bg-bg-1 text-text-secondary text-sm font-medium hover:bg-bg-secondary transition-colors"
             >
               <DownloadIcon />
               <span>CSV</span>
@@ -1097,7 +1097,7 @@ export default function ProductionPlanPage() {
             {/* 공유 */}
             <button
               onClick={() => setShowShareModal(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border-primary bg-bg-1 text-text-secondary text-sm font-medium hover:bg-white/5 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border-primary bg-bg-1 text-text-secondary text-sm font-medium hover:bg-bg-secondary transition-colors"
             >
               <ShareIcon />
               <span>공유</span>
@@ -1152,35 +1152,35 @@ export default function ProductionPlanPage() {
 
         {/* ── Summary Cards ───────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-            <p className="text-xs text-text-tertiary font-medium uppercase tracking-wide">총 생산량</p>
-            <p className="text-2xl font-bold text-text-primary mt-1">{fmtNum(summary.totalQty)}</p>
+          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-nd-s">
+            <p className="text-xs text-text-tertiary font-medium">총 생산량</p>
+            <p className="text-2xl font-semibold text-text-primary mt-1">{fmtNum(summary.totalQty)}</p>
             <p className="text-xs text-text-quaternary mt-1">{plans.length}개 품목</p>
           </div>
-          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-            <p className="text-xs text-text-tertiary font-medium uppercase tracking-wide">총 생산액</p>
-            <p className="text-2xl font-bold text-link mt-1">{fmtNum(summary.totalValue)}</p>
+          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-nd-s">
+            <p className="text-xs text-text-tertiary font-medium">총 생산액</p>
+            <p className="text-2xl font-semibold text-link mt-1">{fmtNum(summary.totalValue)}</p>
             <p className="text-xs text-text-quaternary mt-1">원</p>
           </div>
-          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-            <p className="text-xs text-text-tertiary font-medium uppercase tracking-wide">총 투여 시간</p>
-            <p className="text-2xl font-bold text-success mt-1">{fmtNumDec(summary.totalHours)}</p>
+          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-nd-s">
+            <p className="text-xs text-text-tertiary font-medium">총 투여 시간</p>
+            <p className="text-2xl font-semibold text-success mt-1">{fmtNumDec(summary.totalHours)}</p>
             <p className="text-xs text-text-quaternary mt-1">시간</p>
           </div>
-          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
-            <p className="text-xs text-text-tertiary font-medium uppercase tracking-wide">AI 추천 대기</p>
-            <p className="text-2xl font-bold text-link mt-1">{summary.aiPending}</p>
+          <div className="bg-bg-1 rounded-xl border border-border-primary p-4 shadow-nd-s">
+            <p className="text-xs text-text-tertiary font-medium">AI 추천 대기</p>
+            <p className="text-2xl font-semibold text-link mt-1">{summary.aiPending}</p>
             <p className="text-xs text-text-quaternary mt-1">품목</p>
           </div>
         </div>
 
         {/* ── Date Selector ───────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-4 bg-bg-1 rounded-xl border border-border-primary px-4 py-3 shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+        <div className="flex items-center justify-between mb-4 bg-bg-1 rounded-xl border border-border-primary px-4 py-3 shadow-nd-s">
           <div className="flex items-center gap-3">
             <CalendarIcon />
             <button
               onClick={() => navigateDate(-1)}
-              className="p-1 rounded hover:bg-white/5 text-text-tertiary"
+              className="p-1 rounded hover:bg-bg-secondary text-text-tertiary"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1207,7 +1207,7 @@ export default function ProductionPlanPage() {
             </div>
             <button
               onClick={() => navigateDate(1)}
-              className="p-1 rounded hover:bg-white/5 text-text-tertiary"
+              className="p-1 rounded hover:bg-bg-secondary text-text-tertiary"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1218,7 +1218,7 @@ export default function ProductionPlanPage() {
             <button
               onClick={() => setViewMode('daily')}
               className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
-                viewMode === 'daily' ? 'bg-bg-1 text-text-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]' : 'text-text-tertiary hover:text-text-secondary'
+                viewMode === 'daily' ? 'bg-bg-1 text-text-primary shadow-nd-s' : 'text-text-tertiary hover:text-text-secondary'
               }`}
             >
               일간
@@ -1226,7 +1226,7 @@ export default function ProductionPlanPage() {
             <button
               onClick={() => setViewMode('weekly')}
               className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
-                viewMode === 'weekly' ? 'bg-bg-1 text-text-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]' : 'text-text-tertiary hover:text-text-secondary'
+                viewMode === 'weekly' ? 'bg-bg-1 text-text-primary shadow-nd-s' : 'text-text-tertiary hover:text-text-secondary'
               }`}
             >
               주간
@@ -1249,7 +1249,7 @@ export default function ProductionPlanPage() {
         <div
           ref={tableContainerRef}
           tabIndex={0}
-          className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-auto focus:outline-none focus:ring-2 focus:ring-brand/50"
+          className="bg-bg-1 rounded-xl border border-border-primary shadow-nd-s overflow-auto focus:outline-none focus:ring-2 focus:ring-brand/50"
           style={{ maxHeight: 'calc(100vh - 420px)' }}
         >
           {loading ? (
@@ -1420,10 +1420,10 @@ export default function ProductionPlanPage() {
 
         {/* ── AI Recommendation Explanations ─────────────────────────────── */}
         {aiRecommendations.length > 0 && (
-          <div className="mt-4 bg-bg-1 rounded-xl border border-brand/30 shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden">
+          <div className="mt-4 bg-bg-1 rounded-xl border border-brand/30 shadow-nd-s overflow-hidden">
             <button
               onClick={() => setAiExplanationsExpanded(!aiExplanationsExpanded)}
-              className="w-full flex items-center justify-between px-5 py-3 bg-gradient-to-r from-brand/10 to-brand/10 hover:from-brand/15 hover:to-brand/15 transition-colors"
+              className="w-full flex items-center justify-between px-5 py-3 bg-brand/10 hover:bg-brand/15 transition-colors"
             >
               <div className="flex items-center gap-2">
                 <SparkleIcon />
@@ -1437,13 +1437,13 @@ export default function ProductionPlanPage() {
             {aiExplanationsExpanded && (
               <div className="divide-y divide-border-primary max-h-[400px] overflow-y-auto">
                 {aiRecommendations.map((rec, idx) => (
-                  <div key={rec.plan_id} className="px-5 py-3 hover:bg-white/5 transition-colors">
+                  <div key={rec.plan_id} className="px-5 py-3 hover:bg-bg-secondary transition-colors">
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-text-quaternary">{idx + 1}.</span>
                         <span className="text-sm font-semibold text-text-primary">{rec.product_name}</span>
                       </div>
-                      <span className="text-sm font-bold text-link">추천: {fmtNum(rec.recommended_qty)}개</span>
+                      <span className="text-sm font-semibold text-link">추천: {fmtNum(rec.recommended_qty)}개</span>
                     </div>
                     <pre className="text-xs text-text-tertiary whitespace-pre-wrap bg-bg-0 rounded-lg p-3 font-mono leading-relaxed border border-border-primary">
                       {rec.explanation}
@@ -1459,7 +1459,7 @@ export default function ProductionPlanPage() {
       {/* ── Share Modal ──────────────────────────────────────────────────── */}
       {showShareModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-bg-1 rounded-2xl shadow-[0px_7px_32px_rgba(0,0,0,0.35)] w-full max-w-md mx-4 p-6">
+          <div className="bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-text-primary">생산 계획 공유</h3>
               <button onClick={() => { setShowShareModal(false); setShareSuccess(false); setShareEmail(''); }} className="text-text-quaternary hover:text-text-secondary">
@@ -1488,7 +1488,7 @@ export default function ProductionPlanPage() {
                         className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
                           shareMethod === method
                             ? 'border-brand bg-brand/10 text-accent'
-                            : 'border-border-primary text-text-tertiary hover:bg-white/5'
+                            : 'border-border-primary text-text-tertiary hover:bg-bg-secondary'
                         }`}
                       >
                         {method === 'email' ? '이메일' : method === 'sms' ? 'SMS' : '카카오톡'}
@@ -1511,7 +1511,7 @@ export default function ProductionPlanPage() {
                 <button
                   onClick={handleShare}
                   disabled={!shareEmail || shareSending}
-                  className="w-full py-2.5 rounded-lg bg-brand text-white text-sm font-medium hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+                  className="w-full py-2.5 rounded-lg bg-brand text-on-brand text-sm font-medium hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
                 >
                   {shareSending ? <LoadingSpinner /> : <ShareIcon />}
                   <span>{shareSending ? '전송 중...' : '공유하기'}</span>

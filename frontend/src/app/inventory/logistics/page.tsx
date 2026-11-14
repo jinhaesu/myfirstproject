@@ -1,4 +1,5 @@
 'use client';
+import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -31,7 +32,7 @@ const C = {
   card: 'bg-bg-1 border border-border-primary rounded-xl',
   input: 'bg-bg-0 border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-brand',
   btn: 'px-3 py-2 rounded-lg text-sm font-semibold transition-colors',
-  btnPrimary: 'bg-brand hover:bg-brand-hover text-white',
+  btnPrimary: 'bg-brand hover:bg-brand-hover text-on-brand',
   btnGhost: 'bg-bg-inset hover:bg-border-primary text-text-secondary border border-border-primary',
   th: 'text-left text-xs font-semibold text-text-tertiary px-3 py-2 border-b border-border-primary whitespace-nowrap',
   td: 'px-3 py-2 text-sm text-text-secondary border-b border-bg-inset whitespace-nowrap',
@@ -40,7 +41,7 @@ const fmt = (n: number | null | undefined) => (n === null || n === undefined ? '
 const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
 const wonShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억'; if (a >= 1e4) return Math.round(n / 1e4).toLocaleString('ko-KR') + '만'; return '₩' + Math.round(n || 0).toLocaleString('ko-KR'); };
 const numShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(2).replace(/\.00$/, '') + '억'; if (a >= 1e4) return (n / 1e4).toFixed(1).replace(/\.0$/, '') + '만'; return Math.round(n || 0).toLocaleString('ko-KR'); };
-const COLORS = ['#5E6AD2', '#27A644', '#F0BF00', '#00B8CC', '#EB5757', '#A855F7', '#F97316', '#14B8A6'];
+const COLORS = ND_CHART;
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const todayISO = () => iso(new Date());
 function presetRange(kind: string): { start: string; end: string } {
@@ -58,7 +59,7 @@ function StatCard({ label, value, sub, tone }: { label: string; value: string; s
   return (
     <div className={`${C.card} p-4`}>
       <div className="text-[11px] text-text-tertiary mb-1 truncate" title={label}>{label}</div>
-      <div className={`text-lg font-bold tabular-nums leading-tight ${tone || 'text-text-primary'}`}>{value}</div>
+      <div className={`text-lg font-semibold tabular-nums leading-tight ${tone || 'text-text-primary'}`}>{value}</div>
       {sub && <div className="text-[11px] text-text-quaternary mt-1 truncate">{sub}</div>}
     </div>
   );
@@ -103,7 +104,7 @@ export default function LogisticsPage() {
       <Navigation />
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="mb-4">
-          <h1 className="text-xl font-bold text-text-primary">물류 작업 실적</h1>
+          <h1 className="text-xl font-semibold text-text-primary">물류 작업 실적</h1>
           <p className="text-sm text-text-tertiary mt-0.5">물류 현장 작업(단상자·택배·B2B 등) 실적·생산성·채산성과 근태 노무시간 대조.</p>
         </div>
         <div className="flex gap-1 mb-5 border-b border-border-primary">
@@ -403,7 +404,7 @@ function PhoneTab() {
       <div className={`${C.card} p-4`}>
         <div className="text-sm font-semibold text-text-primary mb-2">작업 입력 요청 문자</div>
         <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={4} className={`${C.input} w-full mb-2`} />
-        <button onClick={sendSms} className={`${C.btn} ${C.btnPrimary}`}>📩 {sel.size ? sel.size + '명 선택' : '활성 전체'} 발송</button>
+        <button onClick={sendSms} className={`${C.btn} ${C.btnPrimary}`}>{sel.size ? sel.size + '명 선택' : '활성 전체'} 발송</button>
       </div>
     </div>
   );

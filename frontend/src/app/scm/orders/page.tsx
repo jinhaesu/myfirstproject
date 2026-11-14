@@ -337,10 +337,10 @@ function PastePreviewModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-bg-1 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col mx-4">
+      <div className="bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-4xl max-h-[80vh] flex flex-col mx-4">
         <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-text-primary">붙여넣기 미리보기</h3>
+            <h3 className="text-lg font-semibold text-text-primary">붙여넣기 미리보기</h3>
             <p className="text-sm text-text-tertiary mt-0.5">{rows.length}행이 추가됩니다. 확인 후 적용하세요.</p>
           </div>
           <button onClick={onCancel} className="text-text-quaternary hover:text-text-secondary text-xl leading-none">&times;</button>
@@ -372,13 +372,13 @@ function PastePreviewModal({
         <div className="px-6 py-4 border-t border-border-primary flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 hover:bg-white/5 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 hover:bg-bg-secondary rounded-lg transition-colors"
           >
             취소
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-brand hover:bg-accent rounded-lg transition-colors shadow-[0px_1px_3px_rgba(0,0,0,0.2)]"
+            className="px-4 py-2 text-sm font-medium text-on-brand bg-brand hover:bg-accent rounded-lg transition-colors shadow-nd-s"
           >
             적용 ({rows.length}행 추가)
           </button>
@@ -409,7 +409,7 @@ function AutocompleteDropdown({
   if (!visible || suggestions.length === 0) return null;
   return (
     <div
-      className="fixed z-50 bg-bg-1 border border-border-primary rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] max-h-48 overflow-y-auto"
+      className="fixed z-50 bg-bg-1 border border-border-primary rounded-lg shadow-nd-f max-h-48 overflow-y-auto"
       style={{ top, left, width: Math.max(width, 200) }}
     >
       {suggestions.map((s, i) => (
@@ -446,10 +446,10 @@ function CellBreakdownModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-bg-1 rounded-2xl shadow-2xl w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+      <div className="bg-bg-1 rounded-2xl shadow-nd-f w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
         <div className="px-6 py-4 border-b border-border-primary flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-text-primary">수량 상세</h3>
+            <h3 className="text-lg font-semibold text-text-primary">수량 상세</h3>
             <p className="text-sm text-text-tertiary mt-0.5">{productName} - {dateLabel}</p>
           </div>
           <button onClick={onClose} className="text-text-quaternary hover:text-text-secondary text-xl leading-none">&times;</button>
@@ -495,7 +495,7 @@ function CellBreakdownModal({
         <div className="px-6 py-3 border-t border-border-primary flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 hover:bg-white/5 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-2 hover:bg-bg-secondary rounded-lg transition-colors"
           >
             닫기
           </button>
@@ -715,7 +715,7 @@ export default function OrderPlanPage() {
   const getHeatmapColor = useCallback((value: number, maxVal: number): string => {
     if (value === 0 || maxVal === 0) return 'bg-bg-0';
     const intensity = value / maxVal;
-    if (intensity > 0.8) return 'bg-brand text-white';
+    if (intensity > 0.8) return 'bg-brand text-on-brand';
     if (intensity > 0.6) return 'bg-info text-bg-0';
     if (intensity > 0.4) return 'bg-info/70 text-text-primary';
     if (intensity > 0.2) return 'bg-brand/25 text-accent';
@@ -1044,7 +1044,7 @@ export default function OrderPlanPage() {
   // ── Auth loading / guard ──
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin" />
           <p className="text-text-tertiary">로딩 중...</p>
@@ -1059,7 +1059,7 @@ export default function OrderPlanPage() {
   // RENDER
   // ═══════════════════════════════════════════════
   return (
-    <main className="min-h-screen bg-gradient-to-br from-bg-0 to-bg-0">
+    <main className="min-h-screen bg-bg-0">
       <Navigation />
 
       <div className="max-w-[1600px] mx-auto px-4 py-6">
@@ -1067,18 +1067,18 @@ export default function OrderPlanPage() {
         {/* ── Page Header ── */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">주문 계획</h1>
+            <h1 className="text-2xl font-semibold text-text-primary">주문 계획</h1>
             <p className="text-text-tertiary mt-1">품목별 일별 필요 수량을 확인하고 채널별 계획을 관리하세요</p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {/* View Toggle Buttons */}
-            <div className="flex rounded-xl border border-border-primary bg-bg-1 overflow-hidden shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <div className="flex rounded-xl border border-border-primary bg-bg-1 overflow-hidden shadow-nd-s">
               <button
                 onClick={() => setViewMode('pivot')}
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   viewMode === 'pivot'
-                    ? 'bg-brand text-white shadow-inner'
-                    : 'text-text-tertiary hover:bg-white/5'
+                    ? 'bg-brand text-on-brand shadow-inner'
+                    : 'text-text-tertiary hover:bg-bg-secondary'
                 }`}
               >
                 <span className="flex items-center gap-1.5">
@@ -1092,8 +1092,8 @@ export default function OrderPlanPage() {
                 onClick={() => setViewMode('detail')}
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   viewMode === 'detail'
-                    ? 'bg-brand text-white shadow-inner'
-                    : 'text-text-tertiary hover:bg-white/5'
+                    ? 'bg-brand text-on-brand shadow-inner'
+                    : 'text-text-tertiary hover:bg-bg-secondary'
                 }`}
               >
                 <span className="flex items-center gap-1.5">
@@ -1106,7 +1106,7 @@ export default function OrderPlanPage() {
             </div>
 
             {/* Date Range Selector */}
-            <div className="flex items-center gap-2 bg-bg-1 px-3 py-2 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+            <div className="flex items-center gap-2 bg-bg-1 px-3 py-2 rounded-xl border border-border-primary shadow-nd-s">
               <svg className="w-4 h-4 text-text-quaternary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
@@ -1129,7 +1129,7 @@ export default function OrderPlanPage() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setDateRange(getWeekRange(new Date()))}
-                className="px-3 py-2 text-xs font-medium text-text-tertiary bg-bg-1 hover:bg-white/5 border border-border-primary rounded-lg transition-colors"
+                className="px-3 py-2 text-xs font-medium text-text-tertiary bg-bg-1 hover:bg-bg-secondary border border-border-primary rounded-lg transition-colors"
               >
                 이번 주
               </button>
@@ -1138,7 +1138,7 @@ export default function OrderPlanPage() {
                   const d = new Date();
                   setDateRange({ start: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`, end: d.toISOString().slice(0, 10) });
                 }}
-                className="px-3 py-2 text-xs font-medium text-text-tertiary bg-bg-1 hover:bg-white/5 border border-border-primary rounded-lg transition-colors"
+                className="px-3 py-2 text-xs font-medium text-text-tertiary bg-bg-1 hover:bg-bg-secondary border border-border-primary rounded-lg transition-colors"
               >
                 이번 달
               </button>
@@ -1149,41 +1149,41 @@ export default function OrderPlanPage() {
         {/* ── Summary Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Unique Product Count */}
-          <div className="bg-gradient-to-br from-brand to-brand rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[color:var(--color-brand-bg)]/20">
+          <div className="bg-brand rounded-2xl p-4 text-on-brand shadow-nd-f">
             <p className="text-link/40 text-xs font-medium mb-1">총 품목 수</p>
-            <p className="text-2xl font-bold">{formatNumber(summary.uniqueProductCount)}</p>
+            <p className="text-2xl font-semibold">{formatNumber(summary.uniqueProductCount)}</p>
             <p className="text-link/60 text-xs mt-1">등록된 품목</p>
           </div>
           {/* Total Planned Qty */}
-          <div className="bg-gradient-to-br from-success to-success rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[color:var(--color-success)]/20">
+          <div className="bg-success rounded-2xl p-4 text-white shadow-nd-f">
             <p className="text-success/15 text-xs font-medium mb-1">총 계획 수량</p>
-            <p className="text-2xl font-bold">{formatNumber(summary.totalPlanned)}</p>
+            <p className="text-2xl font-semibold">{formatNumber(summary.totalPlanned)}</p>
             <p className="text-success/25 text-xs mt-1">전체 기간 합계</p>
           </div>
           {/* Avg Daily Qty */}
-          <div className="bg-gradient-to-br from-brand to-brand rounded-2xl p-4 text-white shadow-[0px_7px_32px_rgba(0,0,0,0.35)] shadow-[color:var(--color-brand-bg)]/20">
+          <div className="bg-brand rounded-2xl p-4 text-on-brand shadow-nd-f">
             <p className="text-link/40 text-xs font-medium mb-1">일평균 계획 수량</p>
-            <p className="text-2xl font-bold">{formatNumber(summary.avgDailyQty)}</p>
+            <p className="text-2xl font-semibold">{formatNumber(summary.avgDailyQty)}</p>
             <p className="text-link/60 text-xs mt-1">일별 평균</p>
           </div>
           {/* Channel Ratio */}
-          <div className="bg-bg-1 rounded-2xl p-4 border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)]">
+          <div className="bg-bg-1 rounded-2xl p-4 border border-border-primary shadow-nd-s">
             <p className="text-text-tertiary text-xs font-medium mb-2">채널 비율</p>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-link text-sm font-bold">{summary.onlineRatio}%</span>
+              <span className="text-link text-sm font-semibold">{summary.onlineRatio}%</span>
               <span className="text-xs text-text-quaternary">온라인</span>
               <span className="text-text-quaternary mx-1">|</span>
-              <span className="text-orange text-sm font-bold">{summary.offlineRatio}%</span>
+              <span className="text-orange text-sm font-semibold">{summary.offlineRatio}%</span>
               <span className="text-xs text-text-quaternary">오프라인</span>
             </div>
             {/* Mini bar */}
             <div className="w-full bg-bg-2 rounded-full h-2.5 flex overflow-hidden">
               <div
-                className="bg-brand h-full transition-all rounded-l-full"
+                className="bg-brand h-full transition-[width] rounded-l-full"
                 style={{ width: `${summary.onlineRatio}%` }}
               />
               <div
-                className="bg-orange/80 h-full transition-all rounded-r-full"
+                className="bg-orange/80 h-full transition-[width] rounded-r-full"
                 style={{ width: `${summary.offlineRatio}%` }}
               />
             </div>
@@ -1195,7 +1195,7 @@ export default function OrderPlanPage() {
         </div>
 
         {/* ── Filter Bar ── */}
-        <div className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-4 mb-4 flex flex-wrap items-center gap-3">
+        <div className="bg-bg-1 rounded-xl border border-border-primary shadow-nd-s p-4 mb-4 flex flex-wrap items-center gap-3">
           {/* Product Filter */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-text-tertiary">품명</label>
@@ -1268,7 +1268,7 @@ export default function OrderPlanPage() {
         {viewMode === 'pivot' && (
           <>
             {/* Pivot Toolbar */}
-            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-3 mb-4 flex items-center gap-2 flex-wrap">
+            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-nd-s p-3 mb-4 flex items-center gap-2 flex-wrap">
               <span className="text-sm font-medium text-text-secondary flex items-center gap-1.5">
                 <svg className="w-4 h-4 text-link" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -1301,7 +1301,7 @@ export default function OrderPlanPage() {
             </div>
 
             {/* Pivot Table */}
-            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden">
+            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-nd-s overflow-hidden">
               {loading ? (
                 <div className="flex items-center justify-center py-20">
                   <div className="flex flex-col items-center gap-3">
@@ -1334,7 +1334,7 @@ export default function OrderPlanPage() {
                             {formatDateLabel(date)}
                           </th>
                         ))}
-                        <th className="px-4 py-3 text-center font-bold text-text-primary bg-bg-2 min-w-[100px]">
+                        <th className="px-4 py-3 text-center font-semibold text-text-primary bg-bg-2 min-w-[100px]">
                           합계
                         </th>
                       </tr>
@@ -1355,7 +1355,7 @@ export default function OrderPlanPage() {
                             return (
                               <td
                                 key={date}
-                                className={`px-3 py-2.5 text-center border-r border-border-primary cursor-pointer transition-all hover:ring-2 hover:ring-info hover:ring-inset ${colorClass}`}
+                                className={`px-3 py-2.5 text-center border-r border-border-primary cursor-pointer transition-shadow hover:ring-2 hover:ring-info hover:ring-inset ${colorClass}`}
                                 onClick={() => handlePivotCellClick(product, date)}
                                 title={`${product} / ${formatDateLabel(date)}: ${formatNumber(val)}`}
                               >
@@ -1366,14 +1366,14 @@ export default function OrderPlanPage() {
                             );
                           })}
                           {/* Product total */}
-                          <td className="px-4 py-2.5 text-center font-bold text-text-primary bg-bg-2/70 border-l border-border-primary">
+                          <td className="px-4 py-2.5 text-center font-semibold text-text-primary bg-bg-2/70 border-l border-border-primary">
                             {formatNumber(pivotComputed.productTotals[product] || 0)}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-bg-2 border-t-2 border-border-primary font-bold text-sm">
+                      <tr className="bg-bg-2 border-t-2 border-border-primary font-semibold text-sm">
                         <td className="sticky left-0 z-10 bg-bg-2 px-4 py-3 text-text-secondary border-r border-border-primary">
                           합계
                         </td>
@@ -1416,7 +1416,7 @@ export default function OrderPlanPage() {
         {viewMode === 'detail' && (
           <>
             {/* Detail Toolbar */}
-            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] p-3 mb-4 flex items-center gap-2 flex-wrap">
+            <div className="bg-bg-1 rounded-xl border border-border-primary shadow-nd-s p-3 mb-4 flex items-center gap-2 flex-wrap">
               {/* Add Row */}
               <button
                 onClick={addRow}
@@ -1430,7 +1430,7 @@ export default function OrderPlanPage() {
               {/* Add Multiple Rows */}
               <div className="relative group">
                 <button
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-tertiary bg-bg-0 hover:bg-white/5 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-tertiary bg-bg-0 hover:bg-bg-secondary rounded-lg transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -1440,7 +1440,7 @@ export default function OrderPlanPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-                <div className="absolute left-0 top-full mt-1 bg-bg-1 border border-border-primary rounded-lg shadow-[0px_7px_32px_rgba(0,0,0,0.35)] hidden group-hover:block z-20 min-w-[100px]">
+                <div className="absolute left-0 top-full mt-1 bg-bg-1 border border-border-primary rounded-lg shadow-nd-f hidden group-hover:block z-20 min-w-[100px]">
                   {[5, 10, 20, 50].map(n => (
                     <button
                       key={n}
@@ -1499,9 +1499,9 @@ export default function OrderPlanPage() {
               <button
                 onClick={handleSave}
                 disabled={saving || dirtyCount === 0}
-                className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-lg transition-all shadow-[0px_1px_3px_rgba(0,0,0,0.2)] ${
+                className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors shadow-nd-s ${
                   dirtyCount > 0
-                    ? 'text-white bg-brand hover:bg-accent shadow-[color:var(--color-brand-bg)]/20'
+                    ? 'text-on-brand bg-brand hover:bg-accent'
                     : 'text-text-quaternary bg-bg-2 cursor-not-allowed'
                 }`}
               >
@@ -1524,7 +1524,7 @@ export default function OrderPlanPage() {
             {/* ── Excel-like Spreadsheet Table ── */}
             <div
               ref={tableRef}
-              className="bg-bg-1 rounded-xl border border-border-primary shadow-[0px_1px_3px_rgba(0,0,0,0.2)] overflow-hidden focus:outline-none"
+              className="bg-bg-1 rounded-xl border border-border-primary shadow-nd-s overflow-hidden focus:outline-none"
               tabIndex={0}
               onKeyDown={handleGridKeyDown}
             >
@@ -1558,7 +1558,7 @@ export default function OrderPlanPage() {
                         {COLUMNS.map((col) => (
                           <th
                             key={col.key}
-                            className={`${col.width} px-3 py-2.5 border-r border-border-primary text-xs font-semibold text-text-tertiary tracking-wider ${
+                            className={`${col.width} px-3 py-2.5 border-r border-border-primary text-xs font-semibold text-text-tertiary ${
                               col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                             }`}
                           >
@@ -1595,7 +1595,7 @@ export default function OrderPlanPage() {
                             <tr
                               key={row.id}
                               className={`border-b border-border-primary transition-colors ${
-                                selectedRowIds.has(row.id) ? 'bg-brand/10' : isNewRow ? 'bg-success/10' : isRowDirty ? 'bg-warning/10' : 'hover:bg-white/5'
+                                selectedRowIds.has(row.id) ? 'bg-brand/10' : isNewRow ? 'bg-success/10' : isRowDirty ? 'bg-warning/10' : 'hover:bg-bg-secondary'
                               }`}
                             >
                               {/* Checkbox */}
