@@ -1,0 +1,374 @@
+/* ============================================================
+   널담 디자인 기준 2 — 그래프 (2026-11-14)
+   1) 색: 계열 6색은 순서가 고정이다(색각 이상 구분 검증 통과: 이웃 색 구분값 밝은 14.6 / 어두운 13.8,
+      일반 시야 15.0 / 17.0, 여섯 색 모두 바탕 대비 3:1 이상). 순서를 바꾸거나 일곱 번째 색을 만들지 않는다.
+   2) 바탕 정리: 아직 공통 부품으로 옮기지 않은 그래프도 어긋나 보이지 않게 Recharts 가 그리는 축·격자·말풍선·범례의
+      글꼴·색·선 모양만 여기서 맞춘다. 눈금 글자의 크기·폭(자릿수 맞춤)과, 호출한 쪽이 따로 정한 크기·색(막대 안 흰 글자,
+      도넛 가운데 큰 숫자, 빨간 한도선)은 건드리지 않는다 — 눈금의 크기와 자릿수 맞춤은 부품(NdChart.tsx)이 준다.
+   3) 이 파일은 층(@layer) 없이 한 벌이다. Tailwind 의 바탕 정리 규칙에 .nd-tip·.nd-legend 가 지지 않게 하려는 것이다.
+      nd-cosmos.css(--nd-card, --nd-fg-2 …)와 nd-type.css(--nd-font-sans) 다음에 불러온다.
+   자세한 규칙은 UNIFY.md 3장, 부품은 NdChart.tsx(Recharts)와 NdColumns.tsx(Recharts 없이).
+   ============================================================ */
+
+:root {
+  /* ── 계열(누구인가) — 순서 고정: 블루, 금모래, 청록, 이끼, 자수정, 석류 ── */
+  --nd-chart-1: #0659ff;
+  --nd-chart-2: #966c01;
+  --nd-chart-3: #129a92;
+  --nd-chart-4: #4c7b10;
+  --nd-chart-5: #8265d8;
+  --nd-chart-6: #ca496a;
+  /* 같은 색의 채널 값(위 값과 반드시 함께 고친다). Tailwind 3 의 투명도 문법용:
+     colors: { chart: { 1: 'rgb(var(--nd-chart-1-rgb) / <alpha-value>)' } } → bg-chart-1/20 */
+  --nd-chart-1-rgb: 6 89 255;
+  --nd-chart-2-rgb: 150 108 1;
+  --nd-chart-3-rgb: 18 154 146;
+  --nd-chart-4-rgb: 76 123 16;
+  --nd-chart-5-rgb: 130 101 216;
+  --nd-chart-6-rgb: 202 73 106;
+  /* 비교 대상(목표선, 이전 기간, 기타, 강조하지 않은 막대): 색이 아니라 중립 회색. 카드 대비 3.29:1 */
+  --nd-chart-context: #858ea2;
+  /* 바탕 띠·트랙 전용. 값을 나르는 표시(막대·선·조각)에는 쓰지 않는다(바탕 대비 1.5:1) */
+  --nd-chart-context-soft: #cdd3dd;
+  /* 색 면 안의 글자: 번호마다 더 잘 읽히는 쪽. 5·6번은 어느 쪽도 4.5:1 에 못 미치므로(4.37 / 4.49) 작은 글자를 넣지 않는다 */
+  --nd-chart-on-1: #ffffff;
+  --nd-chart-on-2: #ffffff;
+  --nd-chart-on-3: #0b0d14;
+  --nd-chart-on-4: #ffffff;
+  --nd-chart-on-5: #ffffff;
+  --nd-chart-on-6: #ffffff;
+  --nd-chart-on-context: #0b0d14; /* 중립 회색 면(비교 대상·기타) 안의 글자: 5.90:1 (흰 글자는 3.29:1) */
+  --nd-chart-on-status: #ffffff;  /* good · warn · bad 면 안의 글자: 5.02 / 5.02 / 4.83:1 */
+  --nd-chart-on-fill: #ffffff; /* 번호를 모를 때의 기본값 */
+
+  /* ── 크기(얼마나) — 한 색의 단계. 작은 값이 옅고 큰 값이 진하다 ── */
+  --nd-seq-1: #86a8ff;
+  --nd-seq-2: #4f82ff;
+  --nd-seq-3: #0659ff;
+  --nd-seq-4: #0041c4;
+  --nd-seq-5: #002c8a;
+  --nd-seq-on-1: #111827;
+  --nd-seq-on-2: #111827;
+  --nd-seq-on-3: #ffffff;
+  --nd-seq-on-4: #ffffff;
+  --nd-seq-on-5: #ffffff;
+  /* 히트맵: 0 은 빈 칸(거의 바탕), 6 이 가장 큰 값 */
+  --nd-heat-0: #f5f7fa;
+  --nd-heat-1: #dbe6ff;
+  --nd-heat-2: #b9cdff;
+  --nd-heat-3: #86a8ff;
+  --nd-heat-4: #4f82ff;
+  --nd-heat-5: #0659ff;
+  --nd-heat-6: #0041c4;
+  /* 칸 안 글자색: 단계마다 정해 둔다(명도 대비 7.0 / 6.0 / 11.2 / 7.7 / 5.5 / 5.4 / 8.2) */
+  --nd-heat-on-0: var(--nd-fg-2, #4b5565);
+  --nd-heat-on-1: var(--nd-fg-2, #4b5565);
+  --nd-heat-on-2: var(--nd-fg, #111827);
+  --nd-heat-on-3: var(--nd-fg, #111827);
+  --nd-heat-on-4: #0b0d14;
+  --nd-heat-on-5: #ffffff;
+  --nd-heat-on-6: #ffffff;
+
+  /* ── 방향(기준보다 위/아래) — 두 색과 회색 가운데 ── */
+  --nd-div-neg-2: #b8324f;
+  --nd-div-neg-1: #e48a9c;
+  --nd-div-mid: #e1e5ec;
+  --nd-div-pos-1: #86a8ff;
+  --nd-div-pos-2: #0659ff;
+
+  /* ── 그래프 바탕 ── */
+  /* 그래프가 놓인 면의 색(점 테두리, 원 조각 사이 틈, 테두리 막대의 속). 카드가 아닌 면에 놓이면 그 면에서 다시 정한다 */
+  --nd-chart-surface: var(--nd-card, #ffffff);
+  --nd-chart-grid: rgba(17, 24, 39, 0.08);
+  --nd-chart-axis: rgba(17, 24, 39, 0.18);
+  --nd-chart-tick: #606a7d;
+  --nd-chart-cursor: rgba(17, 24, 39, 0.22);   /* 선 그래프의 세로 안내선 */
+  --nd-chart-band: rgba(17, 24, 39, 0.045);    /* 막대 그래프의 올린 자리 */
+  /* 말풍선: 밝은 화면에서는 바탕과 반대 색의 작은 카드 */
+  --nd-tip-bg: #111827;
+  --nd-tip-fg: #f5f7fa;
+  --nd-tip-fg-2: #a3a9b8;
+  --nd-tip-line: rgba(238, 240, 245, 0.12);
+  --nd-tip-border: transparent;
+  --nd-tip-shadow: 0 8px 24px rgba(2, 3, 8, 0.18);
+}
+
+:root.dark, :root[data-theme="dark"], .dark {
+  --nd-chart-1: #4a85ff;
+  --nd-chart-2: #ac8128;
+  --nd-chart-3: #2aa79e;
+  --nd-chart-4: #4e7e16;
+  --nd-chart-5: #8d71e6;
+  --nd-chart-6: #d85676;
+  --nd-chart-1-rgb: 74 133 255;
+  --nd-chart-2-rgb: 172 129 40;
+  --nd-chart-3-rgb: 42 167 158;
+  --nd-chart-4-rgb: 78 126 22;
+  --nd-chart-5-rgb: 141 113 230;
+  --nd-chart-6-rgb: 216 86 118;
+  --nd-chart-context: #6b7487;
+  --nd-chart-context-soft: #333b4b;
+  /* 어두운 화면의 계열 색은 밝아서 검은 글자가 맞는다(5.3~6.9:1). 이끼만 흰 글자(4.86:1) */
+  --nd-chart-on-1: #05060b;
+  --nd-chart-on-2: #05060b;
+  --nd-chart-on-3: #05060b;
+  --nd-chart-on-4: #ffffff;
+  --nd-chart-on-5: #05060b;
+  --nd-chart-on-6: #05060b;
+  --nd-chart-on-context: #ffffff; /* 4.69:1 */
+  --nd-chart-on-status: #05060b;  /* 어두운 화면의 good · warn · bad 는 밝다: 9.14 / 9.18 / 5.17:1 (흰 글자는 2.2 / 2.2 / 3.9:1) */
+  --nd-chart-on-fill: #ffffff;
+
+  /* 어두운 화면에서는 작은 값이 어둡고 큰 값이 밝다 */
+  --nd-seq-1: #2449b0;
+  --nd-seq-2: #2f63e6;
+  --nd-seq-3: #4a85ff;
+  --nd-seq-4: #84adff;
+  --nd-seq-5: #bcd2ff;
+  --nd-seq-on-1: #ffffff;
+  --nd-seq-on-2: #ffffff;
+  --nd-seq-on-3: #05060b;
+  --nd-seq-on-4: #05060b;
+  --nd-seq-on-5: #05060b;
+  --nd-heat-0: #161a23;
+  --nd-heat-1: #16255a;
+  --nd-heat-2: #1c3585;
+  --nd-heat-3: #2449b0;
+  --nd-heat-4: #2f63e6;
+  --nd-heat-5: #4a85ff;
+  --nd-heat-6: #84adff;
+  /* 명도 대비 7.4 / 6.2 / 9.7 / 6.9 / 5.2 / 5.9 / 9.1 */
+  --nd-heat-on-0: var(--nd-fg-2, #a3a9b8);
+  --nd-heat-on-1: var(--nd-fg-2, #a3a9b8);
+  --nd-heat-on-2: var(--nd-fg, #eef0f5);
+  --nd-heat-on-3: var(--nd-fg, #eef0f5);
+  --nd-heat-on-4: #ffffff;
+  --nd-heat-on-5: #05060b;
+  --nd-heat-on-6: #05060b;
+
+  --nd-div-neg-2: #e3607f;
+  --nd-div-neg-1: #8e3148;
+  --nd-div-mid: #2a2f3b;
+  --nd-div-pos-1: #2449b0;
+  --nd-div-pos-2: #4a85ff;
+
+  --nd-chart-surface: var(--nd-card, #11141c);
+  --nd-chart-grid: rgba(238, 240, 245, 0.08);
+  --nd-chart-axis: rgba(238, 240, 245, 0.18);
+  --nd-chart-tick: #8a92a6;
+  --nd-chart-cursor: rgba(238, 240, 245, 0.26);
+  --nd-chart-band: rgba(238, 240, 245, 0.05);
+  /* 어두운 화면의 말풍선은 흰 카드가 아니라 떠 있는 어두운 면: 한 단계 밝은 면 + 테두리 + 그림자 */
+  --nd-tip-bg: #222733;
+  --nd-tip-fg: #eef0f5;
+  --nd-tip-fg-2: #a3a9b8;
+  --nd-tip-line: rgba(238, 240, 245, 0.12);
+  --nd-tip-border: rgba(238, 240, 245, 0.16);
+  --nd-tip-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================================
+   Recharts 바탕 정리 — 모든 그래프에 자동으로 걸린다
+   ============================================================ */
+
+/* 축 눈금 글자: 본문 글꼴, 보조 글자색. 글자는 계열 색을 입지 않는다.
+   크기와 자릿수 맞춤은 여기서 정하지 않는다(부품 NdChart.tsx 가 준다): 축 너비는 Recharts 가 코드로 잡으므로 CSS 로 글자를
+   키우거나 넓히면 옮기지 않은 그래프의 숫자가 잘린다. 자릿수 맞춤만으로도 폭이 4~7% 는다(9px 「1,000,000,000」 58.3 → 62.6px) */
+.recharts-wrapper .recharts-cartesian-axis-tick-value,
+.recharts-wrapper .recharts-polar-angle-axis-tick-value,
+.recharts-wrapper .recharts-polar-radius-axis-tick-value,
+.recharts-wrapper .recharts-brush-texts text {
+  font-family: var(--nd-font-sans);
+  fill: var(--nd-chart-tick);
+}
+/* 이름표(Label·LabelList·기준선 글자): 글꼴과 자릿수는 항상 맞추고, 크기와 색은 "따로 정하지 않은 것"만 맞춘다.
+   (CSS 는 SVG 속성을 무조건 이기므로, 막대 안 흰 글자나 도넛 가운데 큰 숫자까지 덮지 않게 한다.
+    #808080 은 Recharts 가 색을 주지 않은 글자에 넣는 기본값이다.) */
+.recharts-wrapper .recharts-label { font-family: var(--nd-font-sans); font-variant-numeric: tabular-nums; }
+.recharts-wrapper .recharts-label:not([font-size]) { font-size: 11px; }
+.recharts-wrapper .recharts-label[fill="#808080"] { fill: var(--nd-chart-tick); }
+.recharts-wrapper .nd-end-label { font-family: var(--nd-font-sans); font-variant-numeric: tabular-nums; stroke-linejoin: round; }
+/* 기준선 이름표(ndRefLabel): 글자 둘레에 바탕색 테두리를 둘러 막대·선 위에 놓여도 읽히게 한다 */
+.recharts-wrapper .nd-ref-label { paint-order: stroke; stroke: var(--nd-chart-surface); stroke-width: 3px; stroke-linejoin: round; }
+
+/* 격자와 축: 가는 실선(점선 금지), 눈금 표시선은 없앤다. 방사형의 동심선은 path 로 그려진다 */
+.recharts-wrapper .recharts-cartesian-grid line,
+.recharts-wrapper .recharts-polar-grid line,
+.recharts-wrapper .recharts-polar-grid path,
+.recharts-wrapper .recharts-polar-grid polygon,
+.recharts-wrapper .recharts-polar-grid circle {
+  stroke: var(--nd-chart-grid);
+  stroke-dasharray: none;
+  stroke-width: 1;
+}
+.recharts-wrapper .recharts-cartesian-axis-line { stroke: var(--nd-chart-axis); stroke-width: 1; }
+.recharts-wrapper .recharts-cartesian-axis-tick-line { display: none; }
+
+/* 선은 둥근 끝. 올렸을 때의 점은 바탕색 테두리 2px */
+.recharts-wrapper .recharts-line-curve,
+.recharts-wrapper .recharts-area-curve { stroke-linecap: round; stroke-linejoin: round; }
+.recharts-wrapper .recharts-active-dot circle { stroke: var(--nd-chart-surface); stroke-width: 2; }
+
+/* 원·도넛 조각 사이는 바탕색 틈 2px (기본 흰 테두리가 어두운 화면에서 뜨는 문제도 함께 해결) */
+.recharts-wrapper .recharts-pie-sector path { stroke: var(--nd-chart-surface); stroke-width: 2; }
+.recharts-wrapper .recharts-pie-label-line { stroke: var(--nd-chart-axis); }
+.recharts-wrapper .recharts-pie-label-text { font-family: var(--nd-font-sans); fill: var(--nd-chart-tick); font-variant-numeric: tabular-nums; }
+.recharts-wrapper .recharts-pie-label-text:not([font-size]) { font-size: 11px; }
+
+/* 안내선과 올린 자리(옮기지 않은 그래프가 cursor 에 준 opacity 가 곱해져 사라지지 않게 1 로 둔다) */
+.recharts-wrapper .recharts-curve.recharts-tooltip-cursor { stroke: var(--nd-chart-cursor); stroke-width: 1; stroke-dasharray: none; opacity: 1; }
+.recharts-wrapper .recharts-rectangle.recharts-tooltip-cursor { fill: var(--nd-chart-band); fill-opacity: 1; stroke: none; opacity: 1; }
+
+/* 키보드로 띄운 말풍선은 초점이 그래프를 떠나면 닫는다(NdTooltipContent). Recharts 3.7 이하가 그대로 남겨 두는 안내선과 올린 자리의 점도 함께 감춘다 */
+.recharts-wrapper[data-nd-left] .recharts-tooltip-cursor,
+.recharts-wrapper[data-nd-left] .recharts-active-dot { visibility: hidden; }
+
+/* 기준선: 색을 따로 주지 않은 것(Recharts 기본 #ccc)만 중립 회색으로. 뜻이 있는 색(빨간 한도선)은 덮지 않는다 */
+.recharts-wrapper .recharts-reference-line-line[stroke="#ccc"] { stroke: var(--nd-chart-context); }
+
+/* 범례: 글자는 보조 글자색(계열 색을 입지 않는다) */
+.recharts-wrapper .recharts-legend-item-text { color: var(--nd-fg-2) !important; font-size: 12px; }
+.recharts-wrapper .recharts-default-legend { font-family: var(--nd-font-sans); }
+.recharts-wrapper .recharts-legend-item { margin-right: 16px !important; }
+
+/* 기본 말풍선(전용 부품 NdTooltipContent 를 아직 쓰지 않은 그래프용 안전망) */
+.recharts-wrapper .recharts-tooltip-wrapper { outline: none; z-index: 30; }
+.recharts-wrapper .recharts-default-tooltip {
+  background: var(--nd-tip-bg) !important;
+  border: 1px solid var(--nd-tip-border) !important;
+  border-radius: 8px;
+  padding: 8px 12px !important;
+  box-shadow: var(--nd-tip-shadow);
+  font-family: var(--nd-font-sans);
+}
+.recharts-wrapper .recharts-tooltip-label { color: var(--nd-tip-fg-2) !important; font-size: 12px; margin: 0 0 4px !important; }
+.recharts-wrapper .recharts-tooltip-item { font-size: 12px; padding: 1px 0 !important; font-variant-numeric: tabular-nums; }
+.recharts-wrapper .recharts-tooltip-item::before { content: ""; display: inline-block; width: 10px; height: 2px; border-radius: 1px; background: currentColor; margin-right: 8px; vertical-align: middle; }
+.recharts-wrapper .recharts-tooltip-item-name,
+.recharts-wrapper .recharts-tooltip-item-separator { color: var(--nd-tip-fg-2); }
+.recharts-wrapper .recharts-tooltip-item-value,
+.recharts-wrapper .recharts-tooltip-item-unit { color: var(--nd-tip-fg); font-weight: 500; }
+
+/* 기간 고르는 막대(Brush) */
+.recharts-wrapper .recharts-brush > rect:first-child { fill: var(--nd-raised); stroke: var(--nd-line); }
+.recharts-wrapper .recharts-brush-slide { fill: var(--nd-chart-1); fill-opacity: 0.12; }
+.recharts-wrapper .recharts-brush-traveller rect { fill: var(--nd-chart-context); }
+
+/* 눌렀을 때 브라우저가 그리는 테두리(원 조각의 검은 네모 등)는 없애고, 키보드로 들어왔을 때만 강조색 테두리 */
+.recharts-wrapper:focus:not(:focus-visible),
+.recharts-wrapper :focus:not(:focus-visible) { outline: none; }
+.recharts-wrapper:focus-visible,
+.recharts-wrapper :focus-visible { outline: 2px solid var(--nd-accent); outline-offset: 2px; border-radius: 4px; }
+
+/* ============================================================
+   전용 부품(NdChart.tsx · NdColumns.tsx)이 쓰는 클래스
+   ============================================================ */
+
+/* ── 말풍선 ── */
+.nd-tip {
+  box-sizing: border-box;
+  background: var(--nd-tip-bg);
+  color: var(--nd-tip-fg);
+  border: 1px solid var(--nd-tip-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: var(--nd-tip-shadow);
+  font-family: var(--nd-font-sans);
+  font-size: 12px;
+  line-height: 1.5;
+  min-width: 128px;
+  max-width: 320px;
+  pointer-events: none;
+}
+.nd-tip-label { color: var(--nd-tip-fg-2); margin-bottom: 4px; }
+/* 아홉 줄부터는 두 단(위에서 아래로 채우고 오른쪽 단으로 넘어간다). 한 단으로는 말풍선이 그림보다 길어져 카드 밖으로 나간다 */
+.nd-tip[data-cols="2"] { max-width: 360px; }
+.nd-tip-rows[data-cols="2"] { display: grid; grid-auto-flow: column; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
+.nd-tip-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.nd-tip-name { color: var(--nd-tip-fg-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd-tip-value { margin-left: auto; padding-left: 16px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nd-tip-total { display: flex; justify-content: space-between; gap: 16px; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--nd-tip-line); }
+.nd-tip-total span:last-child { font-weight: 500; font-variant-numeric: tabular-nums; }
+/* 계열이 하나뿐이면 표식이 할 일이 없다(머리글과 값이면 충분하다) */
+.nd-tip-row:only-child .nd-tip-key { display: none; }
+
+/* ── 표식: 범례와 말풍선, 그래프 밖 단추·칩(NdKey)이 같은 모양을 쓴다. 색은 color 로 받는다 ── */
+.nd-legend-key,
+.nd-tip-key { flex: none; display: inline-block; vertical-align: middle; box-sizing: border-box; width: 12px; height: 2px; border-radius: 1px; background: currentColor; }
+.nd-legend-key[data-off="true"] { opacity: 0.35; }
+.nd-tip-key { width: 10px; }
+.nd-legend-key[data-kind="rect"],
+.nd-tip-key[data-kind="rect"] { width: 8px; height: 8px; border-radius: 2px; }
+.nd-legend-key[data-kind="dot"],
+.nd-tip-key[data-kind="dot"] { width: 8px; height: 8px; border-radius: 50%; }
+.nd-legend-key[data-kind="outline"],
+.nd-tip-key[data-kind="outline"] { width: 8px; height: 8px; border-radius: 2px; background: none; border: 1.5px solid currentColor; }
+/* 짧은 점선(비교선)과 긴 점선(일곱 번째 계열부터)은 무늬가 다르다 */
+.nd-legend-key[data-kind="dash"],
+.nd-tip-key[data-kind="dash"] { width: 11px; border-radius: 0; background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px); }
+.nd-legend-key[data-kind="long"],
+.nd-tip-key[data-kind="long"] { width: 19px; border-radius: 0; background: repeating-linear-gradient(90deg, currentColor 0 8px, transparent 8px 11px); }
+
+/* ── 범례 ── */
+.nd-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 0; padding: 0 0 8px; list-style: none; font-family: var(--nd-font-sans); font-size: 12px; line-height: 16px; color: var(--nd-fg-2); }
+/* 켜고 끄는 범례는 단추 높이가 24px 이다: 줄 간격을 넓혀 위아래 줄의 누르는 면이 겹치지 않게 한다(16px 글줄 + 8px) */
+.nd-legend[data-toggle="true"] { row-gap: 8px; }
+.nd-legend[data-align="right"] { justify-content: flex-end; }
+.nd-legend[data-align="center"] { justify-content: center; }
+.nd-legend li { display: flex; align-items: center; margin: 0; padding: 0; }
+.nd-legend-item { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit; cursor: default; }
+/* 켜고 끄는 단추: 누르는 면은 24px 이상(글줄 높이는 그대로 두고 안쪽 여백으로 넓힌다) */
+button.nd-legend-item { cursor: pointer; border-radius: 6px; min-height: 24px; padding: 4px 6px; margin: -4px -6px; }
+button.nd-legend-item:hover { color: var(--nd-fg); }
+button.nd-legend-item:focus-visible { outline: 2px solid var(--nd-accent); outline-offset: 0; }
+/* 꺼진 계열: 흐리게만 하지 않는다(다시 눌러야 하는 살아 있는 단추). 글자는 설명색 + 취소선, 표식만 옅게 */
+.nd-legend-item[data-off="true"] { color: var(--nd-fg-3); text-decoration: line-through; }
+.nd-legend-item[data-off="true"] .nd-legend-key { opacity: 0.35; }
+
+/* ── 도넛 옆 이름·값 목록 ── */
+.nd-donut-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; min-width: 0; font-family: var(--nd-font-sans); font-size: 13px; line-height: 20px; }
+.nd-donut-list li { display: flex; align-items: center; gap: 8px; margin: 0; padding: 0; min-width: 0; }
+.nd-donut-name { color: var(--nd-fg-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd-donut-value { margin-left: auto; padding-left: 12px; color: var(--nd-fg); font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ── 빈 그래프 ── */
+.nd-chart-empty { display: flex; align-items: center; justify-content: center; min-height: 160px; border-bottom: 1px solid var(--nd-chart-axis); color: var(--nd-fg-3); font-size: 13px; }
+
+/* ── Recharts 없이 그리는 세로 막대(NdColumns.tsx) ── */
+.nd-cols { font-family: var(--nd-font-sans); color: var(--nd-fg-2); }
+.nd-cols-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; }
+/* 범례가 없으면 맨 위 눈금 글자의 윗절반(약 6px)이 상자 밖으로 나가 바로 위 내용과 붙는다 */
+.nd-cols > .nd-cols-grid:first-child { padding-top: 6px; }
+.nd-cols-y { position: relative; min-width: 16px; }
+.nd-cols-y span { position: absolute; right: 0; transform: translateY(50%); font-size: 11px; line-height: 1; color: var(--nd-chart-tick); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nd-cols-y span.nd-cols-y-size { position: static; display: block; height: 0; overflow: hidden; visibility: hidden; transform: none; }
+.nd-cols-plot { position: relative; border-bottom: 1px solid var(--nd-chart-axis); outline: none; }
+.nd-cols-plot:focus-visible { outline: 2px solid var(--nd-accent); outline-offset: 2px; border-radius: 4px; }
+.nd-cols-gridline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--nd-chart-grid); }
+/* 음수가 있는 그래프: 바닥선 노릇은 0 선이 하고, 그림 맨 아래 선은 격자선이 된다 */
+.nd-cols-plot[data-neg="true"] { border-bottom-color: var(--nd-chart-grid); }
+.nd-cols-gridline.nd-cols-zero { border-top-color: var(--nd-chart-axis); }
+.nd-cols-bars { position: absolute; inset: 0; display: flex; }
+.nd-cols-bars[data-press="true"] .nd-cols-col { cursor: pointer; }
+.nd-cols-col { position: relative; flex: 1; min-width: 0; }
+.nd-cols-col[data-active="true"] { background: var(--nd-chart-band); }
+.nd-cols-value { position: absolute; left: 50%; transform: translateX(-50%); font-size: 11px; line-height: 16px; font-weight: 500; color: var(--nd-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 막대는 0 선에서 자란다: 양수는 위로(윗모서리 둥글게), 음수는 아래로(아랫모서리 둥글게). 부분 값은 0 선 쪽에 붙는다 */
+.nd-cols-bar { position: absolute; left: 0; right: 0; margin: 0 auto; width: 62%; max-width: 24px; border-radius: 4px 4px 0 0; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.nd-cols-bar[data-neg="true"] { border-radius: 0 0 4px 4px; flex-direction: column-reverse; }
+.nd-cols-bar > span { display: block; flex: none; }
+.nd-cols-bar > span:first-child { flex: 1 1 auto; min-height: 0; }
+.nd-cols-tip { position: absolute; z-index: 30; top: 8px; pointer-events: none; }
+.nd-cols-x { display: flex; padding-top: 8px; }
+.nd-cols-x > div { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; font-size: 11px; line-height: 14px; color: var(--nd-chart-tick); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nd-cols-x > div[data-edge="start"] { align-items: flex-start; }
+.nd-cols-x > div[data-edge="end"] { align-items: flex-end; }
+.nd-cols-x .nd-cols-note { color: var(--nd-fg-3); }
+/* 고른 막대의 가로축 글자: 본문색으로 또렷하게 */
+.nd-cols-x > div[data-selected="true"] > span:first-child { color: var(--nd-fg); font-weight: 500; }
+/* 화면에는 보이지 않고 화면 읽기 프로그램에만 들리는 표 */
+.nd-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+@media print {
+  .nd-tip, .nd-cols-tip { display: none; }
+}
