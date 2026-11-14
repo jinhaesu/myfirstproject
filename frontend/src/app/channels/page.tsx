@@ -6,8 +6,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line, ComposedChart,
-  PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
+import { ndArea, ndAxis, ndBar, ndBarsHeight, ndColor, ndFit, ndFmt, ndGrid, ndGridVertical, ndHeat, ndIsolatedDot, ndLegend, ndLine, ndMargin, ndMarginH, ndPie, ndPieRows, ndScale, ndTextWidth, ndTooltip, NdChartEmpty, NdDonutList, NdTooltipContent, type NdSlot } from '@/components/nd/NdChart';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -19,28 +20,39 @@ const TEXT_DIM = 'var(--color-text-dim)';     // 8A8F98보다 밝게 — 가시�
 const TEXT_MUTED = 'var(--color-text-muted)';   // 62666D보다 밝게
 const ROW_HOVER = 'hover:bg-bg-inset'; // 0A0B0D는 너무 어두워 hover 효과 약함 → 더 밝게
 
-// recharts Tooltip 공통 스타일 (다크 배경 + 큰 글씨)
-const TOOLTIP_STYLE: React.CSSProperties = {
-  background: 'var(--color-bg-inset)',
-  border: '1px solid var(--color-border-subtle)',
-  borderRadius: 8,
-  color: 'var(--color-text-primary)',
-  fontSize: 12,
-  padding: '8px 12px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+// 그래프 계열 색(널담 디자인 기준 2): 매출 1번 · 판매수량 2번 · 공헌이익 3번. 비교 기간·계획은 중립색.
+// 값 축의 눈금: 그 축에 그려지는 계열들의 가장 큰 값·가장 작은 값으로 반듯한 눈금과 단위 하나를 정한다
+const scaleOf = (rows: readonly any[] | null | undefined, keys: readonly string[], by?: Parameters<typeof ndScale>[1]) => {
+  let top = 0;
+  let low = 0;
+  for (const r of rows || []) for (const k of keys) {
+    const v = Number(r?.[k]);
+    if (isFinite(v)) { if (v > top) top = v; if (v < low) low = v; }
+  }
+  return ndScale(top, by, low);
 };
-const TOOLTIP_LABEL_STYLE: React.CSSProperties = { color: 'var(--color-text-dim)', fontWeight: 500, marginBottom: 4 };
-const TOOLTIP_ITEM_STYLE: React.CSSProperties = { color: 'var(--color-text-primary)' };
+// 세로축 너비: 음수·긴 눈금 글자(「-2,000만」)가 왼쪽에서 잘리지 않게 가장 긴 눈금 글자에 맞춘다(기본 52px 보다 좁히지는 않는다).
+// 글자 폭 어림값은 Pretendard 기준이라, 더 넓은 글꼴에서도 들어가게 13% 여유를 둔다
+const fitY = <T extends { ticks: number[]; tickFormatter: (v: any) => string }>(s: T) => ({ ...s, width: Math.max(52, ...s.ticks.map((t) => Math.ceil(ndTextWidth(s.tickFormatter(t)) * 1.13) + 10)) });
+// 가로 막대의 항목 축. 이름을 자르는 폭은 Pretendard 기준 어림값이라 한글이 더 넓은 글꼴에서는 몇 px 넘친다 → 축을 10% 넓게 잡는다
+const categoryAxis = (width = 96) => ({ ...ndAxis.categoryOf(Math.ceil(width * 1.1)), tickFormatter: (v: any) => ndFit(String(v ?? ''), width - 12, 12) });
+// 구분(위탁·사입·오프라인)의 색은 이름에 묶는다(순위가 바뀌어도 같은 색). 그 밖의 구분은 나온 순서대로 4번부터
+const groupColors = (names: readonly string[]) => {
+  const at = new Map<string, string>();
+  let next = 4;
+  for (const n of names) {
+    if (at.has(n)) continue;
+    at.set(n, ndColor(/위탁/.test(n) ? 1 : /사입/.test(n) ? 2 : /오프라인/.test(n) ? 3 : next++));
+  }
+  return (name: string): string => at.get(name) ?? ndColor('context');
+};
+// 기간 축 말풍선의 머리글: 비교 기간이 있으면 함께 적는다
+const periodLabel = (label: any, payload?: any[]) => {
+  const cp = payload?.[0]?.payload?.compare_period;
+  return cp ? `${label}  (비교: ${cp})` : label;
+};
 
-// 차트 공통 props
-import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
 import SkyBand from '@/components/SkyBand';
-
-const CHART_GRID = { stroke: 'var(--color-border-primary)', strokeDasharray: '3 3' };
-const AXIS_TICK = { fill: 'var(--color-text-dim)', fontSize: 11 };
-const LEGEND_STYLE = { fontSize: 11, color: 'var(--color-text-secondary)' };
-
-const PALETTE = ND_CHART;
 
 type Granularity = 'day' | 'month' | 'quarter' | 'year';
 
@@ -983,6 +995,7 @@ const DashboardTab = memo(function DashboardTab({
           hint={data ? `${fmtNum(data.summary.orders)} 주문${data.summary.cancelled_count ? ` · 취소/환불 ${fmtNum(data.summary.cancelled_count)}건` : ''}${data.summary.revenue_deduction ? ` · 월정액수수료 ₩${fmtKR(data.summary.revenue_deduction)} 차감 후` : ''}` : ''}
           accent="var(--color-accent-hover)"
           spark={sparkKey('revenue')}
+          sparkSlot={1}
           compareValue={hasCompare ? compareData.summary.revenue : undefined}
           currentValue={data?.summary.revenue}
         />
@@ -991,6 +1004,7 @@ const DashboardTab = memo(function DashboardTab({
           hint="입수 환산"
           accent="var(--color-link-primary)"
           spark={sparkKey('pcs')}
+          sparkSlot={2}
           compareValue={hasCompare ? compareData.summary.pcs : undefined}
           currentValue={data?.summary.pcs}
         />
@@ -999,6 +1013,7 @@ const DashboardTab = memo(function DashboardTab({
           hint={data ? `변동비 ₩${fmtKR(data.summary.variable_cost)}` : ''}
           accent="var(--color-success)"
           spark={sparkKey('cm')}
+          sparkSlot={3}
           compareValue={hasCompare ? compareData.summary.contribution_margin : undefined}
           currentValue={data?.summary.contribution_margin}
         />
@@ -1032,7 +1047,7 @@ const DashboardTab = memo(function DashboardTab({
           title="구분별 매출 비중"
           subtitle="온라인(위탁)·온라인(사입)·오프라인"
           data={groupsData.map((g: any) => ({ name: g.group, value: g.revenue }))}
-          colors={['var(--color-accent-hover)', 'var(--color-success)', 'var(--color-warning)']}
+          colorOf={groupColors(groupsData.map((g: any) => g.group))}
         />
         <DonutCard
           title="채널별 매출 비중"
@@ -1055,74 +1070,45 @@ const DashboardTab = memo(function DashboardTab({
               {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
             </span>
           </div>
-          {loading && !data ? <Skeleton h={240} /> : data && data.series.length ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-brand-light)" stopOpacity={0.95} />
-                    <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={0.55} />
-                  </linearGradient>
-                  <linearGradient id="gradRevenueCmp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.55} />
-                    <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.25} />
-                  </linearGradient>
-                  <linearGradient id="gradCmArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid {...CHART_GRID} />
-                <XAxis dataKey="period" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" />
-                <YAxis tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                  formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-                  labelFormatter={(label: any, payload: any) => {
-                    if (!payload?.[0]) return label;
-                    const cp = payload[0].payload?.compare_period;
-                    return cp ? `${label}  (비교: ${cp})` : label;
-                  }}
-                />
-                <Legend wrapperStyle={LEGEND_STYLE} />
+          {loading && !data ? <Skeleton h={300} /> : data && data.series.length ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={seriesWithCompare} margin={ndMargin}>
+                <CartesianGrid {...ndGrid} />
+                <XAxis dataKey="period" {...ndAxis.x} />
+                <YAxis {...ndAxis.y} {...fitY(scaleOf(seriesWithCompare, ['revenue', 'contribution_margin', 'compare_revenue', 'compare_cm'], ndFmt.axisWonBy))} />
+                <Tooltip {...ndTooltip({ kind: 'bar', value: (v: any) => `₩${fmtKR(v)}`, label: periodLabel, mark: { compare_cm: 'dash' } })} />
+                <Legend {...ndLegend()} />
                 {hasCompare && (
-                  <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradRevenueCmp)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="compare_revenue" name="비교 매출" {...ndBar('context')} />
                 )}
-                <Bar dataKey="revenue" name="매출(VAT-)" fill="url(#gradRevenue)" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="revenue" name="매출(VAT-)" {...ndBar(1)} />
                 {hasCompare && (
-                  <Line type="monotone" dataKey="compare_cm" name="비교 공헌이익" stroke="var(--color-text-dim)" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
+                  <Line dataKey="compare_cm" name="비교 공헌이익" {...ndLine('context', { dashed: true })} />
                 )}
-                <Area type="monotone" dataKey="contribution_margin" name="공헌이익" stroke="var(--color-success)" strokeWidth={2.5} fill="url(#gradCmArea)" dot={{ r: 3, stroke: 'var(--color-success)', strokeWidth: 2, fill: 'var(--color-bg-level-1)' }} activeDot={{ r: 5 }} />
+                <Area dataKey="contribution_margin" name="공헌이익" {...ndArea(3)} dot={ndIsolatedDot(seriesWithCompare, 'contribution_margin', 3)} />
               </ComposedChart>
             </ResponsiveContainer>
-          ) : <Empty h={240} />}
+          ) : <NdChartEmpty height={300}>데이터가 없습니다.</NdChartEmpty>}
         </div>
         <div className={`${PANEL} p-4`}>
           <h3 className="text-sm font-semibold text-text-primary mb-2">변동비 분해</h3>
           {costBreakdown.length ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={costBreakdown} layout="vertical" margin={{ left: 70, right: 12, top: 5, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="gradCost" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="var(--color-danger)" stopOpacity={0.85} />
-                    <stop offset="100%" stopColor="var(--color-danger)" stopOpacity={1} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid {...CHART_GRID} />
-                <XAxis type="number" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} />
-                <YAxis type="category" dataKey="name" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" width={70} />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                  formatter={(v: number) => `₩${fmtKR(v)}`}
-                />
-                <Bar dataKey="value" fill="url(#gradCost)" radius={[0, 6, 6, 0]} />
+            <ResponsiveContainer width="100%" height={ndBarsHeight(costBreakdown.length)}>
+              <BarChart data={costBreakdown} layout="vertical" margin={ndMarginH}>
+                <CartesianGrid {...ndGridVertical} />
+                <XAxis type="number" {...ndAxis.value} {...scaleOf(costBreakdown, ['value'], ndFmt.axisWonBy)} />
+                <YAxis type="category" dataKey="name" {...categoryAxis(88)} />
+                <Tooltip {...ndTooltip({ kind: 'bar', value: (v: any) => `₩${fmtKR(v)}` })} />
+                <Bar dataKey="value" name="변동비" {...ndBar(1, { horizontal: true })} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[240px] flex flex-col items-center justify-center text-xs text-text-dim gap-1">
-              <span>변동비 규칙이 설정되지 않았습니다</span>
-              <span className="text-[10px] text-text-muted">변동비 설정 탭에서 입력해 주세요</span>
-            </div>
+            <NdChartEmpty height={240}>
+              <div className="flex flex-col items-center text-xs text-text-dim gap-1">
+                <span>변동비 규칙이 설정되지 않았습니다</span>
+                <span className="text-[10px] text-text-muted">변동비 설정 탭에서 입력해 주세요</span>
+              </div>
+            </NdChartEmpty>
           )}
         </div>
       </div>
@@ -1144,33 +1130,19 @@ const DashboardTab = memo(function DashboardTab({
         </div>
         {loading && !data ? <Skeleton h={220} /> : data && data.series.length ? (
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={seriesWithCompare} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradPcsLine" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="var(--color-brand-light)" stopOpacity={1} />
-                  <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={1} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid {...CHART_GRID} />
-              <XAxis dataKey="period" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" />
-              <YAxis tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtNum} />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                formatter={(v: number, n: string) => [`${fmtNum(Math.round(v))}개`, n]}
-                labelFormatter={(label: any, payload: any) => {
-                  if (!payload?.[0]) return label;
-                  const cp = payload[0].payload?.compare_period;
-                  return cp ? `${label}  (비교: ${cp})` : label;
-                }}
-              />
-              <Legend wrapperStyle={LEGEND_STYLE} />
+            <LineChart data={seriesWithCompare} margin={ndMargin}>
+              <CartesianGrid {...ndGrid} />
+              <XAxis dataKey="period" {...ndAxis.x} />
+              <YAxis {...ndAxis.y} {...scaleOf(seriesWithCompare, ['pcs', 'compare_pcs'])} />
+              <Tooltip {...ndTooltip({ kind: 'line', value: (v: any) => `${fmtNum(Math.round(v))}개`, label: periodLabel, mark: { compare_pcs: 'dash' } })} />
+              {hasCompare && <Legend {...ndLegend()} />}
               {hasCompare && (
-                <Line type="monotone" dataKey="compare_pcs" name="비교 판매수량" stroke="var(--color-text-muted)" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
+                <Line dataKey="compare_pcs" name="비교 판매수량" {...ndLine('context', { dashed: true })} />
               )}
-              <Line type="monotone" dataKey="pcs" name="판매수량 (낱개)" stroke="url(#gradPcsLine)" strokeWidth={2.5} dot={{ r: 3, stroke: 'var(--color-brand-light)', strokeWidth: 2, fill: 'var(--color-bg-level-1)' }} activeDot={{ r: 5 }} />
+              <Line dataKey="pcs" name="판매수량 (낱개)" {...ndLine(2)} dot={ndIsolatedDot(seriesWithCompare, 'pcs', 2)} />
             </LineChart>
           </ResponsiveContainer>
-        ) : <Empty h={220} />}
+        ) : <NdChartEmpty height={220}>데이터가 없습니다.</NdChartEmpty>}
         {/* 담당자 × 날짜 매출 히트맵 */}
         {data?.heatmap && data.heatmap.employees.length > 0 && (
           <div className="mt-5 pt-4 border-t border-border-primary">
@@ -1190,82 +1162,14 @@ const DashboardTab = memo(function DashboardTab({
             <h3 className="text-sm font-semibold text-text-primary">채널별 매출/공헌이익 Top 10</h3>
           </div>
           {data && data.channels.length ? (
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={channelsWithCmp.slice(0, 10)} margin={{ left: 8, right: 12, top: 5, bottom: 78 }} barCategoryGap="22%">
-                <defs>
-                  <linearGradient id="gradTopRev" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
-                  </linearGradient>
-                  <linearGradient id="gradTopRevCmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.7} />
-                  </linearGradient>
-                  <linearGradient id="gradTopCm" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={1} />
-                  </linearGradient>
-                  <linearGradient id="gradTopCmCmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0.6} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid {...CHART_GRID} />
-                <XAxis type="category" dataKey="channel_name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} stroke="var(--color-text-quaternary)"
-                  interval={0} angle={-40} textAnchor="end" height={78} />
-                <YAxis type="number" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} width={48} />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                  formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-                />
-                <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev)" radius={[6, 6, 0, 0]} />
-                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRevCmp)" radius={[6, 6, 0, 0]} />}
-                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm)" radius={[6, 6, 0, 0]} />
-                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCmCmp)" radius={[6, 6, 0, 0]} />}
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <Empty h={220} />}
+            <TopBars rows={channelsWithCmp.slice(0, 10)} nameKey="channel_name" hasCompare={hasCompare} />
+          ) : <NdChartEmpty height={220}>데이터가 없습니다.</NdChartEmpty>}
         </div>
         <div className={`${PANEL} p-4`}>
           <h3 className="text-sm font-semibold text-text-primary mb-2">품목별 매출/공헌이익 Top 12</h3>
           {data && data.products.length ? (
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={productsWithCmp.slice(0, 12)} margin={{ left: 8, right: 12, top: 5, bottom: 78 }} barCategoryGap="20%">
-                <defs>
-                  <linearGradient id="gradTopRev2" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
-                  </linearGradient>
-                  <linearGradient id="gradTopRev2Cmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.7} />
-                  </linearGradient>
-                  <linearGradient id="gradTopCm2" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={1} />
-                  </linearGradient>
-                  <linearGradient id="gradTopCm2Cmp" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0.6} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid {...CHART_GRID} />
-                <XAxis type="category" dataKey="product_name" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} stroke="var(--color-text-quaternary)"
-                  interval={0} angle={-40} textAnchor="end" height={78} />
-                <YAxis type="number" tick={AXIS_TICK} stroke="var(--color-text-quaternary)" tickFormatter={fmtKR} width={48} />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                  formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-                />
-                <Legend wrapperStyle={LEGEND_STYLE} />
-                <Bar dataKey="revenue" name="매출" fill="url(#gradTopRev2)" radius={[6, 6, 0, 0]} />
-                {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" fill="url(#gradTopRev2Cmp)" radius={[6, 6, 0, 0]} />}
-                <Bar dataKey="contribution_margin" name="공헌이익" fill="url(#gradTopCm2)" radius={[6, 6, 0, 0]} />
-                {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" fill="url(#gradTopCm2Cmp)" radius={[6, 6, 0, 0]} />}
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <Empty h={220} />}
+            <TopBars rows={productsWithCmp.slice(0, 12)} nameKey="product_name" hasCompare={hasCompare} />
+          ) : <NdChartEmpty height={220}>데이터가 없습니다.</NdChartEmpty>}
         </div>
       </div>
 
@@ -2550,13 +2454,14 @@ function CostTab({
   const rulesForItem = (itemId: number) => rules.filter(r => r.cost_item_id === itemId);
   const monthlyForItem = (itemId: number) => monthly.filter(m => m.cost_item_id === itemId);
 
-  // 변동비 항목별 색상
+  // 변동비 항목별 색상: 계열 여섯 색 가운데 원래 색상에 가장 가까운 것. 일곱 번째 색은 만들지 않으므로
+  // 같은 묶음(노무·경비, 물류, 광고·플랫폼, 수수료, 운반·포장)은 같은 색을 나눠 쓴다
   const ITEM_COLOR: Record<string, string> = {
-    cogs: '#EB5757', labor: '#FC7840', overhead: '#F0BF00',
-    logistics_work: '#06B6D4', logistics_oh: '#00B8CC',
-    advertising: '#A855F7', platform_fee: '#C084FC',
-    commission_rate: '#828FFF', commission_fixed: '#7070FF',
-    shipping: '#27A644', packaging: '#68CC58',
+    cogs: ndColor(6), labor: ndColor(2), overhead: ndColor(2),
+    logistics_work: ndColor(3), logistics_oh: ndColor(3),
+    advertising: ndColor(5), platform_fee: ndColor(5),
+    commission_rate: ndColor(1), commission_fixed: ndColor(1),
+    shipping: ndColor(4), packaging: ndColor(4),
   };
 
   return (
@@ -3246,44 +3151,31 @@ function PlanTab({
           <div className={`${PANEL} p-5`}>
             <h3 className="text-sm font-semibold mb-3">구분별 목표 매출 분포</h3>
             {planSummary.by_group.length ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie
-                    data={planSummary.by_group}
-                    dataKey="target_revenue"
-                    nameKey="group"
-                    cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2}
-                  >
-                    {planSummary.by_group.map((_: any, i: number) => (
-                      <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                    formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 10, color: 'var(--color-text-tertiary)' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : <Empty />}
+              <DonutSplit
+                pie={ndPieRows(
+                  planSummary.by_group.map((g: any) => ({ name: g.group, value: g.target_revenue })),
+                  { colorOf: groupColors(planSummary.by_group.map((g: any) => g.group)) },
+                )}
+                size={180}
+                minHeight={260}
+                tip={(v: any) => `₩${fmtKR(v)}`}
+              />
+            ) : <NdChartEmpty height={260}>데이터가 없습니다.</NdChartEmpty>}
           </div>
 
           <div className={`${PANEL} p-5`}>
             <h3 className="text-sm font-semibold mb-3">담당자별 목표 매출</h3>
             {planSummary.by_employee.length ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={planSummary.by_employee} layout="vertical" margin={{ left: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-primary)" />
-                  <XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} tickFormatter={fmtKR} stroke="var(--color-text-quaternary)" />
-                  <YAxis type="category" dataKey="employee" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} stroke="var(--color-text-quaternary)" width={70} />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                    formatter={(v: number) => `₩${fmtKR(v)}`}
-                  />
-                  <Bar dataKey="target_revenue" fill="var(--color-accent-hover)" />
+              <ResponsiveContainer width="100%" height={ndBarsHeight(planSummary.by_employee.length)}>
+                <BarChart data={planSummary.by_employee} layout="vertical" margin={ndMarginH}>
+                  <CartesianGrid {...ndGridVertical} />
+                  <XAxis type="number" {...ndAxis.value} {...scaleOf(planSummary.by_employee, ['target_revenue'], ndFmt.axisWonBy)} />
+                  <YAxis type="category" dataKey="employee" {...categoryAxis(72)} />
+                  <Tooltip {...ndTooltip({ kind: 'bar', value: (v: any) => `₩${fmtKR(v)}` })} />
+                  <Bar dataKey="target_revenue" name="목표 매출" {...ndBar(1, { horizontal: true })} />
                 </BarChart>
               </ResponsiveContainer>
-            ) : <Empty />}
+            ) : <NdChartEmpty height={260}>데이터가 없습니다.</NdChartEmpty>}
           </div>
         </div>
       )}
@@ -3301,35 +3193,21 @@ function PlanTab({
             const top = [...items]
               .sort((a: any, b: any) => (b.target_revenue || 0) - (a.target_revenue || 0))
               .slice(0, 15);
-            const chartH = Math.min(360, Math.max(180, top.length * 22));
             return (
-              <ResponsiveContainer width="100%" height={chartH}>
-                <BarChart data={top} layout="vertical" margin={{ left: 90, right: 12, top: 4, bottom: 4 }} barCategoryGap={3}>
-                  <defs>
-                    <linearGradient id="gradPlanTarget" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.6} />
-                      <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0.85} />
-                    </linearGradient>
-                    <linearGradient id="gradPlanActual" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.85} />
-                      <stop offset="100%" stopColor="var(--color-brand-light)" stopOpacity={1} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-primary)" />
-                  <XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} tickFormatter={fmtKR} stroke="var(--color-text-quaternary)" />
-                  <YAxis type="category" dataKey="label" tick={{ fill: 'var(--color-text-dim)', fontSize: 10 }} stroke="var(--color-text-quaternary)" width={120} />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-                    formatter={(v: number, n: string) => [`₩${fmtKR(v)}`, n]}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Bar dataKey="target_revenue" name="계획 매출" fill="url(#gradPlanTarget)" radius={[0, 4, 4, 0]} barSize={9} />
-                  <Bar dataKey="actual_revenue" name="실적 매출" fill="url(#gradPlanActual)" radius={[0, 4, 4, 0]} barSize={9} />
+              <ResponsiveContainer width="100%" height={ndBarsHeight(top.length, 40)}>
+                <BarChart data={top} layout="vertical" margin={ndMarginH} barGap={2}>
+                  <CartesianGrid {...ndGridVertical} />
+                  <XAxis type="number" {...ndAxis.value} {...scaleOf(top, ['target_revenue', 'actual_revenue'], ndFmt.axisWonBy)} />
+                  <YAxis type="category" dataKey="label" {...categoryAxis(120)} />
+                  <Tooltip {...ndTooltip({ kind: 'bar', value: (v: any) => `₩${fmtKR(v)}` })} />
+                  <Legend {...ndLegend()} />
+                  <Bar dataKey="target_revenue" name="계획 매출" {...ndBar('context', { horizontal: true, max: 12 })} />
+                  <Bar dataKey="actual_revenue" name="실적 매출" {...ndBar(1, { horizontal: true, max: 12 })} />
                 </BarChart>
               </ResponsiveContainer>
             );
           })()
-        ) : <Empty />}
+        ) : <NdChartEmpty height={260}>데이터가 없습니다.</NdChartEmpty>}
       </div>
 
       {/* 상세 테이블 */}
@@ -3989,10 +3867,11 @@ function DeltaBadge({ delta }: { delta: { pct: number; sign: 'up' | 'down' | 'fl
 
 function CompactKpi({
   label, value, hint, accent,
-  spark, compareValue, currentValue, deltaFormat = 'pct',
+  spark, sparkSlot, compareValue, currentValue, deltaFormat = 'pct',
 }: {
   label: string; value: string; hint?: string; accent?: string;
   spark?: Array<{ x: string; v: number }>;
+  sparkSlot?: NdSlot;  // 스파크라인의 계열 색 번호(없으면 accent 색)
   compareValue?: number;
   currentValue?: number;
   deltaFormat?: 'pct' | 'pp';  // 'pp' = 퍼센트포인트 (이미 % 단위 값일 때)
@@ -4011,8 +3890,6 @@ function CompactKpi({
   const arrow = deltaSign === 'up' ? '▲' : deltaSign === 'down' ? '▼' : '–';
 
   const accentColor = accent || TEXT_PRIMARY;
-  // url(#id) 로 참조하므로 괄호·쉼표 같은 글자가 들어가면 채움이 깨진다 → 글자·숫자만 남긴다
-  const gradId = `kpi-grad-${`${label}-${accent || 'def'}`.replace(/[^0-9A-Za-z가-힣]/g, '')}`;
   const deltaBadgeStyle =
     deltaSign === 'up'
       ? { bg: 'var(--nd-good-soft)', color: 'var(--nd-good)', border: 'transparent' }
@@ -4024,18 +3901,12 @@ function CompactKpi({
     <div className={`${PANEL} p-3 relative overflow-hidden`}>
       {/* 좌측 accent 라인 */}
       <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: `linear-gradient(180deg, ${accentColor}, transparent)` }} />
-      {/* 카드 우상단 스파크라인 (Area + 그라데이션) */}
+      {/* 카드 우상단 스파크라인 (선 + 같은 색 10% 면) */}
       {spark && spark.length > 1 && (
         <div className="absolute right-2 top-2 opacity-90 pointer-events-none" style={{ width: 64, height: 28 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={spark} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={accentColor} stopOpacity={0.6} />
-                  <stop offset="100%" stopColor={accentColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Area type="monotone" dataKey="v" stroke={accentColor} strokeWidth={1.5} fill={`url(#${gradId})`} isAnimationActive={false} />
+              <Area dataKey="v" {...ndArea(sparkSlot != null ? sparkSlot : accentColor)} strokeWidth={1.5} activeDot={false} isAnimationActive={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -4057,25 +3928,51 @@ function CompactKpi({
   );
 }
 
+// 도넛 + 옆의 이름·값 목록(조각은 다섯 개까지, 나머지는 「기타」). 좁으면 목록이 아래로 내려간다
+function DonutSplit({
+  pie, tip, size = 148, minHeight,
+}: {
+  pie: ReturnType<typeof ndPieRows>;
+  tip: (v: any) => React.ReactNode;
+  size?: number;
+  minHeight?: number;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3" style={minHeight ? { minHeight } : undefined}>
+      <div style={{ width: size, height: size, flex: 'none' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Tooltip {...ndTooltip({ kind: 'none', value: tip })} />
+            <Pie data={pie} dataKey="value" nameKey="name" {...ndPie()} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex-1 min-w-[150px]">
+        <NdDonutList rows={pie} />
+      </div>
+    </div>
+  );
+}
+
 function DonutCard({
-  title, subtitle, data, colors,
+  title, subtitle, data, colorOf,
 }: {
   title: string;
   subtitle?: string;
   data: Array<{ name: string; value: number }>;
-  colors?: string[];
+  colorOf?: (name: string) => string;
 }) {
   if (!data || data.length === 0) {
     return (
       <div className={`${PANEL} p-4`}>
         <h3 className="text-sm font-semibold text-text-primary mb-1">{title}</h3>
         {subtitle && <div className="text-[10px] text-text-dim mb-2">{subtitle}</div>}
-        <Empty h={180} />
+        <NdChartEmpty height={180}>데이터가 없습니다.</NdChartEmpty>
       </div>
     );
   }
   const total = data.reduce((s, x) => s + (x.value || 0), 0);
-  const palette = colors || PALETTE;
+  const pie = ndPieRows(data, colorOf ? { colorOf } : {});
   return (
     <div className={`${PANEL} p-4`}>
       <div className="flex items-baseline justify-between mb-1">
@@ -4083,40 +3980,32 @@ function DonutCard({
         <span className="text-[10px] text-text-dim font-mono">총 ₩{fmtKR(total)}</span>
       </div>
       {subtitle && <div className="text-[10px] text-text-muted mb-2">{subtitle}</div>}
-      <ResponsiveContainer width="100%" height={200}>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            cx="50%" cy="50%"
-            innerRadius={42} outerRadius={75}
-            paddingAngle={2}
-          >
-            {data.map((_, i) => (
-              <Cell key={i} fill={palette[i % palette.length]} />
-            ))}
-          </Pie>
-          <Tooltip
-            contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE}
-            formatter={(v: number, n: string) => [`₩${fmtKR(v)} (${total ? ((v as number) / total * 100).toFixed(1) : 0}%)`, n]}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-      {/* 범례를 직접 그려서 가시성 보장 */}
-      <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
-        {data.slice(0, 8).map((d, i) => (
-          <div key={d.name} className="flex items-center gap-1.5 min-w-0">
-            <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: palette[i % palette.length] }} />
-            <span className="text-text-secondary truncate">{d.name}</span>
-            <span className="text-text-muted font-mono ml-auto flex-shrink-0">{total ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
-          </div>
-        ))}
-        {data.length > 8 && (
-          <div className="text-text-muted col-span-2 text-center">+ {data.length - 8}개 더</div>
-        )}
-      </div>
+      <DonutSplit
+        pie={pie}
+        minHeight={172}
+        tip={(v: any) => `₩${fmtKR(v)} (${total ? ((v as number) / total * 100).toFixed(1) : 0}%)`}
+      />
     </div>
+  );
+}
+
+// Top N 막대(채널·품목). 항목이 일곱을 넘고 이름이 길어 가로 막대로 그린다. 비교 기간은 중립색: 첫째는 면, 둘째는 테두리만
+function TopBars({ rows, nameKey, hasCompare }: { rows: any[]; nameKey: string; hasCompare: boolean }) {
+  const keys = hasCompare ? ['revenue', 'compare_revenue', 'contribution_margin', 'compare_cm'] : ['revenue', 'contribution_margin'];
+  return (
+    <ResponsiveContainer width="100%" height={ndBarsHeight(rows.length, keys.length * 14 + 12)}>
+      <BarChart data={rows} layout="vertical" margin={ndMarginH} barGap={2}>
+        <CartesianGrid {...ndGridVertical} />
+        <XAxis type="number" {...ndAxis.value} {...scaleOf(rows, keys, ndFmt.axisWonBy)} />
+        <YAxis type="category" dataKey={nameKey} {...categoryAxis(120)} />
+        <Tooltip {...ndTooltip({ kind: 'bar', value: (v: any) => `₩${fmtKR(v)}` })} />
+        <Legend {...ndLegend()} />
+        <Bar dataKey="revenue" name="매출" {...ndBar(1, { horizontal: true, max: 12 })} />
+        {hasCompare && <Bar dataKey="compare_revenue" name="비교 매출" {...ndBar('context', { horizontal: true, max: 12 })} />}
+        <Bar dataKey="contribution_margin" name="공헌이익" {...ndBar(3, { horizontal: true, max: 12 })} />
+        {hasCompare && <Bar dataKey="compare_cm" name="비교 공헌이익" {...ndBar('context', { horizontal: true, max: 12, outline: true })} />}
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -4653,15 +4542,17 @@ interface PnlData {
   filtered?: boolean;
 }
 
+// 손익 구분의 표식 색: 계열 여섯 색 가운데 그 줄의 바탕색(SECTION_BG)과 같은 색상으로 맞춘다.
+// 일곱 번째 색은 만들지 않으므로 여덟 구분 가운데 둘은 색을 나눠 쓴다(매출·판관비 고정 = 1번, 매출원가 고정·공헌이익 = 2번)
 const SECTION_COLOR: Record<string, string> = {
-  revenue: '#828FFF',
-  cogs_var: '#EB5757',
-  cogs_fixed: '#FC7840',
-  gross_profit: '#27A644',
-  sga_var: '#A855F7',
-  sga_fixed: '#7070FF',
-  op_profit: '#06B6D4',
-  cm: '#F0BF00',
+  revenue: ndColor(1),
+  cogs_var: ndColor(6),
+  cogs_fixed: ndColor(2),
+  gross_profit: ndColor(4),
+  sga_var: ndColor(5),
+  sga_fixed: ndColor(1),
+  op_profit: ndColor(3),
+  cm: ndColor(2),
 };
 
 const SECTION_BG: Record<string, string> = {
@@ -5114,9 +5005,9 @@ function SalesHeatmap({
     granularity === 'day' ? p.slice(8) : granularity === 'month' ? `${Number(p.slice(5))}월` : p;
 
   const cellColor = (v: number) => {
-    if (v <= 0) return 'rgba(35,37,42,0.45)';
+    if (v <= 0) return ndHeat(0);
     const t = Math.pow(v / maxRev, 0.55); // 감마 보정: 작은 값도 눈에 띄게
-    return `rgba(130,143,255,${(0.12 + 0.85 * t).toFixed(3)})`;
+    return ndHeat(t);
   };
 
   const cellW = granularity === 'day' ? 30 : 52;
@@ -5160,8 +5051,8 @@ function SalesHeatmap({
         {/* 범례 */}
         <div className="flex items-center gap-1.5 mt-2 pl-[96px]">
           <span className="text-[9px] text-text-muted">낮음</span>
-          {[0.12, 0.32, 0.52, 0.72, 0.97].map((a) => (
-            <div key={a} className="w-4 h-3 rounded-[2px]" style={{ background: `rgba(130,143,255,${a})` }} />
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <div key={n} className="w-4 h-3 rounded-[2px]" style={{ background: ndHeat(n / 6) }} />
           ))}
           <span className="text-[9px] text-text-muted">높음</span>
         </div>
@@ -5169,14 +5060,18 @@ function SalesHeatmap({
 
       {hover && (
         <div
-          className="fixed z-50 pointer-events-none rounded-lg border border-border-subtle bg-bg-inset px-3 py-2 shadow-nd-f"
+          className="fixed z-50 pointer-events-none"
           style={{ left: Math.min(hover.x + 14, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 180), top: hover.y + 14 }}
         >
-          <div className="text-[11px] font-semibold text-text-primary">{hover.emp}</div>
-          <div className="text-[10px] text-text-dim mb-1">{hover.period}</div>
-          <div className="text-[11px] text-brand-light">매출 ₩{Math.round(hover.revenue).toLocaleString()}</div>
-          <div className="text-[10px] text-text-secondary">수량 {Math.round(hover.pcs).toLocaleString()}개</div>
-          <div className="text-[10px] text-success">공헌이익 ₩{Math.round(hover.cm).toLocaleString()}</div>
+          <NdTooltipContent
+            active
+            label={`${hover.emp} · ${hover.period}`}
+            payload={[
+              { name: '매출', value: `₩${Math.round(hover.revenue).toLocaleString()}`, color: ndColor(1), mark: 'rect' },
+              { name: '수량', value: `${Math.round(hover.pcs).toLocaleString()}개`, color: ndColor(2), mark: 'rect' },
+              { name: '공헌이익', value: `₩${Math.round(hover.cm).toLocaleString()}`, color: ndColor(3), mark: 'rect' },
+            ]}
+          />
         </div>
       )}
     </div>
