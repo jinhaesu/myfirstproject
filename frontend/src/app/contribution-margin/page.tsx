@@ -1,4 +1,5 @@
 'use client';
+import { ndArea, ndAxis, ndBarsHeight, ndFmt, ndGrid, ndGridVertical, ndLegend, ndLine, ndMargin, ndMarginH, ndRefLabel, ndRefLine, ndScale, ndStack, ndTooltip } from '@/components/nd/NdChart';
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -167,13 +168,18 @@ export default function ContributionMarginPage() {
   }
   if (!user) return null;
 
-  const tooltipStyle = {
-    background: 'var(--color-bg-level-1)',
-    border: '1px solid var(--color-border-primary)',
-    borderRadius: 8,
-    fontSize: 12,
-    color: 'var(--color-text-secondary)',
-  } as const;
+  // 그래프 축 범위(널담 그래프 부품): 그 축에 그려지는 가장 큰 값·작은 값
+  const roasVals = roasCurveData.flatMap((r) => [r.cmLow, r.cmMid, r.cmHigh]);
+  const roasTop = Math.max(targetMargin, ...roasVals);
+  const roasMin = Math.min(0, ...roasVals);
+  const budgetMax = budgetSensitivity.length ? budgetSensitivity[budgetSensitivity.length - 1].budget : 0;
+  const budgetTop = Math.max(0, ...budgetSensitivity.map((r) => Math.max(r.revenue, r.finalCm)));
+  const budgetMin = Math.min(0, ...budgetSensitivity.map((r) => Math.min(r.revenue, r.finalCm)));
+  const channelTop = Math.max(0, ...channelData.map((c) => c['수수료'] + c['반품손실'] + Math.max(c['실공헌이익율'], 0)));
+  const channelMin = Math.min(0, ...channelData.map((c) => c['실공헌이익율']));
+  const channelStack = ndStack(['수수료', '반품손실', '실공헌이익율'], { horizontal: true });
+  const paybackTop = Math.max(0, ...paybackData.map((r) => r.cumulative));
+  const paybackMin = Math.min(0, ...paybackData.map((r) => r.cumulative));
 
   return (
     <main className="min-h-screen bg-bg-0 text-text-primary">
@@ -402,10 +408,10 @@ export default function ContributionMarginPage() {
                 formula="최종 공헌이익율 = 1차공헌이익율 − 광고비/총매출  ·  총매출 = 자연유입 + ROAS×광고비"
                 description="자연유입 매출이 섞이면 동일 ROAS에서도 실질 공헌이익율이 달라집니다. 자연유입이 커질수록 광고비가 총매출에서 차지하는 비중이 줄어 최종 공헌이익율이 개선됩니다."
               >
-                <ResponsiveContainer width="100%" height={420}>
+                <ResponsiveContainer width="100%" height={320}>
                   <LineChart
                     data={roasCurveData}
-                    margin={{ top: 20, right: 30, left: 0, bottom: 40 }}
+                    margin={{ ...ndMargin, bottom: 24 }}
                     onMouseMove={(s) => {
                       const ap = (s as { activePayload?: Array<{ payload: Record<string, number> }> } | null)?.activePayload;
                       if (ap && ap[0]) {
@@ -415,56 +421,41 @@ export default function ContributionMarginPage() {
                     }}
                     onMouseLeave={() => setRoasHover(null)}
                   >
-                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" />
+                    <CartesianGrid {...ndGrid} />
                     <XAxis
                       dataKey="roas"
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                      {...ndAxis.x}
                       tickFormatter={(v: number) => `${v}%`}
-                      label={{ value: '광고 ROAS (%)', position: 'insideBottom', offset: -10, fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                      label={{ value: '광고 ROAS (%)', position: 'insideBottom', offset: -14, fontSize: 11, fill: 'var(--nd-chart-tick)' }}
                     />
                     <YAxis
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-                      label={{ value: '최종 공헌이익율 (%)', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                      {...ndAxis.y}
+                      width={64}
+                      {...ndScale(roasTop, () => ndFmt.axisPct, roasMin)}
+                      label={{ value: '최종 공헌이익율 (%)', angle: -90, position: 'insideLeft', offset: 12, fontSize: 11, fill: 'var(--nd-chart-tick)' }}
                     />
-                    <Legend
-                      verticalAlign="top"
-                      align="right"
-                      height={36}
-                      iconType="plainline"
-                      wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)', paddingBottom: 12 }}
-                    />
+                    <Legend {...ndLegend()} />
                     <Tooltip
-                      cursor={{ stroke: 'var(--color-text-secondary)', strokeDasharray: '3 3', strokeOpacity: 0.7 }}
-                      content={<RoasTooltip />}
+                      {...ndTooltip({
+                        kind: 'line',
+                        value: ndFmt.pct,
+                        label: (l) => <>광고 ROAS {l}%<br />최종 공헌이익율</>,
+                        mark: { cmLow: 'dash', cmHigh: 'dash' },
+                      })}
                     />
-                    <ReferenceLine y={0} stroke="var(--color-text-quaternary)" strokeWidth={1} />
-                    <ReferenceLine
-                      y={targetMargin}
-                      stroke="var(--color-danger)"
-                      strokeDasharray="4 4"
-                      label={{ value: `목표 ${targetMargin}%`, fontSize: 10, fill: 'var(--color-danger)' }}
-                    />
+                    <Line dataKey="cmLow" name={`1차 공헌이익율 ${cm1 - 10}%`} {...ndLine(2, { thin: true, dashed: true })} />
+                    <Line dataKey="cmMid" name={`1차 공헌이익율 ${cm1}% (기준)`} {...ndLine(1)} />
+                    <Line dataKey="cmHigh" name={`1차 공헌이익율 ${cm1 + 10}%`} {...ndLine(3, { thin: true, dashed: true })} />
+                    <ReferenceLine y={0} stroke="var(--nd-chart-axis)" strokeWidth={1} />
+                    <ReferenceLine y={targetMargin} {...ndRefLine()} label={ndRefLabel(`목표 ${targetMargin}%`)} />
                     <ReferenceLine
                       x={roas}
-                      stroke="var(--color-accent-hover)"
-                      strokeDasharray="6 4"
-                      label={{ value: `현재 ROAS ${roas}%`, fontSize: 10, fill: 'var(--color-accent-hover)', position: 'top' }}
+                      {...ndRefLine()}
+                      label={ndRefLabel(`현재 ROAS ${roas}%`, { vertical: true, left: roas > 550 })}
                     />
                     {roasHover && (
-                      <ReferenceLine
-                        y={roasHover.y}
-                        stroke="var(--color-text-secondary)"
-                        strokeDasharray="3 3"
-                        strokeOpacity={0.7}
-                        ifOverflow="visible"
-                      />
+                      <ReferenceLine y={roasHover.y} stroke="var(--nd-chart-cursor)" strokeWidth={1} ifOverflow="visible" />
                     )}
-                    <Line type="monotone" dataKey="cmLow" stroke="var(--color-text-quaternary)" strokeWidth={1.5} dot={false} name={`1차 공헌이익율 ${cm1 - 10}%`} />
-                    <Line type="monotone" dataKey="cmMid" stroke="var(--color-accent-hover)" strokeWidth={2.5} dot={false} name={`1차 공헌이익율 ${cm1}% (기준)`} />
-                    <Line type="monotone" dataKey="cmHigh" stroke="var(--color-success)" strokeWidth={1.5} dot={false} name={`1차 공헌이익율 ${cm1 + 10}%`} />
                   </LineChart>
                 </ResponsiveContainer>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
@@ -481,53 +472,32 @@ export default function ContributionMarginPage() {
                 formula="최종 공헌이익 = (자연유입 + ROAS×예산) × 1차공헌이익율 − 예산"
                 description="광고예산을 늘릴 때 매출과 최종 공헌이익이 어떻게 변하는지. X축 범위는 현재 예산의 0~2배로 자동 스케일됩니다."
               >
-                <ResponsiveContainer width="100%" height={420}>
-                  <AreaChart data={budgetSensitivity} margin={{ top: 20, right: 30, left: 10, bottom: 40 }}>
-                    <defs>
-                      <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gCm" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-accent-hover)" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="var(--color-accent-hover)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" />
+                <ResponsiveContainer width="100%" height={320}>
+                  <AreaChart data={budgetSensitivity} margin={{ ...ndMargin, bottom: 24 }}>
+                    <CartesianGrid {...ndGrid} />
                     <XAxis
                       dataKey="budget"
-                      tickFormatter={fmtC}
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      label={{ value: '광고예산 (원)', position: 'insideBottom', offset: -10, fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                      {...ndAxis.x}
+                      tickFormatter={ndFmt.axisWonBy(budgetMax)}
+                      label={{ value: '광고예산 (원)', position: 'insideBottom', offset: -14, fontSize: 11, fill: 'var(--nd-chart-tick)' }}
                     />
-                    <YAxis
-                      tickFormatter={fmtC}
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      width={70}
-                    />
-                    <Legend
-                      verticalAlign="top"
-                      align="right"
-                      height={36}
-                      iconType="plainline"
-                      wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)', paddingBottom: 12 }}
-                    />
+                    <YAxis {...ndAxis.y} {...ndScale(budgetTop, ndFmt.axisWonBy, budgetMin)} />
+                    <Legend {...ndLegend()} />
                     <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(v: number) => `₩${fmtC(v)}`}
-                      labelFormatter={(v: number) => `예산 ₩${fmtC(v)}`}
+                      {...ndTooltip({
+                        kind: 'line',
+                        value: (v) => `₩${fmtC(v)}`,
+                        label: (v) => `예산 ₩${fmtC(v)}`,
+                      })}
                     />
-                    <ReferenceLine y={0} stroke="var(--color-text-quaternary)" />
+                    <Area dataKey="revenue" name="총매출 (자연+광고)" {...ndArea(2)} />
+                    <Area dataKey="finalCm" name="최종 공헌이익" {...ndArea(1)} />
+                    <ReferenceLine y={0} stroke="var(--nd-chart-axis)" strokeWidth={1} />
                     <ReferenceLine
                       x={adBudget}
-                      stroke="var(--color-accent-hover)"
-                      strokeDasharray="6 4"
-                      label={{ value: `현재 예산 ₩${fmtC(adBudget)}`, fontSize: 10, fill: 'var(--color-accent-hover)', position: 'top' }}
+                      {...ndRefLine()}
+                      label={ndRefLabel(`현재 예산 ₩${fmtC(adBudget)}`, { vertical: true })}
                     />
-                    <Area type="monotone" dataKey="revenue" stroke="var(--color-brand-bg)" strokeWidth={1.5} fill="url(#gRev)" name="총매출 (자연+광고)" />
-                    <Area type="monotone" dataKey="finalCm" stroke="var(--color-accent-hover)" strokeWidth={2} fill="url(#gCm)" name="최종 공헌이익" />
                   </AreaChart>
                 </ResponsiveContainer>
               </Panel>
@@ -539,38 +509,21 @@ export default function ContributionMarginPage() {
                 formula="실공헌이익율 = 1차공헌이익율 − 채널수수료 − 반품손실율"
                 description="좌측에서 각 채널의 수수료와 반품율을 자유롭게 조정하세요. 채널명도 클릭해서 바꾸실 수 있습니다. 널담의 실제 계약 조건으로 수정하시면 즉시 실무 비교용으로 사용 가능."
               >
-                <ResponsiveContainer width="100%" height={420}>
-                  <BarChart data={channelData} margin={{ top: 20, right: 30, left: 0, bottom: 40 }} layout="vertical">
-                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" horizontal={false} />
+                <ResponsiveContainer width="100%" height={ndBarsHeight(channelData.length) + 56}>
+                  <BarChart data={channelData} margin={{ ...ndMarginH, bottom: 24 }} layout="vertical" stackOffset="sign">
+                    <CartesianGrid {...ndGridVertical} />
                     <XAxis
                       type="number"
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      tickFormatter={(v: number) => `${v}%`}
-                      label={{ value: '% of 매출', position: 'insideBottom', offset: -10, fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                      {...ndAxis.value}
+                      {...ndScale(channelTop, () => ndFmt.axisPct, channelMin)}
+                      label={{ value: '% of 매출', position: 'insideBottom', offset: -14, fontSize: 11, fill: 'var(--nd-chart-tick)' }}
                     />
-                    <YAxis
-                      dataKey="name"
-                      type="category"
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 12, fill: 'var(--color-text-secondary)' }}
-                      width={80}
-                    />
-                    <Legend
-                      verticalAlign="top"
-                      align="right"
-                      height={36}
-                      iconType="square"
-                      wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)', paddingBottom: 12 }}
-                    />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(v: number) => `${v}%`}
-                      cursor={{ fill: 'rgba(130, 143, 255, 0.05)' }}
-                    />
-                    <Bar dataKey="수수료" stackId="a" fill="var(--color-border-secondary)" />
-                    <Bar dataKey="반품손실" stackId="a" fill="var(--color-text-quaternary)" />
-                    <Bar dataKey="실공헌이익율" stackId="a" fill="var(--color-brand-bg)" />
+                    <YAxis dataKey="name" type="category" {...ndAxis.categoryOf(80)} />
+                    <Legend {...ndLegend()} />
+                    <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => `${v}%` })} />
+                    <Bar dataKey="수수료" stackId="a" {...channelStack('수수료', 2)} />
+                    <Bar dataKey="반품손실" stackId="a" {...channelStack('반품손실', 3)} />
+                    <Bar dataKey="실공헌이익율" stackId="a" {...channelStack('실공헌이익율', 1)} />
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -664,36 +617,13 @@ export default function ContributionMarginPage() {
                 </div>
 
                 <ResponsiveContainer width="100%" height={320}>
-                  <AreaChart data={paybackData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
-                    <defs>
-                      <linearGradient id="gPay" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-brand-bg)" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="var(--color-brand-bg)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border-primary)" />
-                    <XAxis
-                      dataKey="month"
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                    />
-                    <YAxis
-                      tickFormatter={fmtC}
-                      stroke="var(--color-text-quaternary)"
-                      tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
-                      width={60}
-                    />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(v: number) => `₩${fmtC(v)}`}
-                    />
-                    <ReferenceLine
-                      y={0}
-                      stroke="var(--color-text-secondary)"
-                      strokeWidth={1.5}
-                      label={{ value: 'Break-even', fontSize: 10, fill: 'var(--color-text-secondary)', position: 'right' }}
-                    />
-                    <Area type="monotone" dataKey="cumulative" stroke="var(--color-brand-bg)" strokeWidth={2} fill="url(#gPay)" name="누적 공헌이익" />
+                  <AreaChart data={paybackData} margin={ndMargin}>
+                    <CartesianGrid {...ndGrid} />
+                    <XAxis dataKey="month" {...ndAxis.x} />
+                    <YAxis {...ndAxis.y} {...ndScale(paybackTop, ndFmt.axisWonBy, paybackMin)} />
+                    <Tooltip {...ndTooltip({ kind: 'line', value: (v) => `₩${fmtC(v)}` })} />
+                    <Area dataKey="cumulative" name="누적 공헌이익" {...ndArea(1)} />
+                    <ReferenceLine y={0} {...ndRefLine()} label={ndRefLabel('Break-even')} />
                   </AreaChart>
                 </ResponsiveContainer>
               </Panel>

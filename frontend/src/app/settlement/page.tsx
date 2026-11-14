@@ -1,5 +1,5 @@
 'use client';
-import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
+import { NdChartEmpty, NdKey, ndAlpha, ndAxis, ndBar, ndBarsHeight, ndFmt, ndGrid, ndGridVertical, ndLegend, ndMargin, ndMarginH, ndScale, ndSlots, ndTooltip, ndValueLabel } from '@/components/nd/NdChart';
 
 import { ArrowDownIcon, ArrowUpIcon, ArrowsDownUpIcon, CheckIcon, CurrencyKrwIcon, EditIcon, MoneyIcon, ReceiptIcon, StorefrontIcon, XIcon } from '@/components/nd/icons';
 import { Suspense, useEffect, useState, useCallback, useRef, useMemo } from 'react';
@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line
+  LabelList
 } from 'recharts';
 
 // ─────────────────────────────────────────────
@@ -65,20 +65,10 @@ const CHANNELS_BY_CATEGORY = ALL_CHANNELS.reduce((acc, ch) => {
   return acc;
 }, {} as Record<string, typeof ALL_CHANNELS>);
 
-const COLORS = ND_CHART;
-
-const CATEGORY_COLORS: Record<string, string> = {
-  '오픈마켓': '#5E6AD2',
-  '소셜커머스': '#27A644',
-  '버티컬': '#F0BF00',
-  '홈쇼핑': '#EB5757',
-  '백화점': '#7070FF',
-  '복지몰': '#EB5757',
-  '대형마트': '#06B6D4',
-  '편의점': '#68CC58',
-  'B2B': '#FC7840',
-  '기타': '#6B7280',
-};
+// 카테고리 목록(순서 고정). 색은 이름에 묶는다: 앞의 여섯은 계열 색 1~6번, 일곱 번째부터와 목록에 없는 이름은 중립색
+// (일곱 번째 색은 만들지 않는다 — 널담 디자인 기준 2 의 그래프 규칙)
+const CATEGORY_NAMES = ['오픈마켓', '소셜커머스', '버티컬', '홈쇼핑', '백화점', '복지몰', '대형마트', '편의점', 'B2B', '기타'];
+const categoryColor = ndSlots(CATEGORY_NAMES);
 
 const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
 const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` }));
@@ -422,6 +412,11 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
     });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [records]);
+  // 순위 막대의 행: 큰 것부터, 비중(%)을 함께 둔다(카테고리가 열 개까지라 원 그래프 대신 순위 막대로 그린다)
+  const categoryRows = useMemo(() => {
+    const total = categoryData.reduce((a, r) => a + (r.value > 0 ? r.value : 0), 0) || 1;
+    return [...categoryData].sort((a, b) => b.value - a.value).map((r) => ({ ...r, share: (r.value / total) * 100 }));
+  }, [categoryData]);
 
   // Monthly trend for bar chart
   const monthlyTrend = useMemo(() => {
@@ -613,18 +608,18 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
               <h3 className="text-lg font-semibold text-text-primary mb-4">{year}년 월별 추이</h3>
               {monthlyTrend.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={monthlyTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-secondary)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`} />
-                    <Tooltip formatter={(value: number) => fmtWon(value)} />
-                    <Legend />
-                    <Bar dataKey="총매출" fill="var(--color-brand-bg)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="정산금액" fill="var(--color-success)" radius={[4, 4, 0, 0]} />
+                  <BarChart data={monthlyTrend} margin={ndMargin}>
+                    <CartesianGrid {...ndGrid} />
+                    <XAxis dataKey="name" {...ndAxis.x} />
+                    <YAxis {...ndAxis.y} {...ndScale(Math.max(0, ...monthlyTrend.map((m) => Math.max(Number(m.총매출) || 0, Number(m.정산금액) || 0))), ndFmt.axisWonBy)} />
+                    <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => fmtWon(v) })} />
+                    <Legend {...ndLegend()} />
+                    <Bar dataKey="총매출" {...ndBar(1)} />
+                    <Bar dataKey="정산금액" {...ndBar(2)} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[320px] flex items-center justify-center text-text-quaternary">데이터가 없습니다</div>
+                <NdChartEmpty height={320}>데이터가 없습니다</NdChartEmpty>
               )}
             </div>
 
@@ -632,27 +627,20 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
             <div className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-6">
               <h3 className="text-lg font-semibold text-text-primary mb-4">카테고리별 매출</h3>
               {categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={320}>
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false}
-                    >
-                      {categoryData.map((entry, idx) => (
-                        <Cell key={entry.name} fill={CATEGORY_COLORS[entry.name] || COLORS[idx % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => fmtWon(value)} />
-                  </PieChart>
+                <ResponsiveContainer width="100%" height={ndBarsHeight(categoryRows.length)}>
+                  <BarChart layout="vertical" data={categoryRows} margin={categoryRows.length <= 8 ? { ...ndMarginH, right: 48 } : ndMarginH}>
+                    <CartesianGrid {...ndGridVertical} />
+                    <XAxis type="number" {...ndAxis.value} {...ndScale(Math.max(0, ...categoryRows.map((r) => r.value)), ndFmt.axisWonBy)} />
+                    <YAxis type="category" dataKey="name" {...ndAxis.categoryOf(80)} />
+                    <Tooltip {...ndTooltip({ kind: 'bar', value: (v, _n, it) => `${fmtWon(v)} · ${ndFmt.pct(it?.payload?.share)}` })} />
+                    <Bar dataKey="value" name="총매출" {...ndBar(1, { horizontal: true })}>
+                      {/* 비중 글자는 막대가 여덟 개 이하일 때만 단다 */}
+                      {categoryRows.length <= 8 && <LabelList dataKey="share" {...ndValueLabel(ndFmt.pct, { horizontal: true })} />}
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[320px] flex items-center justify-center text-text-quaternary">데이터가 없습니다</div>
+                <NdChartEmpty height={320}>데이터가 없습니다</NdChartEmpty>
               )}
             </div>
           </div>
@@ -704,12 +692,10 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                       <tr key={r.id} className="hover:bg-bg-secondary transition-colors">
                         <td className="px-4 py-3">
                           <span
-                            className="inline-block px-2 py-0.5 text-xs rounded-full font-medium"
-                            style={{
-                              backgroundColor: `${CATEGORY_COLORS[r.category] || '#6B7280'}20`,
-                              color: CATEGORY_COLORS[r.category] || '#6B7280',
-                            }}
+                            className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded-full font-medium text-text-secondary whitespace-nowrap"
+                            style={{ backgroundColor: ndAlpha(categoryColor(r.category || '기타'), 12) }}
                           >
+                            <NdKey color={categoryColor(r.category || '기타')} mark="dot" />
                             {r.category || '기타'}
                           </span>
                         </td>
@@ -924,7 +910,7 @@ function ManualInputModal({
               className="w-full border border-border-primary rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand focus:border-brand"
             >
               <option value="">선택</option>
-              {Object.keys(CATEGORY_COLORS).map((cat) => (
+              {CATEGORY_NAMES.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
@@ -1187,7 +1173,8 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
                 <div key={ch.name} className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <span className="inline-block px-2 py-0.5 text-xs rounded-full font-medium mb-1" style={{ backgroundColor: `${CATEGORY_COLORS[ch.category] || '#6B7280'}20`, color: CATEGORY_COLORS[ch.category] || '#6B7280' }}>
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded-full font-medium mb-1 text-text-secondary whitespace-nowrap" style={{ backgroundColor: ndAlpha(categoryColor(ch.category), 12) }}>
+                        <NdKey color={categoryColor(ch.category)} mark="dot" />
                         {ch.category}
                       </span>
                       <h5 className="font-semibold text-text-primary">{ch.name}</h5>
@@ -1553,9 +1540,9 @@ AGENT_API_KEY=your-api-key`}
         <div key={category} className="bg-bg-1 rounded-xl shadow-nd-s border border-border-primary overflow-hidden">
           <div
             className="px-4 py-3 border-b border-border-primary flex items-center gap-2"
-            style={{ backgroundColor: `${CATEGORY_COLORS[category] || '#6B7280'}10` }}
+            style={{ backgroundColor: ndAlpha(categoryColor(category), 6) }}
           >
-            <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[category] || '#6B7280' }} />
+            <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: categoryColor(category) }} />
             <h4 className="font-semibold text-text-primary">{category}</h4>
             <span className="text-sm text-text-tertiary">({channels.length}개 채널)</span>
           </div>

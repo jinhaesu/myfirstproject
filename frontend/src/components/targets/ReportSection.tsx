@@ -1,9 +1,10 @@
 'use client';
+import { ndAxis, ndBar, ndColor, ndFmt, ndGrid, ndMargin, ndScale, ndTooltip } from '@/components/nd/NdChart';
 
 import { CaretDownIcon, ChartLineIcon, CheckCircleIcon, CheckIcon, DownloadIcon, EditIcon, FileTextIcon, MailIcon, TrashIcon, WarningIcon, XCircleIcon } from '@/components/nd/icons';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts';
 
 // ---------------------------------------------------------------------------
@@ -1041,12 +1042,15 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
     );
   };
 
-  // Bar chart color function
+  // Bar chart color function — 달성(100% 이상) · 주의(80~99%) · 미달(80% 미만)의 상태 색
   const getBarColor = (value: number) => {
-    if (value >= 100) return '#27A644';
-    if (value >= 80) return '#F0BF00';
-    return '#EB5757';
+    if (value >= 100) return ndColor('good');
+    if (value >= 80) return ndColor('warn');
+    return ndColor('bad');
   };
+  // 달성률 축: 100% 까지는 늘 담고, 음수(공헌이익 적자)가 있으면 그만큼 아래로
+  const achievementRates = achievementChartData.flatMap((r) => [r.매출달성률, r.판매량달성률, r.공헌이익달성률]).filter((v) => isFinite(v));
+  const achievementScale = ndScale(Math.max(100, ...achievementRates), () => ndFmt.axisPct, Math.min(0, ...achievementRates));
 
   // -----------------------------------------------------------------------
   // JSX
@@ -1303,38 +1307,35 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
 
                     {/* Achievement rate chart */}
                     {achievementChartData.length > 0 && (
-                      <div className="mt-6 bg-bg-0 rounded-xl p-5 border border-border-primary">
+                      <div className="mt-6 bg-bg-0 rounded-xl p-5 border border-border-primary" style={{ ['--nd-chart-surface' as any]: 'var(--color-bg-level-0)' }}>
                         <h4 className="text-sm font-semibold text-text-secondary mb-4">담당자별 달성률 차트</h4>
                         <ResponsiveContainer width="100%" height={300}>
-                          <BarChart data={achievementChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                            <YAxis
-                              tick={{ fontSize: 12 }}
-                              domain={[0, (dataMax: number) => Math.max(dataMax + 20, 120)]}
-                              tickFormatter={(v: number) => `${v}%`}
-                            />
-                            <Tooltip formatter={(value: number, name: string) => [`${value}%`, name]} />
-                            <Legend wrapperStyle={{ fontSize: '12px' }} />
-                            {/* Reference line at 100% */}
-                            <Bar dataKey="매출달성률" name="매출 달성률">
+                          <BarChart data={achievementChartData} margin={ndMargin}>
+                            <CartesianGrid {...ndGrid} />
+                            <XAxis dataKey="name" {...ndAxis.band} />
+                            <YAxis {...ndAxis.y} {...achievementScale} />
+                            <Tooltip {...ndTooltip({ kind: 'bar', value: ndFmt.pct, color: (it) => getBarColor(Number(it.value)) })} />
+                            {/* 막대 색은 계열이 아니라 달성 상태다(아래 설명). 계열은 놓인 순서와 말풍선의 이름으로 구분한다 */}
+                            <Bar dataKey="매출달성률" name="매출 달성률" {...ndBar('context')}>
                               {achievementChartData.map((entry, index) => (
                                 <Cell key={`sales-${index}`} fill={getBarColor(entry.매출달성률)} />
                               ))}
                             </Bar>
-                            <Bar dataKey="판매량달성률" name="판매량 달성률">
+                            <Bar dataKey="판매량달성률" name="판매량 달성률" {...ndBar('context')}>
                               {achievementChartData.map((entry, index) => (
                                 <Cell key={`qty-${index}`} fill={getBarColor(entry.판매량달성률)} />
                               ))}
                             </Bar>
-                            <Bar dataKey="공헌이익달성률" name="공헌이익 달성률">
+                            <Bar dataKey="공헌이익달성률" name="공헌이익 달성률" {...ndBar('context')}>
                               {achievementChartData.map((entry, index) => (
                                 <Cell key={`cont-${index}`} fill={getBarColor(entry.공헌이익달성률)} />
                               ))}
                             </Bar>
+                            {/* 음수가 있으면 바닥선 노릇은 0 선이 한다 */}
+                            {achievementScale.domain[0] < 0 && <ReferenceLine y={0} stroke="var(--nd-chart-axis)" strokeWidth={1} />}
                           </BarChart>
                         </ResponsiveContainer>
-                        <div className="flex items-center justify-center gap-6 mt-3 text-xs text-text-tertiary">
+                        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 mt-3 text-xs text-text-tertiary">
                           <span className="flex items-center gap-1">
                             <span className="w-3 h-3 rounded-sm bg-success inline-block" /> 100% 이상
                           </span>
@@ -1344,6 +1345,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           <span className="flex items-center gap-1">
                             <span className="w-3 h-3 rounded-sm bg-danger inline-block" /> 80% 미만
                           </span>
+                          <span>막대 순서: 매출 · 판매량 · 공헌이익 달성률</span>
                         </div>
                       </div>
                     )}

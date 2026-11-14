@@ -1,5 +1,6 @@
 'use client';
 import { CHART_COLORS as ND_CHART } from '@/lib/chartColors';
+import { NdDonutList, ndAxis, ndBar, ndBarsHeight, ndFmt, ndGrid, ndGridVertical, ndLegend, ndLine, ndMargin, ndMarginH, ndPie, ndPieRows, ndScale, ndStack, ndTooltip } from '@/components/nd/NdChart';
 
 import { useEffect, useState, useCallback } from 'react';
 import { MatrixTable } from '@/components/MatrixTable';
@@ -9,8 +10,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  LineChart, Line, PieChart, Pie, Legend, ComposedChart, Area,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Legend, ComposedChart,
 } from 'recharts';
 
 // ── API ──
@@ -64,6 +65,8 @@ const won = (n: number) => '₩' + Number(n || 0).toLocaleString('ko-KR');
 const wonShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억'; if (a >= 1e4) return Math.round(n / 1e4).toLocaleString('ko-KR') + '만'; return '₩' + Math.round(n || 0).toLocaleString('ko-KR'); };
 const numShort = (n: number) => { const a = Math.abs(n || 0); if (a >= 1e8) return (n / 1e8).toFixed(2).replace(/\.00$/, '') + '억'; if (a >= 1e4) return (n / 1e4).toFixed(1).replace(/\.0$/, '') + '만'; return Math.round(n || 0).toLocaleString('ko-KR'); };
 const COLORS = ND_CHART;
+const SHIFT_STACK = ndStack(['day_qty', 'night_qty']);   // 주간 1번, 야간 2번
+const topOf = (rows: readonly any[] | undefined, ...keys: string[]) => Math.max(0, ...(rows || []).map((r) => Math.max(...keys.map((k) => Number(r?.[k]) || 0))));
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const todayISO = () => iso(new Date());
 function presetRange(kind: string): { start: string; end: string } {
@@ -188,7 +191,7 @@ function DashTab() {
   }, [range, cat, loc, gran]);
   useEffect(() => { load(); }, [load]);
 
-  const PIE = d?.by_category.slice(0, 10).map((c, i) => ({ name: c.category, value: c.qty, fill: COLORS[i % COLORS.length] })) || [];
+  const PIE = ndPieRows(d?.by_category.slice(0, 10).map((c) => ({ name: c.category, value: c.qty })) || []);
   const granLabel = gran === 'day' ? '일별' : gran === 'week' ? '주별' : '월별';
 
   return (
@@ -259,16 +262,16 @@ function DashTab() {
                   <StatCard label="근태 실지급+환산" value={wonShort(labor.total_att_cost)} sub={`정규직 실급여 ${wonShort(labor.total_regular_pay)}`} />
                 </div>
                 <ResponsiveContainer width="100%" height={240}>
-                  <ComposedChart data={labor.series}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-                    <XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                    <YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                    <YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} domain={[0, 2]} />
-                    <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                    <Legend />
-                    <Bar yAxisId="l" dataKey="prod_hours" name="생산일보 투여시간" fill="var(--color-brand-bg)" />
-                    <Bar yAxisId="l" dataKey="att_hours" name="근태 노무시간" fill="var(--color-cyan)" />
-                    <Line yAxisId="r" type="monotone" dataKey="hours_ratio" name="비율(배)" stroke="var(--color-warning)" strokeWidth={2} dot={false} />
+                  <ComposedChart data={labor.series} margin={ndMargin}>
+                    <CartesianGrid {...ndGrid} />
+                    <XAxis dataKey="period" {...ndAxis.x} />
+                    <YAxis yAxisId="l" {...ndAxis.y} {...ndScale(topOf(labor.series, 'prod_hours', 'att_hours'), (m) => ndFmt.axisNumBy(m, 1, 'h'))} />
+                    <YAxis yAxisId="r" orientation="right" {...ndAxis.y} {...ndScale(Math.max(2, topOf(labor.series, 'hours_ratio')), (m) => ndFmt.axisNumBy(m, 1, '배'), 0, { fraction: true })} />
+                    <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => fmt(v) })} />
+                    <Legend {...ndLegend()} />
+                    <Bar yAxisId="l" dataKey="prod_hours" name="생산일보 투여시간" {...ndBar(1)} />
+                    <Bar yAxisId="l" dataKey="att_hours" name="근태 노무시간" {...ndBar(2)} />
+                    <Line yAxisId="r" dataKey="hours_ratio" name="비율(배)" {...ndLine(3)} />
                   </ComposedChart>
                 </ResponsiveContainer>
                 <div className="text-xs text-text-quaternary mt-2">{labor.note}</div>
@@ -281,26 +284,27 @@ function DashTab() {
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">{granLabel} 생산성 (시간당 생산량){cat && ` · ${cat}`}</div>
               <ResponsiveContainer width="100%" height={240}>
-                <ComposedChart data={ts}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-                  <XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                  <Bar yAxisId="l" dataKey="hours" name="투여시간" fill="var(--color-border-primary)" />
-                  <Line yAxisId="r" type="monotone" dataKey="hourly_qty" name="시간당 생산량" stroke="var(--color-brand-bg)" strokeWidth={2} dot={false} />
+                <ComposedChart data={ts} margin={ndMargin}>
+                  <CartesianGrid {...ndGrid} />
+                  <XAxis dataKey="period" {...ndAxis.x} />
+                  <YAxis yAxisId="l" {...ndAxis.y} {...ndScale(topOf(ts, 'hours'), (m) => ndFmt.axisNumBy(m, 1, 'h'))} />
+                  <YAxis yAxisId="r" orientation="right" {...ndAxis.y} {...ndScale(topOf(ts, 'hourly_qty'), (m) => ndFmt.axisNumBy(m, 1, '개'))} />
+                  <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => fmt(v) })} />
+                  <Legend {...ndLegend()} />
+                  <Bar yAxisId="l" dataKey="hours" name="투여시간" {...ndBar('context')} />
+                  <Line yAxisId="r" dataKey="hourly_qty" name="시간당 생산량" {...ndLine(1)} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">{granLabel} 채산성 (생산액÷노무비){cat && ` · ${cat}`}</div>
               <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={ts}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-                  <XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => v} />
-                  <Line type="monotone" dataKey="profitability" name="채산성(배)" stroke="var(--color-success-light)" strokeWidth={2} dot={false} />
+                <LineChart data={ts} margin={ndMargin}>
+                  <CartesianGrid {...ndGrid} />
+                  <XAxis dataKey="period" {...ndAxis.x} />
+                  <YAxis {...ndAxis.y} {...ndScale(topOf(ts, 'profitability'), ndFmt.axisNumBy, 0, { fraction: true })} />
+                  <Tooltip {...ndTooltip({ kind: 'line', value: (v) => v })} />
+                  <Line dataKey="profitability" name="채산성(배)" {...ndLine(1)} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -311,29 +315,30 @@ function DashTab() {
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">{granLabel} 생산량 · 원가 · 노무비</div>
               <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={ts}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-                  <XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <YAxis yAxisId="l" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <YAxis yAxisId="r" orientation="right" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                  <Line yAxisId="l" type="monotone" dataKey="qty" name="생산량" stroke="var(--color-brand-bg)" strokeWidth={2} dot={false} />
-                  <Line yAxisId="r" type="monotone" dataKey="cost" name="원가" stroke="var(--color-warning)" strokeWidth={2} dot={false} />
-                  <Line yAxisId="r" type="monotone" dataKey="labor" name="노무비" stroke="var(--color-cyan)" strokeWidth={2} dot={false} />
+                <LineChart data={ts} margin={ndMargin}>
+                  <CartesianGrid {...ndGrid} />
+                  <XAxis dataKey="period" {...ndAxis.x} />
+                  <YAxis yAxisId="l" {...ndAxis.y} {...ndScale(topOf(ts, 'qty'), (m) => ndFmt.axisNumBy(m, 1, '개'))} />
+                  <YAxis yAxisId="r" orientation="right" {...ndAxis.y} {...ndScale(topOf(ts, 'cost', 'labor'), ndFmt.axisWonBy)} />
+                  <Tooltip {...ndTooltip({ kind: 'line', value: (v) => fmt(v) })} />
+                  <Legend {...ndLegend()} />
+                  <Line yAxisId="l" dataKey="qty" name="생산량" {...ndLine(1)} />
+                  <Line yAxisId="r" dataKey="cost" name="원가" {...ndLine(2)} />
+                  <Line yAxisId="r" dataKey="labor" name="노무비" {...ndLine(3)} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">주간 / 야간 생산량 비교</div>
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={ts}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-                  <XAxis dataKey="period" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                  <Legend />
-                  <Bar dataKey="day_qty" name="주간" stackId="s" fill="var(--color-brand-bg)" />
-                  <Bar dataKey="night_qty" name="야간" stackId="s" fill="var(--color-purple)" />
+                <BarChart data={ts} margin={ndMargin}>
+                  <CartesianGrid {...ndGrid} />
+                  <XAxis dataKey="period" {...ndAxis.x} />
+                  <YAxis {...ndAxis.y} {...ndScale(Math.max(0, ...ts.map((r) => (Number(r.day_qty) || 0) + (Number(r.night_qty) || 0))), ndFmt.axisNumBy)} />
+                  <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => fmt(v), total: true, reverse: true })} />
+                  <Legend {...ndLegend()} />
+                  <Bar dataKey="day_qty" name="주간" stackId="s" {...SHIFT_STACK('day_qty')} />
+                  <Bar dataKey="night_qty" name="야간" stackId="s" {...SHIFT_STACK('night_qty')} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -343,28 +348,29 @@ function DashTab() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">기간 누계 품목류별 생산 비중</div>
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={PIE} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={(e: any) => e.name}>
-                    {PIE.map((p, i) => <Cell key={i} fill={p.fill} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="h-[220px] sm:flex-1 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={PIE} dataKey="value" nameKey="name" {...ndPie()} />
+                      <Tooltip {...ndTooltip({ kind: 'none', value: (v) => fmt(v) })} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="sm:w-1/2 min-w-0"><NdDonutList rows={PIE} /></div>
+              </div>
             </div>
 
           <div className="contents">
             <div className={`${C.card} p-4`}>
               <div className="text-sm font-semibold text-text-primary mb-3">품목류별 생산량</div>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={d.by_category.slice(0, 12)} layout="vertical" margin={{ left: 30 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-bg-inset)" />
-                  <XAxis type="number" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} />
-                  <YAxis type="category" dataKey="category" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 11 }} width={80} />
-                  <Tooltip contentStyle={{ background: 'var(--color-bg-level-1)', border: '1px solid var(--color-border-primary)', borderRadius: 8 }} formatter={(v: any) => fmt(v)} />
-                  <Bar dataKey="qty" radius={[0, 4, 4, 0]}>
-                    {d.by_category.slice(0, 12).map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Bar>
+              <ResponsiveContainer width="100%" height={ndBarsHeight(d.by_category.slice(0, 12).length)}>
+                <BarChart data={d.by_category.slice(0, 12)} layout="vertical" margin={ndMarginH}>
+                  <CartesianGrid {...ndGridVertical} />
+                  <XAxis type="number" {...ndAxis.value} {...ndScale(topOf(d.by_category.slice(0, 12), 'qty'), ndFmt.axisNumBy)} />
+                  <YAxis type="category" dataKey="category" {...ndAxis.category} />
+                  <Tooltip {...ndTooltip({ kind: 'bar', value: (v) => fmt(v) })} />
+                  <Bar dataKey="qty" name="생산량" {...ndBar(1, { horizontal: true })} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
