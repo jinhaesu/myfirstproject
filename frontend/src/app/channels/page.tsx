@@ -714,11 +714,11 @@ function MatrixSection({ title, by, authHeaders, categoryToggle = false }: {
                 <tr key={r.id} className="border-b border-bg-inset hover:bg-bg-inset">
                   <td className="py-1.5 px-2 text-text-primary sticky left-0 bg-bg-1">{r.name}</td>
                   {months.map(m => (
-                    <td key={m} className="py-1.5 px-2 text-right font-mono text-text-secondary">
+                    <td key={m} className="py-1.5 px-2 text-right text-text-secondary">
                       {fmtMatrixCell(matrixCellValue(r.monthly?.[String(m)], metric), metric)}
                     </td>
                   ))}
-                  <td className="py-1.5 px-2 text-right font-mono text-text-primary font-semibold">
+                  <td className="py-1.5 px-2 text-right text-text-primary font-semibold">
                     {fmtMatrixCell(matrixCellValue(r.total, metric), metric)}
                   </td>
                 </tr>
@@ -732,11 +732,11 @@ function MatrixSection({ title, by, authHeaders, categoryToggle = false }: {
               <tr className="border-t-2 border-border-subtle font-semibold bg-bg-inset">
                 <td className="py-2 px-2 text-text-primary sticky left-0 bg-bg-inset">합계</td>
                 {months.map(m => (
-                  <td key={m} className="py-2 px-2 text-right font-mono text-text-primary">
+                  <td key={m} className="py-2 px-2 text-right text-text-primary">
                     {fmtMatrixCell(matrixCellValue(colTotals[String(m)], metric), metric)}
                   </td>
                 ))}
-                <td className="py-2 px-2 text-right font-mono text-accent">
+                <td className="py-2 px-2 text-right text-accent">
                   {fmtMatrixCell(matrixCellValue(colTotals.total, metric), metric)}
                 </td>
               </tr>
@@ -1051,7 +1051,7 @@ const DashboardTab = memo(function DashboardTab({
         <div className={`${PANEL} p-4 lg:col-span-2`}>
           <div className="flex items-baseline justify-between mb-2">
             <h3 className="text-sm font-semibold text-text-primary">매출 & 공헌이익 추이</h3>
-            <span className="text-[10px] font-mono text-text-dim">
+            <span className="text-[10px] text-text-dim">
               {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
             </span>
           </div>
@@ -1138,7 +1138,7 @@ const DashboardTab = memo(function DashboardTab({
               </span>
             )}
           </h3>
-          <span className="text-[10px] font-mono text-text-dim">
+          <span className="text-[10px] text-text-dim">
             {granularity === 'day' ? '일간' : granularity === 'month' ? '월간' : granularity === 'quarter' ? '분기' : '연간'}
           </span>
         </div>
@@ -1313,20 +1313,20 @@ const DashboardTab = memo(function DashboardTab({
                   return (
                     <tr key={p.product_id} className="border-b border-bg-inset hover:bg-bg-inset">
                       <td className="py-2 px-2 text-text-primary">{p.product_name}</td>
-                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(p.pcs))}</td>
-                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(p.orders)}</td>
-                      <td className="py-2 px-2 text-right font-mono text-text-primary">
+                      <td className="py-2 px-2 text-right text-text-secondary">{fmtNum(Math.round(p.pcs))}</td>
+                      <td className="py-2 px-2 text-right text-text-secondary">{fmtNum(p.orders)}</td>
+                      <td className="py-2 px-2 text-right text-text-primary">
                         ₩{fmtKR(p.revenue)}
                         {revDelta && <DeltaBadge delta={revDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-text-dim">
+                      <td className="py-2 px-2 text-right text-text-dim">
                         {p.pcs ? `₩${fmtNum(Math.round(p.revenue / p.pcs))}` : '-'}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-success">
+                      <td className="py-2 px-2 text-right text-success">
                         ₩{fmtKR(p.contribution_margin)}
                         {cmDelta && <DeltaBadge delta={cmDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-accent">{fmtPct(p.cm_rate)}</td>
+                      <td className="py-2 px-2 text-right text-accent">{fmtPct(p.cm_rate)}</td>
                     </tr>
                   );
                 })
@@ -1340,12 +1340,12 @@ const DashboardTab = memo(function DashboardTab({
                 <tfoot>
                   <tr className="border-t-2 border-border-subtle font-semibold bg-bg-inset">
                     <td className="py-2.5 px-2 text-text-primary">합계</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(Math.round(t.pcs))}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(t.orders)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(t.revenue)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-dim">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-success">₩{fmtKR(t.cm)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-accent">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">{fmtNum(Math.round(t.pcs))}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">{fmtNum(t.orders)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">₩{fmtKR(t.revenue)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-dim">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
+                    <td className="py-2.5 px-2 text-right text-success">₩{fmtKR(t.cm)}</td>
+                    <td className="py-2.5 px-2 text-right text-accent">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
                   </tr>
                 </tfoot>
               );
@@ -1408,24 +1408,24 @@ const DashboardTab = memo(function DashboardTab({
                           <span className="text-[11px] font-semibold text-warning bg-warning/10 rounded px-1.5 py-0.5" title="담당자가 배정되지 않은 채널입니다 — 직원 관리 탭에서 배정하세요">미배정</span>
                         )}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(c.pcs))}</td>
-                      <td className="py-2 px-2 text-right font-mono text-text-secondary">{fmtNum(c.orders)}</td>
+                      <td className="py-2 px-2 text-right text-text-secondary">{fmtNum(Math.round(c.pcs))}</td>
+                      <td className="py-2 px-2 text-right text-text-secondary">{fmtNum(c.orders)}</td>
                       <td
-                        className="py-2 px-2 text-right font-mono text-text-primary"
+                        className="py-2 px-2 text-right text-text-primary"
                         title={c.revenue_deduction ? `총매출 ₩${fmtNum(Math.round(c.revenue + c.revenue_deduction))} − 월정액수수료 ₩${fmtNum(Math.round(c.revenue_deduction))} = 순매출 ₩${fmtNum(Math.round(c.revenue))}` : undefined}
                       >
                         ₩{fmtKR(c.revenue)}
                         {c.revenue_deduction ? <span className="ml-1 text-[9px] text-purple" title="월정액수수료 매출차감 적용 채널">차감후</span> : null}
                         {revDelta && <DeltaBadge delta={revDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-text-dim">
+                      <td className="py-2 px-2 text-right text-text-dim">
                         {c.pcs ? `₩${fmtNum(Math.round(c.revenue / c.pcs))}` : '-'}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-success">
+                      <td className="py-2 px-2 text-right text-success">
                         ₩{fmtKR(c.contribution_margin)}
                         {cmDelta && <DeltaBadge delta={cmDelta} />}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-accent">{fmtPct(c.cm_rate)}</td>
+                      <td className="py-2 px-2 text-right text-accent">{fmtPct(c.cm_rate)}</td>
                     </tr>
                   );
                 })
@@ -1444,12 +1444,12 @@ const DashboardTab = memo(function DashboardTab({
                     <td className="py-2.5 px-2 text-[11px]">
                       {unassigned ? <span className="text-warning">미배정 {unassigned}개</span> : <span className="text-success">전부 배정됨</span>}
                     </td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(Math.round(t.pcs))}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">{fmtNum(t.orders)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(t.revenue)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-text-dim">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-success">₩{fmtKR(t.cm)}</td>
-                    <td className="py-2.5 px-2 text-right font-mono text-accent">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">{fmtNum(Math.round(t.pcs))}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">{fmtNum(t.orders)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-primary">₩{fmtKR(t.revenue)}</td>
+                    <td className="py-2.5 px-2 text-right text-text-dim">{t.pcs ? `₩${fmtNum(Math.round(t.revenue / t.pcs))}` : '-'}</td>
+                    <td className="py-2.5 px-2 text-right text-success">₩{fmtKR(t.cm)}</td>
+                    <td className="py-2.5 px-2 text-right text-accent">{fmtPct(t.revenue ? t.cm / t.revenue * 100 : 0)}</td>
                   </tr>
                 </tfoot>
               );
@@ -1771,7 +1771,7 @@ function UploadTab({
                 ) : (
                   <div className="text-success mb-1">✓ 업로드 성공</div>
                 )}
-                <div className="grid grid-cols-5 gap-2 text-text-secondary font-mono">
+                <div className="grid grid-cols-5 gap-2 text-text-secondary tabular-nums">
                   <div><span className="text-text-quaternary">총행: </span>{result.row_total ?? '–'}</div>
                   <div><span className="text-text-quaternary">신규: </span>{result.row_inserted ?? '–'}</div>
                   <div><span className="text-text-quaternary">중복: </span>{result.row_duplicate ?? '–'}</div>
@@ -1779,7 +1779,7 @@ function UploadTab({
                   <div><span className="text-text-quaternary">취소/환불: </span><span className={result.row_cancelled ? 'text-warning' : ''}>{result.row_cancelled ?? 0}</span></div>
                 </div>
                 {result.period_start && (
-                  <div className="text-[10px] text-text-quaternary mt-1.5 font-mono">기간: {result.period_start} ~ {result.period_end}</div>
+                  <div className="text-[10px] text-text-quaternary mt-1.5 tabular-nums">기간: {result.period_start} ~ {result.period_end}</div>
                 )}
               </div>
             )}
@@ -1803,7 +1803,7 @@ function UploadTab({
               <div key={b.id} className={`${SUBPANEL} p-2.5 text-xs flex items-center justify-between`}>
                 <div className="min-w-0 flex-1">
                   <div className="text-text-primary truncate">{b.channel_name} · <span className="text-text-tertiary">{b.file_name}</span></div>
-                  <div className="text-[10px] text-text-quaternary font-mono mt-0.5">
+                  <div className="text-[10px] text-text-quaternary tabular-nums mt-0.5">
                     {b.period_start ? `${b.period_start} ~ ${b.period_end} · ` : ''}신규 {b.row_inserted} · 중복 {b.row_duplicate} · 미매핑 {b.row_unmatched}{b.row_cancelled ? ` · 취소/환불 ${b.row_cancelled}` : ''}
                   </div>
                 </div>
@@ -1905,7 +1905,7 @@ function UploadTab({
           {delResult && (
             <div className={`${SUBPANEL} p-3 mt-3 text-xs text-text-secondary`}>
               <div className="text-success mb-1.5">✓ 삭제 완료 — {delResult.channel_name}{delResult.scoped ? ` (${delResult.period_start} ~ ${delResult.period_end})` : ' (전체)'}</div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 tabular-nums">
                 <div><span className="text-text-quaternary">원본행: </span>{delResult.raw_lines_deleted}</div>
                 <div><span className="text-text-quaternary">집계행: </span>{delResult.daily_rows_deleted}</div>
                 <div><span className="text-text-quaternary">배치: </span>{delResult.batches_deleted}</div>
@@ -2139,7 +2139,7 @@ function MappingTab({
             onChange={(e) => setBulkUnitPerSet(parseInt(e.target.value) || 1)}
             disabled={bulkExcluded}
             title="1세트당 낱개 수(입수)"
-            className="w-14 bg-bg-1 border border-border-primary rounded px-2 py-1 text-text-primary font-mono text-right disabled:opacity-40"
+            className="w-14 bg-bg-1 border border-border-primary rounded px-2 py-1 text-text-primary tabular-nums text-right disabled:opacity-40"
           />
           <label className="flex items-center gap-1 text-text-tertiary cursor-pointer whitespace-nowrap">
             <input type="checkbox" checked={bulkExcluded} onChange={(e) => setBulkExcluded(e.target.checked)} className="accent-danger" />
@@ -2234,7 +2234,7 @@ function MappingTab({
             <input
               type="number" min={1} max={totalPages} value={safePage}
               onChange={(e) => setPage(Math.max(1, Math.min(totalPages, parseInt(e.target.value) || 1)))}
-              className="w-12 px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-primary text-center font-mono"
+              className="w-12 px-2 py-1 bg-bg-1 border border-border-primary rounded text-text-primary text-center tabular-nums"
             />
             <span className="text-text-muted">/ {totalPages}</span>
             <button
@@ -2327,7 +2327,7 @@ function UnmatchedRow({
             <div className="text-text-muted text-[10px] truncate" title={item.raw_option_name}>{item.raw_option_name}</div>
           )}
         </div>
-        <div className="w-20 text-right text-[10px] text-text-muted font-mono whitespace-nowrap">
+        <div className="w-20 text-right text-[10px] text-text-muted tabular-nums whitespace-nowrap">
           {item.occurrence_count}회<br/>{fmtNum(Math.round(item.total_qty))}
         </div>
         <select
@@ -2343,7 +2343,7 @@ function UnmatchedRow({
           type="number" min={1} value={unitPerSet}
           onChange={(e) => setUnitPerSet(parseInt(e.target.value) || 1)}
           disabled={excluded || multiOpen}
-          className="w-12 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-text-primary disabled:opacity-40 font-mono text-right text-[11px]"
+          className="w-12 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-text-primary disabled:opacity-40 tabular-nums text-right text-[11px]"
         />
         <label className="w-10 flex items-center justify-center cursor-pointer">
           <input
@@ -2402,7 +2402,7 @@ function UnmatchedRow({
                   type="number" min={1} value={comp.unit_per_set}
                   onChange={(e) => updateComponent(idx, 'unit_per_set', parseInt(e.target.value) || 1)}
                   title="1세트당 낱개 수(입수)"
-                  className="w-14 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-text-primary font-mono text-right text-[11px]"
+                  className="w-14 bg-bg-1 border border-border-primary rounded px-1.5 py-1 text-text-primary tabular-nums text-right text-[11px]"
                 />
                 <span className="text-[10px] text-text-quaternary">개</span>
                 <button
@@ -2640,9 +2640,9 @@ function CostTab({
                 </div>
                 <div className="text-[10px] text-text-dim">{BASIS_LABEL[it.basis] || it.basis}</div>
                 <div className="text-[10px] text-text-muted mt-1.5">
-                  규칙 <span className="text-text-secondary font-mono">{ruleCount}</span>
+                  규칙 <span className="text-text-secondary tabular-nums">{ruleCount}</span>
                   {it.basis === 'channel_monthly_fixed' && (
-                    <> · 월입력 <span className="text-text-secondary font-mono">{monthlyCount}</span></>
+                    <> · 월입력 <span className="text-text-secondary tabular-nums">{monthlyCount}</span></>
                   )}
                 </div>
               </button>
@@ -2669,7 +2669,7 @@ function CostTab({
       {!selectedItem && (
         <div className={`${PANEL} p-4 text-xs text-text-dim leading-relaxed`}>
           <div className="font-semibold text-text-primary mb-2">공헌이익 계산식</div>
-          <div className="font-mono text-[11px] bg-bg-0 border border-border-primary rounded p-2.5 text-text-secondary">
+          <div className="text-[11px] bg-bg-0 border border-border-primary rounded p-2.5 text-text-secondary">
             공헌이익 = 매출(VAT-)
             <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-danger">원가</span>)
             <br />&nbsp;&nbsp;− (낱개수량 × <span className="text-orange">노무비</span>)
@@ -2684,7 +2684,7 @@ function CostTab({
             해당 금액은 변동비가 아니라 <span className="font-semibold">매출에서 차감</span>됩니다 — 대시보드 매출은 차감 후 실수령 기준으로 표시되고, 공헌이익 금액은 동일합니다.
           </div>
           <div className="mt-3 text-[11px]">
-            우선순위: <span className="font-mono text-accent">채널×품목 → 채널 → 품목 → 전역</span> (구체적인 규칙이 우선)
+            우선순위: <span className="text-accent">채널×품목 → 채널 → 품목 → 전역</span> (구체적인 규칙이 우선)
           </div>
         </div>
       )}
@@ -2772,7 +2772,7 @@ function CostRuleEditor({
       <div className="flex items-baseline justify-between mb-3">
         <h3 className="text-sm font-semibold">
           {item.name} — 규칙 편집
-          <span className="ml-2 text-[10px] text-text-dim font-mono">{BASIS_LABEL[item.basis]}</span>
+          <span className="ml-2 text-[10px] text-text-dim">{BASIS_LABEL[item.basis]}</span>
         </h3>
         <button onClick={onClose} className="text-text-dim hover:text-text-primary text-xs">✕ 닫기</button>
       </div>
@@ -2825,7 +2825,7 @@ function CostRuleEditor({
                   value={newRule.rate != null ? newRule.rate * 100 : ''}
                   onChange={(e) => setNewRule({ ...newRule, rate: e.target.value ? parseFloat(e.target.value) / 100 : null })}
                   placeholder="5.0"
-                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary tabular-nums text-right"
                 />
               </div>
             )}
@@ -2836,7 +2836,7 @@ function CostRuleEditor({
                   type="number"
                   value={newRule.amount_per_pcs || ''}
                   onChange={(e) => setNewRule({ ...newRule, amount_per_pcs: e.target.value ? parseFloat(e.target.value) : null })}
-                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary tabular-nums text-right"
                 />
               </div>
             )}
@@ -2847,7 +2847,7 @@ function CostRuleEditor({
                   type="number"
                   value={newRule.amount_per_order || ''}
                   onChange={(e) => setNewRule({ ...newRule, amount_per_order: e.target.value ? parseFloat(e.target.value) : null })}
-                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary tabular-nums text-right"
                 />
               </div>
             )}
@@ -2858,7 +2858,7 @@ function CostRuleEditor({
                   type="number" step="0.1"
                   value={newRule.rate != null ? newRule.rate * 100 : ''}
                   onChange={(e) => setNewRule({ ...newRule, rate: e.target.value ? parseFloat(e.target.value) / 100 : null })}
-                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary font-mono text-right"
+                  className="w-full bg-bg-1 border border-border-subtle rounded px-2 py-1.5 text-sm text-text-primary tabular-nums text-right"
                 />
               </div>
             )}
@@ -2871,7 +2871,7 @@ function CostRuleEditor({
           {showPeriod && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 pt-3 border-t border-border-primary">
               <div className="md:col-span-2 text-[10px] text-text-dim flex items-center">
-                <span className="font-mono text-accent">시즌·기간 적용</span>
+                <span className="text-accent">시즌·기간 적용</span>
                 <span className="ml-2">— 비워두면 상시 적용</span>
               </div>
               <div>
@@ -2911,7 +2911,7 @@ function CostRuleEditor({
                     <div className="text-text-primary truncate">
                       <span className="text-text-dim">대상:</span> {channelName(r.channel_id)} <span className="text-text-muted">×</span> {productName(r.product_id)}
                     </div>
-                    <div className="text-[10px] text-text-dim font-mono mt-0.5">
+                    <div className="text-[10px] text-text-dim tabular-nums mt-0.5">
                       {r.rate != null && <span>정률 {(r.rate * 100).toFixed(2)}%</span>}
                       {r.amount_per_pcs != null && <span> · ₩{fmtNum(r.amount_per_pcs)}/낱개</span>}
                       {r.amount_per_order != null && <span> · ₩{fmtNum(r.amount_per_order)}/주문</span>}
@@ -3006,7 +3006,7 @@ function MonthlyCostEditor({
       <div className="flex items-center gap-2 mb-3">
         <span className="text-[10px] text-text-dim">기간:</span>
         <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
-          className="w-20 bg-bg-1 border border-border-subtle rounded px-2 py-1 text-xs text-text-primary font-mono text-center" />
+          className="w-20 bg-bg-1 border border-border-subtle rounded px-2 py-1 text-xs text-text-primary tabular-nums text-center" />
         <span className="text-text-dim text-xs">년</span>
         <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))}
           className="bg-bg-1 border border-border-subtle rounded px-2 py-1 text-xs text-text-primary">
@@ -3039,7 +3039,7 @@ function MonthlyCostEditor({
                 type="number"
                 value={v || ''}
                 onChange={(e) => setDraft(d => ({ ...d, [c.id]: parseFloat(e.target.value) || 0 }))}
-                className="w-24 bg-bg-0 border border-border-subtle rounded px-1.5 py-1 text-text-primary font-mono text-right"
+                className="w-24 bg-bg-0 border border-border-subtle rounded px-1.5 py-1 text-text-primary tabular-nums text-right"
               />
               <button
                 onClick={() => save(c)}
@@ -3152,7 +3152,7 @@ function PlanTab({
           <div>
             <h2 className="text-sm font-semibold mb-2">사업계획 엑셀 업로드</h2>
             <p className="text-xs text-text-quaternary mb-3 leading-relaxed">
-              4개 시트 자동 인식: <span className="font-mono text-accent">채널별 매출 대시보드 · 채널별 판매수량 · 판매수량 대시보드 · 대시보드(그룹 요약)</span>. 담당자·구분(위탁/사입/오프라인)·직원-채널 매핑이 자동 생성됩니다.
+              4개 시트 자동 인식: <span className="text-accent">채널별 매출 대시보드 · 채널별 판매수량 · 판매수량 대시보드 · 대시보드(그룹 요약)</span>. 담당자·구분(위탁/사입/오프라인)·직원-채널 매핑이 자동 생성됩니다.
             </p>
             <div className="flex items-end gap-2">
               <div>
@@ -3160,7 +3160,7 @@ function PlanTab({
                 <input
                   type="number" value={year}
                   onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
-                  className="w-24 bg-bg-0 border border-border-primary rounded px-2 py-1.5 text-sm text-text-primary font-mono"
+                  className="w-24 bg-bg-0 border border-border-primary rounded px-2 py-1.5 text-sm text-text-primary tabular-nums"
                 />
               </div>
               <input
@@ -3172,7 +3172,7 @@ function PlanTab({
               />
             </div>
             {uploadMsg && (
-              <div className="mt-3 text-xs font-mono text-text-secondary bg-bg-0 border border-border-primary rounded p-2">{uploadMsg}</div>
+              <div className="mt-3 text-xs tabular-nums text-text-secondary bg-bg-0 border border-border-primary rounded p-2">{uploadMsg}</div>
             )}
           </div>
 
@@ -3356,18 +3356,18 @@ function PlanTab({
               ) : items.map((it: any, idx: number) => (
                 <tr key={`${it.key}-${idx}`} className="border-b border-bg-inset hover:bg-bg-inset">
                   <td className="py-1.5 px-2 text-text-primary">{it.label}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-text-tertiary">₩{fmtKR(it.target_revenue)}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(it.actual_revenue)}</td>
-                  <td className={`py-1.5 px-2 text-right font-mono ${it.rev_ach == null ? 'text-text-quaternary' : it.rev_ach >= 100 ? 'text-success' : it.rev_ach >= 80 ? 'text-warning' : 'text-danger'}`}>
+                  <td className="py-1.5 px-2 text-right text-text-tertiary">₩{fmtKR(it.target_revenue)}</td>
+                  <td className="py-1.5 px-2 text-right text-text-primary">₩{fmtKR(it.actual_revenue)}</td>
+                  <td className={`py-1.5 px-2 text-right ${it.rev_ach == null ? 'text-text-quaternary' : it.rev_ach >= 100 ? 'text-success' : it.rev_ach >= 80 ? 'text-warning' : 'text-danger'}`}>
                     {it.rev_ach == null ? '—' : fmtPct(it.rev_ach)}
                   </td>
-                  <td className="py-1.5 px-2 text-right font-mono text-text-tertiary">{fmtNum(Math.round(it.target_pcs))}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(it.actual_pcs))}</td>
-                  <td className={`py-1.5 px-2 text-right font-mono ${it.pcs_ach == null ? 'text-text-quaternary' : it.pcs_ach >= 100 ? 'text-success' : it.pcs_ach >= 80 ? 'text-warning' : 'text-danger'}`}>
+                  <td className="py-1.5 px-2 text-right text-text-tertiary">{fmtNum(Math.round(it.target_pcs))}</td>
+                  <td className="py-1.5 px-2 text-right text-text-secondary">{fmtNum(Math.round(it.actual_pcs))}</td>
+                  <td className={`py-1.5 px-2 text-right ${it.pcs_ach == null ? 'text-text-quaternary' : it.pcs_ach >= 100 ? 'text-success' : it.pcs_ach >= 80 ? 'text-warning' : 'text-danger'}`}>
                     {it.pcs_ach == null ? '—' : fmtPct(it.pcs_ach)}
                   </td>
-                  <td className="py-1.5 px-2 text-right font-mono text-text-tertiary">{it.target_avg_price ? `₩${fmtKR(it.target_avg_price)}` : '—'}</td>
-                  <td className="py-1.5 px-2 text-right font-mono text-accent">{it.actual_avg_price ? `₩${fmtKR(it.actual_avg_price)}` : '—'}</td>
+                  <td className="py-1.5 px-2 text-right text-text-tertiary">{it.target_avg_price ? `₩${fmtKR(it.target_avg_price)}` : '—'}</td>
+                  <td className="py-1.5 px-2 text-right text-accent">{it.actual_avg_price ? `₩${fmtKR(it.actual_avg_price)}` : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -3395,11 +3395,11 @@ function PlanTab({
                 {avgPrice.items.slice(0, 20).map((it: any, i: number) => (
                   <tr key={i} className="border-b border-bg-inset hover:bg-bg-inset">
                     <td className="py-1.5 px-2 text-text-primary">{it.label}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-text-primary">₩{fmtKR(it.revenue)}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-text-secondary">{fmtNum(Math.round(it.pcs))}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-text-secondary">{fmtNum(it.orders)}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-accent">₩{fmtKR(it.avg_price_per_pcs)}</td>
-                    <td className="py-1.5 px-2 text-right font-mono text-accent">₩{fmtKR(it.avg_price_per_order)}</td>
+                    <td className="py-1.5 px-2 text-right text-text-primary">₩{fmtKR(it.revenue)}</td>
+                    <td className="py-1.5 px-2 text-right text-text-secondary">{fmtNum(Math.round(it.pcs))}</td>
+                    <td className="py-1.5 px-2 text-right text-text-secondary">{fmtNum(it.orders)}</td>
+                    <td className="py-1.5 px-2 text-right text-accent">₩{fmtKR(it.avg_price_per_pcs)}</td>
+                    <td className="py-1.5 px-2 text-right text-accent">₩{fmtKR(it.avg_price_per_order)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -3686,8 +3686,8 @@ function AdminTab({
             {/* DB 사용량 게이지 */}
             <div className={`${SUBPANEL} p-4 mb-3`}>
               <div className="flex items-baseline justify-between mb-2">
-                <span className="text-xs font-mono text-text-quaternary">SUPABASE DB 사용량</span>
-                <span className="text-sm font-mono text-text-primary">
+                <span className="text-xs text-text-quaternary">SUPABASE DB 사용량</span>
+                <span className="text-sm tabular-nums text-text-primary">
                   {storage.db_size?.s || '?'} <span className="text-text-quaternary">/ 8 GB ({dbPct.toFixed(1)}%)</span>
                 </span>
               </div>
@@ -3700,13 +3700,13 @@ function AdminTab({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
               <div className={`${SUBPANEL} p-3`}>
                 <div className="text-[10px] text-text-quaternary mb-1">월 파티션</div>
-                <div className="text-base font-mono text-text-primary">
+                <div className="text-base tabular-nums text-text-primary">
                   {storage.is_partitioned ? `✓ 활성 (${storage.partitions?.length || 0}개월)` : '단일 테이블 (전환 가능)'}
                 </div>
               </div>
               <div className={`${SUBPANEL} p-3`}>
                 <div className="text-[10px] text-text-quaternary mb-1">pg_cron 스케줄</div>
-                <div className="text-base font-mono text-text-primary">
+                <div className="text-base tabular-nums text-text-primary">
                   {(storage.cron_jobs?.length || 0)}개 등록
                 </div>
                 {storage.cron_jobs?.map((j: any, i: number) => (
@@ -3717,7 +3717,7 @@ function AdminTab({
               </div>
               <div className={`${SUBPANEL} p-3`}>
                 <div className="text-[10px] text-text-quaternary mb-1">최근 retention 실행</div>
-                <div className="text-base font-mono text-text-primary">
+                <div className="text-base tabular-nums text-text-primary">
                   {storage.recent_runs?.[0]?.ran_at ? new Date(storage.recent_runs[0].ran_at).toLocaleString('ko-KR') : '없음'}
                 </div>
               </div>
@@ -3740,8 +3740,8 @@ function AdminTab({
                       {storage.tables.map((t: any) => (
                         <tr key={t.table_name} className="border-b border-bg-inset">
                           <td className="py-1 px-2 font-mono text-text-secondary">{t.table_name}</td>
-                          <td className="py-1 px-2 text-right font-mono text-text-primary">{t.pretty_size}</td>
-                          <td className="py-1 px-2 text-right font-mono text-text-tertiary">{(t.est_rows || 0).toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right text-text-primary">{t.pretty_size}</td>
+                          <td className="py-1 px-2 text-right text-text-tertiary">{(t.est_rows || 0).toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -3961,8 +3961,8 @@ function AdminTab({
 function KpiCard({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
   return (
     <div className={`${PANEL} p-5`}>
-      <div className="text-[10px] font-mono text-text-dim mb-2">{label}</div>
-      <div className="text-2xl font-semibold tracking-tight" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
+      <div className="text-[10px] text-text-dim mb-2">{label}</div>
+      <div className="text-2xl font-semibold" style={{ color: accent || TEXT_PRIMARY }}>{value}</div>
       {hint && <div className="text-[11px] text-text-dim mt-1.5">{hint}</div>}
     </div>
   );
@@ -4040,8 +4040,8 @@ function CompactKpi({
           </ResponsiveContainer>
         </div>
       )}
-      <div className="text-[10px] font-mono text-text-dim mb-1 pl-1.5">{label}</div>
-      <div className="text-lg font-semibold tracking-tight truncate pl-1.5" style={{ color: accentColor }}>{value}</div>
+      <div className="text-[10px] text-text-dim mb-1 pl-1.5">{label}</div>
+      <div className="text-lg font-semibold truncate pl-1.5" style={{ color: accentColor }}>{value}</div>
       <div className="flex items-center gap-1.5 mt-1 pl-1.5">
         {deltaPct !== null && (
           <span
@@ -4080,7 +4080,7 @@ function DonutCard({
     <div className={`${PANEL} p-4`}>
       <div className="flex items-baseline justify-between mb-1">
         <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
-        <span className="text-[10px] text-text-dim font-mono">총 ₩{fmtKR(total)}</span>
+        <span className="text-[10px] text-text-dim tabular-nums">총 ₩{fmtKR(total)}</span>
       </div>
       {subtitle && <div className="text-[10px] text-text-muted mb-2">{subtitle}</div>}
       <ResponsiveContainer width="100%" height={200}>
@@ -4109,7 +4109,7 @@ function DonutCard({
           <div key={d.name} className="flex items-center gap-1.5 min-w-0">
             <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: palette[i % palette.length] }} />
             <span className="text-text-secondary truncate">{d.name}</span>
-            <span className="text-text-muted font-mono ml-auto flex-shrink-0">{total ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
+            <span className="text-text-muted tabular-nums ml-auto flex-shrink-0">{total ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
           </div>
         ))}
         {data.length > 8 && (
@@ -4409,10 +4409,10 @@ function ProductsTab({
                 <div className="text-[10px] text-text-dim mt-0.5 flex items-center gap-2">
                   <span>{p.category || '-'}</span>
                   <span className="text-text-muted">·</span>
-                  <span className="text-accent font-mono">{productChannelCount[p.id] || 0}채널</span>
+                  <span className="text-accent tabular-nums">{productChannelCount[p.id] || 0}채널</span>
                 </div>
                 {costs[p.id] ? (
-                  <div className="text-[10px] mt-1 flex items-center gap-2 font-mono">
+                  <div className="text-[10px] mt-1 flex items-center gap-2 tabular-nums">
                     <span className="text-danger">원가 ₩{costs[p.id].unit_cost.toLocaleString()}</span>
                     <span className="text-orange">노무 ₩{costs[p.id].unit_labor.toLocaleString()}</span>
                   </div>
@@ -4450,7 +4450,7 @@ function ProductsTab({
                   <div className="text-sm text-text-primary font-medium truncate">{c.name}</div>
                   <div className="text-[10px] text-text-dim mt-0.5">{c.category}</div>
                   <div className="text-[11px] mt-1">
-                    <span className="text-accent font-mono">{count}</span>
+                    <span className="text-accent tabular-nums">{count}</span>
                     <span className="text-text-muted"> / {products.length} 품목</span>
                   </div>
                 </button>
@@ -4600,7 +4600,7 @@ function ProductsTab({
                     min={1}
                     value={editProd.default_unit_size || 1}
                     onChange={(e) => setEditProd({ ...editProd, default_unit_size: parseInt(e.target.value) || 1 })}
-                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary font-mono text-right"
+                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary tabular-nums text-right"
                   />
                 </div>
                 <div>
@@ -4609,7 +4609,7 @@ function ProductsTab({
                     type="number"
                     value={editProd.sort_order || 100}
                     onChange={(e) => setEditProd({ ...editProd, sort_order: parseInt(e.target.value) || 100 })}
-                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary font-mono text-right"
+                    className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary tabular-nums text-right"
                   />
                 </div>
               </div>
@@ -4830,7 +4830,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
               <input
                 type="number" value={year}
                 onChange={(e) => setYear(parseInt(e.target.value) || currentYear)}
-                className="w-24 bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary font-mono"
+                className="w-24 bg-bg-0 border border-border-subtle rounded px-3 py-1.5 text-sm text-text-primary tabular-nums"
               />
             </div>
             <Segment
@@ -4968,7 +4968,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
                       return (
                         <td key={`a-${row.id}-${m}`}
                             onClick={editable ? () => startEdit(row, m, 'actual') : undefined}
-                            className={`text-right py-2 px-2 font-mono ${
+                            className={`text-right py-2 px-2 ${
                               editable ? 'cursor-pointer hover:bg-border-primary' : ''
                             } ${isMainSection ? 'font-semibold text-text-primary' : 'text-text-secondary'} ${
                               negative && v > 0 ? 'text-danger' : ''
@@ -4989,7 +4989,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
                       return (
                         <td key={`p-${row.id}-${m}`}
                             onClick={editable ? () => startEdit(row, m, 'plan') : undefined}
-                            className={`text-right py-2 px-2 font-mono text-text-dim ${
+                            className={`text-right py-2 px-2 text-text-dim ${
                               editable ? 'cursor-pointer hover:bg-border-primary' : ''
                             }`}
                         >
@@ -5023,7 +5023,7 @@ function PnlTab({ authHeaders, userEmail, channels, employees }: {
             <input
               type="number"
               value={editValue} onChange={(e) => setEditValue(e.target.value)}
-              className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-2 text-sm text-text-primary font-mono text-right mb-3"
+              className="w-full bg-bg-0 border border-border-subtle rounded px-3 py-2 text-sm text-text-primary tabular-nums text-right mb-3"
               autoFocus
             />
 

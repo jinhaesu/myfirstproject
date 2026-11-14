@@ -1440,7 +1440,7 @@ export default function ProductionPlanPage() {
                   <div key={rec.plan_id} className="px-5 py-3 hover:bg-bg-secondary transition-colors">
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-text-quaternary">{idx + 1}.</span>
+                        <span className="text-xs tabular-nums text-text-quaternary">{idx + 1}.</span>
                         <span className="text-sm font-semibold text-text-primary">{rec.product_name}</span>
                       </div>
                       <span className="text-sm font-semibold text-link">추천: {fmtNum(rec.recommended_qty)}개</span>

@@ -24,6 +24,8 @@ const config: Config = {
       '5xl':  ['2.25rem',   { lineHeight: '2.5rem' }],     // 36px (was 48px)
     },
     extend: {
+      // 글꼴은 두 가지뿐: 본문 Pretendard Variable, 고정폭 Geist Mono (styles/nd-type.css 의 변수)
+      fontFamily: { sans: ['var(--nd-font-sans)'], mono: ['var(--nd-font-mono)'] },
       // 라이트/다크 테마 토큰 — CSS 변수를 가리키는 시맨틱 컬러 이름.
       // 값은 src/app/globals.css의 :root / :root[data-theme="light"]에서 정의됨.
       colors: {

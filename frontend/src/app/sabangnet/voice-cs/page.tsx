@@ -918,7 +918,7 @@ export default function VoiceCsPage() {
                               )}
                             </div>
                           ) : (
-                            <div className="mt-4 text-xs text-text-quaternary italic">대화 내역 없음 (부재중 또는 녹취 실패)</div>
+                            <div className="mt-4 text-xs text-text-quaternary">대화 내역 없음 (부재중 또는 녹취 실패)</div>
                           )}
 
                           {/* Order Info */}
@@ -1469,7 +1469,7 @@ export default function VoiceCsPage() {
                   onChange={e => setManualForm(prev => ({ ...prev, sample_dialogue: e.target.value }))}
                   placeholder={'고객: ...\nAI: ...'}
                   rows={4}
-                  className="w-full px-3 py-2 text-sm border border-border-primary rounded-lg text-text-primary placeholder-text-quaternary focus:outline-none focus:ring-2 focus:ring-link resize-y font-mono"
+                  className="w-full px-3 py-2 text-sm border border-border-primary rounded-lg text-text-primary placeholder-text-quaternary focus:outline-none focus:ring-2 focus:ring-link resize-y"
                 />
               </div>
 

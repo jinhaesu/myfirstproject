@@ -1591,7 +1591,7 @@ export default function CSPage() {
                               style={{ height: `${Math.max(pct, 4)}%` }}
                             />
                           </div>
-                          <span className="text-[9px] text-text-tertiary font-mono whitespace-nowrap">
+                          <span className="text-[9px] text-text-tertiary tabular-nums whitespace-nowrap">
                             {volumePeriod === 'daily' ? d.date.slice(5) : d.date}
                           </span>
                         </div>

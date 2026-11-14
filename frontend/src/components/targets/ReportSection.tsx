@@ -1231,7 +1231,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                 <div ref={reportRef} className="px-6 py-6 space-y-8">
                   {/* Report header */}
                   <div className="text-center print-section">
-                    <h2 className="text-2xl font-bold text-text-primary">
+                    <h2 className="text-2xl font-semibold text-text-primary">
                       {selectedYear}년 {effectiveMonth}월 목표 달성 현황 리포트
                     </h2>
                     <p className="text-sm text-text-tertiary mt-1">
@@ -1246,7 +1246,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-brand to-brand" />
-                      <h3 className="text-lg font-bold text-text-primary">담당자별 목표 vs 실적 현황</h3>
+                      <h3 className="text-lg font-semibold text-text-primary">담당자별 목표 vs 실적 현황</h3>
                     </div>
 
                     {managerComparisons.length === 0 ? (
@@ -1276,23 +1276,23 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                 <td className="px-4 py-3 font-medium text-text-primary">{mc.manager}</td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.targetSales))}</td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.actualSales))}</td>
-                                <td className={`px-4 py-3 text-right font-bold ${rateColorClass(mc.salesRate)}`}>
+                                <td className={`px-4 py-3 text-right font-semibold ${rateColorClass(mc.salesRate)}`}>
                                   {mc.salesRate.toFixed(1)}%
                                 </td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(mc.targetQuantity)}</td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(mc.actualQuantity)}</td>
-                                <td className={`px-4 py-3 text-right font-bold ${rateColorClass(mc.quantityRate)}`}>
+                                <td className={`px-4 py-3 text-right font-semibold ${rateColorClass(mc.quantityRate)}`}>
                                   {mc.quantityRate.toFixed(1)}%
                                 </td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.targetContribution))}</td>
                                 <td className="px-4 py-3 text-right text-text-tertiary">{formatKRW(applyVat(mc.actualContribution))}</td>
-                                <td className={`px-4 py-3 text-right font-bold ${rateColorClass(mc.contributionRate)}`}>
+                                <td className={`px-4 py-3 text-right font-semibold ${rateColorClass(mc.contributionRate)}`}>
                                   {mc.contributionRate.toFixed(1)}%
                                 </td>
                               </tr>
                             ))}
                             {/* Summary row */}
-                            <tr className="bg-gradient-to-r from-brand/10 to-brand/10 font-bold border-t-2 border-border-primary">
+                            <tr className="bg-gradient-to-r from-brand/10 to-brand/10 font-semibold border-t-2 border-border-primary">
                               <td className="px-4 py-3 text-text-primary">합계</td>
                               <td className="px-4 py-3 text-right text-text-secondary">{formatKRW(applyVat(summaryTotals.targetSales))}</td>
                               <td className="px-4 py-3 text-right text-text-secondary">{formatKRW(applyVat(summaryTotals.actualSales))}</td>
@@ -1369,7 +1369,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-brand to-cyan" />
-                      <h3 className="text-lg font-bold text-text-primary">채널별 달성/미달성 현황</h3>
+                      <h3 className="text-lg font-semibold text-text-primary">채널별 달성/미달성 현황</h3>
                     </div>
 
                     {Object.keys(channelsByManager).length === 0 ? (
@@ -1404,7 +1404,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                       <td className="px-4 py-2.5 text-right text-text-tertiary">
                                         {formatKRW(applyVat(ch.actualValue))}
                                       </td>
-                                      <td className={`px-4 py-2.5 text-right font-bold ${rateColorClass(ch.rate)}`}>
+                                      <td className={`px-4 py-2.5 text-right font-semibold ${rateColorClass(ch.rate)}`}>
                                         {ch.rate > 900 ? '-' : `${ch.rate.toFixed(1)}%`}
                                       </td>
                                       <td className="px-4 py-2.5 text-center">
@@ -1427,7 +1427,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-warning to-orange" />
-                      <h3 className="text-lg font-bold text-text-primary">담당자별 데이터 입력 현황</h3>
+                      <h3 className="text-lg font-semibold text-text-primary">담당자별 데이터 입력 현황</h3>
                     </div>
 
                     <p className="text-sm text-text-tertiary mb-4">
@@ -1460,7 +1460,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                 <td className="px-4 py-3 text-center text-text-tertiary">{status.requiredDay}일</td>
                                 <td className="px-4 py-3 text-center">
                                   {status.missingDays > 0 ? (
-                                    <span className="font-bold text-danger">{status.missingDays}일</span>
+                                    <span className="font-semibold text-danger">{status.missingDays}일</span>
                                   ) : (
                                     <span className="text-text-quaternary">-</span>
                                   )}
@@ -1486,8 +1486,8 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                           <svg className="w-6 h-6 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                           </svg>
-                          <h3 className="text-lg font-bold text-danger">미입력자 경고</h3>
-                          <span className="px-2.5 py-0.5 bg-danger/15 text-danger rounded-full text-xs font-bold">
+                          <h3 className="text-lg font-semibold text-danger">미입력자 경고</h3>
+                          <span className="px-2.5 py-0.5 bg-danger/15 text-danger rounded-full text-xs font-semibold">
                             {missingEntryManagers.length}명
                           </span>
                         </div>
@@ -1499,7 +1499,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                                 className="bg-bg-1 rounded-lg border border-danger/15 p-4 flex items-start gap-3"
                               >
                                 <div className="w-10 h-10 rounded-full bg-danger/15 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-danger font-bold text-sm">
+                                  <span className="text-danger font-semibold text-sm">
                                     {status.manager.charAt(0)}
                                   </span>
                                 </div>
@@ -1526,7 +1526,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                   <div className="print-section">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-success to-cyan" />
-                      <h3 className="text-lg font-bold text-text-primary">채널별 개선 아이디어</h3>
+                      <h3 className="text-lg font-semibold text-text-primary">채널별 개선 아이디어</h3>
                     </div>
 
                     {channelSuggestions.length === 0 ? (
@@ -1558,7 +1558,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-1">
                                 <span className="font-semibold">{cs.channel}</span>
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                                   cs.rate >= 100
                                     ? 'bg-success/15 text-success'
                                     : cs.rate >= 80
@@ -1584,7 +1584,7 @@ export function ReportSection({ selectedYear, selectedMonth, excludeVat = false 
               <div className="px-6 py-6 bg-bg-0 no-print">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-brand to-brand" />
-                  <h3 className="text-lg font-bold text-text-primary">이메일 자동 발송 스케줄</h3>
+                  <h3 className="text-lg font-semibold text-text-primary">이메일 자동 발송 스케줄</h3>
                 </div>
 
                 {/* Schedule Form */}

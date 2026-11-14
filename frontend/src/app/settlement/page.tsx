@@ -713,11 +713,11 @@ function DashboardTab({ setToast }: { setToast: (t: { type: 'success' | 'error';
                           </span>
                         </td>
                         <td className="px-4 py-3 font-medium text-text-primary">{r.channel_name}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-secondary">{fmt(r.gross_sales)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-secondary">{fmt(r.net_sales)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-secondary">{fmt(r.settlement_amount)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-secondary">{fmt(r.commission)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-secondary">{fmt(r.order_count)}</td>
+                        <td className="px-4 py-3 text-right text-text-secondary">{fmt(r.gross_sales)}</td>
+                        <td className="px-4 py-3 text-right text-text-secondary">{fmt(r.net_sales)}</td>
+                        <td className="px-4 py-3 text-right text-text-secondary">{fmt(r.settlement_amount)}</td>
+                        <td className="px-4 py-3 text-right text-text-secondary">{fmt(r.commission)}</td>
+                        <td className="px-4 py-3 text-right text-text-secondary">{fmt(r.order_count)}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`text-xs font-medium ${pctColor(r.gross_change_pct)}`}>
                             {fmtPct(r.gross_change_pct)}
@@ -1258,7 +1258,7 @@ function RpaCollectTab({ setToast }: { setToast: (t: { type: 'success' | 'error'
                     <td className="px-4 py-2 text-text-tertiary">{log.year}년 {log.month}월</td>
                     <td className="px-4 py-2 text-center">{getStatusBadge(log.status)}</td>
                     <td className="px-4 py-2 text-text-tertiary">{log.started_at ? new Date(log.started_at).toLocaleString('ko-KR') : '-'}</td>
-                    <td className="px-4 py-2 text-right font-mono text-text-secondary">{log.settlement_amount != null ? fmtWon(log.settlement_amount) : '-'}</td>
+                    <td className="px-4 py-2 text-right text-text-secondary">{log.settlement_amount != null ? fmtWon(log.settlement_amount) : '-'}</td>
                     <td className="px-4 py-2 text-danger text-xs max-w-[200px] truncate" title={log.error_message || ''}>{log.error_message || '-'}</td>
                   </tr>
                 ))
@@ -2126,7 +2126,7 @@ function LogsTab({ setToast }: { setToast: (t: { type: 'success' | 'error'; mess
                       <td className="px-4 py-3 text-text-tertiary text-xs">
                         {log.completed_at ? new Date(log.completed_at).toLocaleString('ko-KR') : '-'}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-text-secondary">
+                      <td className="px-4 py-3 text-right text-text-secondary">
                         {log.settlement_amount != null ? fmtWon(log.settlement_amount) : '-'}
                       </td>
                       <td className="px-4 py-3">

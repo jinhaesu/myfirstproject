@@ -941,8 +941,8 @@ function TaskTab({ tasks, staffList, barChartData, pieData, onAdd, onDelete }: {
                       <span className="text-text-secondary">{getAssigneeName(t.assigneeId)}</span>
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center text-text-tertiary font-mono">{t.inputHours}h</td>
-                  <td className="px-4 py-3 text-center text-text-tertiary font-mono">{t.estimatedHours}h</td>
+                  <td className="px-4 py-3 text-center text-text-tertiary">{t.inputHours}h</td>
+                  <td className="px-4 py-3 text-center text-text-tertiary">{t.estimatedHours}h</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-center">
                       <div className="w-20 h-2 bg-bg-tertiary rounded-full overflow-hidden">

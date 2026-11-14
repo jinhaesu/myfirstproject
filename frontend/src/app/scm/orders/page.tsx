@@ -1608,7 +1608,7 @@ export default function OrderPlanPage() {
                                 />
                               </td>
                               {/* Row number */}
-                              <td className="px-2 py-0 border-r border-border-primary text-center text-xs text-text-quaternary font-mono">
+                              <td className="px-2 py-0 border-r border-border-primary text-center text-xs text-text-quaternary">
                                 {rowIdx + 1}
                               </td>
                               {/* Data cells */}
