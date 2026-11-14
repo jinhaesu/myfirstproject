@@ -1014,7 +1014,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function GuideBlock({ n, title, color, children }: { n: string; title: string; color: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-3">
-      <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold" style={{ backgroundColor: `${color}22`, color }}>{n}</span>
+      <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold" style={{ backgroundColor: `color-mix(in srgb, ${color} 13%, transparent)`, color }}>{n}</span>
       <div>
         <p className="font-semibold text-text-primary mb-1">{title}</p>
         <p className="text-[13px] leading-relaxed text-text-tertiary">{children}</p>

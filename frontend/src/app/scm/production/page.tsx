@@ -1117,8 +1117,8 @@ export default function ProductionPlanPage() {
         </div>
 
         {/* ── Date Selector ───────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-4 bg-bg-1 rounded-xl border border-border-primary px-4 py-3 shadow-nd-s">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4 bg-bg-1 rounded-xl border border-border-primary px-4 py-3 shadow-nd-s">
+          <div className="flex flex-wrap items-center gap-3 min-w-0">
             <CalendarIcon className="w-5 h-5" />
             <button
               onClick={() => navigateDate(-1)}
@@ -1126,7 +1126,7 @@ export default function ProductionPlanPage() {
             >
               <CaretLeftIcon className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               <input
                 type="date"
                 value={startDate}
