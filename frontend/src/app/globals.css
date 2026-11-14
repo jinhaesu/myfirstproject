@@ -3,93 +3,77 @@
 @tailwind utilities;
 
 /*
- * 컬러 토큰 — 다크가 기본값(:root), 라이트는 [data-theme="light"]로 오버라이드.
+ * 컬러 토큰 — 널담 디자인 기준 2(styles/nd-cosmos.css)의 --nd-* 값에 연결한다.
+ * 변수 이름은 그대로이고 값만 연결했다. 밝은/어두운 화면의 실제 값은 nd-cosmos.css 가
+ * html[data-theme] 에 따라 바꾼다(layout.tsx 의 인라인 스크립트가 항상 data-theme 을 넣는다).
  * 이 파일의 CSS 변수를 tailwind.config.ts의 theme.extend.colors가 참조한다.
  * (예: bg-bg-0, text-text-primary, border-border-primary, bg-danger 등)
  */
-:root,
-:root[data-theme="dark"] {
+:root {
   /* Backgrounds */
-  --color-bg-level-0: #08090A;
-  --color-bg-level-1: #0F1011;
-  --color-bg-level-2: #141516;
-  --color-bg-secondary: #1C1C1F;
-  --color-bg-tertiary: #232326;
-  --color-bg-quaternary: #28282C;
-  --color-bg-inset: #1A1B1E;
+  --color-bg-level-0: var(--nd-bg);
+  --color-bg-level-1: var(--nd-card);
+  --color-bg-level-2: var(--nd-raised);
+  --color-bg-secondary: var(--nd-raised);
+  --color-bg-tertiary: var(--nd-raised);
+  --color-bg-quaternary: var(--nd-line-strong);
+  --color-bg-inset: var(--nd-raised);
 
   /* Text */
-  --color-text-primary: #F7F8F8;
-  --color-text-secondary: #D0D6E0;
-  --color-text-tertiary: #8A8F98;
-  --color-text-quaternary: #62666D;
-  --color-text-dim: #A3A9B3;
-  --color-text-muted: #7A7F8A;
+  --color-text-primary: var(--nd-fg);
+  --color-text-secondary: var(--nd-fg-2);
+  --color-text-tertiary: var(--nd-fg-3);
+  --color-text-quaternary: var(--nd-fg-4);
+  --color-text-dim: var(--nd-fg-2);
+  --color-text-muted: var(--nd-fg-3);
 
   /* Borders */
-  --color-border-primary: #23252A;
-  --color-border-secondary: #34343A;
-  --color-border-subtle: #2E3138;
+  --color-border-primary: var(--nd-line);
+  --color-border-secondary: var(--nd-line-strong);
+  --color-border-subtle: var(--nd-line);
 
-  /* Brand family — 라이트/다크 공통 유지 */
-  --color-brand-bg: #5E6AD2;
-  --color-brand-hover: #4D58BD;
-  --color-brand-light: #A8B3FF;
-  --color-link-primary: #7070FF;
-  --color-accent-hover: #828FFF;
+  /* Brand family — 강조는 널담 블루 하나 */
+  --color-brand-bg: var(--nd-accent);
+  --color-brand-hover: var(--nd-accent-hover);
+  --color-brand-light: var(--nd-accent-hover);
+  --color-link-primary: var(--nd-accent);
+  --color-accent-hover: var(--nd-accent);
+  --color-on-brand: var(--nd-on-accent);
 
-  /* Semantic status */
-  --color-danger: #EB5757;
-  --color-success: #27A644;
-  --color-success-hover: #1E8A3A;
-  --color-success-light: #3FBE5B;
-  --color-warning: #F0BF00;
-  --color-orange: #FC7840;
-  --color-info: #4DA3FF;
-  --color-cyan: #00B8CC;
-  --color-purple: #A855F7;
+  /* Semantic status — 뜻이 있을 때만. 청록·보라는 강조색이 아니라 중립 단계로 내린다 */
+  --color-danger: var(--nd-bad);
+  --color-success: var(--nd-good);
+  --color-success-hover: var(--nd-good);
+  --color-success-light: var(--nd-good);
+  --color-warning: var(--nd-warn);
+  --color-orange: var(--nd-warn);
+  --color-info: var(--nd-info);
+  --color-cyan: var(--nd-fg-2);
+  --color-purple: var(--nd-fg-2);
+
+  /* 차트: 강조 하나 + 같은 잉크빛의 명암 단계 (src/lib/chartColors.ts 가 참조) */
+  --chart-1: var(--nd-accent);
+  --chart-2: #1f2f55;
+  --chart-3: #8d99b3;
+  --chart-4: #4b5a7a;
+  --chart-5: #b6bfd1;
+  --chart-6: #33415f;
+  --chart-7: #74819c;
+  --chart-8: #a3adc2;
+  --chart-9: #5d6b88;
+  --chart-10: #cdd4e1;
 }
 
-:root[data-theme="light"] {
-  /* Backgrounds */
-  --color-bg-level-0: #FFFFFF;
-  --color-bg-level-1: #F6F7F8;
-  --color-bg-level-2: #EEF0F2;
-  --color-bg-secondary: #F1F2F4;
-  --color-bg-tertiary: #E9EBEE;
-  --color-bg-quaternary: #E1E4E8;
-  --color-bg-inset: #F3F4F6;
-
-  /* Text */
-  --color-text-primary: #0B0C0D;
-  --color-text-secondary: #3B4046;
-  --color-text-tertiary: #6A7078;
-  --color-text-quaternary: #9AA1A9;
-  --color-text-dim: #565C64;
-  --color-text-muted: #6B7078;
-
-  /* Borders */
-  --color-border-primary: #E6E8EB;
-  --color-border-secondary: #D7DADF;
-  --color-border-subtle: #DCE0E5;
-
-  /* Brand family — 다크와 동일 값 유지 (일관된 브랜드 아이덴티티) */
-  --color-brand-bg: #5E6AD2;
-  --color-brand-hover: #4D58BD;
-  --color-brand-light: #4A54D0;
-  --color-link-primary: #7070FF;
-  --color-accent-hover: #828FFF;
-
-  /* Semantic status — 흰 배경에서도 명확히 보이도록 살짝 짙게 보정 */
-  --color-danger: #C22B2B;
-  --color-success: #1C7A3A;
-  --color-success-hover: #15612E;
-  --color-success-light: #15803D;
-  --color-warning: #8A5D00;
-  --color-orange: #C2410C;
-  --color-info: #1D4ED8;
-  --color-cyan: #0E7490;
-  --color-purple: #7C3AED;
+:root[data-theme="dark"] {
+  --chart-2: #d5dcec;
+  --chart-3: #5f6b85;
+  --chart-4: #a9b4cc;
+  --chart-5: #3d4760;
+  --chart-6: #c0c9de;
+  --chart-7: #74809a;
+  --chart-8: #4e5870;
+  --chart-9: #8f9bb5;
+  --chart-10: #2f384d;
 }
 
 html {
@@ -112,7 +96,7 @@ body {
 }
 
 ::selection {
-  background: rgba(94, 106, 210, 0.35);
+  background: color-mix(in srgb, var(--nd-accent) 28%, transparent);
 }
 
 input, textarea, select {

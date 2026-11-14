@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import '@/styles/nd-cosmos.css';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { FloatingAssistant } from '@/components/chat/FloatingAssistant';
